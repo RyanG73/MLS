@@ -10,6 +10,7 @@ ensuring no future data leakage in the stacking training.
 
 import hashlib
 import logging
+import os
 import pickle
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +31,32 @@ logger = logging.getLogger(__name__)
 _ENS_CFG = SETTINGS["ensemble"]
 _CV_FOLDS = _ENS_CFG["cv_folds"]
 _MODEL_PATH = Path(SETTINGS["_repo_root"]) / "data" / "ensemble_model.pkl"
+_VERSIONS_DIR = Path(SETTINGS["_repo_root"]) / "data" / "model_versions"
+
+
+def current_model_version() -> str:
+    """Generate a version stamp for the active set of models (YYYYMMDD)."""
+    return datetime.now(timezone.utc).strftime("%Y%m%d")
+
+
+def snapshot_model_version(ensemble, dc_model=None, gb_models=None) -> str:
+    """Save snapshot of all models under data/model_versions/<YYYYMMDD>/."""
+    version = current_model_version()
+    target = _VERSIONS_DIR / version
+    target.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(target / "ensemble.pkl", "wb") as f:
+            pickle.dump(ensemble, f)
+        if dc_model is not None:
+            with open(target / "dixon_coles.pkl", "wb") as f:
+                pickle.dump(dc_model, f)
+        if gb_models is not None:
+            with open(target / "gradient_boost.pkl", "wb") as f:
+                pickle.dump(gb_models, f)
+        logger.info("Snapshotted model version %s.", version)
+    except Exception as exc:
+        logger.warning("Failed to snapshot model version %s: %s", version, exc)
+    return version
 
 # Level 0 model output columns used as meta-features
 _L0_RESULT_COLS = [
@@ -141,18 +168,20 @@ class StackingEnsemble:
     ) -> None:
         """Write a prediction row to the predictions table."""
         pred_id = hashlib.md5(f"{match_id}_{model_name}_{datetime.now().isoformat()}".encode()).hexdigest()[:20]
+        version = current_model_version()
         db_utils.execute(
             """
             INSERT INTO predictions
-                (prediction_id, match_id, model, prob_home, prob_draw, prob_away, prob_over, prob_under, features_hash)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (prediction_id, match_id, model, model_version, prob_home, prob_draw, prob_away,
+                 prob_over, prob_under, features_hash, claude_rationale)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (prediction_id) DO NOTHING
             """,
             [
-                pred_id, match_id, model_name,
+                pred_id, match_id, model_name, version,
                 probs.get("prob_home"), probs.get("prob_draw"), probs.get("prob_away"),
                 probs.get("prob_over"), probs.get("prob_under"),
-                features_hash,
+                features_hash, probs.get("claude_rationale"),
             ],
         )
 

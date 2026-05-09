@@ -159,12 +159,23 @@ crontab -e
 ```
 
 ```cron
-# Full daily update at 6 AM
-0 6 * * * /home/pi/mls/scripts/daily_update.sh >> /home/pi/mls/logs/daily.log 2>&1
+# Daily DB backup at 5 AM (Phase 2)
+0 5 * * * /home/ryang/mls/scripts/backup_db.sh >> /home/ryang/mls/logs/backup.log 2>&1
+
+# Full daily update at 6 AM (Sunday = full Optuna tune; weekdays = quick refit)
+0 6 * * * /home/ryang/mls/scripts/daily_update.sh >> /home/ryang/mls/logs/daily.log 2>&1
 
 # News polling every 6 hours
-0 */6 * * * /home/pi/mls/scripts/daily_update.sh --news-only >> /home/pi/mls/logs/news.log 2>&1
+0 */6 * * * /home/ryang/mls/scripts/daily_update.sh --news-only >> /home/ryang/mls/logs/news.log 2>&1
+
+# Pre-match high-frequency lineup refresh during likely match hours (Phase 2)
+*/5 14-23 * * * /home/ryang/mls/venv/bin/python /home/ryang/mls/scripts/pre_match_update.py >> /home/ryang/mls/logs/prematch.log 2>&1
+
+# Nightly drift detector (Phase 2)
+30 6 * * * /home/ryang/mls/venv/bin/python /home/ryang/mls/scripts/check_drift.py >> /home/ryang/mls/logs/drift.log 2>&1
 ```
+
+Add `NTFY_TOPIC=your-secret-topic-name` to `/home/ryang/mls/.env` for push notifications, then subscribe to the same topic in the ntfy iOS/Android app.
 
 ---
 

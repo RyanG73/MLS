@@ -221,6 +221,11 @@ if not settled.empty:
         fig_b.update_layout(height=280, margin=dict(t=10), coloraxis_showscale=False)
         st.plotly_chart(fig_b, use_container_width=True)
 
+# ── CSV export ────────────────────────────────────────────────────────────────
+if not bets_df.empty:
+    csv = bets_df.to_csv(index=False).encode("utf-8")
+    st.download_button("📥 Download bets CSV", csv, "simulated_bets.csv", "text/csv")
+
 
 def make_subplots(*args, **kwargs):
     """Import helper — avoid name collision."""

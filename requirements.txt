@@ -29,6 +29,9 @@ requests>=2.31.0
 beautifulsoup4>=4.12.0
 lxml>=5.2.0
 
+# Open-Meteo weather (no API key required, uses requests)
+# Listed for documentation; no extra dep beyond requests
+
 # Utilities
 haversine>=2.8.0
 python-dotenv>=1.0.0

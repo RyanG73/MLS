@@ -48,6 +48,20 @@ st.markdown(
         margin: 8px 0;
         background: #fafafa;
     }}
+    /* Mobile-optimized layout */
+    @media (max-width: 768px) {{
+        .block-container {{
+            padding: 1rem !important;
+        }}
+        .stMetric > div > div > div > div {{
+            font-size: 0.95rem !important;
+        }}
+        h1 {{ font-size: 1.5rem !important; }}
+        h2 {{ font-size: 1.2rem !important; }}
+        h3 {{ font-size: 1.05rem !important; }}
+        .prediction-card {{ padding: 10px; margin: 6px 0; }}
+        [data-testid="column"] {{ flex: 1 1 100% !important; min-width: 100% !important; }}
+    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -77,6 +91,15 @@ with st.sidebar:
         st.metric("Ensemble Predictions", f"{int(n_preds):,}")
     except Exception:
         st.info("Database loading...")
+
+# ── Betting-paused banner ─────────────────────────────────────────────────
+try:
+    paused = db_utils.get_state("betting_paused", "false")
+    if str(paused).lower() in {"true", "1", "yes"}:
+        reason = db_utils.get_state("betting_paused_reason", "Stop-loss triggered")
+        st.error(f"⛔ **Betting paused** — {reason}. Visit Real Bets page to clear.")
+except Exception:
+    pass
 
 # ── Home page content ─────────────────────────────────────────────────────
 st.title("⚽ MLS Prediction System")

@@ -23,6 +23,9 @@ from features.xg_features import (
 )
 from features.travel_features import compute_travel_features
 from features.referee_features import get_referee_stats
+from features.match_context import build_match_context
+from features.style_features import compute_style_features, compute_setpiece_xg_split
+from features.suspensions import has_key_player_suspended
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +42,26 @@ def build_match_features(
     referee_id: Optional[str],
     matches_df: pd.DataFrame,
     injury_df: Optional[pd.DataFrame] = None,
+    kickoff_time=None,
+    competition: str = "mls",
+    weather: Optional[dict] = None,
+    is_playoff: bool = False,
 ) -> dict:
     """
     Build the complete feature vector for a single match.
     matches_df must contain all historical matches (completed + scheduled).
     """
     features: dict = {"match_id": match_id}
+
+    # ── Match context (rivalry, altitude, kickoff, FIFA break, surface) ──────
+    features.update(build_match_context(home_team, away_team, season, match_date, kickoff_time, competition))
+
+    # ── Weather ──────────────────────────────────────────────────────────────
+    if weather:
+        features["weather_temp_c"]    = weather.get("weather_temp_c")
+        features["weather_wind_kph"]  = weather.get("weather_wind_kph")
+        features["weather_precip_mm"] = weather.get("weather_precip_mm")
+        features["weather_humidity"]  = weather.get("weather_humidity")
 
     # ── ELO ──────────────────────────────────────────────────────────────────
     home_elo = get_elo_at_date(home_team, match_date)
@@ -96,8 +113,37 @@ def build_match_features(
         features.get("away_dp3_available", 1),
     ])
 
-    features["season"] = season
+    # ── Style features (PPDA, possession) ────────────────────────────────────
+    for team_id, role in [(home_team, "home"), (away_team, "away")]:
+        try:
+            style = compute_style_features(team_id, match_date, matches_df)
+            for k, v in style.items():
+                features[f"{role}_{k}"] = v
+        except Exception:
+            pass
 
+    # ── Set-piece xG split ───────────────────────────────────────────────────
+    for team_id, role in [(home_team, "home"), (away_team, "away")]:
+        try:
+            sp = compute_setpiece_xg_split(team_id, match_date, matches_df)
+            for k, v in sp.items():
+                features[f"{role}_{k}"] = v
+        except Exception:
+            pass
+
+    # ── Suspensions (yellow card accumulation + reds) ────────────────────────
+    try:
+        features["home_key_player_suspended"] = int(
+            has_key_player_suspended(home_team, season, match_date, is_playoff)
+        )
+        features["away_key_player_suspended"] = int(
+            has_key_player_suspended(away_team, season, match_date, is_playoff)
+        )
+    except Exception:
+        features["home_key_player_suspended"] = 0
+        features["away_key_player_suspended"] = 0
+
+    features["season"] = season
     return features
 
 

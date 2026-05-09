@@ -90,7 +90,18 @@ def fetch_matches(
         home = str(row.get("home_team_name", row.get("home_team", "")))
         away = str(row.get("away_team_name", row.get("away_team", "")))
         match_date = str(row.get("date_time_utc", row.get("date", "")))[:10]
+        kickoff_iso = str(row.get("date_time_utc", row.get("date", "")))
         mid = _match_id(home, away, match_date)
+
+        comp_raw = str(row.get("competition", row.get("league", "mls"))).lower()
+        if "open" in comp_raw and "cup" in comp_raw:
+            competition = "usoc"
+        elif "leagues" in comp_raw and "cup" in comp_raw:
+            competition = "leagues_cup"
+        elif "champions" in comp_raw or "ccc" in comp_raw or "concacaf" in comp_raw:
+            competition = "ccc"
+        else:
+            competition = "mls"
 
         rows.append({
             "match_id": mid,
@@ -108,6 +119,8 @@ def fetch_matches(
             "referee_id": None,
             "status": "completed" if _safe_int(row.get("home_score")) is not None else "scheduled",
             "source": "asa",
+            "competition": competition,
+            "kickoff_time": kickoff_iso if "T" in kickoff_iso else None,
         })
 
     df = pd.DataFrame(rows).drop_duplicates(subset="match_id")

@@ -107,3 +107,33 @@ dashboard:
   min_bets_for_roi: 10                 # Min bets before showing ROI stats
   page_title: "MLS Prediction Dashboard"
   theme_primary_color: "#1a4b8c"       # MLS blue
+
+# ─── Risk Management (Phase 2) ───────────────────────────────────────────────
+risk:
+  drawdown_limit_pct: 15.0             # Pause new bets if 30-day drawdown exceeds this %
+  drawdown_window_days: 30
+  hard_cap_pct: 10.0                   # Max single bet as % of bankroll
+
+# ─── Backtesting (Phase 2) ───────────────────────────────────────────────────
+backtest:
+  default_weekly_step: 7
+  default_min_train_size: 100
+
+# ─── Notifications (Phase 2) ─────────────────────────────────────────────────
+notifications:
+  enabled: true                        # Set false to silence ntfy.sh pushes
+  drift_pct_threshold: 5.0             # % Brier degradation that triggers alert
+
+# ─── Pre-match update (Phase 2) ──────────────────────────────────────────────
+pre_match:
+  window_minutes: 90                   # Look at matches kicking off in next N min
+  min_refresh_interval_min: 30         # Minimum gap between predictions for same match
+
+# ─── Weather (Phase 2) ───────────────────────────────────────────────────────
+weather:
+  enabled: true                        # Set false to skip Open-Meteo lookups
+  default_kickoff_hour_local: 19       # If kickoff_time unknown, assume 7 PM local
+
+# ─── Optuna tuning frequency (Phase 2) ───────────────────────────────────────
+tuning:
+  full_tune_weekday: 6                  # 0=Mon, 6=Sun. Run full Optuna only on this day
