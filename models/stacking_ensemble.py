@@ -139,13 +139,13 @@ class StackingEnsemble:
         probs: dict,
         features_hash: Optional[str] = None,
     ) -> None:
-        """Write a prediction row to the `predictions` DuckDB table."""
+        """Write a prediction row to the predictions table."""
         pred_id = hashlib.md5(f"{match_id}_{model_name}_{datetime.now().isoformat()}".encode()).hexdigest()[:20]
         db_utils.execute(
             """
             INSERT INTO predictions
                 (prediction_id, match_id, model, prob_home, prob_draw, prob_away, prob_over, prob_under, features_hash)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (prediction_id) DO NOTHING
             """,
             [

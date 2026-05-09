@@ -117,7 +117,7 @@ def compute_all_elo(matches_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_current_ratings() -> dict[str, float]:
-    """Return the most recent ELO rating per team from DuckDB."""
+    """Return the most recent ELO rating per team."""
     df = db_utils.query(
         """
         SELECT team_id, elo_rating
@@ -137,7 +137,7 @@ def get_elo_at_date(team_id: str, as_of: str) -> float:
     df = db_utils.query(
         """
         SELECT elo_rating FROM elo_history
-        WHERE team_id = ? AND date <= ?
+        WHERE team_id = %s AND date <= %s
         ORDER BY date DESC LIMIT 1
         """,
         [team_id, as_of],

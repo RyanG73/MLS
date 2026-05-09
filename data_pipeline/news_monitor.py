@@ -213,7 +213,7 @@ def apply_news_override(item_id: str, match_id: str, home_adj: float, away_adj: 
     now = datetime.now(timezone.utc).isoformat()
 
     headline_row = db_utils.query(
-        "SELECT headline FROM news_items WHERE item_id = ?", [item_id]
+        "SELECT headline FROM news_items WHERE item_id = %s", [item_id]
     )
     desc = headline_row["headline"].iloc[0] if not headline_row.empty else ""
 
@@ -221,12 +221,12 @@ def apply_news_override(item_id: str, match_id: str, home_adj: float, away_adj: 
         """
         INSERT INTO overrides (override_id, match_id, applied_at, description,
                                home_strength_adj, away_strength_adj, source, news_item_id)
-        VALUES (?, ?, ?, ?, ?, ?, 'news', ?)
+        VALUES (%s, %s, %s, %s, %s, %s, 'news', %s)
         """,
         [str(uuid.uuid4())[:16], match_id, now, desc, home_adj, away_adj, item_id],
     )
     db_utils.execute(
-        "UPDATE news_items SET confirmed_by_user = TRUE, applied_to_match_id = ? WHERE item_id = ?",
+        "UPDATE news_items SET confirmed_by_user = TRUE, applied_to_match_id = %s WHERE item_id = %s",
         [match_id, item_id],
     )
     logger.info("Applied override from news item %s to match %s.", item_id, match_id)

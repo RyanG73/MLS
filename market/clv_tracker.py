@@ -147,7 +147,7 @@ def update_bet_results(match_id: str, result: str, close_home: float, close_draw
     Call once the match result is known.
     """
     bets_df = db_utils.query(
-        "SELECT * FROM simulated_bets WHERE match_id = ? AND result IS NULL",
+        "SELECT * FROM simulated_bets WHERE match_id = %s AND result IS NULL",
         [match_id],
     )
     if bets_df.empty:
@@ -172,9 +172,9 @@ def update_bet_results(match_id: str, result: str, close_home: float, close_draw
         db_utils.execute(
             """
             UPDATE simulated_bets
-            SET result = ?, pnl_kelly25 = ?, pnl_kelly50 = ?, clv = ?,
-                close_odds = ?
-            WHERE bet_id = ?
+            SET result = %s, pnl_kelly25 = %s, pnl_kelly50 = %s, clv = %s,
+                close_odds = %s
+            WHERE bet_id = %s
             """,
             [
                 "won" if won else "lost",
@@ -198,11 +198,11 @@ def get_performance_summary(
     params = []
     if season:
         where_clauses.append(
-            "match_id IN (SELECT match_id FROM matches WHERE season = ?)"
+            "match_id IN (SELECT match_id FROM matches WHERE season = %s)"
         )
         params.append(season)
     if edge_threshold > 0:
-        where_clauses.append("edge_pct >= ?")
+        where_clauses.append("edge_pct >= %s")
         params.append(edge_threshold)
 
     where = " AND ".join(where_clauses)

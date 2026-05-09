@@ -112,7 +112,7 @@ def get_pinnacle_implied_prob(match_id: str) -> Optional[dict]:
         """
         SELECT outcome, open_odds
         FROM odds
-        WHERE match_id = ? AND bookmaker = 'pinnacle' AND market = 'h2h'
+        WHERE match_id = %s AND bookmaker = 'pinnacle' AND market = 'h2h'
         ORDER BY fetched_at DESC
         LIMIT 6
         """,

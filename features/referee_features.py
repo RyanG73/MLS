@@ -28,7 +28,7 @@ def get_referee_stats(referee_id: Optional[str]) -> dict:
 
     df = db_utils.query(
         "SELECT card_rate_per90, penalty_rate_per90, home_win_rate, matches_officiated "
-        "FROM referee_stats WHERE referee_id = ?",
+        "FROM referee_stats WHERE referee_id = %s",
         [referee_id],
     )
 

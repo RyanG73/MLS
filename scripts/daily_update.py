@@ -187,7 +187,7 @@ def _generate_and_store_predictions(dc_model, gb_models, bayes_preds_df, upcomin
 
         # Get overrides for this match
         overrides = db_utils.query(
-            "SELECT home_strength_adj, away_strength_adj FROM overrides WHERE match_id = ?",
+            "SELECT home_strength_adj, away_strength_adj FROM overrides WHERE match_id = %s",
             [match_id]
         )
         home_adj = float(overrides["home_strength_adj"].sum()) if not overrides.empty else 0.0
@@ -252,7 +252,7 @@ def _update_recent_bets():
         SELECT m.match_id, m.home_goals, m.away_goals
         FROM matches m
         WHERE m.status = 'completed'
-          AND m.date >= current_date - INTERVAL 3 DAY
+          AND m.date >= current_date - INTERVAL '3 days'
           AND EXISTS (
               SELECT 1 FROM simulated_bets sb
               WHERE sb.match_id = m.match_id AND sb.result IS NULL

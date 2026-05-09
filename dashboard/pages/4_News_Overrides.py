@@ -153,7 +153,7 @@ with st.form("manual_override"):
                 """
                 INSERT INTO overrides (override_id, match_id, applied_at, description,
                                        home_strength_adj, away_strength_adj, source)
-                VALUES (?, ?, ?, ?, ?, ?, 'manual')
+                VALUES (%s, %s, %s, %s, %s, %s, 'manual')
                 """,
                 [str(uuid.uuid4())[:16], mid, datetime.now(timezone.utc).isoformat(),
                  description, home_manual, away_manual]
@@ -192,7 +192,7 @@ else:
         with col_ov3:
             if st.button("Remove", key=f"rm_{ov['override_id']}"):
                 db_utils.execute(
-                    "DELETE FROM overrides WHERE override_id = ?",
+                    "DELETE FROM overrides WHERE override_id = %s",
                     [ov["override_id"]]
                 )
                 st.rerun()

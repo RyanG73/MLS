@@ -3,10 +3,18 @@
 
 # ─── Data ────────────────────────────────────────────────────────────────────
 data:
-  db_path: "data/mls.duckdb"           # Relative to repo root; override with env MLS_DB_PATH
   raw_data_dir: "data/raw"
   backfill_start_season: 2011          # ASA API reliable from 2011; earlier years sparse
   current_season: 2025
+
+# ─── PostgreSQL Connection ────────────────────────────────────────────────────
+# All values can be overridden by environment variables in .env
+database:
+  host: "192.168.1.100"    # Pi's static IP — override with env PG_HOST
+  port: 5432               # override with env PG_PORT
+  name: "mls"              # override with env PG_DBNAME
+  user: "ryang"            # override with env PG_USER
+  password: ""             # set via env PG_PASSWORD (never hardcode here)
 
 # ─── ELO Rating System ───────────────────────────────────────────────────────
 elo:
