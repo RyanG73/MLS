@@ -1,0 +1,109 @@
+# MLS Prediction System — Central Configuration
+# All tunable parameters live here. Scripts import via config/loader.py.
+
+# ─── Data ────────────────────────────────────────────────────────────────────
+data:
+  raw_data_dir: "data/raw"
+  backfill_start_season: 2011          # ASA API reliable from 2011; earlier years sparse
+  current_season: 2025
+
+# ─── PostgreSQL Connection ────────────────────────────────────────────────────
+# All values can be overridden by environment variables in .env
+database:
+  host: "192.168.1.100"    # Pi's static IP — override with env PG_HOST
+  port: 5432               # override with env PG_PORT
+  name: "mls"              # override with env PG_DBNAME
+  user: "ryang"            # override with env PG_USER
+  password: ""             # set via env PG_PASSWORD (never hardcode here)
+
+# ─── ELO Rating System ───────────────────────────────────────────────────────
+elo:
+  initial_rating: 1500                  # Starting ELO for new teams
+  k_factor: 20                          # How quickly ratings update per match
+  home_advantage_elo: 100               # ELO points added to home team expected score
+  mov_multiplier: true                  # Apply margin-of-victory multiplier
+  season_regression_pct: 0.30          # Regress 30% toward 1500 each new season
+
+# ─── Feature Engineering ─────────────────────────────────────────────────────
+features:
+  xg_half_life_days: 60                # Exponential decay half-life for xG rolling averages
+  xg_windows: [5, 10, 20]             # Match-count rolling windows for xG stats
+  form_window: 5                        # Matches for form (W/D/L points rolling)
+  expansion_team_seasons: 2            # Treat team as "expansion" for first N seasons
+  min_matches_for_features: 3          # Min matches before team gets non-prior features
+
+# ─── Dixon-Coles Model ───────────────────────────────────────────────────────
+dixon_coles:
+  max_goals: 10                         # Truncate Poisson sum at this value
+  time_decay_half_life_days: 180       # Dixon-Coles exponential weight half-life
+  rho_correction: true                  # Apply Dixon-Coles low-score correction
+  ou_threshold: 2.5                     # Over/Under line
+
+# ─── Gradient Boosting ───────────────────────────────────────────────────────
+gradient_boost:
+  cv_folds: 5                           # Time-series CV folds
+  optuna_trials: 50                     # Hyperparameter search iterations
+  early_stopping_rounds: 50
+  ou_threshold: 2.5
+
+# ─── Bayesian Model (R/brms) ─────────────────────────────────────────────────
+bayesian:
+  chains: 4
+  iter: 2000                            # 1000 warmup + 1000 samples per chain
+  cores: 4                              # Parallel chains (match Pi CPU count)
+  adapt_delta: 0.95
+  elo_scale_factor: 400                 # Divide ELO diff by this to get prior mean
+  expansion_prior_sd_multiplier: 2.0   # Wider prior for expansion teams
+
+# ─── Ensemble / Stacking ────────────────────────────────────────────────────
+ensemble:
+  meta_learner: "logistic_regression"  # Options: logistic_regression, ridge
+  calibration_method: "isotonic"       # Options: isotonic, platt
+  cv_folds: 5                          # Time-series CV for stacking
+
+# ─── Market / Betting ────────────────────────────────────────────────────────
+market:
+  bookmaker: "pinnacle"
+  sport_key: "soccer_usa_mls"          # The Odds API sport key
+  regions: "us"
+  markets: "h2h"                        # 1X2 head-to-head
+  odds_format: "decimal"
+  default_edge_threshold_pct: 5.0     # Default value-bet cutoff in dashboard
+  kelly_fractions: [0.25, 0.50]
+  starting_bankroll: 10000             # Simulated bankroll in units
+
+# ─── News Pipeline ───────────────────────────────────────────────────────────
+news:
+  poll_interval_hours: 6
+  rss_feeds:
+    - url: "https://www.espn.com/espn/rss/soccer/news"
+      source: "ESPN"
+    - url: "https://www.mlssoccer.com/rss/news.xml"
+      source: "MLSSoccer"
+    - url: "https://theathletic.com/mls/feed/rss/"
+      source: "The Athletic MLS"
+  keywords:
+    - injury
+    - injured
+    - suspension
+    - suspended
+    - out
+    - available
+    - return
+    - doubtful
+    - questionable
+    - red card
+    - ban
+    - fitness
+    - ruled out
+    - missed training
+  impact_magnitude_max: 0.20           # Max ±20% strength adjustment from news
+  claude_model: "claude-sonnet-4-6"
+
+# ─── Dashboard ───────────────────────────────────────────────────────────────
+dashboard:
+  prediction_horizon_days: 14          # Show predictions for next N days
+  calibration_bins: 10                 # Number of probability bins for calibration plot
+  min_bets_for_roi: 10                 # Min bets before showing ROI stats
+  page_title: "MLS Prediction Dashboard"
+  theme_primary_color: "#1a4b8c"       # MLS blue
