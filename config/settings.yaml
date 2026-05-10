@@ -48,6 +48,7 @@ gradient_boost:
 
 # ─── Bayesian Model (R/brms) ─────────────────────────────────────────────────
 bayesian:
+  enabled: false                        # Set true once R/Stan is installed and Python baseline is validated
   chains: 4
   iter: 2000                            # 1000 warmup + 1000 samples per chain
   cores: 4                              # Parallel chains (match Pi CPU count)
@@ -102,6 +103,7 @@ news:
 
 # ─── Dashboard ───────────────────────────────────────────────────────────────
 dashboard:
+  beta_pages_enabled: false             # Set true to enable pages 6/7/8 (Backtest, Season Forecast, Real Bets)
   prediction_horizon_days: 14          # Show predictions for next N days
   calibration_bins: 10                 # Number of probability bins for calibration plot
   min_bets_for_roi: 10                 # Min bets before showing ROI stats

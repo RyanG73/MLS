@@ -8,9 +8,20 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+import streamlit as st
+from config import SETTINGS
+
+if not SETTINGS.get("dashboard", {}).get("beta_pages_enabled", False):
+    st.set_page_config(page_title="Real Bets — MLS Dashboard", layout="wide")
+    st.title("Real Bets")
+    st.info(
+        "This page is not yet enabled. Once the model baseline is validated, "
+        "set `dashboard.beta_pages_enabled: true` in `config/settings.yaml` to activate."
+    )
+    st.stop()
+
 import pandas as pd
 import plotly.graph_objects as go
-import streamlit as st
 
 from data_pipeline import db_utils
 from market.risk_rules import (

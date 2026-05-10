@@ -12,8 +12,8 @@ scikit-learn>=1.4.0
 optuna>=3.6.0
 shap>=0.45.0
 
-# R integration
-rpy2>=3.5.0
+# R integration (optional — only needed when bayesian.enabled: true in settings.yaml)
+# rpy2>=3.5.0
 
 # Market / statistics
 pyaml>=23.12.0

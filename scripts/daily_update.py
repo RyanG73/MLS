@@ -63,7 +63,6 @@ def main():
     from features.weather_features import backfill_recent_weather
     from models.dixon_coles import DixonColesModel
     from models.gradient_boost import GradientBoostModels
-    from models.r_bridge.run_bayes import prepare_train_data, prepare_predict_data, run_r_model, read_predictions
     from models.stacking_ensemble import StackingEnsemble, snapshot_model_version
     from models.season_simulator import run_season_simulation
     from market.clv_tracker import evaluate_match, store_bets, update_bet_results
@@ -117,12 +116,18 @@ def main():
         gb_models.save()
 
     # ── 8. Bayesian model (R) ─────────────────────────────────────────────────
-    if train_df is not None:
-        run_step("Prepare Bayesian input data", prepare_train_data, train_df)
-    if upcoming_df is not None and not upcoming_df.empty:
-        run_step("Prepare Bayesian predict data", prepare_predict_data, upcoming_df)
-    bayes_success = run_step("Run R Bayesian model", run_r_model)
-    bayes_preds = run_step("Read Bayesian predictions", read_predictions) if bayes_success else None
+    bayesian_enabled = SETTINGS.get("bayesian", {}).get("enabled", False)
+    if bayesian_enabled:
+        from models.r_bridge.run_bayes import prepare_train_data, prepare_predict_data, run_r_model, read_predictions
+        if train_df is not None:
+            run_step("Prepare Bayesian input data", prepare_train_data, train_df)
+        if upcoming_df is not None and not upcoming_df.empty:
+            run_step("Prepare Bayesian predict data", prepare_predict_data, upcoming_df)
+        bayes_success = run_step("Run R Bayesian model", run_r_model)
+        bayes_preds = run_step("Read Bayesian predictions", read_predictions) if bayes_success else None
+    else:
+        logger.info("Bayesian model disabled (bayesian.enabled=false in settings.yaml). Skipping R bridge.")
+        bayes_preds = None
 
     # ── 9. Stacking ensemble + predictions ────────────────────────────────────
     run_step("Generate ensemble predictions",

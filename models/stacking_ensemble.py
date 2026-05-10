@@ -58,17 +58,22 @@ def snapshot_model_version(ensemble, dc_model=None, gb_models=None) -> str:
         logger.warning("Failed to snapshot model version %s: %s", version, exc)
     return version
 
-# Level 0 model output columns used as meta-features
-_L0_RESULT_COLS = [
+# Level 0 model output columns — with and without Bayesian
+_L0_RESULT_COLS_3 = [
     "dc_prob_home",   "dc_prob_draw",   "dc_prob_away",
     "xgb_prob_home",  "xgb_prob_draw",  "xgb_prob_away",
     "bayes_prob_home","bayes_prob_draw", "bayes_prob_away",
 ]
-_L0_OU_COLS = [
-    "dc_prob_over",
-    "xgb_prob_over",
-    "bayes_prob_over",
+_L0_RESULT_COLS_2 = [
+    "dc_prob_home",  "dc_prob_draw",  "dc_prob_away",
+    "xgb_prob_home", "xgb_prob_draw", "xgb_prob_away",
 ]
+_L0_OU_COLS_3 = ["dc_prob_over", "xgb_prob_over", "bayes_prob_over"]
+_L0_OU_COLS_2 = ["dc_prob_over", "xgb_prob_over"]
+
+# Keep legacy alias so external code importing _L0_RESULT_COLS still works
+_L0_RESULT_COLS = _L0_RESULT_COLS_3
+_L0_OU_COLS = _L0_OU_COLS_3
 
 
 class StackingEnsemble:
@@ -76,17 +81,29 @@ class StackingEnsemble:
         self.meta_result: Optional[CalibratedClassifierCV] = None  # 1X2
         self.meta_ou: Optional[CalibratedClassifierCV] = None      # O/U
         self.fitted: bool = False
-        self._result_cols = _L0_RESULT_COLS
-        self._ou_cols = _L0_OU_COLS
+        self._with_bayesian: bool = True  # determined at fit() time; persisted in pickle
+        self._result_cols = _L0_RESULT_COLS_3
+        self._ou_cols = _L0_OU_COLS_3
 
     def fit(self, oof_df: pd.DataFrame) -> "StackingEnsemble":
         """
         Train stacking meta-learners on OOF level-0 predictions.
-        oof_df must contain: match_id, label_result, label_over25, + all L0 cols.
-        Missing Bayesian predictions are filled with DC predictions as fallback.
+        oof_df must contain: match_id, label_result, label_over25, + DC and XGB L0 cols.
+        If Bayesian columns are absent, fits a 2-model ensemble (DC + XGB only).
         """
         df = oof_df.copy()
-        df = self._fill_missing_bayes(df)
+
+        # Detect whether Bayesian columns are present
+        self._with_bayesian = "bayes_prob_home" in df.columns and df["bayes_prob_home"].notna().any()
+        if self._with_bayesian:
+            self._result_cols = _L0_RESULT_COLS_3
+            self._ou_cols = _L0_OU_COLS_3
+            df = self._fill_missing_bayes(df)
+        else:
+            self._result_cols = _L0_RESULT_COLS_2
+            self._ou_cols = _L0_OU_COLS_2
+            logger.info("Fitting 2-model ensemble (DC + XGB); no Bayesian columns in OOF data.")
+
         df = df.dropna(subset=self._result_cols + ["label_result"])
 
         X_result = df[self._result_cols].values
@@ -128,36 +145,47 @@ class StackingEnsemble:
         if not self.fitted:
             raise RuntimeError("Ensemble not fitted.")
 
-        bayes_probs = bayes_probs or dc_probs  # fallback if Bayesian unavailable
-
         # Apply manual strength adjustments by nudging DC probs
         if home_strength_adj != 0.0 or away_strength_adj != 0.0:
             dc_probs = _adjust_probs(dc_probs, home_strength_adj, away_strength_adj)
 
-        X_result = np.array([[
-            dc_probs["prob_home"],    dc_probs["prob_draw"],    dc_probs["prob_away"],
-            xgb_probs["prob_home"],   xgb_probs["prob_draw"],   xgb_probs["prob_away"],
-            bayes_probs["prob_home"], bayes_probs["prob_draw"], bayes_probs["prob_away"],
-        ]])
-        X_ou = np.array([[
-            dc_probs["prob_over"],
-            xgb_probs.get("prob_over", dc_probs["prob_over"]),
-            bayes_probs.get("prob_over", dc_probs["prob_over"]),
-        ]])
+        if self._with_bayesian:
+            bayes_probs = bayes_probs or dc_probs
+            X_result = np.array([[
+                dc_probs["prob_home"],    dc_probs["prob_draw"],    dc_probs["prob_away"],
+                xgb_probs["prob_home"],   xgb_probs["prob_draw"],   xgb_probs["prob_away"],
+                bayes_probs["prob_home"], bayes_probs["prob_draw"], bayes_probs["prob_away"],
+            ]])
+            X_ou = np.array([[
+                dc_probs["prob_over"],
+                xgb_probs.get("prob_over", dc_probs["prob_over"]),
+                bayes_probs.get("prob_over", dc_probs["prob_over"]),
+            ]])
+        else:
+            X_result = np.array([[
+                dc_probs["prob_home"],  dc_probs["prob_draw"],  dc_probs["prob_away"],
+                xgb_probs["prob_home"], xgb_probs["prob_draw"], xgb_probs["prob_away"],
+            ]])
+            X_ou = np.array([[
+                dc_probs["prob_over"],
+                xgb_probs.get("prob_over", dc_probs["prob_over"]),
+            ]])
 
         result_probs = self.meta_result.predict_proba(X_result)[0]
         ou_probs = self.meta_ou.predict_proba(X_ou)[0]
 
-        return {
+        out = {
             "prob_home":  float(result_probs[0]),
             "prob_draw":  float(result_probs[1]),
             "prob_away":  float(result_probs[2]),
             "prob_over":  float(ou_probs[1]),
             "prob_under": float(ou_probs[0]),
-            "component_dc":    dc_probs,
-            "component_xgb":   xgb_probs,
-            "component_bayes": bayes_probs,
+            "component_dc":  dc_probs,
+            "component_xgb": xgb_probs,
         }
+        if self._with_bayesian:
+            out["component_bayes"] = bayes_probs
+        return out
 
     def store_predictions(
         self,
