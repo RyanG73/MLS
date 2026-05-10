@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MLS Model Tinkering Guide</title>
+  <style>
+    :root {
+      --blue:    #1a4b8c;
+      --blue-lt: #e8f0fb;
+      --green:   #1a7a3c;
+      --green-lt:#e8f6ee;
+      --orange:  #b85c00;
+      --orange-lt:#fdf1e3;
+      --red:     #c0392b;
+      --red-lt:  #fdecea;
+      --gray:    #4a5568;
+      --gray-lt: #f7f8fa;
+      --border:  #dde3ec;
+      --code-bg: #1e2330;
+      --code-fg: #cdd6f4;
+      --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+      --font-mono: "Cascadia Code", "Fira Code", "Consolas", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      color: #1a202c;
+      background: #fff;
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--blue);
+      color: #fff;
+      padding: 2.5rem 2rem 2rem;
+    }
+    header h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.3px; }
+    header p  { margin-top: .5rem; opacity: .85; max-width: 620px; font-size: .95rem; }
+    .badge {
+      display: inline-block;
+      margin-top: .9rem;
+      padding: .25rem .7rem;
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 600;
+      background: rgba(255,255,255,.18);
+      color: #fff;
+      letter-spacing: .3px;
+    }
+
+    /* ── Layout ── */
+    .wrapper { max-width: 860px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+
+    /* ── TOC ── */
+    .toc {
+      background: var(--gray-lt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+    .toc h2 { font-size: .85rem; text-transform: uppercase; letter-spacing: .8px; color: var(--gray); margin-bottom: .7rem; }
+    .toc ol  { padding-left: 1.4rem; }
+    .toc li  { margin-bottom: .25rem; }
+    .toc a   { color: var(--blue); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    /* ── Sections ── */
+    section { margin-bottom: 3rem; }
+    h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--blue);
+      border-bottom: 2px solid var(--blue-lt);
+      padding-bottom: .4rem;
+      margin-bottom: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    h2 .num {
+      background: var(--blue);
+      color: #fff;
+      border-radius: 50%;
+      width: 1.6rem;
+      height: 1.6rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .8rem;
+      flex-shrink: 0;
+    }
+    h3 { font-size: 1rem; font-weight: 600; margin: 1.3rem 0 .5rem; color: #1a202c; }
+    p  { margin-bottom: .8rem; color: var(--gray); }
+    ul, ol { padding-left: 1.5rem; color: var(--gray); margin-bottom: .8rem; }
+    li { margin-bottom: .3rem; }
+    strong { color: #1a202c; }
+    a { color: var(--blue); }
+
+    /* ── Code blocks ── */
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: .82rem;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+    pre .label {
+      position: absolute;
+      top: .5rem;
+      right: .8rem;
+      font-size: .68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      opacity: .45;
+      font-family: var(--font-sans);
+    }
+    code { font-family: var(--font-mono); font-size: .88em; background: #eef2fa; color: #2d3a5a; padding: .1em .35em; border-radius: 4px; }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    /* keyword highlights in code blocks */
+    .kw  { color: #89b4fa; }  /* blue  — keywords / flags */
+    .st  { color: #a6e3a1; }  /* green — string values   */
+    .cm  { color: #6c7086; font-style: italic; } /* comment */
+    .num { color: #fab387; }  /* orange — numbers        */
+
+    /* ── Callout boxes ── */
+    .callout {
+      border-left: 4px solid;
+      border-radius: 0 6px 6px 0;
+      padding: .8rem 1rem;
+      margin-bottom: 1rem;
+      font-size: .9rem;
+    }
+    .callout.info    { border-color: var(--blue);   background: var(--blue-lt);   color: #1a3560; }
+    .callout.success { border-color: var(--green);  background: var(--green-lt);  color: #0f4022; }
+    .callout.warn    { border-color: var(--orange); background: var(--orange-lt); color: #6b3000; }
+    .callout.danger  { border-color: var(--red);    background: var(--red-lt);    color: #6b0f07; }
+    .callout strong  { color: inherit; }
+
+    /* ── Tables ── */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.2rem; font-size: .88rem; }
+    thead th { background: var(--blue); color: #fff; padding: .55rem .8rem; text-align: left; font-weight: 600; }
+    tbody td { padding: .5rem .8rem; border-bottom: 1px solid var(--border); color: var(--gray); vertical-align: top; }
+    tbody tr:nth-child(even) { background: var(--gray-lt); }
+    tbody td:first-child { font-family: var(--font-mono); font-size: .82rem; color: #2d3a5a; white-space: nowrap; }
+
+    /* ── File tree ── */
+    .tree {
+      background: var(--gray-lt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      font-family: var(--font-mono);
+      font-size: .82rem;
+      line-height: 1.8;
+      color: #2d3a5a;
+      margin-bottom: 1rem;
+    }
+    .tree .dir  { color: var(--blue); font-weight: 600; }
+    .tree .note { color: #888; font-style: italic; margin-left: .5rem; font-family: var(--font-sans); }
+
+    /* ── Result card ── */
+    .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+    .result-card {
+      background: var(--gray-lt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .9rem 1rem;
+      text-align: center;
+    }
+    .result-card .metric { font-size: 1.4rem; font-weight: 700; color: var(--blue); }
+    .result-card .label  { font-size: .75rem; color: var(--gray); margin-top: .2rem; }
+    .result-card.good .metric { color: var(--green); }
+    .result-card.bad  .metric { color: var(--red); }
+
+    /* ── Step indicator ── */
+    .step-list { list-style: none; padding: 0; }
+    .step-list li {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.3rem;
+      align-items: flex-start;
+    }
+    .step-list .step-num {
+      background: var(--blue);
+      color: #fff;
+      border-radius: 50%;
+      width: 1.8rem;
+      height: 1.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .8rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: .05rem;
+    }
+    .step-list .step-body { flex: 1; }
+    .step-list .step-body p { margin-bottom: .4rem; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: #999;
+      font-size: .8rem;
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🔬 MLS Model Tinkering Guide</h1>
+  <p>Everything you need to run experiments, adjust hyperparameters, test new features, and interpret results — no deployment required.</p>
+  <span class="badge">Branch: claude/mls-prediction-dashboard-C2mQM</span>
+  <span class="badge" style="margin-left:.5rem">Last updated: 2026-05-10</span>
+</header>
+
+<div class="wrapper">
+
+  <!-- ── TOC ── -->
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#prereqs">Prerequisites</a></li>
+      <li><a href="#quickstart">Quickstart — eval harness (no database needed)</a></li>
+      <li><a href="#knobs">Configuration knobs in eval_baseline.py</a></li>
+      <li><a href="#features">Adding or removing features</a></li>
+      <li><a href="#ab">Running an A/B test</a></li>
+      <li><a href="#models">Swapping or tuning models</a></li>
+      <li><a href="#full-pipeline">Full pipeline (with PostgreSQL)</a></li>
+      <li><a href="#dashboard">Launching the dashboard</a></li>
+      <li><a href="#interpret">Reading the output</a></li>
+      <li><a href="#troubleshoot">Troubleshooting</a></li>
+    </ol>
+  </nav>
+
+
+  <!-- ══════════════════════════════════════════════
+       1. PREREQUISITES
+       ══════════════════════════════════════════════ -->
+  <section id="prereqs">
+    <h2><span class="num">1</span> Prerequisites</h2>
+
+    <p>The eval harness (<strong>what you'll use most</strong>) only needs Python and an internet connection. The full pipeline additionally needs PostgreSQL.</p>
+
+    <h3>Minimum (eval only)</h3>
+    <pre><span class="cm"># Python 3.11+ (check yours)</span>
+python3 --version
+
+<span class="cm"># Clone the repo and enter it</span>
+git clone &lt;repo-url&gt;
+cd MLS
+
+<span class="cm"># Create a virtual environment</span>
+python3.11 -m venv venv
+source venv/bin/activate          <span class="cm"># Windows: venv\Scripts\activate</span>
+
+<span class="cm"># Install dependencies</span>
+pip install --upgrade pip
+pip install -r requirements.txt<span class="label">bash</span></pre>
+
+    <div class="callout info">
+      <strong>No database needed for model experiments.</strong> <code>scripts/eval_baseline.py</code> pulls live data directly from the ASA API and runs entirely in memory. You can be running experiments in under 5 minutes.
+    </div>
+
+    <h3>Optional — R / Bayesian model</h3>
+    <p>The Bayesian (brms/Stan) model is <strong>disabled by default</strong> (<code>bayesian.enabled: false</code> in <code>config/settings.yaml</code>). You only need R if you're specifically tinkering with that model.</p>
+    <pre><span class="cm"># Only if you want the Bayesian model:</span>
+sudo apt install r-base r-base-dev
+sudo Rscript r_requirements.R
+<span class="cm"># Then in config/settings.yaml set: bayesian.enabled: true</span>
+<span class="cm"># And in requirements.txt uncomment: rpy2>=3.5.0</span><span class="label">bash</span></pre>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       2. QUICKSTART
+       ══════════════════════════════════════════════ -->
+  <section id="quickstart">
+    <h2><span class="num">2</span> Quickstart — eval harness</h2>
+
+    <p>The single file to know is <code>scripts/eval_baseline.py</code>. It downloads real MLS data, builds features, trains Dixon-Coles and XGBoost, and evaluates them on held-out seasons using walk-forward validation. No database, no cron jobs, no setup beyond pip install.</p>
+
+    <pre>source venv/bin/activate
+python scripts/eval_baseline.py<span class="label">bash</span></pre>
+
+    <p>A full run takes <strong>10–15 minutes</strong> (most of it is Dixon-Coles maximum likelihood fitting for each test season). The output looks like:</p>
+
+    <pre>======================================================================
+MLS Model Evaluation  (Phase 6: 1X2 only, extended features)
+======================================================================
+
+[1/9] Fetching MLS match data from ASA API...
+    3,463 matches (2017–2026)  |  2,186 pre-2017/COVID excluded
+    xG coverage: 100%
+
+[3/9] ELO hyperparameter grid search (val: 2019)...
+    Best: K=25, HOME_ADV=80  (val Brier=0.6163)
+
+[7/9] Walk-forward evaluation (test=[2022, 2023, 2024], DC decay=120d)...
+    2023: train=1220 cal=489 test=521 | DC✓ | XGB-grid(d=3,n=200) | Best=0.6366
+    2024: train=1709 cal=521 test=522 | DC✓ | XGB-grid(d=3,n=200) | Best=0.6507
+
+Model                           Brier    vs Naive
+-----------------------------------------------
+Naive baseline                 0.6469         —
+  DC (calibrated)              0.6550      -1.3%
+  XGBoost (cal, +All)          0.6387      +1.3%
+  Ensemble stacked             0.6437      +0.5%<span class="label">output</span></pre>
+
+    <div class="callout success">
+      <strong>Lower Brier score = better.</strong> The naive baseline assigns each match the historical win/draw/loss frequencies. Any model should aim to beat it. The current target for enabling real-bet sizing is <strong>8–12% improvement over naive</strong>.
+    </div>
+
+    <h3>What the eval structure means</h3>
+    <div class="tree">
+      <span class="dir">Walk-forward 3-way split (no future leakage)</span><br/>
+      ├── <strong>train</strong>  &nbsp;= all seasons &lt; cal_season &nbsp;&nbsp;<span class="note">model fitting</span><br/>
+      ├── <strong>cal</strong>    &nbsp;&nbsp;= cal_season = test_season − 1 &nbsp;&nbsp;<span class="note">temperature calibration + meta-learner</span><br/>
+      └── <strong>test</strong>   = test_season &nbsp;&nbsp;<span class="note">final held-out evaluation — never touched until scoring</span>
+    </div>
+    <p>Test seasons are 2023 and 2024 (2022 is skipped because 2021 — the cal fold — was a COVID season). Training data starts from 2017; 2020 and 2021 are excluded entirely as COVID anomalies.</p>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       3. CONFIGURATION KNOBS
+       ══════════════════════════════════════════════ -->
+  <section id="knobs">
+    <h2><span class="num">3</span> Configuration knobs in eval_baseline.py</h2>
+
+    <p>All tunable constants are at the top of the file (~lines 52–70). Edit these and re-run to test the effect.</p>
+
+    <pre><span class="cm"># scripts/eval_baseline.py — top of file</span>
+
+XG_WINDOWS   = (<span class="num">5</span>, <span class="num">15</span>)     <span class="cm"># rolling xG windows (matches). Try (5,10,20)</span>
+FORM_WINDOWS = (<span class="num">5</span>, <span class="num">10</span>)    <span class="cm"># rolling points-per-game windows. Try (3,10)</span>
+REGRESS      = <span class="num">0.40</span>       <span class="cm"># ELO season regression toward mean. Range 0.0–0.6</span>
+DC_DECAY_HL  = <span class="num">120</span>        <span class="cm"># Dixon-Coles time-decay half-life (days). Try 60–180</span>
+TEST_SEASONS = [<span class="num">2022</span>, <span class="num">2023</span>, <span class="num">2024</span>]  <span class="cm"># held-out test seasons</span>
+WEIGHT_HL    = <span class="num">4</span>          <span class="cm"># XGBoost exponential season-weight half-life (seasons)</span>
+GAMES_14D    = <span class="num">14</span>         <span class="cm"># window for schedule-density feature (days)</span>
+
+FETCH_WEATHER = <span class="kw">False</span>     <span class="cm"># set True to pull Open-Meteo weather (~5 min extra)</span><span class="label">python</span></pre>
+
+    <p>The <strong>ELO grid search</strong> at step 3 automatically finds the best K and HOME_ADV from a 3×3 grid, validated on 2019. You can expand the search by editing the grid:</p>
+
+    <pre><span class="cm"># Line ~300 in eval_baseline.py</span>
+<span class="kw">for</span> _K, _HA <span class="kw">in</span> itertools.product([<span class="num">20</span>, <span class="num">25</span>, <span class="num">30</span>], [<span class="num">80</span>, <span class="num">100</span>, <span class="num">120</span>]):
+    <span class="cm"># Add more values here to widen the search, e.g.:</span>
+<span class="kw">for</span> _K, _HA <span class="kw">in</span> itertools.product([<span class="num">15</span>, <span class="num">20</span>, <span class="num">25</span>, <span class="num">30</span>, <span class="num">35</span>], [<span class="num">60</span>, <span class="num">80</span>, <span class="num">100</span>, <span class="num">120</span>, <span class="num">140</span>]):<span class="label">python</span></pre>
+
+    <table>
+      <thead><tr><th>Knob</th><th>Current value</th><th>What it controls</th><th>Direction to try</th></tr></thead>
+      <tbody>
+        <tr><td>XG_WINDOWS</td><td>(5, 15)</td><td>Recent vs longer-term xG memory</td><td>Add 20 for slower decay; remove 15 for recency bias</td></tr>
+        <tr><td>FORM_WINDOWS</td><td>(5, 10)</td><td>Points-per-game rolling averages</td><td>Add 3 for very recent form signal</td></tr>
+        <tr><td>DC_DECAY_HL</td><td>120 days</td><td>How fast old Dixon-Coles matches fade</td><td>Lower (60) = more reactive; higher (180) = more stable</td></tr>
+        <tr><td>REGRESS</td><td>0.40</td><td>How much ELO reverts toward 1500 each season</td><td>Higher = more parity assumed (good for MLS)</td></tr>
+        <tr><td>WEIGHT_HL</td><td>4 seasons</td><td>XGBoost sample weight decay per season</td><td>Lower = recent seasons weighted more heavily</td></tr>
+        <tr><td>FETCH_WEATHER</td><td>False</td><td>Pull historical temperature/wind/precip</td><td>Set True once — adds ~5 min, cached per match date</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       4. ADDING / REMOVING FEATURES
+       ══════════════════════════════════════════════ -->
+  <section id="features">
+    <h2><span class="num">4</span> Adding or removing features</h2>
+
+    <h3>Current base feature set</h3>
+    <p>The Base set is assembled around line 750 from named lists:</p>
+
+    <pre><span class="cm"># scripts/eval_baseline.py — feature set assembly</span>
+
+_BASE_ELO  = [<span class="st">"elo_diff"</span>, <span class="st">"home_elo"</span>, <span class="st">"away_elo"</span>]
+
+_BASE_XG   = (
+    [f<span class="st">"{r}_xg_roll_{w}"</span>  <span class="kw">for</span> r <span class="kw">in</span> (<span class="st">"home"</span>, <span class="st">"away"</span>) <span class="kw">for</span> w <span class="kw">in</span> XG_WINDOWS]
+    + [f<span class="st">"{r}_xga_roll_{w}"</span> <span class="kw">for</span> r <span class="kw">in</span> (<span class="st">"home"</span>, <span class="st">"away"</span>) <span class="kw">for</span> w <span class="kw">in</span> XG_WINDOWS]
+    + [<span class="st">"xg_diff"</span>, <span class="st">"home_xg_sum"</span>]
+)
+
+_BASE_FORM = (
+    [f<span class="st">"home_form_{fw}"</span> <span class="kw">for</span> fw <span class="kw">in</span> FORM_WINDOWS]
+    + [f<span class="st">"away_form_{fw}"</span> <span class="kw">for</span> fw <span class="kw">in</span> FORM_WINDOWS]
+    + [<span class="st">"form_diff"</span>]
+)
+
+<span class="cm"># GK quality — promoted from A/B (Δ=+0.0034). Excluded if ASA data unavailable</span>
+_BASE_GK   = [<span class="st">"home_gk_z"</span>, <span class="st">"away_gk_z"</span>, <span class="st">"gk_z_diff"</span>] <span class="kw">if</span> <span class="st">"home_gk_z"</span> <span class="kw">in</span> df.columns <span class="kw">else</span> []
+
+_FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + [<span class="st">"is_playoff"</span>]<span class="label">python</span></pre>
+
+    <h3>How to add a new feature</h3>
+    <ul class="step-list">
+      <li>
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <p><strong>Compute it in <code>add_rolling_features()</code></strong> (~line 325). This function iterates matches in date order and tracks per-team histories. Add your calculation here so it respects temporal order (no future leakage).</p>
+          <pre><span class="cm"># Example: rolling draw rate (last N matches)</span>
+<span class="kw">for</span> fw <span class="kw">in</span> (<span class="num">10</span>,):
+    draws_hist = [<span class="num">1</span> <span class="kw">if</span> p == <span class="num">1</span> <span class="kw">else</span> <span class="num">0</span> <span class="kw">for</span> p <span class="kw">in</span> pts_hist[-fw:]]
+    res[f<span class="st">"{role}_draw_rate_{fw}"</span>].append(
+        np.mean(draws_hist) <span class="kw">if</span> draws_hist <span class="kw">else</span> <span class="num">0.27</span>
+    )<span class="label">python</span></pre>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <p><strong>Declare it in <code>res</code></strong> at the top of <code>add_rolling_features()</code>:</p>
+          <pre>res[<span class="st">"home_draw_rate_10"</span>] = []
+res[<span class="st">"away_draw_rate_10"</span>] = []<span class="label">python</span></pre>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <p><strong>Add it to the AB_SETS dict</strong> (~line 800) as a new test group:</p>
+          <pre>AB_SETS[<span class="st">"+DrawRate"</span>] = _FEAT_BASE + [<span class="st">"home_draw_rate_10"</span>, <span class="st">"away_draw_rate_10"</span>]<span class="label">python</span></pre>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">4</div>
+        <div class="step-body"><p><strong>Run the eval</strong> and read the A/B table. If <code>Δ &gt; 0.001</code> averaged across test seasons, the feature passes and can be promoted into <code>_FEAT_BASE</code>.</p></div>
+      </li>
+    </ul>
+
+    <div class="callout warn">
+      <strong>Leakage check:</strong> never use data from match day N+1 to predict match N. The rolling feature loop processes rows in date order; always append to history <em>after</em> reading it. The loop structure already does this — just follow the same pattern.
+    </div>
+
+    <h3>Features that are already computed (available to add)</h3>
+    <p>These columns exist in <code>df</code> after the data-fetch sections but are not in Base. Add any to <code>AB_SETS</code> to test them:</p>
+    <table>
+      <thead><tr><th>Column</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>is_post_fifa_break</td><td>1 if match is within 14 days after a FIFA international window</td></tr>
+        <tr><td>kickoff_sin / kickoff_cos</td><td>Cyclic encoding of UTC kickoff hour</td></tr>
+        <tr><td>is_weekday_game</td><td>1 for Tuesday/Wednesday kickoffs</td></tr>
+        <tr><td>is_dome</td><td>1 for Atlanta / Vancouver (weather irrelevant)</td></tr>
+        <tr><td>is_high_alt</td><td>1 for Colorado / Real Salt Lake</td></tr>
+        <tr><td>home_games_in_14d / away_games_in_14d</td><td>Schedule density (all competitions)</td></tr>
+        <tr><td>home_squad_xpa / away_squad_xpa</td><td>z-scored xpoints_added (squad quality, prior season)</td></tr>
+        <tr><td>home_goals_added_z / away_goals_added_z</td><td>z-scored goals_added composite (star-player proxy)</td></tr>
+        <tr><td>dc_lam / dc_mu</td><td>Dixon-Coles goal-rate estimates for the match (added per season after DC fit)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       5. A/B TESTING
+       ══════════════════════════════════════════════ -->
+  <section id="ab">
+    <h2><span class="num">5</span> Running an A/B test</h2>
+
+    <p>The eval script runs all entries in <code>AB_SETS</code> automatically and prints a comparison table at the end. The decision rule is:</p>
+
+    <table>
+      <thead><tr><th>Brier delta (Base − candidate)</th><th>Decision</th></tr></thead>
+      <tbody>
+        <tr><td>&gt; 0.001</td><td>✅ KEEP — promote to Base</td></tr>
+        <tr><td>0 to 0.001</td><td>~ marginal — monitor across more seasons</td></tr>
+        <tr><td>&lt; 0</td><td>❌ DROP — hurts performance</td></tr>
+      </tbody>
+    </table>
+
+    <p>The script also picks the <strong>best feature set by calibration-set Brier</strong> to use in the stacking ensemble. This avoids test-set leakage when selecting which features the meta-learner sees.</p>
+
+    <pre><span class="cm"># Example: test a new feature group called "+DrawRate"</span>
+
+<span class="cm"># 1. Compute draw rate in add_rolling_features() (see §4)</span>
+
+<span class="cm"># 2. Add to AB_SETS dict (~line 800):</span>
+AB_SETS[<span class="st">"+DrawRate"</span>] = _FEAT_BASE + [<span class="st">"home_draw_rate_10"</span>, <span class="st">"away_draw_rate_10"</span>]
+
+<span class="cm"># 3. Run and read the table:</span>
+<span class="cm"># A/B feature test (XGBoost Brier, avg over 2 seasons):</span>
+<span class="cm">#   Feature set     Brier   Δ vs Base   Keep?</span>
+<span class="cm">#   Base           0.6381           —       —</span>
+<span class="cm">#   +DrawRate      0.6360     +0.0021     YES  ← passes threshold</span><span class="label">python</span></pre>
+
+    <div class="callout info">
+      Currently only 2 test seasons are available (2023, 2024 — 2022 cal fold was COVID). A Δ of ~0.001 on 2 seasons has a wide confidence interval. Be conservative; a feature that passes by Δ=0.0011 may be noise. Aim for Δ ≥ 0.002 before promoting.
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       6. SWAPPING / TUNING MODELS
+       ══════════════════════════════════════════════ -->
+  <section id="models">
+    <h2><span class="num">6</span> Swapping or tuning models</h2>
+
+    <h3>XGBoost hyperparameter grid</h3>
+    <p>The inner grid search (~line 1004) tests all combinations of depth, trees, and learning rate on the last 2 training seasons. Expand it to search more aggressively:</p>
+
+    <pre><span class="cm"># Current grid (12 combinations × per test season = manageable)</span>
+<span class="kw">for</span> _md, _ne, _lr <span class="kw">in</span> itertools.product(
+    [<span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>],
+    [<span class="num">200</span>, <span class="num">400</span>],
+    [<span class="num">0.05</span>, <span class="num">0.10</span>]
+):
+
+<span class="cm"># Wider search (adds ~3× runtime per season):</span>
+<span class="kw">for</span> _md, _ne, _lr <span class="kw">in</span> itertools.product(
+    [<span class="num">3</span>, <span class="num">4</span>, <span class="num">5</span>, <span class="num">6</span>],
+    [<span class="num">200</span>, <span class="num">400</span>, <span class="num">600</span>],
+    [<span class="num">0.02</span>, <span class="num">0.05</span>, <span class="num">0.10</span>]
+):<span class="label">python</span></pre>
+
+    <h3>Trying a different XGBoost objective</h3>
+    <p>The script currently uses <code>multi:softprob</code> (3-class probabilities). You could experiment with a custom loss by subclassing <code>xgb.XGBClassifier</code> and providing <code>obj</code> + <code>feval</code> parameters, but the standard objective is hard to beat on well-calibrated outputs.</p>
+
+    <h3>Replacing XGBoost with LightGBM</h3>
+    <pre><span class="kw">import</span> lightgbm <span class="kw">as</span> lgb
+
+clf = lgb.LGBMClassifier(
+    n_estimators=<span class="num">300</span>,
+    max_depth=<span class="num">4</span>,
+    learning_rate=<span class="num">0.05</span>,
+    subsample=<span class="num">0.8</span>,
+    colsample_bytree=<span class="num">0.8</span>,
+    objective=<span class="st">"multiclass"</span>,
+    num_class=<span class="num">3</span>,
+    random_state=<span class="num">42</span>,
+    verbose=<span class="num">-1</span>,
+)
+clf.fit(X_tr, train[<span class="st">"label_result"</span>].values, sample_weight=sw)
+cal_p = clf.predict_proba(X_cal)
+te_p  = clf.predict_proba(X_te)<span class="label">python</span></pre>
+
+    <h3>Dixon-Coles decay half-life</h3>
+    <p>Change <code>DC_DECAY_HL</code> at the top of the file. A shorter half-life (e.g., 60 days) makes the model react faster to recent form; longer (180 days) makes it more stable but slower to update after roster changes.</p>
+
+    <h3>Disabling DC entirely</h3>
+    <p>If you want to test XGBoost-only (no DC in the ensemble), find the stacking block (~line 1077) and comment it out, then use <code>xgb_cal_te3</code> as the final output:</p>
+    <pre><span class="cm"># Skip the stacking ensemble and report XGB-only results</span>
+meta_ok = <span class="kw">False</span>
+<span class="cm"># if dc_ok and xgb_ok:</span>
+<span class="cm">#     ... (comment out the meta-learner block)</span><span class="label">python</span></pre>
+
+    <h3>Calibration: Temperature Scaling</h3>
+    <p>The script uses <strong>temperature scaling</strong> — a single scalar T that sharpens or softens all probabilities. T &gt; 1 makes predictions more uncertain; T &lt; 1 makes them more confident. The optimal T is found by minimising negative log-likelihood on the cal set.</p>
+    <pre><span class="cm"># calibrate_multiclass() — around line 899</span>
+<span class="kw">def</span> _nll(T: float) -&gt; float:
+    log_p = np.log(np.clip(raw_cal, <span class="num">1e-9</span>, <span class="num">1.0</span>)) / max(T, <span class="num">0.1</span>)
+    ...
+T = minimize_scalar(_nll, bounds=(<span class="num">0.3</span>, <span class="num">5.0</span>), method=<span class="st">"bounded"</span>).x
+
+<span class="cm"># To see what T the model is choosing, print it:</span>
+print(f<span class="st">"Temperature T = {T:.3f}"</span>)
+<span class="cm"># T > 1 = model is over-confident; T < 1 = model is under-confident</span><span class="label">python</span></pre>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       7. FULL PIPELINE
+       ══════════════════════════════════════════════ -->
+  <section id="full-pipeline">
+    <h2><span class="num">7</span> Full pipeline (PostgreSQL)</h2>
+
+    <div class="callout warn">
+      <strong>This section is only needed if you want to run the production pipeline with a live database</strong>, storing predictions for the dashboard. For pure model experiments, use <code>eval_baseline.py</code> (§2–6) and skip this section.
+    </div>
+
+    <h3>Database setup</h3>
+    <pre>sudo apt install postgresql
+sudo -u postgres createuser --superuser ryang
+sudo -u postgres createdb mls
+
+<span class="cm"># Create .env in repo root:</span>
+cat &gt; .env &lt;&lt;EOF
+PG_HOST=127.0.0.1
+PG_PORT=5432
+PG_DBNAME=mls
+PG_USER=ryang
+PG_PASSWORD=your_password
+ODDS_API_KEY=your_key          <span class="cm"># optional: for Pinnacle odds</span>
+CLAUDE_API_KEY=your_key        <span class="cm"># optional: for news pipeline</span>
+EOF<span class="label">bash</span></pre>
+
+    <h3>Initial data backfill</h3>
+    <pre>python scripts/backfill_history.py
+<span class="cm"># Pulls all MLS history from ASA, computes ELO chronologically.</span>
+<span class="cm"># First run: 30–60 min. Creates all DB tables automatically.</span><span class="label">bash</span></pre>
+
+    <h3>Daily update</h3>
+    <pre>python scripts/daily_update.py
+<span class="cm"># Runs the full pipeline in order:</span>
+<span class="cm">#  1. Sync yesterday's results + upcoming fixtures</span>
+<span class="cm">#  2. Pull latest xG data from ASA</span>
+<span class="cm">#  3. Refresh injury flags</span>
+<span class="cm">#  4. Recalculate ELO</span>
+<span class="cm">#  5. Rebuild feature snapshots</span>
+<span class="cm">#  6. Fit Dixon-Coles</span>
+<span class="cm">#  7. Fit XGBoost / LightGBM</span>
+<span class="cm">#  8. (Optional) Bayesian model via R bridge</span>
+<span class="cm">#  9. Fit stacking ensemble</span>
+<span class="cm"># 10. Fetch Pinnacle odds, create/settle simulated bets</span><span class="label">bash</span></pre>
+
+    <h3>Key settings in config/settings.yaml</h3>
+    <p>The YAML controls every production parameter. Changes here take effect on the next <code>daily_update.py</code> run.</p>
+    <table>
+      <thead><tr><th>Setting path</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td>elo.k_factor</td><td>ELO update speed per match</td></tr>
+        <tr><td>elo.home_advantage</td><td>ELO home bonus in expected-score calc</td></tr>
+        <tr><td>features.xg_half_life_days</td><td>Exponential decay for xG rolling window</td></tr>
+        <tr><td>features.form_window</td><td>Points-per-game rolling window (matches)</td></tr>
+        <tr><td>dixon_coles.time_decay_half_life_days</td><td>DC match-weight decay</td></tr>
+        <tr><td>market.default_edge_threshold_pct</td><td>Minimum model edge to flag a value bet</td></tr>
+        <tr><td>market.kelly_fractions</td><td>Fractional Kelly multipliers to simulate</td></tr>
+        <tr><td>bayesian.enabled</td><td>Turn R/brms model on/off</td></tr>
+        <tr><td>dashboard.beta_pages_enabled</td><td>Show/hide Backtest, Season Forecast, Real Bets pages</td></tr>
+        <tr><td>gradient_boost.optuna_trials</td><td>Number of Optuna hyperparameter trials (Sunday re-tune)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Performance report</h3>
+    <pre>python scripts/performance_report.py
+<span class="cm"># Prints Brier, log-loss, CLV, ROI broken down by season and team.</span><span class="label">bash</span></pre>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       8. DASHBOARD
+       ══════════════════════════════════════════════ -->
+  <section id="dashboard">
+    <h2><span class="num">8</span> Launching the dashboard</h2>
+
+    <div class="callout info">
+      The dashboard requires a live PostgreSQL database populated by <code>daily_update.py</code>. Run the full pipeline first (§7).
+    </div>
+
+    <pre>source venv/bin/activate
+streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+<span class="cm"># Open: http://localhost:8501</span><span class="label">bash</span></pre>
+
+    <table>
+      <thead><tr><th>Page</th><th>What you can tinker with</th></tr></thead>
+      <tbody>
+        <tr><td>1 Predictions</td><td>Edge threshold slider; toggle ensemble vs individual model probabilities</td></tr>
+        <tr><td>2 Performance</td><td>Season picker; home/away filter; model comparison (DC vs XGBoost vs ensemble)</td></tr>
+        <tr><td>3 Calibration</td><td>Reliability diagrams; sharpness histogram; per-class calibration curves</td></tr>
+        <tr><td>4 News &amp; Overrides</td><td>Apply Claude-processed news items as manual strength adjustments</td></tr>
+        <tr><td>5 Betting Tracker</td><td>Edge threshold filter; 25% vs 50% Kelly P&amp;L; CLV distribution</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       9. READING THE OUTPUT
+       ══════════════════════════════════════════════ -->
+  <section id="interpret">
+    <h2><span class="num">9</span> Reading the output</h2>
+
+    <h3>Brier score</h3>
+    <p>The primary metric. For 3-class predictions (home/draw/away), Brier score = mean squared error across all probability assignments. Range 0–2; lower is better.</p>
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="metric">0.6469</div>
+        <div class="label">Naive baseline<br/>(historical frequencies)</div>
+      </div>
+      <div class="result-card good">
+        <div class="metric">0.6387</div>
+        <div class="label">XGBoost +GKQuality<br/>(current best, +1.3%)</div>
+      </div>
+      <div class="result-card bad">
+        <div class="metric">0.56</div>
+        <div class="label">Target for live betting<br/>(8–12% over naive)</div>
+      </div>
+    </div>
+
+    <h3>Feature importances</h3>
+    <p>Reported as <strong>gain</strong> — the average improvement in the loss function from splits on that feature. Roughly equal gain across features (currently ~4% each) suggests the model has many weak signals rather than a few strong ones. A dominant feature (≥10% share) would indicate high-value signal.</p>
+
+    <h3>Calibration error</h3>
+    <p>The max decile error measures the worst-case gap between predicted probability and actual frequency in any probability bucket. Target is &lt;0.05. Current value is ~0.18 — meaning a 60% prediction might actually correspond to a 42%–78% true frequency. This is too wide for Kelly sizing.</p>
+
+    <h3>Per-class Brier</h3>
+    <p>Draws (class 1) are hardest to predict — structurally, teams that draw tend to continue drawing, but predicting <em>which specific match</em> ends in a draw is very hard. Home wins are easier (home advantage is real and consistent).</p>
+
+    <h3>A/B table delta sign convention</h3>
+    <p><strong>Positive Δ = improvement</strong> (Base Brier − candidate Brier; lower is better, so positive means candidate is lower). A negative Δ means the feature <em>increased</em> the Brier score, i.e., made things worse.</p>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════
+       10. TROUBLESHOOTING
+       ══════════════════════════════════════════════ -->
+  <section id="troubleshoot">
+    <h2><span class="num">10</span> Troubleshooting</h2>
+
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>SSL: CERTIFICATE_VERIFY_FAILED</td>
+          <td>System clock is ahead of cert validity window</td>
+          <td>The script patches <code>asa.session.verify = False</code> automatically. If you see this, ensure you're running the latest version of the script.</td>
+        </tr>
+        <tr>
+          <td>DC fit hangs &gt;5 min</td>
+          <td>L-BFGS-B not converging on large data</td>
+          <td>Reduce <code>recent_seasons</code> in <code>fit_dc()</code> from 4 to 3, or reduce <code>maxiter</code> in the minimize call.</td>
+        </tr>
+        <tr>
+          <td>Season 2022 skipped</td>
+          <td>Cal fold (2021) is a COVID season — excluded from training data</td>
+          <td>Expected behaviour. Results are averaged over 2023–2024 only.</td>
+        </tr>
+        <tr>
+          <td><code>get_game_xpass</code> not found</td>
+          <td>ASA API doesn't expose per-game PPDA</td>
+          <td>Expected — PPDA and possession are skipped automatically. Season-level PPDA via <code>get_team_xpass</code> is used instead.</td>
+        </tr>
+        <tr>
+          <td>XGBoost A/B trains very slowly</td>
+          <td>Too many feature sets × hyperparameter combinations</td>
+          <td>Reduce <code>AB_SETS</code> to just <code>{"Base": ..., "+YourFeature": ...}</code> for focused testing. Also reduce the inner grid to fewer combos.</td>
+        </tr>
+        <tr>
+          <td>GK features show 0% coverage</td>
+          <td>ASA didn't return goalkeeper data for early seasons</td>
+          <td>Normal for seasons before ~2017. The feature uses a 1–2 season lag fallback, so coverage is &lt;100% for early test folds.</td>
+        </tr>
+        <tr>
+          <td><code>ImportError: No module named 'rpy2'</code></td>
+          <td>R integration package not installed</td>
+          <td>This is intentional — rpy2 is commented out in <code>requirements.txt</code>. The Bayesian model is disabled by default. Uncomment rpy2 and install R if you need it.</td>
+        </tr>
+        <tr>
+          <td>Dashboard pages 6–8 show "Coming Soon"</td>
+          <td>Beta pages are gated</td>
+          <td>Set <code>dashboard.beta_pages_enabled: true</code> in <code>config/settings.yaml</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Run tests</h3>
+    <pre>source venv/bin/activate
+python -m compileall -q .    <span class="cm"># syntax check all files</span>
+pytest                        <span class="cm"># unit tests (mocked APIs, no network)</span><span class="label">bash</span></pre>
+  </section>
+
+</div><!-- /wrapper -->
+
+<footer>
+  MLS Prediction Dashboard &nbsp;·&nbsp; Branch <code>claude/mls-prediction-dashboard-C2mQM</code> &nbsp;·&nbsp; 2026-05-10
+</footer>
+
+</body>
+</html>
