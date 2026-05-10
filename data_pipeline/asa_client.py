@@ -136,14 +136,16 @@ def fetch_team_xg_stats(season: Optional[int] = None) -> pd.DataFrame:
     return stats
 
 
-def sync_to_db(start_season: Optional[int] = None) -> None:
-    """Fetch matches from ASA and upsert into the DuckDB matches table."""
+def sync_to_db(start_season: Optional[int] = None) -> int:
+    """Fetch matches from ASA and upsert into the PostgreSQL matches table."""
     cfg = SETTINGS["data"]
     start = start_season or cfg["backfill_start_season"]
     df = fetch_matches(start_season=start)
     if not df.empty:
         n = db_utils.upsert_dataframe(df, "matches", ["match_id"])
-        logger.info("Synced %d match rows to DuckDB.", n)
+        logger.info("Synced %d match rows to PostgreSQL.", n)
+        return n
+    return 0
 
 
 # ─── Conference assignments ───────────────────────────────────────────────────

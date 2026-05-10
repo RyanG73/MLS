@@ -11,6 +11,7 @@ Stakes are expressed as a proportion of the current bankroll.
 """
 
 from config import SETTINGS
+from market.implied import vig_adjusted_prob
 
 _MKT_CFG = SETTINGS["market"]
 _STARTING_BANKROLL = _MKT_CFG["starting_bankroll"]
@@ -74,21 +75,3 @@ def decimal_to_implied_prob(decimal_odds: float) -> float:
         return 0.0
     return 1.0 / decimal_odds
 
-
-def vig_adjusted_prob(home_odds: float, draw_odds: float, away_odds: float) -> dict:
-    """
-    Remove bookmaker overround and return vig-adjusted implied probabilities.
-    Uses the standard proportional reduction method.
-    """
-    raw_h = decimal_to_implied_prob(home_odds)
-    raw_d = decimal_to_implied_prob(draw_odds) if draw_odds else 0.0
-    raw_a = decimal_to_implied_prob(away_odds)
-    total = raw_h + raw_d + raw_a
-    if total <= 0:
-        return {"home": 1/3, "draw": 1/3, "away": 1/3}
-    return {
-        "home": raw_h / total,
-        "draw": raw_d / total,
-        "away": raw_a / total,
-        "overround": total - 1.0,
-    }

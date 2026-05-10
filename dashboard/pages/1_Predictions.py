@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -42,7 +41,21 @@ with st.sidebar:
 @st.cache_data(ttl=300)
 def load_upcoming_predictions(days: int) -> pd.DataFrame:
     return db_utils.query(
-        f"""
+        """
+        WITH latest_predictions AS (
+            SELECT DISTINCT ON (match_id, model) *
+            FROM predictions
+            ORDER BY match_id, model, predicted_at DESC
+        ),
+        latest_home_odds AS (
+            SELECT DISTINCT ON (match_id) match_id, open_odds
+            FROM odds
+            WHERE bookmaker='pinnacle'
+              AND market='h2h'
+              AND outcome='home'
+              AND snapshot_type='open'
+            ORDER BY match_id, fetched_at DESC
+        )
         SELECT
             m.match_id, m.date, m.home_team, m.away_team,
             m.conference_h, m.conference_a, m.is_playoff, m.season,
@@ -51,13 +64,13 @@ def load_upcoming_predictions(days: int) -> pd.DataFrame:
             p.model,
             o.open_odds AS pinnacle_home_odds
         FROM matches m
-        LEFT JOIN predictions p ON m.match_id = p.match_id
-        LEFT JOIN odds o ON (m.match_id = o.match_id AND o.bookmaker='pinnacle'
-                             AND o.market='h2h' AND o.outcome='Home')
+        LEFT JOIN latest_predictions p ON m.match_id = p.match_id
+        LEFT JOIN latest_home_odds o ON m.match_id = o.match_id
         WHERE m.status = 'scheduled'
-          AND m.date BETWEEN current_date AND current_date + INTERVAL {days} DAY
+          AND m.date BETWEEN current_date AND current_date + (%s * INTERVAL '1 day')
         ORDER BY m.date, m.match_id
-        """
+        """,
+        [days],
     )
 
 
@@ -160,16 +173,20 @@ for match_date in dates:
             if pinnacle_raw and pinnacle_raw > 1:
                 market_implied = db_utils.query(
                     """
-                    SELECT outcome, open_odds FROM odds
-                    WHERE match_id=? AND bookmaker='pinnacle' AND market='h2h'
-                    ORDER BY fetched_at DESC LIMIT 3
+                    SELECT DISTINCT ON (outcome) outcome, open_odds
+                    FROM odds
+                    WHERE match_id=%s
+                      AND bookmaker='pinnacle'
+                      AND market='h2h'
+                      AND snapshot_type='open'
+                    ORDER BY outcome, fetched_at DESC
                     """,
                     [row["match_id"]]
                 )
                 if not market_implied.empty:
                     od = {r["outcome"]: r["open_odds"] for _, r in market_implied.iterrows()}
                     adj = vig_adjusted_prob(
-                        od.get("Home", 0), od.get("Draw", 0), od.get("Away", 0)
+                        od.get("home", 0), od.get("draw", 0), od.get("away", 0)
                     )
                     market_home_p = adj.get("home", 0)
                     best_edge = max(

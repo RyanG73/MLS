@@ -6,6 +6,7 @@ options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 required_packages <- c(
   "brms",           # Bayesian regression models via Stan
+  "rstan",          # Stan model execution used by the R bridge
   "posterior",      # Posterior summaries and draws manipulation
   "worldfootballR", # FBref / Transfermarkt data scraping
   "tidyverse",      # Data manipulation (dplyr, tidyr, ggplot2)

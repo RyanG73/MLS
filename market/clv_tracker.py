@@ -12,7 +12,6 @@ we got value (CLV = +5pp) because the market moved in our direction.
 
 import hashlib
 import logging
-import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -107,9 +106,9 @@ def evaluate_match(
             )
             open_p = open_implied.get(outcome, 0)
             close_p = close_implied.get(outcome, 0)
-            clv = (open_p - close_p) * 100  # Positive = we got better price than close
+            clv = (close_p - open_p) * 100  # Positive = market moved toward our bet
 
-        bet_id = hashlib.md5(f"{match_id}_{outcome}_{datetime.now().isoformat()}".encode()).hexdigest()[:20]
+        bet_id = hashlib.md5(f"{match_id}_{outcome}".encode()).hexdigest()[:20]
         bets.append({
             "bet_id": bet_id,
             "match_id": match_id,
@@ -133,7 +132,7 @@ def evaluate_match(
 
 
 def store_bets(bets: list[dict]) -> None:
-    """Upsert bet records to DuckDB simulated_bets table."""
+    """Upsert simulated bet records."""
     if not bets:
         return
     df = pd.DataFrame(bets)
@@ -141,7 +140,13 @@ def store_bets(bets: list[dict]) -> None:
     logger.info("Stored %d simulated bets.", len(bets))
 
 
-def update_bet_results(match_id: str, result: str, close_home: float, close_draw: float, close_away: float) -> None:
+def update_bet_results(
+    match_id: str,
+    result: str,
+    close_home: float | None = None,
+    close_draw: float | None = None,
+    close_away: float | None = None,
+) -> None:
     """
     After a match completes, update the P&L and closing line value for bets on that match.
     Call once the match result is known.
@@ -153,7 +158,20 @@ def update_bet_results(match_id: str, result: str, close_home: float, close_draw
     if bets_df.empty:
         return
 
-    close_implied = vig_adjusted_prob(close_home, close_draw, close_away)
+    if close_home is None or close_away is None:
+        from data_pipeline.odds_client import get_pinnacle_odds
+        closing = get_pinnacle_odds(match_id, snapshot_type="close") or {}
+        close_home = closing.get("home")
+        close_draw = closing.get("draw")
+        close_away = closing.get("away")
+
+    if close_home is None or close_away is None:
+        logger.warning("No closing odds available for %s; settling P&L without CLV.", match_id)
+
+    close_implied = (
+        vig_adjusted_prob(close_home, close_draw, close_away)
+        if close_home and close_away else {}
+    )
 
     for idx, row in bets_df.iterrows():
         outcome = row["outcome_backed"]
@@ -167,7 +185,7 @@ def update_bet_results(match_id: str, result: str, close_home: float, close_draw
 
         open_implied_p = row["market_prob"]
         close_p = close_implied.get(outcome, 0)
-        clv = (open_implied_p - close_p) * 100
+        clv = (close_p - open_implied_p) * 100 if close_home and close_away else None
 
         db_utils.execute(
             """
