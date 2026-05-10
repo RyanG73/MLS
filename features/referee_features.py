@@ -1,7 +1,11 @@
 """
 Referee tendency features.
 Pulls referee match data from DuckDB (populated via worldfootballR in R bridge).
-Falls back to league-average values when referee is unknown.
+
+Null vs league-average distinction:
+  - referee_id is None/empty → assignment not yet made → return NULL for all columns
+    (XGBoost handles nulls natively; using averages here would be a false signal)
+  - referee_id is set but not in our DB → genuinely unknown tendency → league averages
 """
 
 import logging
@@ -18,13 +22,18 @@ _LEAGUE_AVG_CARDS_PER90 = 3.8
 _LEAGUE_AVG_PENS_PER90 = 0.22
 _LEAGUE_AVG_HOME_WIN_RATE = 0.44
 
+_REFEREE_FEATURE_COLS = ["ref_cards_per90", "ref_pens_per90", "ref_home_win_rate", "ref_is_known"]
+
 
 def get_referee_stats(referee_id: Optional[str]) -> dict:
     """
-    Return referee tendency stats. Falls back to league averages for unknown referees.
+    Return referee tendency stats.
+    Returns NULLs when referee is not yet assigned (referee_id is falsy).
+    Falls back to league averages when referee_id is set but not in our DB.
     """
     if not referee_id:
-        return _league_average_stats()
+        # Referee not yet assigned — leave features null so model doesn't see a false signal
+        return {col: None for col in _REFEREE_FEATURE_COLS}
 
     df = db_utils.query(
         "SELECT card_rate_per90, penalty_rate_per90, home_win_rate, matches_officiated "
@@ -33,6 +42,7 @@ def get_referee_stats(referee_id: Optional[str]) -> dict:
     )
 
     if df.empty or df.iloc[0]["matches_officiated"] < 10:
+        # Referee known but insufficient history → league average is a reasonable prior
         return _league_average_stats()
 
     row = df.iloc[0]

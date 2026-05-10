@@ -12,6 +12,8 @@ import math
 from datetime import date, timedelta
 from typing import Optional
 
+from features.travel_features import is_dome
+
 # ── MLS rivalries (hardcoded list) ────────────────────────────────────────────
 _RIVALRIES: set[frozenset] = {
     frozenset(["POR", "SEA"]),    # Cascadia
@@ -152,6 +154,7 @@ def build_match_context(home_team: str, away_team: str, season: int, match_date:
         "is_high_importance": int(is_high_importance(home_team, away_team, season, match_date, competition)),
         "is_post_fifa_break": int(is_post_fifa_break(match_date)),
         "pitch_is_turf":      int(pitch_surface(home_team) == "turf"),
+        "is_dome":            int(is_dome(home_team)),
     }
     ctx.update(kickoff_features(kickoff_time))
     return ctx

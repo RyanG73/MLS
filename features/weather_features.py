@@ -9,7 +9,7 @@ from typing import Optional
 
 import requests
 
-from features.travel_features import stadium_coords
+from features.travel_features import stadium_coords, is_dome
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,10 @@ def fetch_weather(
 
     Uses forecast endpoint for future dates, archive for past dates.
     """
+    if is_dome(home_team):
+        logger.debug("Skipping weather fetch for dome/retractable-roof stadium: %s", home_team)
+        return None
+
     lat, lon = stadium_coords(home_team)
     today = datetime.now(timezone.utc).date().isoformat()
     is_future = match_date >= today
