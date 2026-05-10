@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
 from config import SETTINGS
@@ -220,9 +221,3 @@ if not settled.empty:
         fig_b.add_hline(y=0, line_color="gray")
         fig_b.update_layout(height=280, margin=dict(t=10), coloraxis_showscale=False)
         st.plotly_chart(fig_b, use_container_width=True)
-
-
-def make_subplots(*args, **kwargs):
-    """Import helper — avoid name collision."""
-    from plotly.subplots import make_subplots as _make
-    return _make(*args, **kwargs)

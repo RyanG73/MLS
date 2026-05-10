@@ -2,7 +2,9 @@
 
 import os
 import logging
+import uuid
 from contextlib import contextmanager
+from datetime import datetime, timezone
 
 import psycopg2
 import psycopg2.extras
@@ -23,6 +25,7 @@ def _conn_params() -> dict:
         "dbname":   os.environ.get("PG_DBNAME",   _DB_CFG["name"]),
         "user":     os.environ.get("PG_USER",      _DB_CFG["user"]),
         "password": os.environ.get("PG_PASSWORD",  _DB_CFG.get("password", "")),
+        "connect_timeout": int(os.environ.get("PGCONNECT_TIMEOUT", "10")),
     }
 
 
@@ -128,6 +131,7 @@ def initialize_schema() -> None:
             bookmaker       VARCHAR(30)  NOT NULL,
             market          VARCHAR(10)  NOT NULL,
             outcome         VARCHAR(10)  NOT NULL,
+            snapshot_type   VARCHAR(10)  DEFAULT 'open',
             open_odds       DOUBLE PRECISION,
             close_odds      DOUBLE PRECISION,
             fetched_at      TIMESTAMP    DEFAULT NOW()
@@ -197,14 +201,30 @@ def initialize_schema() -> None:
             active          BOOLEAN DEFAULT TRUE
         )
         """,
+        """
+        CREATE TABLE IF NOT EXISTS pipeline_runs (
+            run_id          VARCHAR(36)  PRIMARY KEY,
+            run_type        VARCHAR(30)  NOT NULL,
+            status          VARCHAR(20)  NOT NULL,
+            started_at      TIMESTAMP    NOT NULL,
+            finished_at     TIMESTAMP,
+            step_name       VARCHAR(120),
+            message         TEXT,
+            stats           TEXT
+        )
+        """,
+        "ALTER TABLE odds ADD COLUMN IF NOT EXISTS snapshot_type VARCHAR(10) DEFAULT 'open'",
         # Indexes for common query patterns
         "CREATE INDEX IF NOT EXISTS idx_matches_date ON matches (date)",
         "CREATE INDEX IF NOT EXISTS idx_matches_status ON matches (status)",
         "CREATE INDEX IF NOT EXISTS idx_predictions_match ON predictions (match_id)",
         "CREATE INDEX IF NOT EXISTS idx_predictions_model ON predictions (model)",
+        "CREATE INDEX IF NOT EXISTS idx_predictions_latest ON predictions (match_id, model, predicted_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_odds_lookup ON odds (match_id, bookmaker, market, outcome, snapshot_type)",
         "CREATE INDEX IF NOT EXISTS idx_elo_team ON elo_history (team_id, date DESC)",
         "CREATE INDEX IF NOT EXISTS idx_bets_match ON simulated_bets (match_id)",
         "CREATE INDEX IF NOT EXISTS idx_news_confirmed ON news_items (confirmed_by_user)",
+        "CREATE INDEX IF NOT EXISTS idx_pipeline_runs_started ON pipeline_runs (started_at DESC)",
     ]
 
     with get_connection() as conn:
@@ -273,3 +293,40 @@ def execute(sql: str, params: list | None = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params or [])
+
+
+def start_pipeline_run(run_type: str) -> str:
+    """Create a status row for an orchestrated pipeline run."""
+    run_id = str(uuid.uuid4())
+    execute(
+        """
+        INSERT INTO pipeline_runs (run_id, run_type, status, started_at)
+        VALUES (%s, %s, %s, %s)
+        """,
+        [run_id, run_type, "running", datetime.now(timezone.utc).isoformat()],
+    )
+    return run_id
+
+
+def update_pipeline_run(
+    run_id: str,
+    status: str,
+    step_name: str | None = None,
+    message: str | None = None,
+    stats: str | None = None,
+    finished: bool = False,
+) -> None:
+    """Update the latest status details for a pipeline run."""
+    finished_at = datetime.now(timezone.utc).isoformat() if finished else None
+    execute(
+        """
+        UPDATE pipeline_runs
+        SET status = %s,
+            step_name = COALESCE(%s, step_name),
+            message = COALESCE(%s, message),
+            stats = COALESCE(%s, stats),
+            finished_at = COALESCE(%s, finished_at)
+        WHERE run_id = %s
+        """,
+        [status, step_name, message, stats, finished_at, run_id],
+    )

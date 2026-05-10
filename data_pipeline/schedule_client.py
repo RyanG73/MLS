@@ -147,11 +147,13 @@ def fetch_recent_results(days_back: int = 7) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True).drop_duplicates("match_id") if frames else pd.DataFrame()
 
 
-def sync_to_db(days_ahead: int = 14, days_back: int = 7) -> None:
-    """Sync upcoming fixtures and recent results to DuckDB."""
+def sync_to_db(days_ahead: int = 14, days_back: int = 7) -> int:
+    """Sync upcoming fixtures and recent results to PostgreSQL."""
     upcoming = fetch_upcoming_fixtures(days_ahead)
     recent = fetch_recent_results(days_back)
     combined = pd.concat([upcoming, recent], ignore_index=True).drop_duplicates("match_id")
     if not combined.empty:
         n = db_utils.upsert_dataframe(combined, "matches", ["match_id"])
-        logger.info("Synced %d fixture/result rows to DuckDB.", n)
+        logger.info("Synced %d fixture/result rows to PostgreSQL.", n)
+        return n
+    return 0
