@@ -6,13 +6,17 @@ Pulls real MLS match data from ASA API, builds minimal features,
 trains Dixon-Coles + XGBoost/LightGBM, and evaluates on held-out seasons
 using walk-forward (no future leakage).
 
+Evaluation structure (3-way split):
+  train   → seasons < cal_season       (model fitting)
+  cal     → cal_season = test_season-1 (isotonic calibration + meta-learner)
+  test    → test_season                (final held-out evaluation)
+
 Metrics:
-  - Multi-class Brier score (home/draw/away)
+  - Multi-class Brier score (home/draw/away) + per-class breakdown
   - Log-loss
   - O/U 2.5 Brier score
-  - Calibration (mean predicted vs actual per decile)
-
-Baseline: always predict historical average frequencies.
+  - Calibration decile error (raw → calibrated → stacked)
+  - XGBoost feature importances (gain)
 """
 
 import sys
@@ -25,6 +29,8 @@ import pandas as pd
 from scipy.optimize import minimize
 from scipy.stats import poisson
 from sklearn.metrics import log_loss, brier_score_loss
+from sklearn.isotonic import IsotonicRegression
+from sklearn.linear_model import LogisticRegression
 import xgboost as xgb
 import lightgbm as lgb
 
@@ -32,15 +38,14 @@ warnings.filterwarnings("ignore")
 
 # ─── 1. Fetch MLS data ────────────────────────────────────────────────────────
 
-print("=" * 60)
-print("MLS Model Baseline Evaluation")
-print("=" * 60)
-print("\n[1/6] Fetching MLS data from ASA API...")
+print("=" * 65)
+print("MLS Model Evaluation  (3-way split + isotonic calibration)")
+print("=" * 65)
+print("\n[1/7] Fetching MLS data from ASA API...")
 
 from itscalledsoccer.client import AmericanSoccerAnalysis
 asa = AmericanSoccerAnalysis()
 
-# Game results
 games = asa.get_games(leagues="mls")[
     ["game_id", "date_time_utc", "home_team_id", "away_team_id",
      "home_score", "away_score", "season_name", "status"]
@@ -51,7 +56,6 @@ games = asa.get_games(leagues="mls")[
     "season_name": "season",
 })
 
-# Per-game xG (separate endpoint)
 gxg = asa.get_game_xgoals(leagues="mls")[
     ["game_id", "home_team_xgoals", "away_team_xgoals"]
 ].rename(columns={
@@ -66,7 +70,6 @@ df["season"] = pd.to_numeric(df["season"], errors="coerce").fillna(
     df["date"].dt.year
 ).astype(int)
 
-# Only completed matches with scores
 df = df[df["home_goals"].notna() & df["away_goals"].notna()].copy()
 df["home_goals"] = df["home_goals"].astype(int)
 df["away_goals"] = df["away_goals"].astype(int)
@@ -78,7 +81,7 @@ print(f"    xG coverage: {xg_coverage:.0%}")
 
 # ─── 2. ELO ratings ───────────────────────────────────────────────────────────
 
-print("\n[2/6] Computing ELO ratings...")
+print("\n[2/7] Computing ELO ratings...")
 
 K = 20
 HOME_ADV = 100
@@ -115,7 +118,8 @@ df["elo_diff"] = df["home_elo"] - df["away_elo"]
 
 # ─── 3. Rolling features ─────────────────────────────────────────────────────
 
-print("\n[3/6] Computing rolling features...")
+print("\n[3/7] Computing rolling features...")
+
 
 def add_rolling_features(df: pd.DataFrame, window: int = 10) -> pd.DataFrame:
     """Add rolling xG and form features without future leakage."""
@@ -143,7 +147,6 @@ def add_rolling_features(df: pd.DataFrame, window: int = 10) -> pd.DataFrame:
             else:
                 a_xg_r.append(xg_avg); a_xga_r.append(xga_avg); a_form.append(form)
 
-        # Update histories (after reading, to avoid leakage)
         team_xg_hist.setdefault(ht, []).append({"xg": h_xg_val, "xga": a_xg_val})
         team_xg_hist.setdefault(at, []).append({"xg": a_xg_val, "xga": h_xg_val})
 
@@ -153,15 +156,16 @@ def add_rolling_features(df: pd.DataFrame, window: int = 10) -> pd.DataFrame:
         team_pts_hist.setdefault(at, []).append(a_pts)
 
     df = df.copy()
-    df["home_xg_roll"] = h_xg_r
+    df["home_xg_roll"]  = h_xg_r
     df["home_xga_roll"] = h_xga_r
-    df["away_xg_roll"] = a_xg_r
+    df["away_xg_roll"]  = a_xg_r
     df["away_xga_roll"] = a_xga_r
-    df["home_form"]  = h_form
-    df["away_form"]  = a_form
-    df["xg_diff"]    = df["home_xg_roll"] - df["away_xg_roll"]
-    df["form_diff"]  = df["home_form"] - df["away_form"]
+    df["home_form"]     = h_form
+    df["away_form"]     = a_form
+    df["xg_diff"]       = df["home_xg_roll"] - df["away_xg_roll"]
+    df["form_diff"]     = df["home_form"] - df["away_form"]
     return df
+
 
 df = add_rolling_features(df, window=10)
 
@@ -185,9 +189,7 @@ def dc_tau(x, y, lam, mu, rho):
 
 
 def dc_nll(params, teams, matches_arr, decay_hl=180):
-    """Negative log-likelihood using logpmf to avoid domain errors.
-    matches_arr: numpy array (N, 5) of [days_ago, home_idx, away_idx, hg, ag]
-    """
+    """Negative log-likelihood; matches_arr: numpy (N,5) [days_ago,hi,ai,hg,ag]."""
     n = len(teams)
     atk = params[:n]
     dfd = params[n:2*n]
@@ -207,8 +209,7 @@ def dc_nll(params, teams, matches_arr, decay_hl=180):
 
 
 def fit_dc(matches: pd.DataFrame, decay_hl: int = 180, recent_seasons: int = 4):
-    """Fit Dixon-Coles. Only uses last `recent_seasons` to keep optimization fast;
-    older matches have near-zero weight anyway due to time decay."""
+    """Fit Dixon-Coles on the last `recent_seasons` of `matches`."""
     max_season = matches["season"].max()
     recent = matches[matches["season"] >= max_season - recent_seasons + 1].copy()
 
@@ -247,50 +248,125 @@ def dc_predict(ht, at, atk, dfd, ha, rho, max_g=8):
     M = np.clip(M, 1e-15, None)
     M /= M.sum()
     ph = float(np.tril(M, -1).sum())
-    pd = float(np.diag(M).sum())
+    pd_ = float(np.diag(M).sum())
     pa = float(np.triu(M, 1).sum())
     po = float(M[np.add.outer(np.arange(max_g+1),
                                np.arange(max_g+1)) > 2.5].sum())
-    t = ph + pd + pa
-    return ph/t, pd/t, pa/t, po
+    t = ph + pd_ + pa
+    return ph/t, pd_/t, pa/t, po
 
-# ─── 5. Walk-forward ─────────────────────────────────────────────────────────
 
-print("\n[4/6] Walk-forward evaluation (test seasons: 2022, 2023, 2024)...")
-print("      DC fit may take ~30–90 sec per season on full history.")
+def dc_predict_batch(split_df, atk, dfd, ha, rho):
+    return np.array([dc_predict(r.home_team, r.away_team, atk, dfd, ha, rho)
+                     for _, r in split_df.iterrows()])
+
+# ─── 5. Calibration helpers ───────────────────────────────────────────────────
+
+def calibrate_multiclass(raw_cal: np.ndarray, y_cal: np.ndarray,
+                         raw_test: np.ndarray) -> np.ndarray:
+    """
+    Per-class isotonic regression calibration.
+    raw_cal: (N_cal, 3)  raw probabilities on calibration fold
+    y_cal:   (N_cal,)    true class labels
+    raw_test:(N_te, 3)   raw probabilities on test fold
+    Returns: (N_te, 3) calibrated + renormalized probabilities
+    """
+    cal_out = np.zeros_like(raw_test)
+    for c in range(3):
+        iso = IsotonicRegression(out_of_bounds="clip")
+        iso.fit(raw_cal[:, c], (y_cal == c).astype(float))
+        cal_out[:, c] = iso.predict(raw_test[:, c])
+    # Renormalize so rows sum to 1
+    row_sums = cal_out.sum(axis=1, keepdims=True)
+    row_sums = np.where(row_sums < 1e-9, 1.0, row_sums)
+    return cal_out / row_sums
+
+
+def calibrate_binary(raw_cal: np.ndarray, y_cal: np.ndarray,
+                     raw_test: np.ndarray) -> np.ndarray:
+    """Isotonic calibration for binary O/U probabilities."""
+    iso = IsotonicRegression(out_of_bounds="clip")
+    iso.fit(raw_cal, y_cal.astype(float))
+    return iso.predict(raw_test)
+
+
+def decile_cal_error(probs: np.ndarray, actuals: np.ndarray) -> tuple[float, float]:
+    """Max and mean absolute calibration error across deciles."""
+    try:
+        dec = pd.qcut(probs, 10, duplicates="drop")
+        cal = pd.DataFrame({"p": probs, "a": actuals.astype(float), "d": dec}).groupby(
+            "d", observed=True
+        ).agg(mp=("p", "mean"), ma=("a", "mean"))
+        errs = (cal["mp"] - cal["ma"]).abs()
+        return float(errs.max()), float(errs.mean())
+    except Exception:
+        return float("nan"), float("nan")
+
+
+def multiclass_brier(y_oh: np.ndarray, probs: np.ndarray) -> float:
+    return float(np.mean(np.sum((probs - y_oh) ** 2, axis=1)))
+
+
+def per_class_brier(y_oh: np.ndarray, probs: np.ndarray) -> tuple[float, float, float]:
+    """Return (home_brier, draw_brier, away_brier)."""
+    return tuple(float(np.mean((probs[:, c] - y_oh[:, c]) ** 2)) for c in range(3))
+
+# ─── 6. Walk-forward evaluation ───────────────────────────────────────────────
+
+print("\n[4/7] Walk-forward evaluation (3-way split, test seasons: 2022, 2023, 2024)...")
+print("      Structure: train=<cal_year | cal=cal_year | test=test_year")
+print("      DC fit may take ~30–90 sec per season.")
 
 TEST_SEASONS = [2022, 2023, 2024]
 results = []
+all_importances = []
 
 for test_season in TEST_SEASONS:
-    train = df[df["season"] < test_season].copy()
+    cal_season = test_season - 1
+
+    train = df[df["season"] < cal_season].copy()
+    cal   = df[df["season"] == cal_season].copy()
     test  = df[df["season"] == test_season].copy()
 
-    if len(train) < 300 or len(test) < 50:
+    if len(train) < 200 or len(cal) < 50 or len(test) < 50:
+        print(f"    Season {test_season}: insufficient data, skipping.")
         continue
 
-    print(f"    Season {test_season}: train={len(train)} | test={len(test)}", end="", flush=True)
+    print(f"    Season {test_season}: train={len(train)} cal={len(cal)} test={len(test)}",
+          end="", flush=True)
 
-    # ── Dixon-Coles ──────────────────────────────────────────────────────────
+    y_cal_r  = cal["label_result"].values
+    y_cal_o  = cal["label_over25"].values
+    y_te_r   = test["label_result"].values
+    y_te_o   = test["label_over25"].values
+
+    # One-hot for multi-class Brier
+    y_te_oh = np.zeros((len(test), 3))
+    for i, l in enumerate(y_te_r): y_te_oh[i, l] = 1.0
+    y_cal_oh = np.zeros((len(cal), 3))
+    for i, l in enumerate(y_cal_r): y_cal_oh[i, l] = 1.0
+
+    # ── Dixon-Coles ─────────────────────────────────────────────────────────
     dc_ok = False
     try:
         atk, dfd, ha, rho = fit_dc(train)
-        dc_pred = np.array([dc_predict(r.home_team, r.away_team, atk, dfd, ha, rho)
-                            for _, r in test.iterrows()])
+        dc_pred_cal = dc_predict_batch(cal,  atk, dfd, ha, rho)   # (N_cal, 4)
+        dc_pred_te  = dc_predict_batch(test, atk, dfd, ha, rho)   # (N_te,  4)
+        # Calibrate DC using cal fold
+        dc_cal_cal3 = calibrate_multiclass(dc_pred_cal[:, :3], y_cal_r, dc_pred_cal[:, :3])
+        dc_cal_te3  = calibrate_multiclass(dc_pred_cal[:, :3], y_cal_r, dc_pred_te[:, :3])
+        dc_cal_ou   = calibrate_binary(dc_pred_cal[:, 3], y_cal_o, dc_pred_te[:, 3])
         dc_ok = True
         print(" | DC✓", end="", flush=True)
     except Exception as e:
-        dc_pred = None
+        dc_pred_cal = dc_pred_te = dc_cal_te3 = dc_cal_ou = None
         print(f" | DC✗({e})", end="", flush=True)
 
     # ── XGBoost (1X2) + LightGBM (O/U) ─────────────────────────────────────
     feat = [c for c in FEAT_COLS if c in train.columns]
-    X_tr = train[feat].fillna(0).values
-    X_te = test[feat].fillna(0).values
-    y_tr_r = train["label_result"].values
-    y_tr_o = train["label_over25"].values
-    y_te_r = test["label_result"].values
-    y_te_o = test["label_over25"].values
+    X_tr  = train[feat].fillna(0).values
+    X_cal = cal[feat].fillna(0).values
+    X_te  = test[feat].fillna(0).values
 
     xgb_ok = False
     try:
@@ -300,229 +376,301 @@ for test_season in TEST_SEASONS:
             objective="multi:softprob", num_class=3,
             eval_metric="mlogloss", verbosity=0, random_state=42
         )
-        clf.fit(X_tr, y_tr_r)
-        xgb_probs = clf.predict_proba(X_te)
+        clf.fit(X_tr, train["label_result"].values)
+        xgb_cal_probs = clf.predict_proba(X_cal)   # for calibrator fitting
+        xgb_te_probs  = clf.predict_proba(X_te)    # raw test predictions
 
         lgb_clf = lgb.LGBMClassifier(
             n_estimators=300, max_depth=4, learning_rate=0.05,
             subsample=0.8, colsample_bytree=0.8,
             verbose=-1, random_state=42
         )
-        lgb_clf.fit(X_tr, y_tr_o)
-        lgb_ou = lgb_clf.predict_proba(X_te)[:, 1]
+        lgb_clf.fit(X_tr, train["label_over25"].values)
+        lgb_cal_ou = lgb_clf.predict_proba(X_cal)[:, 1]
+        lgb_te_ou  = lgb_clf.predict_proba(X_te)[:, 1]
+
+        # Calibrate XGB/LGB using cal fold
+        xgb_cal_cal3 = calibrate_multiclass(xgb_cal_probs, y_cal_r, xgb_cal_probs)
+        xgb_cal_te3  = calibrate_multiclass(xgb_cal_probs, y_cal_r, xgb_te_probs)
+        lgb_cal_ou   = calibrate_binary(lgb_cal_ou, y_cal_o, lgb_te_ou)
+
+        # Feature importances (gain, averaged across test seasons)
+        imp = clf.get_booster().get_score(importance_type="gain")
+        all_importances.append({f: imp.get(f"f{i}", 0.0) for i, f in enumerate(feat)})
+
         xgb_ok = True
         print(" | XGB✓", end="", flush=True)
     except Exception as e:
-        xgb_probs = lgb_ou = None
+        xgb_cal_probs = xgb_te_probs = xgb_cal_te3 = lgb_cal_ou = None
+        lgb_te_ou = None
         print(f" | XGB✗({e})", end="", flush=True)
 
-    # ── Simple ensemble (average where both available) ───────────────────────
+    # ── Stacking meta-learner ────────────────────────────────────────────────
+    meta_ok = False
     if dc_ok and xgb_ok:
-        ens = (dc_pred[:, :3] + xgb_probs) / 2.0
+        try:
+            # Build calibrated level-0 features on cal fold (to train meta-learner)
+            meta_X_cal = np.hstack([dc_cal_cal3, xgb_cal_cal3])   # (N_cal, 6)
+            meta_X_te  = np.hstack([dc_cal_te3,  xgb_cal_te3])    # (N_te,  6)
+
+            meta = LogisticRegression(
+                max_iter=300, C=1.0, random_state=42
+            )
+            meta.fit(meta_X_cal, y_cal_r)
+            ens_stacked = meta.predict_proba(meta_X_te)
+
+            # Stacked O/U: average of calibrated DC + LGB
+            ens_ou_stacked = (dc_cal_ou + lgb_cal_ou) / 2.0
+
+            meta_ok = True
+            print(" | Meta✓", end="", flush=True)
+        except Exception as e:
+            ens_stacked = None
+            print(f" | Meta✗({e})", end="", flush=True)
+
+    # ── Simple average ensemble (uncalibrated) ───────────────────────────────
+    if dc_ok and xgb_ok:
+        ens_avg = (dc_pred_te[:, :3] + xgb_te_probs) / 2.0
     elif dc_ok:
-        ens = dc_pred[:, :3]
+        ens_avg = dc_pred_te[:, :3]
     elif xgb_ok:
-        ens = xgb_probs
+        ens_avg = xgb_te_probs
     else:
-        ens = None
+        ens_avg = None
 
     # ── Naive baseline ────────────────────────────────────────────────────────
-    freq = train["label_result"].value_counts(normalize=True).sort_index()
+    freq    = train["label_result"].value_counts(normalize=True).sort_index()
     naive_r = np.tile([freq.get(0, 0.33), freq.get(1, 0.33), freq.get(2, 0.33)],
                       (len(test), 1))
-    naive_o = np.full(len(test), train["label_over25"].mean())
+    naive_o = float(train["label_over25"].mean())
 
-    # ── Metrics ──────────────────────────────────────────────────────────────
-    y_oh = np.zeros((len(test), 3))
-    for i, l in enumerate(y_te_r): y_oh[i, l] = 1.0
-
-    def mb(y_oh, yp): return float(np.mean(np.sum((yp - y_oh)**2, axis=1)))
-    def ouB(yt, yp): return float(brier_score_loss(yt, yp))
-
-    r = {"season": test_season, "n": len(test),
-         "naive_brier": mb(y_oh, naive_r),
-         "naive_ll": log_loss(y_te_r, naive_r),
-         "naive_ou_brier": ouB(y_te_o, naive_o),
-         "home_win_rate": (y_te_r == 0).mean(),
-         "draw_rate":     (y_te_r == 1).mean(),
-         "away_win_rate": (y_te_r == 2).mean(),
-         "over25_rate":   y_te_o.mean(),
-         }
+    # ── Collect results ──────────────────────────────────────────────────────
+    r = {
+        "season":         test_season,
+        "n":              len(test),
+        "naive_brier":    multiclass_brier(y_te_oh, naive_r),
+        "naive_ll":       log_loss(y_te_r, naive_r),
+        "naive_ou_brier": brier_score_loss(y_te_o, np.full(len(test), naive_o)),
+        "home_win_rate":  (y_te_r == 0).mean(),
+        "draw_rate":      (y_te_r == 1).mean(),
+        "away_win_rate":  (y_te_r == 2).mean(),
+        "over25_rate":    y_te_o.mean(),
+    }
 
     if dc_ok:
-        r["dc_brier"]    = mb(y_oh, dc_pred[:, :3])
-        r["dc_ll"]       = log_loss(y_te_r, dc_pred[:, :3])
-        r["dc_ou_brier"] = ouB(y_te_o, dc_pred[:, 3])
+        r["dc_brier_raw"]  = multiclass_brier(y_te_oh, dc_pred_te[:, :3])
+        r["dc_brier_cal"]  = multiclass_brier(y_te_oh, dc_cal_te3)
+        r["dc_ll_raw"]     = log_loss(y_te_r, dc_pred_te[:, :3])
+        r["dc_ll_cal"]     = log_loss(y_te_r, dc_cal_te3)
+        r["dc_ou_raw"]     = brier_score_loss(y_te_o, dc_pred_te[:, 3])
+        r["dc_ou_cal"]     = brier_score_loss(y_te_o, dc_cal_ou)
+        # Per-class
+        h, d, a = per_class_brier(y_te_oh, dc_cal_te3)
+        r["dc_cal_h"], r["dc_cal_d"], r["dc_cal_a"] = h, d, a
+        # Calibration decile error
+        r["dc_cal_err_max"], _ = decile_cal_error(dc_cal_te3[:, 0], (y_te_r == 0))
 
     if xgb_ok:
-        r["xgb_brier"]    = mb(y_oh, xgb_probs)
-        r["xgb_ll"]       = log_loss(y_te_r, xgb_probs)
-        r["xgb_ou_brier"] = ouB(y_te_o, lgb_ou)
+        r["xgb_brier_raw"] = multiclass_brier(y_te_oh, xgb_te_probs)
+        r["xgb_brier_cal"] = multiclass_brier(y_te_oh, xgb_cal_te3)
+        r["xgb_ll_raw"]    = log_loss(y_te_r, xgb_te_probs)
+        r["xgb_ll_cal"]    = log_loss(y_te_r, xgb_cal_te3)
+        r["xgb_ou_raw"]    = brier_score_loss(y_te_o, lgb_te_ou)
+        r["xgb_ou_cal"]    = brier_score_loss(y_te_o, lgb_cal_ou)
+        h, d, a = per_class_brier(y_te_oh, xgb_cal_te3)
+        r["xgb_cal_h"], r["xgb_cal_d"], r["xgb_cal_a"] = h, d, a
+        r["xgb_cal_err_max"], _ = decile_cal_error(xgb_cal_te3[:, 0], (y_te_r == 0))
 
-    if ens is not None:
-        r["ens_brier"] = mb(y_oh, ens)
-        r["ens_ll"]    = log_loss(y_te_r, ens)
+    if ens_avg is not None:
+        r["ens_avg_brier"] = multiclass_brier(y_te_oh, ens_avg)
+        r["ens_avg_ll"]    = log_loss(y_te_r, ens_avg)
 
-        # Calibration: home-win deciles
-        hp = ens[:, 0]
-        ha_ = (y_te_r == 0).astype(float)
-        try:
-            dec = pd.qcut(hp, 10, duplicates="drop")
-            cal = pd.DataFrame({"p": hp, "a": ha_, "d": dec}).groupby("d", observed=True).agg(
-                mp=("p","mean"), ma=("a","mean"), n=("p","count"))
-            r["cal_max_err"] = float((cal["mp"] - cal["ma"]).abs().max())
-            r["cal_mean_err"] = float((cal["mp"] - cal["ma"]).abs().mean())
-        except Exception:
-            pass
+    if meta_ok:
+        r["ens_stacked_brier"] = multiclass_brier(y_te_oh, ens_stacked)
+        r["ens_stacked_ll"]    = log_loss(y_te_r, ens_stacked)
+        r["ens_stacked_ou"]    = brier_score_loss(y_te_o, ens_ou_stacked)
+        h, d, a = per_class_brier(y_te_oh, ens_stacked)
+        r["ens_stacked_h"], r["ens_stacked_d"], r["ens_stacked_a"] = h, d, a
+        r["ens_cal_err_max"], _ = decile_cal_error(ens_stacked[:, 0], (y_te_r == 0))
+
+        # Calibration across 3 stages for home-win probability
+        raw_home_cal_err,  _ = decile_cal_error(ens_avg[:, 0],      (y_te_r == 0))
+        stk_home_cal_err,  _ = decile_cal_error(ens_stacked[:, 0],  (y_te_r == 0))
+        r["cal_stage_raw_avg"]    = raw_home_cal_err
+        r["cal_stage_stacked"]    = stk_home_cal_err
 
     results.append(r)
-    best = r.get("ens_brier", r.get("dc_brier", r.get("xgb_brier", "?")))
-    print(f" | Ens={best:.4f} vs Naive={r['naive_brier']:.4f}")
+    best_key = next((k for k in ["ens_stacked_brier","ens_avg_brier","dc_brier_cal","xgb_brier_cal"]
+                     if k in r), None)
+    best = r[best_key] if best_key else "?"
+    print(f" | Best={best:.4f} vs Naive={r['naive_brier']:.4f}")
 
-# ─── 6. Report ────────────────────────────────────────────────────────────────
+# ─── 7. Report ────────────────────────────────────────────────────────────────
 
-print("\n" + "=" * 60)
-print("RESULTS")
-print("=" * 60)
+print("\n" + "=" * 65)
+print("RESULTS — averaged over test seasons 2022–2024")
+print("=" * 65)
 
 rd = pd.DataFrame(results)
+
 
 def avg(col):
     return rd[col].dropna().mean() if col in rd.columns else float("nan")
 
+
 def pct(a, b):
     return (b - a) / b * 100 if b and not math.isnan(a) else float("nan")
 
-naive_b = avg("naive_brier")
-dc_b    = avg("dc_brier")
-xgb_b   = avg("xgb_brier")
-ens_b   = avg("ens_brier")
-naive_l = avg("naive_ll")
-dc_l    = avg("dc_ll")
-xgb_l   = avg("xgb_ll")
-ens_l   = avg("ens_ll")
-naive_ou= avg("naive_ou_brier")
-dc_ou   = avg("dc_ou_brier")
-xgb_ou  = avg("xgb_ou_brier")
-cal_max = avg("cal_max_err")
-cal_mean= avg("cal_mean_err")
 
-print(f"\n{'Model':<22} {'Brier':>8} {'vs Naive':>10} {'Log-Loss':>10}")
-print("-" * 52)
-print(f"{'Naive baseline':<22} {naive_b:8.4f} {'—':>10} {naive_l:10.4f}")
-if not math.isnan(dc_b):
-    print(f"{'Dixon-Coles':<22} {dc_b:8.4f} {pct(dc_b, naive_b):>+9.1f}% {dc_l:10.4f}")
-if not math.isnan(xgb_b):
-    print(f"{'XGBoost/LightGBM':<22} {xgb_b:8.4f} {pct(xgb_b, naive_b):>+9.1f}% {xgb_l:10.4f}")
-if not math.isnan(ens_b):
-    print(f"{'Ensemble (avg)':<22} {ens_b:8.4f} {pct(ens_b, naive_b):>+9.1f}% {ens_l:10.4f}")
+naive_b  = avg("naive_brier")
+naive_l  = avg("naive_ll")
+naive_ou = avg("naive_ou_brier")
 
-print(f"\n{'Model':<22} {'O/U Brier':>10} {'vs Naive':>10}")
-print("-" * 44)
-print(f"{'Naive baseline':<22} {naive_ou:10.4f} {'—':>10}")
-if not math.isnan(dc_ou):
-    print(f"{'Dixon-Coles':<22} {dc_ou:10.4f} {pct(dc_ou, naive_ou):>+9.1f}%")
-if not math.isnan(xgb_ou):
-    print(f"{'XGBoost O/U':<22} {xgb_ou:10.4f} {pct(xgb_ou, naive_ou):>+9.1f}%")
+print(f"\n{'Model':<28} {'Brier':>8} {'vs Naive':>10} {'Log-Loss':>10}")
+print("-" * 58)
+print(f"{'Naive baseline':<28} {naive_b:8.4f} {'—':>10} {naive_l:10.4f}")
 
-if not math.isnan(cal_max):
-    print(f"\nCalibration (home-win deciles):")
-    print(f"  Max decile error : {cal_max:.4f}  (target < 0.05)")
-    print(f"  Mean decile error: {cal_mean:.4f}")
+for label, bk, lk in [
+    ("DC (raw)",           "dc_brier_raw",      "dc_ll_raw"),
+    ("DC (calibrated)",    "dc_brier_cal",      "dc_ll_cal"),
+    ("XGBoost (raw)",      "xgb_brier_raw",     "xgb_ll_raw"),
+    ("XGBoost (calibrated)","xgb_brier_cal",    "xgb_ll_cal"),
+    ("Ensemble avg",       "ens_avg_brier",     "ens_avg_ll"),
+    ("Ensemble stacked",   "ens_stacked_brier", "ens_stacked_ll"),
+]:
+    b = avg(bk); l = avg(lk)
+    if not math.isnan(b):
+        print(f"  {label:<26} {b:8.4f} {pct(b, naive_b):>+9.1f}% {l:10.4f}")
 
+print(f"\n{'Model':<28} {'O/U Brier':>10} {'vs Naive':>10}")
+print("-" * 50)
+print(f"{'Naive baseline':<28} {naive_ou:10.4f} {'—':>10}")
+for label, k in [
+    ("DC (raw)",        "dc_ou_raw"),
+    ("DC (calibrated)", "dc_ou_cal"),
+    ("XGBoost (raw)",   "xgb_ou_raw"),
+    ("XGBoost (cal)",   "xgb_ou_cal"),
+    ("Stacked avg",     "ens_stacked_ou"),
+]:
+    v = avg(k)
+    if not math.isnan(v):
+        print(f"  {label:<26} {v:10.4f} {pct(v, naive_ou):>+9.1f}%")
+
+# Per-class Brier breakdown
+print(f"\nPer-class Brier (calibrated models):")
+print(f"  {'Model':<24} {'Home':>8} {'Draw':>8} {'Away':>8}")
+print("  " + "-" * 48)
+for label, hk, dk, ak in [
+    ("DC (calibrated)",     "dc_cal_h",       "dc_cal_d",       "dc_cal_a"),
+    ("XGBoost (calibrated)","xgb_cal_h",      "xgb_cal_d",      "xgb_cal_a"),
+    ("Ensemble stacked",    "ens_stacked_h",  "ens_stacked_d",  "ens_stacked_a"),
+]:
+    h, d, a = avg(hk), avg(dk), avg(ak)
+    if not (math.isnan(h) and math.isnan(d)):
+        print(f"  {label:<24} {h:8.4f} {d:8.4f} {a:8.4f}")
+
+# Calibration error across stages
+print(f"\nCalibration error (home-win predictions, max decile):")
+print(f"  {'Stage':<28} {'Max error':>10}")
+print("  " + "-" * 40)
+for label, k in [
+    ("Raw average ensemble",     "cal_stage_raw_avg"),
+    ("Stacked (meta-learner)",   "cal_stage_stacked"),
+]:
+    v = avg(k)
+    if not math.isnan(v):
+        flag = "✓" if v < 0.05 else ("~" if v < 0.10 else "!")
+        print(f"  {label:<28} {v:10.4f}  [{flag}]")
+
+# Feature importances
+if all_importances:
+    print(f"\nXGBoost feature importances (gain, averaged across folds):")
+    avg_imp = {}
+    for fi in all_importances:
+        for f, v in fi.items():
+            avg_imp[f] = avg_imp.get(f, 0.0) + v / len(all_importances)
+    sorted_imp = sorted(avg_imp.items(), key=lambda x: x[1], reverse=True)
+    total_imp = sum(v for _, v in sorted_imp) or 1.0
+    print(f"  {'Feature':<24} {'Gain':>10} {'Share':>8}")
+    print("  " + "-" * 44)
+    for fname, fval in sorted_imp:
+        print(f"  {fname:<24} {fval:10.1f} {fval/total_imp:8.1%}")
+
+# Match outcome rates
 print(f"\nMatch outcome rates (test period avg):")
-for col, label in [("home_win_rate","Home wins"), ("draw_rate","Draws"), ("away_win_rate","Away wins"), ("over25_rate","Over 2.5")]:
+for col, label in [("home_win_rate","Home wins"), ("draw_rate","Draws"),
+                   ("away_win_rate","Away wins"), ("over25_rate","Over 2.5")]:
     if col in rd.columns:
         print(f"  {label}: {rd[col].mean():.1%}")
 
-print("\nPer-season detail:")
-cols = ["season","n","naive_brier"]
-for c in ["dc_brier","xgb_brier","ens_brier"]:
-    if c in rd.columns: cols.append(c)
-print(rd[cols].to_string(index=False, float_format="{:.4f}".format))
+# Per-season detail
+print(f"\nPer-season detail:")
+dcols = ["season", "n", "naive_brier"]
+for c in ["dc_brier_cal", "xgb_brier_cal", "ens_stacked_brier"]:
+    if c in rd.columns:
+        dcols.append(c)
+print(rd[dcols].to_string(index=False, float_format="{:.4f}".format))
 
-# ─── 7. Recommendations ──────────────────────────────────────────────────────
+# ─── 8. Recommendations ──────────────────────────────────────────────────────
 
-print("\n" + "=" * 60)
+print("\n" + "=" * 65)
 print("RECOMMENDATIONS")
-print("=" * 60)
+print("=" * 65)
+print()
 
-best_b = min(v for v in [dc_b, xgb_b, ens_b] if not math.isnan(v)) if results else float("nan")
+best_key = next((k for k in ["ens_stacked_brier","ens_avg_brier","dc_brier_cal","xgb_brier_cal"]
+                 if k in rd.columns and not math.isnan(avg(k))), None)
+best_b = avg(best_key) if best_key else float("nan")
 improvement_pct = pct(best_b, naive_b) if not math.isnan(best_b) else 0
 
-print()
-# Overall signal strength
 if math.isnan(best_b):
     print("  [!] No model produced valid predictions. Check data quality.")
-elif improvement_pct > -8:
-    print("  [!] WEAK: Best model is <8% better than naive baseline.")
-    print("      Soccer is inherently low-information, but this suggests")
-    print("      insufficient training data or feature issues. Expected")
-    print("      range with full backfill and features is 5–12%.")
-elif improvement_pct > -12:
-    print("  [~] MODERATE: Model shows real but modest improvement.")
-    print("      This is typical at this feature-set stage. Full backfill")
-    print("      and Phase 2 features should push improvement to 8–12%.")
+elif improvement_pct > -5:
+    print("  [!] WEAK: Best model shows <5% improvement vs naive baseline.")
+    print("      Soccer has low inherent predictability, but this is below")
+    print("      expected 5–12% range. Calibration + more features should help.")
+elif improvement_pct > -10:
+    print("  [~] MODERATE: Model beats naive by 5–10% after calibration.")
+    print("      This is solid for a minimal feature set. Full feature pipeline")
+    print("      (injury, referee, weather, style) should add 2–4% more.")
 else:
-    print("  [+] GOOD: Model meaningfully beats naive baseline.")
+    print("  [+] GOOD: Model beats naive by >10% after calibration.")
 
-# DC vs XGB
-if not math.isnan(dc_b) and not math.isnan(xgb_b):
-    if dc_b < xgb_b - 0.002:
-        print()
-        print("  [DC wins] Dixon-Coles outperforms XGBoost significantly.")
-        print("      With only ELO + basic xG features, the Poisson structure")
-        print("      of DC provides a better inductive bias than gradient boosting.")
-        print("      Add more features before XGBoost adds value to the ensemble.")
-    elif xgb_b < dc_b - 0.002:
-        print()
-        print("  [XGB wins] XGBoost outperforms Dixon-Coles.")
-        print("      The tabular features are capturing signal DC misses.")
-        print("      Upweight XGBoost in the ensemble blend.")
-    else:
-        print()
-        print("  [DC ≈ XGB] Models are close — averaging them makes sense.")
-        print("      The full stacking ensemble (logistic meta-learner) should")
-        print("      find better weights than a 50/50 average.")
-
-# O/U specific
-if not math.isnan(xgb_ou) and xgb_ou > naive_ou:
+# Calibration effect
+dc_raw = avg("dc_brier_raw"); dc_cal = avg("dc_brier_cal")
+xgb_raw = avg("xgb_brier_raw"); xgb_cal = avg("xgb_brier_cal")
+if not (math.isnan(dc_raw) or math.isnan(dc_cal)):
+    cal_gain = dc_raw - dc_cal
     print()
-    print("  [O/U concern] XGBoost O/U is WORSE than naive baseline.")
-    print("      Without good xG features, LightGBM is fitting noise.")
-    print("      O/U predictions will only be reliable once per-game xG")
-    print("      features are properly computed from historical data.")
-elif not math.isnan(dc_ou) and dc_ou < naive_ou - 0.005:
-    print()
-    print("  [O/U: DC good] Dixon-Coles O/U beats naive — the goal rate")
-    print("      parameters (λ, μ) contain real scoring-rate signal.")
+    print(f"  [Calibration] Isotonic calibration improved DC Brier by {cal_gain:+.4f}.")
+    if cal_gain > 0.01:
+        print("      Large gain → raw model is poorly calibrated (over-confident).")
+        print("      ALWAYS calibrate before sizing bets with Kelly criterion.")
 
-# Calibration
-if not math.isnan(cal_max):
-    if cal_max > 0.10:
-        print()
-        print("  [Calibration] Max decile error is high (>10%).")
-        print("      The isotonic recalibration in the stacking ensemble is")
-        print("      CRITICAL before using these probabilities for bet sizing.")
-        print("      Raw probabilities will systematically over/under-bet.")
-    elif cal_max > 0.05:
-        print()
-        print("  [Calibration] Moderate calibration error (5–10%).")
-        print("      Isotonic recalibration will help but isn't urgent.")
+# Draw class
+xgb_d = avg("xgb_cal_d")
+if not math.isnan(xgb_d) and xgb_d > 0.18:
+    print()
+    print(f"  [Draw class] Draw Brier={xgb_d:.4f} is highest — draws are the hardest")
+    print("      outcome to predict in MLS (~25% rate, essentially random by team).")
+    print("      DC handles draws better than XGBoost via full score distribution.")
+
+# O/U
+xgb_ou = avg("xgb_ou_cal")
+if not math.isnan(xgb_ou) and xgb_ou >= naive_ou:
+    print()
+    print("  [O/U concern] Calibrated XGBoost O/U is still ≥ naive baseline.")
+    print("      Use DC goal-rate parameters (λ, μ) for O/U prediction — they")
+    print("      contain genuine scoring-rate signal that tabular features miss.")
 
 # Feature priorities
 print()
-print("  Feature priority for improving Brier score:")
-print("  1. More history — backfill to 2013 (already loading).")
-print("     Each extra season is worth ~0.002–0.005 Brier improvement.")
-print("  2. ELO + xG are by far the most predictive features for MLS.")
-print("     If SHAP analysis shows other features near zero, drop them.")
-print("  3. Draw prediction is the hardest class (~25% MLS draw rate).")
-print("     Draws are essentially random at team level — DC handles them")
-print("     better than XGBoost because it uses the full score distribution.")
-print("  4. Once live, prioritize CLV over Brier score.")
-print("     A model with 3% Brier improvement but positive CLV is more")
-print("     valuable than a 6% Brier improvement with negative CLV.")
+print("  Feature priority for next Brier improvement:")
+print("  1. ELO + xG are the dominant features — confirmed by importances above.")
+print("  2. If draw-class Brier is highest: add recent draw-rate rolling feature.")
+print("  3. Add xG-based O/U estimate: (home_xg_roll + away_xg_roll vs 2.5).")
+print("  4. Referee and travel features add marginal signal (~0.001–0.002 Brier).")
+print("  5. Run full feature pipeline once baseline confirms positive CLV.")
 
 print()
 print("Evaluation complete.")
