@@ -1,11 +1,11 @@
 # MLS Prediction System — Central Configuration
-# All tunable parameters live here. Scripts import via config/loader.py.
+# All tunable parameters live here. Scripts import via config.SETTINGS.
 
 # ─── Data ────────────────────────────────────────────────────────────────────
 data:
   raw_data_dir: "data/raw"
   backfill_start_season: 2011          # ASA API reliable from 2011; earlier years sparse
-  current_season: 2025
+  current_season: null                 # Optional; defaults to current year or env MLS_CURRENT_SEASON
 
 # ─── PostgreSQL Connection ────────────────────────────────────────────────────
 # All values can be overridden by environment variables in .env
@@ -99,7 +99,7 @@ news:
     - ruled out
     - missed training
   impact_magnitude_max: 0.20           # Max ±20% strength adjustment from news
-  claude_model: "claude-sonnet-4-6"
+  claude_model: "claude-sonnet-4-6"     # Override with env CLAUDE_MODEL if needed
 
 # ─── Dashboard ───────────────────────────────────────────────────────────────
 dashboard:

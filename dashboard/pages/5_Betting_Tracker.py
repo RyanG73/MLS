@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
 from config import SETTINGS
@@ -225,9 +226,3 @@ if not settled.empty:
 if not bets_df.empty:
     csv = bets_df.to_csv(index=False).encode("utf-8")
     st.download_button("📥 Download bets CSV", csv, "simulated_bets.csv", "text/csv")
-
-
-def make_subplots(*args, **kwargs):
-    """Import helper — avoid name collision."""
-    from plotly.subplots import make_subplots as _make
-    return _make(*args, **kwargs)

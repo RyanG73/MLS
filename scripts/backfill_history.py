@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 One-time historical backfill script.
-Run this on first setup to populate DuckDB with full MLS history.
+Run this on first setup to populate PostgreSQL with full MLS history.
 
 Steps:
-1. Initialize DuckDB schema
+1. Initialize PostgreSQL schema
 2. Seed team registry
 3. Pull all MLS matches from ASA API (2011–present)
 4. Compute full ELO history
@@ -24,7 +24,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
-from tqdm import tqdm
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,11 +45,12 @@ def main():
     from features.feature_builder import build_training_dataset, build_upcoming_features
     from models.dixon_coles import DixonColesModel
     from models.gradient_boost import GradientBoostModels
+    from models.penaltyblog_baseline import PenaltyBlogDixonColesModel
     from models.r_bridge.run_bayes import prepare_train_data, prepare_predict_data
     from models.stacking_ensemble import StackingEnsemble
 
     # ── Step 1: Schema ────────────────────────────────────────────────────────
-    logger.info("=== Step 1: Initializing DuckDB schema ===")
+    logger.info("=== Step 1: Initializing PostgreSQL schema ===")
     db_utils.initialize_schema()
 
     # ── Step 2: Team registry ─────────────────────────────────────────────────
@@ -84,6 +87,17 @@ def main():
     dc_model = DixonColesModel()
     dc_model.fit(matches_df)
     dc_model.save()
+
+    logger.info("=== Step 6a.1: Fitting optional penaltyblog Dixon-Coles benchmark ===")
+    if PenaltyBlogDixonColesModel.available():
+        try:
+            penaltyblog_model = PenaltyBlogDixonColesModel()
+            penaltyblog_model.fit(matches_df)
+            penaltyblog_model.save()
+        except Exception as exc:
+            logger.warning("penaltyblog benchmark fit failed (non-fatal): %s", exc)
+    else:
+        logger.info("penaltyblog is not installed; skipping optional benchmark.")
 
     # ── Step 6b: Fit gradient boost ───────────────────────────────────────────
     logger.info("=== Step 6b: Fitting gradient boost models ===")
@@ -129,7 +143,8 @@ def main():
     ensemble.save()
 
     logger.info("=== Backfill complete! ===")
-    logger.info("Database: %s", SETTINGS["data"]["db_path"])
+    db_cfg = SETTINGS["database"]
+    logger.info("Database: %s:%s/%s", db_cfg["host"], db_cfg["port"], db_cfg["name"])
     n_matches = db_utils.query("SELECT COUNT(*) AS n FROM matches").iloc[0]["n"]
     n_completed = db_utils.query("SELECT COUNT(*) AS n FROM matches WHERE status='completed'").iloc[0]["n"]
     logger.info("Total matches in DB: %d (%d completed)", n_matches, n_completed)
@@ -217,13 +232,7 @@ def _generate_dc_oof(dc_model, train_df: pd.DataFrame, n_folds: int = 5) -> pd.D
 
         for _, row in val_data.iterrows():
             try:
-                preds = dc_fold.predict(row["home_team"] if "home_team" in row else "", "")
-            except Exception:
-                preds = {"prob_home": 0.45, "prob_draw": 0.25, "prob_away": 0.30, "prob_over": 0.50}
-
-            # Use main DC model for simplicity when fold data is insufficient
-            try:
-                preds = dc_model.predict(
+                preds = dc_fold.predict(
                     row.get("home_team", ""), row.get("away_team", "")
                 )
             except Exception:

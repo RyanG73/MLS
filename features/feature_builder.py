@@ -201,6 +201,9 @@ def build_training_dataset(matches_df: Optional[pd.DataFrame] = None) -> pd.Data
 
         # Labels
         hg, ag = int(row["home_goals"]), int(row["away_goals"])
+        feats["date"] = str(row["date"].date())
+        feats["home_team"] = row["home_team"]
+        feats["away_team"] = row["away_team"]
         feats["home_goals"] = hg
         feats["away_goals"] = ag
         feats["total_goals"] = hg + ag

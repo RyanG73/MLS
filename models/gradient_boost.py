@@ -10,12 +10,9 @@ Gradient boosting models for MLS match prediction.
 import logging
 import pickle
 from pathlib import Path
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import TimeSeriesSplit
-from sklearn.preprocessing import LabelEncoder
 
 from config import SETTINGS
 from features.feature_builder import get_feature_columns
@@ -32,6 +29,7 @@ _MODEL_DIR = Path(SETTINGS["_repo_root"]) / "data"
 _XGB_PATH = _MODEL_DIR / "xgb_model.pkl"
 _LGB_PATH = _MODEL_DIR / "lgb_model.pkl"
 _FEATURE_COLS_PATH = _MODEL_DIR / "feature_columns.pkl"
+_ENCODERS_PATH = _MODEL_DIR / "feature_encoders.pkl"
 
 
 def betting_logloss(y_true: np.ndarray, y_pred: np.ndarray, odds: np.ndarray) -> float:
@@ -56,19 +54,35 @@ class GradientBoostModels:
         self.xgb_model = None
         self.lgb_model = None
         self.feature_cols: list[str] = []
+        self.category_maps: dict[str, dict[str, int]] = {}
         self.fitted: bool = False
 
     def _prepare_xy(self, df: pd.DataFrame) -> tuple:
+        df = df.copy()
         self.feature_cols = get_feature_columns(df)
-        # Encode conference matchup string columns
-        cat_cols = [c for c in self.feature_cols if df[c].dtype == object]
-        for c in cat_cols:
-            df[c] = LabelEncoder().fit_transform(df[c].astype(str))
-
-        X = df[self.feature_cols].fillna(-1).values
+        X = self._prepare_features_frame(df, fit=True)
         y_result = df["label_result"].values.astype(int)
         y_ou = df["label_over25"].values.astype(int)
         return X, y_result, y_ou
+
+    def _prepare_features_frame(self, df: pd.DataFrame, fit: bool = False) -> np.ndarray:
+        df = df.copy()
+        for col in self.feature_cols:
+            if col not in df.columns:
+                df[col] = -1
+
+        cat_cols = [c for c in self.feature_cols if df[c].dtype == object]
+        for col in cat_cols:
+            values = df[col].astype(str).fillna("")
+            if fit:
+                categories = sorted(values.unique().tolist())
+                self.category_maps[col] = {
+                    category: idx for idx, category in enumerate(categories)
+                }
+            mapping = self.category_maps.get(col, {})
+            df[col] = values.map(mapping).fillna(-1).astype(int)
+
+        return df[self.feature_cols].fillna(-1).values
 
     def _tune_xgb(self, X_tr: np.ndarray, y_tr: np.ndarray, X_val: np.ndarray, y_val: np.ndarray) -> dict:
         import optuna
@@ -195,10 +209,7 @@ class GradientBoostModels:
         """Predict for a batch DataFrame. Returns df with prediction columns added."""
         if not self.fitted:
             raise RuntimeError("Models not fitted.")
-        cat_cols = [c for c in self.feature_cols if c in df.columns and df[c].dtype == object]
-        for c in cat_cols:
-            df[c] = LabelEncoder().fit_transform(df[c].astype(str))
-        X = df[self.feature_cols].fillna(-1).values
+        X = self._prepare_features_frame(df, fit=False)
         xgb_probs = self.xgb_model.predict_proba(X)
         lgb_probs = self.lgb_model.predict_proba(X)
         df = df.copy()
@@ -210,22 +221,12 @@ class GradientBoostModels:
         return df
 
     def _features_to_array(self, features: dict) -> np.ndarray:
-        from sklearn.preprocessing import LabelEncoder
-        row = {}
-        for c in self.feature_cols:
-            val = features.get(c, -1)
-            if isinstance(val, str):
-                val = hash(val) % 1000
-            row[c] = val if val is not None else -1
-        return np.array([list(row.values())])
+        return self._prepare_features_frame(pd.DataFrame([features]), fit=False)
 
     def compute_shap(self, df: pd.DataFrame, max_rows: int = 500) -> pd.DataFrame:
         """Compute SHAP values for the XGBoost 1X2 model."""
         import shap
-        cat_cols = [c for c in self.feature_cols if c in df.columns and df[c].dtype == object]
-        for c in cat_cols:
-            df[c] = LabelEncoder().fit_transform(df[c].astype(str))
-        X = df[self.feature_cols].fillna(-1).values[:max_rows]
+        X = self._prepare_features_frame(df, fit=False)[:max_rows]
         explainer = shap.TreeExplainer(self.xgb_model)
         shap_values = explainer.shap_values(X)
         if isinstance(shap_values, list):
@@ -280,6 +281,8 @@ class GradientBoostModels:
             pickle.dump(self.lgb_model, f)
         with open(_FEATURE_COLS_PATH, "wb") as f:
             pickle.dump(self.feature_cols, f)
+        with open(_ENCODERS_PATH, "wb") as f:
+            pickle.dump(self.category_maps, f)
         logger.info("Gradient boost models saved.")
 
     @classmethod
@@ -291,5 +294,8 @@ class GradientBoostModels:
             m.lgb_model = pickle.load(f)
         with open(_FEATURE_COLS_PATH, "rb") as f:
             m.feature_cols = pickle.load(f)
+        if _ENCODERS_PATH.exists():
+            with open(_ENCODERS_PATH, "rb") as f:
+                m.category_maps = pickle.load(f)
         m.fitted = True
         return m

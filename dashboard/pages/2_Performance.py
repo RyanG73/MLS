@@ -27,7 +27,7 @@ with st.sidebar:
     seasons = db_utils.query("SELECT DISTINCT season FROM matches ORDER BY season DESC")
     season_list = ["All"] + [str(s) for s in seasons["season"].tolist()]
     selected_season = st.selectbox("Season", season_list)
-    selected_model = st.selectbox("Model", ["ensemble", "dixon_coles", "xgboost", "bayesian"])
+    selected_model = st.selectbox("Model", ["ensemble", "dixon_coles", "penaltyblog_dc", "xgboost", "bayesian"])
     home_away = st.radio("Home/Away filter", ["All", "Home only", "Away only"])
     edge_threshold = st.slider("Min edge threshold (%)", 0.0, 15.0, 0.0, 0.5)
 
@@ -37,12 +37,17 @@ def load_performance_data(season_filter, model_filter) -> pd.DataFrame:
     season_clause = f"AND m.season = {season_filter}" if season_filter != "All" else ""
     return db_utils.query(
         f"""
+        WITH latest_predictions AS (
+            SELECT DISTINCT ON (match_id, model) *
+            FROM predictions
+            ORDER BY match_id, model, predicted_at DESC
+        )
         SELECT
             p.match_id, p.model, p.prob_home, p.prob_draw, p.prob_away,
             p.prob_over, p.prob_under, p.predicted_at,
             m.home_goals, m.away_goals, m.date, m.season,
             m.home_team, m.away_team
-        FROM predictions p
+        FROM latest_predictions p
         JOIN matches m ON p.match_id = m.match_id
         WHERE m.status = 'completed'
           AND m.home_goals IS NOT NULL

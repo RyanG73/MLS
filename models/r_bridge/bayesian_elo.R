@@ -7,11 +7,14 @@
 
 suppressPackageStartupMessages({
   library(brms)
+  library(rstan)
   library(posterior)
   library(dplyr)
   library(tidyr)
   library(jsonlite)
 })
+
+`%||%` <- function(a, b) if (!is.null(a)) a else b
 
 args <- commandArgs(trailingOnly = TRUE)
 repo_root <- if (length(args) > 0) args[1] else "."
@@ -24,8 +27,6 @@ cores         <- as.integer(cfg$cores %||% 4)
 adapt_delta   <- as.numeric(cfg$adapt_delta %||% 0.95)
 elo_scale     <- as.numeric(cfg$elo_scale_factor %||% 400)
 expansion_sd_mult <- as.numeric(cfg$expansion_prior_sd_multiplier %||% 2.0)
-
-`%||%` <- function(a, b) if (!is.null(a)) a else b
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 train_path    <- file.path(repo_root, "data", "bayes_input_train.csv")
@@ -149,27 +150,27 @@ generated quantities {
 "
 
 # ── Fit model ─────────────────────────────────────────────────────────────────
-model_rds_path <- file.path(repo_root, "data", "bayesian_model.rds")
+model_rds_path <- file.path(repo_root, "data", "bayesian_stan_model.rds")
 
 if (file.exists(model_rds_path)) {
-  cat("Loading cached Stan model...\n")
-  fit <- readRDS(model_rds_path)
-  # Re-run with fresh data
-  fit <- update(fit, newdata = stan_data, iter = iter, chains = chains, cores = cores,
-                control = list(adapt_delta = adapt_delta), refresh = 0)
+  cat("Loading cached compiled Stan model...\n")
+  stan_model_obj <- readRDS(model_rds_path)
 } else {
-  cat("Compiling and fitting Stan model (first run may take several minutes)...\n")
-  fit <- stan(
-    model_code = stan_code,
-    data       = stan_data,
-    iter       = iter,
-    chains     = chains,
-    cores      = cores,
-    control    = list(adapt_delta = adapt_delta),
-    refresh    = 100
-  )
-  saveRDS(fit, model_rds_path)
+  cat("Compiling Stan model (first run may take several minutes)...\n")
+  stan_model_obj <- stan_model(model_code = stan_code)
+  saveRDS(stan_model_obj, model_rds_path)
 }
+
+cat("Sampling Bayesian model...\n")
+fit <- sampling(
+  stan_model_obj,
+  data    = stan_data,
+  iter    = iter,
+  chains  = chains,
+  cores   = cores,
+  control = list(adapt_delta = adapt_delta),
+  refresh = 100
+)
 
 # ── Extract posterior team parameters ─────────────────────────────────────────
 draws <- as_draws_df(fit)

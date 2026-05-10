@@ -1,6 +1,6 @@
 """
 Referee tendency features.
-Pulls referee match data from DuckDB (populated via worldfootballR in R bridge).
+Pulls referee match data from PostgreSQL (populated via worldfootballR in R bridge).
 
 Null vs league-average distinction:
   - referee_id is None/empty → assignment not yet made → return NULL for all columns
@@ -70,6 +70,15 @@ def update_referee_stats_from_r(stats_csv_path: str) -> None:
     home_win_rate, matches_officiated.
     """
     df = pd.read_csv(stats_csv_path)
+    for col, fallback in [
+        ("card_rate_per90", _LEAGUE_AVG_CARDS_PER90),
+        ("penalty_rate_per90", _LEAGUE_AVG_PENS_PER90),
+        ("home_win_rate", _LEAGUE_AVG_HOME_WIN_RATE),
+    ]:
+        if col not in df.columns:
+            df[col] = fallback
+        else:
+            df[col] = df[col].fillna(fallback)
     df["last_updated"] = pd.Timestamp.now().isoformat()
     n = db_utils.upsert_dataframe(df, "referee_stats", ["referee_id"])
     logger.info("Updated %d referee stat rows from R output.", n)

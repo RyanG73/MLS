@@ -9,6 +9,7 @@ logs/
 # Environment and secrets
 .env
 *.env
+config/bayes_config.json
 
 # Python
 __pycache__/

@@ -2,6 +2,7 @@
 # Daily cron entry point for MLS Prediction System.
 # Add to crontab: 0 6 * * * /home/pi/mls/scripts/daily_update.sh
 # News poll:      0 */6 * * * /home/pi/mls/scripts/daily_update.sh --news-only
+# Closing odds:   run near kickoff windows with --closing-odds
 
 set -euo pipefail
 
@@ -42,6 +43,16 @@ import sys; sys.path.insert(0, '.')
 from data_pipeline.news_monitor import run_pipeline
 n = run_pipeline()
 print(f'Processed {n} news items.')
+" 2>&1 | tee -a "${LOG_FILE}"
+elif [[ "${1:-}" == "--closing-odds" ]]; then
+  echo "Fetching closing odds snapshot..." | tee -a "${LOG_FILE}"
+  python -c "
+import sys; sys.path.insert(0, '.')
+from data_pipeline import db_utils
+from data_pipeline.odds_client import sync_to_db
+db_utils.initialize_schema()
+n = sync_to_db(snapshot_type='close')
+print(f'Synced {n} closing odds rows.')
 " 2>&1 | tee -a "${LOG_FILE}"
 else
   echo "Running full daily update..." | tee -a "${LOG_FILE}"

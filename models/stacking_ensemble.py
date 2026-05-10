@@ -8,11 +8,10 @@ Time-series cross-validation is used to generate OOF predictions,
 ensuring no future data leakage in the stacking training.
 """
 
-import hashlib
 import logging
 import os
 import pickle
-from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 from typing import Optional
 
@@ -195,7 +194,7 @@ class StackingEnsemble:
         features_hash: Optional[str] = None,
     ) -> None:
         """Write a prediction row to the predictions table."""
-        pred_id = hashlib.md5(f"{match_id}_{model_name}_{datetime.now().isoformat()}".encode()).hexdigest()[:20]
+        pred_id = hashlib.md5(f"{match_id}_{model_name}".encode()).hexdigest()[:20]
         version = current_model_version()
         db_utils.execute(
             """
@@ -203,7 +202,15 @@ class StackingEnsemble:
                 (prediction_id, match_id, model, model_version, prob_home, prob_draw, prob_away,
                  prob_over, prob_under, features_hash, claude_rationale)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (prediction_id) DO NOTHING
+            ON CONFLICT (prediction_id) DO UPDATE SET
+                prob_home = EXCLUDED.prob_home,
+                prob_draw = EXCLUDED.prob_draw,
+                prob_away = EXCLUDED.prob_away,
+                prob_over = EXCLUDED.prob_over,
+                prob_under = EXCLUDED.prob_under,
+                predicted_at = NOW(),
+                features_hash = EXCLUDED.features_hash,
+                claude_rationale = EXCLUDED.claude_rationale
             """,
             [
                 pred_id, match_id, model_name, version,

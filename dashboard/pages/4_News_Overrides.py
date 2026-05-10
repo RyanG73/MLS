@@ -125,7 +125,7 @@ else:
 
                 if st.button("🚫 Dismiss", key=f"dismiss_{item['item_id']}"):
                     db_utils.execute(
-                        "UPDATE news_items SET confirmed_by_user=TRUE WHERE item_id=?",
+                        "UPDATE news_items SET confirmed_by_user=TRUE WHERE item_id=%s",
                         [item["item_id"]]
                     )
                     st.rerun()
@@ -136,29 +136,32 @@ st.markdown("---")
 st.markdown("## Manual Override")
 st.caption("Add a strength adjustment for any upcoming match without a news item.")
 
-with st.form("manual_override"):
-    match_sel = st.selectbox("Select match", list(match_options.keys()))
-    description = st.text_input("Description (e.g., 'Key striker listed as doubtful')")
-    col_m1, col_m2 = st.columns(2)
-    home_manual = col_m1.slider("Home team strength adj", -0.30, 0.30, 0.0, 0.01, format="%.2f")
-    away_manual = col_m2.slider("Away team strength adj", -0.30, 0.30, 0.0, 0.01, format="%.2f")
+if not match_options:
+    st.info("No upcoming matches are available for manual overrides.")
+else:
+    with st.form("manual_override"):
+        match_sel = st.selectbox("Select match", list(match_options.keys()))
+        description = st.text_input("Description (e.g., 'Key striker listed as doubtful')")
+        col_m1, col_m2 = st.columns(2)
+        home_manual = col_m1.slider("Home team strength adj", -0.30, 0.30, 0.0, 0.01, format="%.2f")
+        away_manual = col_m2.slider("Away team strength adj", -0.30, 0.30, 0.0, 0.01, format="%.2f")
 
-    submitted = st.form_submit_button("Apply Manual Override")
-    if submitted and match_sel:
-        import uuid
-        from datetime import datetime, timezone
-        mid = match_options.get(match_sel, "")
-        if mid:
-            db_utils.execute(
-                """
-                INSERT INTO overrides (override_id, match_id, applied_at, description,
-                                       home_strength_adj, away_strength_adj, source)
-                VALUES (%s, %s, %s, %s, %s, %s, 'manual')
-                """,
-                [str(uuid.uuid4())[:16], mid, datetime.now(timezone.utc).isoformat(),
-                 description, home_manual, away_manual]
-            )
-            st.success(f"Manual override applied: home {home_manual:+.0%}, away {away_manual:+.0%}")
+        submitted = st.form_submit_button("Apply Manual Override")
+        if submitted and match_sel:
+            import uuid
+            from datetime import datetime, timezone
+            mid = match_options.get(match_sel, "")
+            if mid:
+                db_utils.execute(
+                    """
+                    INSERT INTO overrides (override_id, match_id, applied_at, description,
+                                           home_strength_adj, away_strength_adj, source)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'manual')
+                    """,
+                    [str(uuid.uuid4())[:16], mid, datetime.now(timezone.utc).isoformat(),
+                     description, home_manual, away_manual]
+                )
+                st.success(f"Manual override applied: home {home_manual:+.0%}, away {away_manual:+.0%}")
 
 st.markdown("---")
 

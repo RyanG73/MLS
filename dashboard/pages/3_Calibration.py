@@ -34,7 +34,8 @@ with st.sidebar:
         default=["ensemble", "dixon_coles"]
     )
     outcome_focus = st.selectbox("Outcome", ["Home Win", "Draw", "Away Win"])
-    season_filter = st.selectbox("Season", ["All"] + [str(s) for s in range(2011, 2026)])
+    seasons = db_utils.query("SELECT DISTINCT season FROM matches ORDER BY season DESC")
+    season_filter = st.selectbox("Season", ["All"] + [str(s) for s in seasons["season"].tolist()])
 
 
 @st.cache_data(ttl=300)
@@ -42,9 +43,15 @@ def load_calibration_data(season_f: str) -> pd.DataFrame:
     season_clause = f"AND m.season = {season_f}" if season_f != "All" else ""
     return db_utils.query(
         f"""
+        WITH latest_predictions AS (
+            SELECT DISTINCT ON (match_id, model) *
+            FROM predictions
+            ORDER BY match_id, model, predicted_at DESC
+        )
         SELECT p.model, p.prob_home, p.prob_draw, p.prob_away,
+               p.prob_over, p.prob_under,
                m.home_goals, m.away_goals, m.date, m.season
-        FROM predictions p
+        FROM latest_predictions p
         JOIN matches m ON p.match_id = m.match_id
         WHERE m.status='completed' AND m.home_goals IS NOT NULL {season_clause}
         """

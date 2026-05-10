@@ -1,162 +1,120 @@
 # MLS Prediction Dashboard
 
-Production-grade MLS match prediction system with ensemble modeling and Streamlit dashboard.
-
----
+End-to-end MLS match prediction and market-tracking system for a Raspberry Pi
+deployment backed by PostgreSQL and a Streamlit dashboard.
 
 ## Architecture
 
+```text
+Data sources             Feature engineering       Models
+------------             -------------------       ------
+ASA API                  ELO ratings               Dixon-Coles
+ESPN scoreboard          Rolling xG/form           XGBoost/LightGBM
+The Odds API             Travel/rest               Bayesian Stan/R
+RSS + Claude             Injury/news overrides     Stacking ensemble
+FBref/worldfootballR     Referee tendencies        penaltyblog benchmark
+
+Predictions, odds, bets, overrides, and run status are stored in PostgreSQL.
 ```
-Data Sources (free)          Feature Engineering        Models
-──────────────────           ───────────────────        ──────
-ASA API (itscalledsoccer) →  ELO ratings            →  Dixon-Coles (Python)
-ESPN hidden API           →  xG rolling averages    →  XGBoost + LightGBM
-The Odds API (Pinnacle)   →  Travel / rest          →  Bayesian (R/brms)
-RSS feeds + Claude API    →  Referee tendencies     →  Stacking Ensemble
-ESPN injury reports       →  DP availability        →  ↓
-                                                       Predictions → DuckDB → Streamlit
-```
 
----
+## Setup
 
-## First-Time Setup (Raspberry Pi)
-
-### 1. System Dependencies
+### System Packages
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3.11 python3.11-venv python3-pip r-base r-base-dev \
-    libssl-dev libcurl4-openssl-dev libxml2-dev libfontconfig1-dev \
-    libharfbuzz-dev libfribidi-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
-    cmake git build-essential
+sudo apt install -y python3.11 python3.11-venv python3-pip postgresql \
+    r-base r-base-dev libssl-dev libcurl4-openssl-dev libxml2-dev \
+    libfontconfig1-dev libharfbuzz-dev libfribidi-dev libfreetype6-dev \
+    libpng-dev libtiff5-dev libjpeg-dev cmake git build-essential
 ```
 
-### 2. Clone the Repository
-
-```bash
-cd /home/pi
-git clone http://your-repo-url/mls.git mls
-cd mls
-git checkout claude/mls-prediction-dashboard-C2mQM
-```
-
-### 3. Python Environment
+### Python And R
 
 ```bash
 python3.11 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-```
-
-> **Note:** On Raspberry Pi, `rpy2` and `lightgbm` may need extra build time. If lightgbm fails:
-> `pip install lightgbm --prefer-binary`
-
-### 4. R Packages
-
-```bash
 sudo Rscript r_requirements.R
 ```
 
-Installs `brms`, `worldfootballR`, `posterior`, `tidyverse`, `jsonlite`, `lubridate`.
-First-time Stan compilation takes 5–15 minutes.
+The Bayesian model is optional at runtime. If R, Stan, or the required packages
+are unavailable, the daily pipeline records that status and continues with the
+Python models.
 
-### 5. API Keys
+### Environment
 
-Create `/home/pi/mls/.env`:
+Create `.env` in the repo root:
 
 ```env
-CLAUDE_API_KEY=sk-ant-...
-ODDS_API_KEY=your_odds_api_key_here
-MLS_DB_PATH=/home/pi/mls/data/mls.duckdb
+PG_HOST=127.0.0.1
+PG_PORT=5432
+PG_DBNAME=mls
+PG_USER=ryang
+PG_PASSWORD=...
+ODDS_API_KEY=...
+CLAUDE_API_KEY=...
+# Optional Claude model override.
+# CLAUDE_MODEL=...
+# Optional season pin. If omitted, the current calendar year is used.
+# MLS_CURRENT_SEASON=2026
 ```
 
-- **Claude API key**: https://console.anthropic.com
-- **The Odds API**: https://the-odds-api.com (free tier: 500 req/month)
+Database defaults live in `config/settings.yaml`, but environment variables are
+the source of truth for deployment secrets.
 
-### 6. Initial Data Backfill
+## Data And Model Runs
+
+Initial backfill:
 
 ```bash
 source venv/bin/activate
 python scripts/backfill_history.py
 ```
 
-Expected runtime: 20–60 minutes. Pulls full MLS history, fits all models.
+Daily update:
 
-### 7. Run the Dashboard
+```bash
+source venv/bin/activate
+python scripts/daily_update.py
+```
+
+The daily run initializes schema, syncs results/fixtures, refreshes features,
+fits models, stores latest predictions deterministically, fetches opening odds,
+creates simulated value bets, settles recent bets, and records status in
+`pipeline_runs`.
+
+Optional referee-stat refresh from FBref/worldfootballR:
+
+```bash
+source venv/bin/activate
+python scripts/import_referee_stats.py --season 2026
+```
+
+Performance report:
+
+```bash
+source venv/bin/activate
+python scripts/performance_report.py
+```
+
+## Streamlit Dashboard
 
 ```bash
 source venv/bin/activate
 streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
 ```
 
-Dashboard available at `http://[pi-ip]:8501`
+Pages:
 
----
+- Predictions: upcoming match probabilities and value-bet flags.
+- Performance: Brier/log-loss, CLV, ROI, and team breakdowns.
+- Calibration: reliability and sharpness views.
+- News & Overrides: reviewed Claude/RSS news and manual strength adjustments.
+- Betting Tracker: simulated fractional-Kelly P&L and CLV.
 
-## Cloudflare Tunnel (Remote Access)
-
-### Install cloudflared
-
-```bash
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 \
-    -o /usr/local/bin/cloudflared
-chmod +x /usr/local/bin/cloudflared
-```
-
-### Authenticate and Create Tunnel
-
-```bash
-cloudflared tunnel login
-cloudflared tunnel create mls-dashboard
-```
-
-### Configure Tunnel (`~/.cloudflared/config.yml`)
-
-```yaml
-tunnel: mls-dashboard
-credentials-file: /home/pi/.cloudflared/<tunnel-id>.json
-
-ingress:
-  - hostname: mls.yourdomain.com
-    service: http://localhost:8501
-  - service: http_status:404
-```
-
-Add a CNAME DNS record in Cloudflare: `mls.yourdomain.com` → `<tunnel-id>.cfargotunnel.com`
-
-### Streamlit as Systemd Service (`/etc/systemd/system/mls-dashboard.service`)
-
-```ini
-[Unit]
-Description=MLS Prediction Dashboard (Streamlit)
-After=network.target
-
-[Service]
-User=pi
-WorkingDirectory=/home/pi/mls
-EnvironmentFile=/home/pi/mls/.env
-ExecStart=/home/pi/mls/venv/bin/streamlit run dashboard/app.py \
-    --server.port 8501 --server.address 127.0.0.1 --server.headless true
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl enable mls-dashboard cloudflared
-sudo systemctl start mls-dashboard cloudflared
-```
-
----
-
-## Cron Jobs
-
-```bash
-crontab -e
-```
+## Cron
 
 ```cron
 # Daily DB backup at 5 AM (Phase 2)
@@ -168,10 +126,13 @@ crontab -e
 # News polling every 6 hours
 0 */6 * * * /home/ryang/mls/scripts/daily_update.sh --news-only >> /home/ryang/mls/logs/news.log 2>&1
 
-# Pre-match high-frequency lineup refresh during likely match hours (Phase 2)
+# Closing odds snapshots near common kickoff windows
+45 18,19,20,21,22 * * * /home/ryang/mls/scripts/daily_update.sh --closing-odds >> /home/ryang/mls/logs/odds.log 2>&1
+
+# Pre-match high-frequency lineup refresh during likely match hours
 */5 14-23 * * * /home/ryang/mls/venv/bin/python /home/ryang/mls/scripts/pre_match_update.py >> /home/ryang/mls/logs/prematch.log 2>&1
 
-# Nightly drift detector (Phase 2)
+# Nightly drift detector
 30 6 * * * /home/ryang/mls/venv/bin/python /home/ryang/mls/scripts/check_drift.py >> /home/ryang/mls/logs/drift.log 2>&1
 ```
 
@@ -179,77 +140,29 @@ Add `NTFY_TOPIC=your-secret-topic-name` to `/home/ryang/mls/.env` for push notif
 
 ---
 
-## Directory Structure
+## Configuration
 
-```
-MLS/
-├── config/
-│   ├── __init__.py          # Settings loader
-│   └── settings.yaml        # All tunable parameters
-├── data_pipeline/
-│   ├── asa_client.py        # American Soccer Analysis API
-│   ├── schedule_client.py   # ESPN fixtures + results
-│   ├── odds_client.py       # Pinnacle odds via The Odds API
-│   ├── injury_scraper.py    # ESPN injury report
-│   ├── news_monitor.py      # RSS feeds + Claude API
-│   └── db_utils.py          # DuckDB helpers
-├── features/
-│   ├── elo_ratings.py       # ELO system
-│   ├── xg_features.py       # Rolling xG with decay
-│   ├── travel_features.py   # Distance + schedule congestion
-│   ├── referee_features.py  # Referee tendency stats
-│   └── feature_builder.py   # Master feature assembly
-├── models/
-│   ├── dixon_coles.py       # Poisson model (MLE)
-│   ├── gradient_boost.py    # XGBoost + LightGBM
-│   ├── stacking_ensemble.py # Stacking meta-learner
-│   └── r_bridge/
-│       ├── bayesian_elo.R   # Hierarchical Bayesian (Stan/brms)
-│       └── run_bayes.py     # Python → R bridge
-├── market/
-│   ├── kelly.py             # Fractional Kelly sizing
-│   └── clv_tracker.py       # Closing line value
-├── dashboard/
-│   ├── app.py               # Streamlit entry point
-│   └── pages/
-│       ├── 1_Predictions.py
-│       ├── 2_Performance.py
-│       ├── 3_Calibration.py
-│       ├── 4_News_Overrides.py
-│       └── 5_Betting_Tracker.py
-├── scripts/
-│   ├── backfill_history.py  # One-time historical load
-│   ├── daily_update.py      # Daily pipeline orchestrator
-│   └── daily_update.sh      # Cron entry point
-├── data/                    # DuckDB + model artifacts (gitignored)
-├── logs/                    # Daily log files (gitignored)
-├── requirements.txt
-└── r_requirements.R
+Important settings in `config/settings.yaml`:
+
+| Setting | Purpose |
+| --- | --- |
+| `data.backfill_start_season` | First season to load from ASA history. |
+| `data.current_season` | Optional override; defaults to current year or `MLS_CURRENT_SEASON`. |
+| `elo.*` | ELO home advantage, K factor, and season regression. |
+| `features.*` | xG decay windows, form windows, expansion-team priors. |
+| `dixon_coles.*` | Score truncation, time decay, and over/under line. |
+| `gradient_boost.*` | Time-series CV and Optuna tuning controls. |
+| `bayesian.*` | Stan chains, iterations, cores, and ELO prior scale. |
+| `market.*` | Bookmaker, odds market, edge threshold, and Kelly fractions. |
+| `dashboard.*` | Streamlit display defaults. |
+
+## Development Checks
+
+```bash
+python -m compileall -q .
+pytest
 ```
 
----
-
-## Model Details
-
-| Model | Approach | Output |
-|-------|----------|--------|
-| Dixon-Coles | Poisson MLE with time-decay | Score matrix → P(H/D/A), P(O/U) |
-| XGBoost | Multiclass gradient boosting | P(H/D/A) |
-| LightGBM | Binary gradient boosting | P(Over 2.5) |
-| Bayesian (brms) | Hierarchical Poisson + ELO prior | Posterior predictive probs |
-| Stacking Ensemble | Calibrated logistic meta-learner | Final probabilities |
-
----
-
-## Key Configuration (`config/settings.yaml`)
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `elo.k_factor` | 20 | ELO update speed |
-| `elo.season_regression_pct` | 0.30 | Season-start regression to 1500 |
-| `features.xg_half_life_days` | 60 | xG decay half-life |
-| `dixon_coles.time_decay_half_life_days` | 180 | DC weight decay |
-| `market.default_edge_threshold_pct` | 5.0 | Value-bet alert threshold |
-| `market.kelly_fractions` | [0.25, 0.50] | Fractional Kelly options |
-| `bayesian.chains` | 4 | MCMC chains |
-| `news.claude_model` | claude-sonnet-4-6 | Claude model for news analysis |
+Tests use mocked API fixtures for fast, network-free checks of normalization,
+feature leakage boundaries, odds contracts, Kelly sizing, and probability
+invariants.

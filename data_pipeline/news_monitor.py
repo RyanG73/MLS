@@ -24,7 +24,7 @@ from data_pipeline import db_utils
 logger = logging.getLogger(__name__)
 
 _NEWS_CFG = SETTINGS["news"]
-_CLAUDE_MODEL = _NEWS_CFG["claude_model"]
+_CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", _NEWS_CFG["claude_model"])
 _KEYWORDS = [k.lower() for k in _NEWS_CFG["keywords"]]
 _MAX_IMPACT = _NEWS_CFG["impact_magnitude_max"]
 
@@ -190,7 +190,7 @@ def run_pipeline() -> int:
     if rows:
         df = pd.DataFrame(rows)
         db_utils.upsert_dataframe(df, "news_items", ["item_id"])
-        logger.info("Stored %d news items to DuckDB.", processed)
+        logger.info("Stored %d news items to PostgreSQL.", processed)
 
     return processed
 
