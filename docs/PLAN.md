@@ -1,13 +1,16 @@
 # MLS Prediction Dashboard — Implementation Plan
 
 > **Live eval results (last run: 2026-05-10, branch `claude/mls-prediction-dashboard-C2mQM`)**
-> Phase 6 eval (1X2 only, O/U dropped). Test seasons: 2023–2024 (2022 skipped, COVID cal fold).
-> Naive baseline: 0.6469. XGBoost +All: 0.6404 (+1.0%). Ensemble stacked: 0.6427 (+0.7%).
-> Calibration error: 0.088 (stacked meta-learner). ELO: K=25, HOME_ADV=80, REGRESS=40%.
-> A/B results: +Form10 KEEP (Δ=+0.0014), +Games14d marginal (+0.0001), +DCParams DROP, +PostFIFA DROP, +Kickoff DROP.
-> PPDA/possession: unavailable (ASA has no get_game_xpass method). Set-piece xGA: unavailable from API.
-> Feature importances still uniform (~4% each). Need genuinely new signal (player availability, lineups).
-> Next: add form_10 to Base, build player/roster pipeline (FotMob, Transfermarkt, ASA player metrics).
+> Phase 6b eval (1X2 only). Test seasons: 2023–2024 (2022 skipped, COVID cal fold).
+> Naive baseline: 0.6469. XGBoost +GKQuality: 0.6387 (+1.3%). Ensemble stacked: 0.6437 (+0.5%).
+> Calibration error: 0.1829 (stacked, still poor; temperature scaling; target <0.05).
+> ELO: K=25, HOME_ADV=80, REGRESS=40%. DC calibrated: −1.3% (hurts ensemble).
+> A/B results (new Phase 6b): +GKQuality KEEP (Δ=+0.0034), +GoalsAdded DROP (−0.0025),
+>   +Squad DROP (−0.0018), +DCParams DROP (−0.0016), +Games14d marginal (+0.0005).
+> Base now = ELO + xG[5,15] + form[5,10] + GK quality. Feature importances still ~4% each.
+> PPDA/possession: unavailable (no get_game_xpass). Set-piece xGA: unavailable.
+> DC drag: stacked (0.6437) worse than XGB alone (0.6387). Consider XGB-only ensemble.
+> Next: A/B test GK in new Base; explore lineup / injury signal sources for match-level data.
 
 ---
 

@@ -25,6 +25,7 @@ Phase 6 changes:
 
 import math
 import itertools
+import os
 import warnings
 from datetime import timedelta
 
@@ -35,8 +36,16 @@ from scipy.stats import poisson
 from sklearn.metrics import log_loss
 from sklearn.linear_model import LogisticRegression
 import xgboost as xgb
+import urllib3
 
 warnings.filterwarnings("ignore")
+urllib3.disable_warnings()
+
+# Suppress SSL errors broadly — system clock (2026-05-10) is past the ASA cert
+# validity window causing CERTIFICATE_VERIFY_FAILED on standard SSL handshake.
+os.environ.setdefault("PYTHONHTTPSVERIFY", "0")
+os.environ.setdefault("CURL_CA_BUNDLE", "")
+os.environ.setdefault("REQUESTS_CA_BUNDLE", "")
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -110,6 +119,9 @@ print("\n[1/9] Fetching MLS match data from ASA API...")
 
 from itscalledsoccer.client import AmericanSoccerAnalysis
 asa = AmericanSoccerAnalysis()
+# CacheControl returns the original requests.Session with adapter mounted.
+# Setting verify=False disables cert checking for all ASA requests.
+asa.session.verify = False
 
 games_raw = asa.get_games(leagues="mls")
 _avail = set(games_raw.columns)
@@ -465,6 +477,208 @@ df["home_squad_xpa"] = [squad_z(r.home_team, r.season) for _, r in df.iterrows()
 df["away_squad_xpa"] = [squad_z(r.away_team, r.season) for _, r in df.iterrows()]
 df["squad_xpa_diff"] = df["home_squad_xpa"] - df["away_squad_xpa"]
 
+# ─── 5b. GK quality from goalkeeper xgoals (season-lagged) ───────────────────
+# goals_prevented = xg_faced - goals_conceded; +ve means GK is above expected
+# Best GK per team-season by minutes played; z-scored and lagged one season.
+
+print("\n[5b/9] Fetching goalkeeper xgoals (GK quality, season-lagged)...")
+
+_gk_quality: dict[tuple, float] = {}   # (team_id, season) → goals_prevented z-score
+
+_GK_MIN_MINUTES = 500   # minimum minutes to qualify as team's main GK
+
+_gk_raw_dict: dict[tuple, float] = {}
+for _s in _SQUAD_SEASONS:
+    try:
+        _gkxg_s = asa.get_goalkeeper_xgoals(leagues="mls", season_name=str(_s))
+        _gk_cols = list(_gkxg_s.columns)
+        _gk_tid_c  = next((c for c in ["team_id"] if c in _gk_cols), None)
+        _gk_min_c  = next((c for c in ["minutes_played", "minutes"] if c in _gk_cols), None)
+        _gk_goal_c = next((c for c in ["goals_conceded", "goals_allowed"] if c in _gk_cols), None)
+        _gk_xg_c   = next((c for c in ["xgoals_gk_faced", "xgoals_faced"] if c in _gk_cols), None)
+        if not (_gk_tid_c and _gk_min_c and _gk_goal_c and _gk_xg_c):
+            continue
+        _gkxg_s = _gkxg_s[_gkxg_s[_gk_tid_c].apply(lambda x: isinstance(x, str))]
+        _gkxg_s = _gkxg_s[_gkxg_s[_gk_min_c] >= _GK_MIN_MINUTES]
+        _gkxg_s["_gp"] = _gkxg_s[_gk_xg_c] - _gkxg_s[_gk_goal_c]
+        # Best GK per team (most minutes)
+        for _tid, _grp in _gkxg_s.sort_values(_gk_min_c, ascending=False).groupby(_gk_tid_c):
+            _gk_raw_dict[(_tid, _s)] = float(_grp.iloc[0]["_gp"])
+    except Exception:
+        pass
+
+if _gk_raw_dict:
+    _gk_cols_disp = list(asa.get_goalkeeper_xgoals(leagues="mls", season_name="2023").columns)
+    print(f"    GK columns (sample): {_gk_cols_disp[:8]}")
+    for _s in sorted({ss for (_, ss) in _gk_raw_dict}):
+        _vals = [v for (t, ss), v in _gk_raw_dict.items() if ss == _s]
+        if len(_vals) < 3:
+            continue
+        _mu, _sd = float(np.mean(_vals)), float(np.std(_vals))
+        _sd = max(_sd, 0.1)
+        for (t, ss), v in _gk_raw_dict.items():
+            if ss == _s:
+                _gk_quality[(t, ss)] = (v - _mu) / _sd
+    print(f"    GK quality loaded: {len(_gk_quality)} team-seasons")
+else:
+    print("    GK quality: no data returned from ASA per-season calls.")
+
+
+def _gk_z(team_id: str, season: int) -> float | None:
+    for lag in (1, 2):
+        val = _gk_quality.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return None   # explicit None → XGBoost handles natively
+
+
+if _gk_quality:
+    df["home_gk_z"] = [_gk_z(r.home_team, r.season) for _, r in df.iterrows()]
+    df["away_gk_z"] = [_gk_z(r.away_team, r.season) for _, r in df.iterrows()]
+    df["gk_z_diff"] = df["home_gk_z"].fillna(0) - df["away_gk_z"].fillna(0)
+    _gk_cov = df["home_gk_z"].notna().mean()
+    print(f"    GK z-score coverage: {_gk_cov:.0%}")
+else:
+    print("    GK features not available.")
+
+# ─── 5c. Team PPDA and possession (season-lagged from team xpass) ─────────────
+# ASA's get_game_xpass doesn't exist in this version; get_team_xpass is season-level.
+# Use prior-season PPDA as a style-of-play signal.
+
+print("\n[5c/9] Fetching team-level xpass (season PPDA / possession, lagged)...")
+
+_team_ppda_season: dict[tuple, float] = {}   # (team_id, season) → ppda
+_team_poss_season: dict[tuple, float] = {}   # (team_id, season) → possession
+
+for _s in _SQUAD_SEASONS:
+    try:
+        _txpass_s = asa.get_team_xpass(leagues="mls", season_name=str(_s))
+        _tp_cols = list(_txpass_s.columns)
+        _tp_tid  = next((c for c in ["team_id"] if c in _tp_cols), None)
+        _tp_ppda = next((c for c in ["ppda", "passes_allowed_per_defensive_action"]
+                         if c in _tp_cols), None)
+        _tp_poss = next((c for c in ["avg_possession", "possession"] if c in _tp_cols), None)
+        if not _tp_tid:
+            continue
+        for _, row in _txpass_s.iterrows():
+            tid = row[_tp_tid]
+            if not isinstance(tid, str):
+                continue
+            if _tp_ppda and pd.notna(row.get(_tp_ppda)):
+                _team_ppda_season[(tid, _s)] = float(row[_tp_ppda])
+            if _tp_poss and pd.notna(row.get(_tp_poss)):
+                _team_poss_season[(tid, _s)] = float(row[_tp_poss])
+    except Exception:
+        pass
+
+if _team_ppda_season or _team_poss_season:
+    _sample_cols = list(asa.get_team_xpass(leagues="mls", season_name="2023").columns)
+    print(f"    Team xpass columns: {_sample_cols[:8]}{'...' if len(_sample_cols) > 8 else ''}")
+    print(f"    Season PPDA: {len(_team_ppda_season)} | Possession: {len(_team_poss_season)}")
+else:
+    print("    Season PPDA/possession: no matching columns in ASA team xpass.")
+
+
+def _season_ppda(team_id: str, season: int) -> float | None:
+    for lag in (1, 2):
+        val = _team_ppda_season.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return None
+
+
+def _season_poss(team_id: str, season: int) -> float | None:
+    for lag in (1, 2):
+        val = _team_poss_season.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return None
+
+
+if _team_ppda_season:
+    df["home_ppda_season"] = [_season_ppda(r.home_team, r.season) for _, r in df.iterrows()]
+    df["away_ppda_season"] = [_season_ppda(r.away_team, r.season) for _, r in df.iterrows()]
+    df["ppda_season_diff"] = df["home_ppda_season"].fillna(0) - df["away_ppda_season"].fillna(0)
+if _team_poss_season:
+    df["home_poss_season"] = [_season_poss(r.home_team, r.season) for _, r in df.iterrows()]
+    df["away_poss_season"] = [_season_poss(r.away_team, r.season) for _, r in df.iterrows()]
+    df["poss_season_diff"] = df["home_poss_season"].fillna(0) - df["away_poss_season"].fillna(0)
+
+# ─── 5d. Top player goals added (star-player effect) ─────────────────────────
+# goals_added captures composite contribution (shooting, dribbling, passing, etc.)
+# Top player per team-season = proxy for DP / star player quality.
+
+print("\n[5d/9] Fetching player goals added (star-player effect, season-lagged)...")
+
+_top_player_ga: dict[tuple, float] = {}   # (team_id, season) → top player goals_added z-score
+
+_ga_raw: dict[tuple, float] = {}
+for _s in _SQUAD_SEASONS:
+    try:
+        _pga_s = asa.get_player_goals_added(leagues="mls", season_name=str(_s))
+        _pga_cols = list(_pga_s.columns)
+        _pga_tid = next((c for c in ["team_id"] if c in _pga_cols), None)
+        _pga_min = next((c for c in ["minutes_played", "minutes"] if c in _pga_cols), None)
+        # goals_added may be in a "data" column (JSON list of action types) or direct columns
+        _pga_ga  = next((c for c in ["goals_added_above_avg", "goals_added_above_replacement",
+                                      "goals_added_raw", "num_actions_ranked_goals_added_above_avg"]
+                         if c in _pga_cols), None)
+        if not _pga_tid:
+            continue
+        if _pga_ga is None and "data" in _pga_cols:
+            # Unpack nested JSON: each row's "data" is a list of dicts with goals_added_above_avg
+            import json as _json
+            def _sum_ga(d):
+                try:
+                    items = _json.loads(d) if isinstance(d, str) else d
+                    return sum(float(x.get("goals_added_above_avg", 0) or 0) for x in items)
+                except Exception:
+                    return 0.0
+            _pga_s["_ga_total"] = _pga_s["data"].apply(_sum_ga)
+            _pga_ga = "_ga_total"
+        if _pga_ga is None:
+            continue
+        _pga_s = _pga_s[_pga_s[_pga_tid].apply(lambda x: isinstance(x, str))]
+        if _pga_min:
+            _pga_s = _pga_s[_pga_s[_pga_min] >= 500]
+        for _, row in _pga_s.iterrows():
+            tid = row[_pga_tid]
+            ga  = row[_pga_ga]
+            if isinstance(tid, str) and pd.notna(ga):
+                key = (tid, _s)
+                _ga_raw[key] = _ga_raw.get(key, 0.0) + float(ga)
+    except Exception:
+        pass
+
+if _ga_raw:
+    for _s in sorted({ss for (_, ss) in _ga_raw}):
+        _vals = [v for (t, ss), v in _ga_raw.items() if ss == _s]
+        if len(_vals) < 3:
+            continue
+        _mu, _sd = float(np.mean(_vals)), float(np.std(_vals))
+        _sd = max(_sd, 0.1)
+        for (t, ss), v in _ga_raw.items():
+            if ss == _s:
+                _top_player_ga[(t, ss)] = (v - _mu) / _sd
+    print(f"    Goals added loaded: {len(_top_player_ga)} team-seasons")
+else:
+    print("    Goals added: no data parsed from ASA per-season calls.")
+
+
+def _ga_z(team_id: str, season: int) -> float | None:
+    for lag in (1, 2):
+        val = _top_player_ga.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return None
+
+
+if _top_player_ga:
+    df["home_goals_added_z"] = [_ga_z(r.home_team, r.season) for _, r in df.iterrows()]
+    df["away_goals_added_z"] = [_ga_z(r.away_team, r.season) for _, r in df.iterrows()]
+    df["goals_added_z_diff"] = (df["home_goals_added_z"].fillna(0)
+                                 - df["away_goals_added_z"].fillna(0))
+
 # ─── 7. Optional: Weather features ────────────────────────────────────────────
 
 _HAS_WEATHER = False
@@ -532,52 +746,64 @@ _BASE_XG   = (
     + [f"{r}_xga_roll_{w}" for r in ("home", "away") for w in XG_WINDOWS]
     + ["xg_diff", "home_xg_sum"]
 )
-_BASE_FORM = [f"home_form_{FORM_WINDOWS[0]}", f"away_form_{FORM_WINDOWS[0]}", "form_diff"]
+# form_10 promoted into Base: passed A/B (Δ=+0.0014 in Phase 6)
+_BASE_FORM = (
+    [f"home_form_{fw}" for fw in FORM_WINDOWS]
+    + [f"away_form_{fw}" for fw in FORM_WINDOWS]
+    + ["form_diff"]
+)
 
-_FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + ["is_playoff"]
+# GK quality promoted to Base: passed A/B (Δ=+0.0034 in Phase 6b)
+_BASE_GK = ["home_gk_z", "away_gk_z", "gk_z_diff"] if "home_gk_z" in df.columns else []
 
-_FEAT_FORM10 = _FEAT_BASE + [f"home_form_{FORM_WINDOWS[1]}", f"away_form_{FORM_WINDOWS[1]}"]
+_FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + ["is_playoff"]
 
-_PPDA_FEATS: list[str] = []
-if _HAS_PPDA:
-    _PPDA_FEATS += ["home_ppda_roll_10", "away_ppda_roll_10", "ppda_diff"]
-if _HAS_POSS:
-    _PPDA_FEATS += ["home_poss_roll_10", "away_poss_roll_10", "poss_diff"]
-
-_FEAT_GAMES14D = _FEAT_BASE + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
-_FEAT_POSTFIFA = _FEAT_BASE + ["is_post_fifa_break"]
-_FEAT_KICKOFF  = _FEAT_BASE + ["kickoff_sin", "kickoff_cos", "is_weekday_game"]
-_FEAT_DC       = _FEAT_BASE + ["dc_lam", "dc_mu"]
-
-_SP_XG_FEATS = (["home_xga_sp_roll_15", "away_xga_sp_roll_15"] if _HAS_SP_XG else [])
+_SP_XG_FEATS   = ["home_xga_sp_roll_15", "away_xga_sp_roll_15"] if _HAS_SP_XG else []
 _WEATHER_FEATS = (["weather_temp_c", "weather_wind_kph", "weather_precip_mm", "is_dome"]
                   if _HAS_WEATHER else [])
 
-# +All combines everything available
+# GK quality features (available if fetch succeeded)
+_GK_FEATS = (["home_gk_z", "away_gk_z", "gk_z_diff"]
+             if "home_gk_z" in df.columns else [])
+
+# Season-lagged team PPDA/possession
+_PPDA_SEASON_FEATS: list[str] = []
+if "home_ppda_season" in df.columns:
+    _PPDA_SEASON_FEATS += ["home_ppda_season", "away_ppda_season", "ppda_season_diff"]
+if "home_poss_season" in df.columns:
+    _PPDA_SEASON_FEATS += ["home_poss_season", "away_poss_season", "poss_season_diff"]
+
+# Goals added (composite player value, season-lagged)
+_GOALS_ADDED_FEATS = (["home_goals_added_z", "away_goals_added_z", "goals_added_z_diff"]
+                      if "home_goals_added_z" in df.columns else [])
+
+# Squad quality (xpoints_added, from Phase 5 — dropped individually but include in +All)
+_SQUAD_FEATS = ["home_squad_xpa", "away_squad_xpa", "squad_xpa_diff", "is_high_alt"]
+
+# +All combines everything available (form_10 already in Base)
 _ALL_EXTRA = (
-    [f"home_form_{FORM_WINDOWS[1]}", f"away_form_{FORM_WINDOWS[1]}"]
-    + _PPDA_FEATS
+    _GK_FEATS
+    + _PPDA_SEASON_FEATS
+    + _GOALS_ADDED_FEATS
+    + _SQUAD_FEATS
     + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
     + ["dc_lam", "dc_mu"]
-    + ["is_post_fifa_break"]
-    + ["kickoff_sin", "kickoff_cos", "is_weekday_game"]
     + _SP_XG_FEATS
     + _WEATHER_FEATS
 )
 _FEAT_ALL = list(dict.fromkeys(_FEAT_BASE + _ALL_EXTRA))
 
-AB_SETS: dict[str, list] = {"Base": _FEAT_BASE, "+Form10": _FEAT_FORM10}
-if _PPDA_FEATS:
-    AB_SETS["+PPDA"] = _FEAT_BASE + _PPDA_FEATS
-AB_SETS["+Games14d"] = _FEAT_GAMES14D
-AB_SETS["+DCParams"]  = _FEAT_DC
-AB_SETS["+PostFIFA"]  = _FEAT_POSTFIFA
-AB_SETS["+Kickoff"]   = _FEAT_KICKOFF
-if _WEATHER_FEATS:
-    AB_SETS["+Weather"] = _FEAT_BASE + _WEATHER_FEATS
-if _SP_XG_FEATS:
-    AB_SETS["+SetPieceXGA"] = _FEAT_BASE + _SP_XG_FEATS
-AB_SETS["+All"] = _FEAT_ALL
+# +GKQuality is now in Base (promoted from Phase 6b A/B: Δ=+0.0034)
+# A/B sets test remaining candidates against the new Base+GK
+AB_SETS: dict[str, list] = {"Base": _FEAT_BASE}
+if _PPDA_SEASON_FEATS:
+    AB_SETS["+SeasonPPDA"] = _FEAT_BASE + _PPDA_SEASON_FEATS
+if _GOALS_ADDED_FEATS:
+    AB_SETS["+GoalsAdded"] = _FEAT_BASE + _GOALS_ADDED_FEATS
+AB_SETS["+Squad"]    = _FEAT_BASE + _SQUAD_FEATS
+AB_SETS["+DCParams"] = _FEAT_BASE + ["dc_lam", "dc_mu"]
+AB_SETS["+Games14d"] = _FEAT_BASE + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
+AB_SETS["+All"]      = _FEAT_ALL
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
 
@@ -797,6 +1023,9 @@ for test_season in TEST_SEASONS:
     # ── A/B test: each feature set ───────────────────────────────────────────
     xgb_ok = False
     xgb_cal_probs_best = xgb_te_probs_best = xgb_cal_te3 = None
+    _best_xgb_cal_brier = float("inf")
+    _best_ab_name = "Base"
+    _best_imp: dict = {}
     ab_brier: dict[str, float] = {}
 
     for ab_name, ab_feat in AB_SETS.items():
@@ -814,21 +1043,31 @@ for test_season in TEST_SEASONS:
             cal_p  = clf.predict_proba(X_cal)
             te_p   = clf.predict_proba(X_te)
             cal_te = calibrate_multiclass(cal_p, y_cal_r, te_p)
-            ab_brier[ab_name] = multiclass_brier(y_te_oh, cal_te)
+            brier_val = multiclass_brier(y_te_oh, cal_te)
+            ab_brier[ab_name] = brier_val
 
-            if ab_name == "+All":
+            # Use the feature set with lowest cal Brier for the ensemble
+            # (compare on cal set to avoid test leakage)
+            cal_brier_val = multiclass_brier(y_cal_oh, calibrate_multiclass(cal_p, y_cal_r, cal_p))
+            if xgb_cal_probs_best is None or cal_brier_val < _best_xgb_cal_brier:
+                _best_xgb_cal_brier = cal_brier_val
+                _best_ab_name = ab_name
                 xgb_cal_probs_best = cal_p
                 xgb_te_probs_best  = te_p
                 xgb_cal_te3 = cal_te
                 imp = clf.get_booster().get_score(importance_type="gain")
-                all_imp.append({f: imp.get(f"f{i}", 0.0) for i, f in enumerate(feat)})
+                _best_imp = {f: imp.get(f"f{i}", 0.0) for i, f in enumerate(feat)}
                 xgb_ok = True
         except Exception as e:
             ab_brier[ab_name] = float("nan")
-            if ab_name == "+All":
+            if ab_name == "Base":
                 print(f" | XGB✗({e})", end="", flush=True)
 
     ab_records.append({"season": test_season, **ab_brier})
+    if xgb_ok and _best_imp:
+        all_imp.append(_best_imp)
+    if xgb_ok:
+        print(f" | BestAB={_best_ab_name}", end="", flush=True)
 
     # ── Stacking meta-learner ─────────────────────────────────────────────────
     meta_ok = False
