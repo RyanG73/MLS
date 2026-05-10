@@ -1,10 +1,13 @@
 # MLS Prediction Dashboard — Implementation Plan
 
 > **Live eval results (last run: 2026-05-10, branch `claude/mls-prediction-dashboard-C2mQM`)**
-> Best model: XGBoost Base +1.1% over naive (Brier 0.6398 vs 0.6469). Calibration error: 0.096 (stacked).
-> A/B results: +DrawRate marginal (+0.0006), +DCParams DROP, +RestTravel DROP, +SquadAlt DROP.
-> ELO grid winner: K=25, HOME_ADV=80, REGRESS=40%. DC decay: 120 days.
-> Next: accept current ceiling (~1%), move to production setup, or add injury/availability signal.
+> Phase 6 eval (1X2 only, O/U dropped). Test seasons: 2023–2024 (2022 skipped, COVID cal fold).
+> Naive baseline: 0.6469. XGBoost +All: 0.6404 (+1.0%). Ensemble stacked: 0.6427 (+0.7%).
+> Calibration error: 0.088 (stacked meta-learner). ELO: K=25, HOME_ADV=80, REGRESS=40%.
+> A/B results: +Form10 KEEP (Δ=+0.0014), +Games14d marginal (+0.0001), +DCParams DROP, +PostFIFA DROP, +Kickoff DROP.
+> PPDA/possession: unavailable (ASA has no get_game_xpass method). Set-piece xGA: unavailable from API.
+> Feature importances still uniform (~4% each). Need genuinely new signal (player availability, lineups).
+> Next: add form_10 to Base, build player/roster pipeline (FotMob, Transfermarkt, ASA player metrics).
 
 ---
 

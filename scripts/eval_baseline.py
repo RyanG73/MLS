@@ -2,58 +2,111 @@
 """
 Standalone model evaluation — no database required.
 
-Pulls real MLS match data from ASA API, builds minimal features,
-trains Dixon-Coles + XGBoost/LightGBM, and evaluates on held-out seasons
+Pulls real MLS match data from ASA API, builds features,
+trains Dixon-Coles + XGBoost, evaluates on held-out seasons
 using walk-forward (no future leakage).
 
 Evaluation structure (3-way split):
   train   → seasons < cal_season       (model fitting)
-  cal     → cal_season = test_season-1 (Platt calibration + meta-learner)
+  cal     → cal_season = test_season-1 (temperature calibration + meta-learner)
   test    → test_season                (final held-out evaluation)
 
-Changes vs v1:
-  - Data: 2017+ only, COVID seasons (2020/2021) excluded, 2025 in training
-  - ELO: grid search K∈[20,25,30] × HOME_ADV∈[80,100,120], REGRESS 30%→40%
-  - Rolling: two xG windows (5,15), rolling draw rate (10), home_xg_sum
-  - DC: time-decay half-life 180→120 days; λ/μ exported as XGB features
-  - Calibration: isotonic → temperature scaling (1-param, minimise NLL on cal set)
-  - XGBoost: hyperparameter grid search, exponential season sample weights
-  - A/B test: per-feature Brier delta for draw_rate and DC params
+Phase 6 changes:
+  - O/U model dropped entirely; 1X2 focus only
+  - Form: two windows (5 and 10 matches)
+  - Style features: PPDA + possession rolling (replaces draw rate)
+  - Schedule density: games_in_14d (replaces rest/travel distance)
+  - Set-piece xGA split added if available from ASA
+  - New A/B groups: +Form10, +PPDA, +Games14d, +Weather, +PostFIFA, +Kickoff
+  - Weather: Open-Meteo historical API (FETCH_WEATHER flag; dome stadiums get NULL)
+  - Post-FIFA break flag: binary, 14-day window after FIFA windows
+  - Kickoff time: cyclic hour encoding + weekday flag
 """
 
 import math
 import itertools
 import warnings
+from datetime import timedelta
 
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize, minimize_scalar
 from scipy.stats import poisson
-from sklearn.metrics import log_loss, brier_score_loss
+from sklearn.metrics import log_loss
 from sklearn.linear_model import LogisticRegression
 import xgboost as xgb
-import lightgbm as lgb
 
 warnings.filterwarnings("ignore")
 
-# ─── Constants ────────────────────────────────────────────────────────────────
+# ─── Configuration ────────────────────────────────────────────────────────────
 
-XG_WINDOWS    = (5, 15)
-FORM_WINDOW   = 5
-DRAW_WINDOW   = 10
-REGRESS       = 0.40
-INITIAL_ELO   = 1500.0
-DC_DECAY_HL   = 120
-TEST_SEASONS  = [2022, 2023, 2024]
-_COVID        = {2020, 2021}
-WEIGHT_HL     = 4       # exponential season decay half-life in seasons
+XG_WINDOWS   = (5, 15)
+FORM_WINDOWS = (5, 10)      # both windows computed; A/B tests adding form_10
+REGRESS      = 0.40
+INITIAL_ELO  = 1500.0
+DC_DECAY_HL  = 120
+TEST_SEASONS = [2022, 2023, 2024]
+_COVID       = {2020, 2021}
+WEIGHT_HL    = 4            # exponential season decay half-life (seasons)
+GAMES_14D    = 14           # window for schedule-density feature
 
-# ─── 1. Fetch data ────────────────────────────────────────────────────────────
+FETCH_WEATHER = False       # set True to enable Open-Meteo API calls (~5 min extra)
 
-print("=" * 65)
-print("MLS Model Evaluation  (3-way split + temperature calibration)")
-print("=" * 65)
-print("\n[1/8] Fetching MLS data from ASA API...")
+# FIFA international window end dates; match within 14 days after → is_post_fifa_break=1
+_FIFA_BREAKS = [pd.Timestamp(d) for d in [
+    "2017-06-13", "2017-09-05", "2017-10-10",
+    "2018-06-12", "2018-09-11", "2018-10-16",
+    "2019-06-11", "2019-09-10", "2019-10-15",
+    # 2020, 2021 excluded (COVID)
+    "2022-06-14", "2022-09-27",
+    "2023-06-20", "2023-09-12", "2023-10-17",
+    "2024-06-11", "2024-09-10", "2024-10-15",
+]]
+
+# Dome stadiums: weather is irrelevant (retractable roof / climate-controlled)
+_DOME_TEAM_IDS = {"KAqBN0Vqbg", "lgpMOvnQzy"}  # Atlanta United, Vancouver Whitecaps
+
+# Stadium coordinates (lat, lon) keyed by ASA team_id
+_TEAM_COORDS: dict[str, tuple[float, float]] = {
+    "0KPqjA456v": (37.351, -121.925),
+    "19vQ2095K6": (42.091,  -71.264),
+    "4wM42l4qjB": (33.864, -118.261),
+    "9z5k7Yg5A3": (39.834,  -75.380),
+    "APk5LGOMOW": (45.564,  -73.551),
+    "EKXMeX3Q64": (38.868,  -77.013),
+    "KAqBN0Vqbg": (33.755,  -84.401),
+    "NPqxKXZ59d": (35.226,  -80.853),
+    "NWMWlBK5lz": (39.109,  -84.521),
+    "Vj58weDM8n": (40.829,  -73.926),
+    "WBLMvYAQxe": (45.521, -122.692),
+    "X0Oq66zq6D": (41.862,  -87.617),
+    "YgOMngl5zy": (29.753,  -95.351),
+    "Z2vQ1xlqrA": (39.123,  -94.824),
+    "a2lqR4JMr0": (40.583, -111.893),
+    "a2lqRX2Mr0": (40.737,  -74.150),
+    "eVq3ya6MWO": (34.013, -118.285),
+    "gpMOLwl5zy": (30.387,  -97.719),
+    "jYQJ19EqGR": (47.595, -122.332),
+    "jYQJ8EW5GR": (28.541,  -81.389),
+    "kRQabn8MKZ": (43.633,  -79.419),
+    "kRQand1MKZ": (44.953,  -93.165),
+    "kaDQ0wRqEv": (33.864, -118.261),
+    "lgpMOvnQzy": (49.277, -123.112),
+    "mKAqBBmqbg": (33.155,  -97.116),
+    "mvzqoLZQap": (39.968,  -83.018),
+    "pzeQZ6xQKw": (39.805, -104.892),
+    "vzqoOgNqap": (36.130,  -86.766),
+    "wvq9B9wQWn": (38.633,  -90.212),
+    "zeQZBOzQKw": (32.707, -117.120),
+    "zeQZkL1MKw": (26.170,  -80.188),
+}
+
+# ─── 1. Fetch base match data ─────────────────────────────────────────────────
+
+print("=" * 70)
+print("MLS Model Evaluation  (Phase 6: 1X2 only, extended features)")
+print("=" * 70)
+print("\n[1/9] Fetching MLS match data from ASA API...")
 
 from itscalledsoccer.client import AmericanSoccerAnalysis
 asa = AmericanSoccerAnalysis()
@@ -86,13 +139,16 @@ if _stage_col and _stage_col in games.columns:
 else:
     games["is_playoff"] = 0
 
-gxg = asa.get_game_xgoals(leagues="mls")[
-    ["game_id", "home_team_xgoals", "away_team_xgoals"]
-].rename(columns={
+# xG — also try to pull set-piece split if available
+gxg_raw = asa.get_game_xgoals(leagues="mls")
+gxg_want = {
     "game_id": "match_id",
     "home_team_xgoals": "home_xg",
     "away_team_xgoals": "away_xg",
-})
+    "home_team_xgoals_from_set_play": "home_xg_sp",
+    "away_team_xgoals_from_set_play": "away_xg_sp",
+}
+gxg = gxg_raw[[c for c in gxg_want if c in gxg_raw.columns]].rename(columns=gxg_want)
 
 df = games.merge(gxg, on="match_id", how="left")
 df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_localize(None)
@@ -113,17 +169,76 @@ print(f"    {len(df):,} matches ({df['season'].min()}–{df['season'].max()})  |
       f"{_n_raw - len(df):,} pre-2017/COVID excluded")
 print(f"    xG coverage: {df['home_xg'].notna().mean():.0%}  |  "
       f"Playoff: {df['is_playoff'].sum()} ({df['is_playoff'].mean():.1%})")
+_HAS_SP_XG = "home_xg_sp" in df.columns and df["home_xg_sp"].notna().mean() > 0.3
+print(f"    Set-piece xG split: {'yes' if _HAS_SP_XG else 'no'}")
 
-# Labels needed early for ELO grid search
+# Kickoff-time features (from UTC timestamp)
+df["kickoff_hour_utc"] = df["date"].dt.hour
+df["kickoff_sin"] = np.sin(2 * np.pi * df["kickoff_hour_utc"] / 24)
+df["kickoff_cos"] = np.cos(2 * np.pi * df["kickoff_hour_utc"] / 24)
+df["is_weekday_game"] = df["date"].dt.dayofweek.isin([1, 2]).astype(int)
+
+# Post-FIFA break flag
+def _is_post_fifa(date: pd.Timestamp) -> int:
+    for wb in _FIFA_BREAKS:
+        if timedelta(0) < (date - wb) <= timedelta(days=14):
+            return 1
+    return 0
+
+df["is_post_fifa_break"] = df["date"].apply(_is_post_fifa)
+
+# Dome flag (structural NULL for weather)
+df["is_dome"] = df["home_team"].isin(_DOME_TEAM_IDS).astype(int)
+
+# Labels
 df["label_result"] = np.where(
     df["home_goals"] > df["away_goals"], 0,
     np.where(df["home_goals"] == df["away_goals"], 1, 2),
 )
-df["label_over25"] = ((df["home_goals"] + df["away_goals"]) > 2.5).astype(int)
 
-# ─── 2. ELO grid search ───────────────────────────────────────────────────────
+print(f"    Post-FIFA matches: {df['is_post_fifa_break'].sum()}  |  "
+      f"Dome: {df['is_dome'].sum()}  |  "
+      f"Weekday: {df['is_weekday_game'].sum()}")
 
-print("\n[2/8] ELO hyperparameter grid search (val: 2019)...")
+# ─── 2. Fetch game-level xpass (PPDA + possession) ───────────────────────────
+
+print("\n[2/9] Fetching game-level xpass (PPDA / possession)...")
+
+_xpass_by_game: dict[str, tuple] = {}
+_HAS_PPDA = False
+_HAS_POSS = False
+
+try:
+    gxpass = asa.get_game_xpass(leagues="mls")
+    cols = list(gxpass.columns)
+    print(f"    Available columns: {cols[:12]}{'...' if len(cols) > 12 else ''}")
+
+    _ppda_h = next((c for c in cols if "ppda" in c.lower() and "home" in c.lower()), None)
+    _ppda_a = next((c for c in cols if "ppda" in c.lower() and "away" in c.lower()), None)
+    _poss_h = next((c for c in cols if "possession" in c.lower() and "home" in c.lower()), None)
+    _poss_a = next((c for c in cols if "possession" in c.lower() and "away" in c.lower()), None)
+    _gid    = next((c for c in ["game_id", "match_id"] if c in cols), None)
+
+    if _gid:
+        for _, row in gxpass.iterrows():
+            gid = str(row[_gid])
+            hp = float(row[_ppda_h]) if _ppda_h and pd.notna(row.get(_ppda_h)) else None
+            ap = float(row[_ppda_a]) if _ppda_a and pd.notna(row.get(_ppda_a)) else None
+            hv = float(row[_poss_h]) if _poss_h and pd.notna(row.get(_poss_h)) else None
+            av = float(row[_poss_a]) if _poss_a and pd.notna(row.get(_poss_a)) else None
+            _xpass_by_game[gid] = (hp, ap, hv, av)
+        _HAS_PPDA = any(v[0] is not None for v in _xpass_by_game.values())
+        _HAS_POSS = any(v[2] is not None for v in _xpass_by_game.values())
+
+    print(f"    Loaded: {len(_xpass_by_game):,} games | "
+          f"PPDA={'yes' if _HAS_PPDA else 'no'} | "
+          f"Possession={'yes' if _HAS_POSS else 'no'}")
+except Exception as e:
+    print(f"    Warning: could not fetch game xpass ({e}). PPDA/possession skipped.")
+
+# ─── 3. ELO grid search ───────────────────────────────────────────────────────
+
+print("\n[3/9] ELO hyperparameter grid search (val: 2019)...")
 
 
 def compute_elo(
@@ -149,9 +264,7 @@ def compute_elo(
         hg, ag = row["home_goals"], row["away_goals"]
         s_h = 1.0 if hg > ag else (0.5 if hg == ag else 0.0)
         mov = 1 + math.log(abs(hg - ag) + 1) * 0.1
-        h_elo.append(rh)
-        a_elo.append(ra)
-        h_exp.append(e_h)
+        h_elo.append(rh); a_elo.append(ra); h_exp.append(e_h)
         elo[ht] = rh + K * mov * (s_h - e_h)
         elo[at] = ra + K * mov * ((1 - s_h) - (1 - e_h))
     out = df.copy()
@@ -165,225 +278,157 @@ def compute_elo(
 
 _VAL_S = {2019}
 _val_draw_rate = df[df["season"] < min(_VAL_S)]["label_result"].eq(1).mean()
-_ELO_GRID = list(itertools.product([20, 25, 30], [80, 100, 120]))
 _best_elo_b, _best_K, _best_HA = float("inf"), 20, 100
 
-for _K, _HA in _ELO_GRID:
+for _K, _HA in itertools.product([20, 25, 30], [80, 100, 120]):
     _tmp = compute_elo(df, _K, _HA, REGRESS, INITIAL_ELO, return_expected=True)
     _v = _tmp[_tmp["season"].isin(_VAL_S)]
     if len(_v) < 30:
         continue
     _ph = _v["elo_p_home"].values
-    _pd = np.full(len(_v), _val_draw_rate)
-    _pa = np.clip(1 - _ph - _pd, 0.01, None)
-    _s = _ph + _pd + _pa
-    _p3 = np.column_stack([_ph / _s, _pd / _s, _pa / _s])
-    _yoh = np.eye(3)[_v["label_result"].values]
-    _b = float(np.mean(np.sum((_p3 - _yoh) ** 2, axis=1)))
+    _pd_v = np.full(len(_v), _val_draw_rate)
+    _pa = np.clip(1 - _ph - _pd_v, 0.01, None)
+    _s = _ph + _pd_v + _pa
+    _p3 = np.column_stack([_ph / _s, _pd_v / _s, _pa / _s])
+    _b = float(np.mean(np.sum((_p3 - np.eye(3)[_v["label_result"].values]) ** 2, axis=1)))
     if _b < _best_elo_b:
         _best_elo_b, _best_K, _best_HA = _b, _K, _HA
 
 K, HOME_ADV = _best_K, _best_HA
 print(f"    Best: K={K}, HOME_ADV={HOME_ADV}  (val Brier={_best_elo_b:.4f})")
-print(f"    REGRESS: 0.30 → {REGRESS:.0%}  (MLS parity increasing)")
-
 df = compute_elo(df, K, HOME_ADV, REGRESS, INITIAL_ELO)
 
-# ─── 3. Rolling features ─────────────────────────────────────────────────────
+# ─── 4. Rolling features ──────────────────────────────────────────────────────
 
-print(f"\n[3/8] Rolling features (xG windows={XG_WINDOWS}, draw window={DRAW_WINDOW})...")
+print(f"\n[4/9] Rolling features "
+      f"(xG windows={XG_WINDOWS}, form windows={FORM_WINDOWS}, "
+      f"PPDA={'yes' if _HAS_PPDA else 'no'})...")
 
 
-def add_rolling_features(
-    df: pd.DataFrame,
-    xg_windows: tuple = (5, 15),
-    form_window: int = 5,
-    draw_window: int = 10,
-) -> pd.DataFrame:
-    team_xg: dict[str, list] = {}
-    team_pts: dict[str, list] = {}
-    team_draw: dict[str, list] = {}
+def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
+    team_xg: dict[str, list] = {}       # per-game xg/xga records
+    team_pts: dict[str, list] = {}      # points earned per game
+    team_ppda: dict[str, list] = {}     # PPDA per game (float | None)
+    team_poss: dict[str, list] = {}     # possession per game (float | None)
+    team_dates: dict[str, list] = []    # type: ignore
 
-    res: dict[str, list] = {
-        **{f"home_xg_roll_{w}": [] for w in xg_windows},
-        **{f"home_xga_roll_{w}": [] for w in xg_windows},
-        **{f"away_xg_roll_{w}": [] for w in xg_windows},
-        **{f"away_xga_roll_{w}": [] for w in xg_windows},
-        "home_form": [],
-        "away_form": [],
-        f"home_draw_rate_{draw_window}": [],
-        f"away_draw_rate_{draw_window}": [],
-    }
+    team_dates_d: dict[str, list] = {}  # dates for games_in_14d
+
+    # Initialise result columns
+    res: dict[str, list] = {}
+    for r in ("home", "away"):
+        for w in XG_WINDOWS:
+            res[f"{r}_xg_roll_{w}"] = []
+            res[f"{r}_xga_roll_{w}"] = []
+        for fw in FORM_WINDOWS:
+            res[f"{r}_form_{fw}"] = []
+        res[f"{r}_games_in_14d"] = []
+        if _HAS_PPDA:
+            res[f"{r}_ppda_roll_10"] = []
+        if _HAS_POSS:
+            res[f"{r}_poss_roll_10"] = []
+        if _HAS_SP_XG:
+            res[f"{r}_xga_sp_roll_15"] = []
 
     for _, row in df.iterrows():
         ht, at = row["home_team"], row["away_team"]
         hg, ag = row["home_goals"], row["away_goals"]
-        h_xg = row["home_xg"] if pd.notna(row.get("home_xg")) else float(hg)
-        a_xg = row["away_xg"] if pd.notna(row.get("away_xg")) else float(ag)
+        mid = str(row.get("match_id", ""))
+        dt  = row["date"]
 
-        for team, role, xg_val, xga_val in [
-            (ht, "home", h_xg, a_xg),
-            (at, "away", a_xg, h_xg),
+        h_xg = float(row["home_xg"]) if pd.notna(row.get("home_xg")) else float(hg)
+        a_xg = float(row["away_xg"]) if pd.notna(row.get("away_xg")) else float(ag)
+        h_xg_sp = float(row["home_xg_sp"]) if _HAS_SP_XG and pd.notna(row.get("home_xg_sp")) else None
+        a_xg_sp = float(row["away_xg_sp"]) if _HAS_SP_XG and pd.notna(row.get("away_xg_sp")) else None
+
+        xp = _xpass_by_game.get(mid, (None, None, None, None))
+        h_ppda_v, a_ppda_v, h_poss_v, a_poss_v = xp
+
+        for team, role, my_xg, opp_xg, my_xg_sp, opp_xg_sp, my_ppda, my_poss in [
+            (ht, "home", h_xg, a_xg, h_xg_sp, a_xg_sp, h_ppda_v, h_poss_v),
+            (at, "away", a_xg, h_xg, a_xg_sp, h_xg_sp, a_ppda_v, a_poss_v),
         ]:
-            hist = team_xg.get(team, [])
-            pts_h = team_pts.get(team, [])[-form_window:]
-            draw_h = team_draw.get(team, [])[-draw_window:]
+            xg_hist   = team_xg.get(team, [])
+            pts_hist  = team_pts.get(team, [])
+            ppda_hist = team_ppda.get(team, [])
+            poss_hist = team_poss.get(team, [])
+            date_hist = team_dates_d.get(team, [])
 
-            for w in xg_windows:
-                xg_w = hist[-w:]
+            for w in XG_WINDOWS:
+                seg = xg_hist[-w:]
                 res[f"{role}_xg_roll_{w}"].append(
-                    np.mean([x["xg"] for x in xg_w]) if xg_w else 1.3
-                )
+                    np.mean([x["xg"] for x in seg]) if seg else 1.3)
                 res[f"{role}_xga_roll_{w}"].append(
-                    np.mean([x["xga"] for x in xg_w]) if xg_w else 1.3
-                )
+                    np.mean([x["xga"] for x in seg]) if seg else 1.3)
 
-            res[f"{role}_form"].append(np.mean(pts_h) if pts_h else 1.0)
-            res[f"{role}_draw_rate_{draw_window}"].append(
-                np.mean(draw_h) if draw_h else 0.25
-            )
+            for fw in FORM_WINDOWS:
+                seg_pts = pts_hist[-fw:]
+                res[f"{role}_form_{fw}"].append(np.mean(seg_pts) if seg_pts else 1.0)
 
-        # Update histories after reading (avoid leakage)
-        team_xg.setdefault(ht, []).append({"xg": h_xg, "xga": a_xg})
-        team_xg.setdefault(at, []).append({"xg": a_xg, "xga": h_xg})
+            cutoff = dt - timedelta(days=GAMES_14D)
+            res[f"{role}_games_in_14d"].append(sum(1 for d in date_hist if d > cutoff))
+
+            if _HAS_PPDA:
+                seg_ppda = [v for v in ppda_hist[-10:] if v is not None]
+                res[f"{role}_ppda_roll_10"].append(np.mean(seg_ppda) if seg_ppda else 10.0)
+
+            if _HAS_POSS:
+                seg_poss = [v for v in poss_hist[-10:] if v is not None]
+                res[f"{role}_poss_roll_10"].append(np.mean(seg_poss) if seg_poss else 50.0)
+
+            if _HAS_SP_XG:
+                # opp_xg_sp stored in history; it is the xG-against-via-set-piece
+                seg_sp = [x["opp_xg_sp"] for x in xg_hist[-15:] if x.get("opp_xg_sp") is not None]
+                res[f"{role}_xga_sp_roll_15"].append(np.mean(seg_sp) if seg_sp else 0.4)
+
+        # Update histories (after reading to avoid leakage)
         h_pts = 3 if hg > ag else (1 if hg == ag else 0)
         a_pts = 3 if ag > hg else (1 if hg == ag else 0)
+        team_xg.setdefault(ht, []).append({"xg": h_xg, "xga": a_xg, "opp_xg_sp": a_xg_sp})
+        team_xg.setdefault(at, []).append({"xg": a_xg, "xga": h_xg, "opp_xg_sp": h_xg_sp})
         team_pts.setdefault(ht, []).append(h_pts)
         team_pts.setdefault(at, []).append(a_pts)
-        is_draw = int(hg == ag)
-        team_draw.setdefault(ht, []).append(is_draw)
-        team_draw.setdefault(at, []).append(is_draw)
+        team_ppda.setdefault(ht, []).append(h_ppda_v)
+        team_ppda.setdefault(at, []).append(a_ppda_v)
+        team_poss.setdefault(ht, []).append(h_poss_v)
+        team_poss.setdefault(at, []).append(a_poss_v)
+        team_dates_d.setdefault(ht, []).append(dt)
+        team_dates_d.setdefault(at, []).append(dt)
 
     out = df.copy()
     for col, vals in res.items():
         out[col] = vals
 
-    w0 = xg_windows[0]
-    out["xg_diff"] = out[f"home_xg_roll_{w0}"] - out[f"away_xg_roll_{w0}"]
-    out["form_diff"] = out["home_form"] - out["away_form"]
-    out["home_xg_sum"] = out[f"home_xg_roll_{w0}"] + out[f"away_xg_roll_{w0}"]
+    w0 = XG_WINDOWS[0]
+    out["xg_diff"]      = out[f"home_xg_roll_{w0}"] - out[f"away_xg_roll_{w0}"]
+    out["form_diff"]    = out[f"home_form_{FORM_WINDOWS[0]}"] - out[f"away_form_{FORM_WINDOWS[0]}"]
+    out["home_xg_sum"]  = out[f"home_xg_roll_{w0}"] + out[f"away_xg_roll_{w0}"]
+    out["games14d_diff"] = out["home_games_in_14d"] - out["away_games_in_14d"]
+    if _HAS_PPDA:
+        out["ppda_diff"] = out["home_ppda_roll_10"] - out["away_ppda_roll_10"]
+    if _HAS_POSS:
+        out["poss_diff"] = out["home_poss_roll_10"] - out["away_poss_roll_10"]
     return out
 
 
-df = add_rolling_features(df, XG_WINDOWS, FORM_WINDOW, DRAW_WINDOW)
+df = add_rolling_features(df)
+print(f"    Rolling features complete. Columns added: {[c for c in df.columns if 'roll' in c or 'form_' in c or '14d' in c][:8]}...")
 
-# ─── 3b. Rest days + travel distance ─────────────────────────────────────────
+# ─── 5. Altitude flag ─────────────────────────────────────────────────────────
 
-# Stadium coordinates keyed by ASA team_id (lat, lon)
-_TEAM_COORDS: dict[str, tuple[float, float]] = {
-    "0KPqjA456v": (37.351, -121.925),   # San Jose Earthquakes
-    "19vQ2095K6": (42.091,  -71.264),   # New England Revolution
-    "4wM42l4qjB": (33.864, -118.261),   # Chivas USA (StubHub Center)
-    "9z5k7Yg5A3": (39.834,  -75.380),   # Philadelphia Union
-    "APk5LGOMOW": (45.564,  -73.551),   # CF Montréal
-    "EKXMeX3Q64": (38.868,  -77.013),   # D.C. United
-    "KAqBN0Vqbg": (33.755,  -84.401),   # Atlanta United FC
-    "NPqxKXZ59d": (35.226,  -80.853),   # Charlotte FC
-    "NWMWlBK5lz": (39.109,  -84.521),   # FC Cincinnati
-    "Vj58weDM8n": (40.829,  -73.926),   # New York City FC
-    "WBLMvYAQxe": (45.521, -122.692),   # Portland Timbers
-    "X0Oq66zq6D": (41.862,  -87.617),   # Chicago Fire
-    "YgOMngl5zy": (29.753,  -95.351),   # Houston Dynamo
-    "Z2vQ1xlqrA": (39.123,  -94.824),   # Sporting Kansas City
-    "a2lqR4JMr0": (40.583, -111.893),   # Real Salt Lake
-    "a2lqRX2Mr0": (40.737,  -74.150),   # New York Red Bulls
-    "eVq3ya6MWO": (34.013, -118.285),   # LAFC
-    "gpMOLwl5zy": (30.387,  -97.719),   # Austin FC
-    "jYQJ19EqGR": (47.595, -122.332),   # Seattle Sounders
-    "jYQJ8EW5GR": (28.541,  -81.389),   # Orlando City
-    "kRQabn8MKZ": (43.633,  -79.419),   # Toronto FC
-    "kRQand1MKZ": (44.953,  -93.165),   # Minnesota United
-    "kaDQ0wRqEv": (33.864, -118.261),   # LA Galaxy
-    "lgpMOvnQzy": (49.277, -123.112),   # Vancouver Whitecaps
-    "mKAqBBmqbg": (33.155,  -97.116),   # FC Dallas
-    "mvzqoLZQap": (39.968,  -83.018),   # Columbus Crew
-    "pzeQZ6xQKw": (39.805, -104.892),   # Colorado Rapids
-    "vzqoOgNqap": (36.130,  -86.766),   # Nashville SC
-    "wvq9B9wQWn": (38.633,  -90.212),   # St. Louis City SC
-    "zeQZBOzQKw": (32.707, -117.120),   # San Diego FC
-    "zeQZkL1MKw": (26.170,  -80.188),   # Inter Miami CF
-}
-
-
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    R = 6371.0
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    return 2 * R * math.asin(math.sqrt(max(0.0, a)))
-
-
-def add_rest_travel_features(
-    df: pd.DataFrame, team_coords: dict[str, tuple[float, float]], rest_cap: int = 30
-) -> pd.DataFrame:
-    last_date: dict = {}
-    last_loc: dict = {}
-    h_rest_l, a_rest_l, h_travel_l, a_travel_l = [], [], [], []
-
-    for _, row in df.iterrows():
-        ht, at = row["home_team"], row["away_team"]
-        dt = row["date"]
-        h_coord = team_coords.get(ht)
-        a_coord = team_coords.get(at)
-
-        h_rest = min((dt - last_date[ht]).days, rest_cap) if ht in last_date else rest_cap
-        a_rest = min((dt - last_date[at]).days, rest_cap) if at in last_date else rest_cap
-        h_rest_l.append(h_rest)
-        a_rest_l.append(a_rest)
-
-        # Away team traveled from their last known location to the home stadium
-        if at in last_loc and h_coord is not None:
-            a_travel_l.append(haversine_km(*last_loc[at], *h_coord))
-        elif a_coord is not None and h_coord is not None:
-            a_travel_l.append(haversine_km(*a_coord, *h_coord))
-        else:
-            a_travel_l.append(0.0)
-
-        # Home team's most recent travel (captures return from long road trip)
-        if ht in last_loc and h_coord is not None:
-            h_travel_l.append(haversine_km(*last_loc[ht], *h_coord))
-        else:
-            h_travel_l.append(0.0)
-
-        # Update after reading to avoid leakage
-        last_date[ht] = dt
-        last_date[at] = dt
-        if h_coord is not None:
-            last_loc[ht] = h_coord   # home team stays at home
-            last_loc[at] = h_coord   # away team was at this stadium
-
-
-    out = df.copy()
-    out["home_rest_days"] = h_rest_l
-    out["away_rest_days"] = a_rest_l
-    out["rest_diff"] = out["home_rest_days"] - out["away_rest_days"]
-    out["away_travel_km"] = a_travel_l
-    out["home_travel_km_recent"] = h_travel_l
-    return out
-
-
-df = add_rest_travel_features(df, _TEAM_COORDS)
-_travel_mapped = sum(1 for tid in df["home_team"].unique() if tid in _TEAM_COORDS)
-print(f"    Rest + travel features added  |  "
-      f"{_travel_mapped}/{df['home_team'].nunique()} home teams mapped to coordinates")
-
-# ─── 3c. Altitude flag ────────────────────────────────────────────────────────
-# Colorado (1609 m) and Real Salt Lake (1283 m) — both above 1000 m,
-# documented physiological disadvantage for visiting sea-level teams.
-_HIGH_ALT_IDS = {"pzeQZ6xQKw", "a2lqR4JMr0"}
+_HIGH_ALT_IDS = {"pzeQZ6xQKw", "a2lqR4JMr0"}   # Colorado, Real Salt Lake
 df["is_high_alt"] = df["home_team"].isin(_HIGH_ALT_IDS).astype(int)
 
-# ─── 3d. Squad quality from player xpoints_added (prev-season, no leakage) ───
-print("\n[3d] Fetching player xpoints_added by season (prev-season squad quality)...")
+# ─── 6. Squad quality from player xpoints_added ───────────────────────────────
+
+print("\n[5/9] Fetching player xpoints_added by season (prev-season squad quality)...")
 
 _SQUAD_SEASONS = [s for s in range(2016, 2026) if s not in _COVID]
-_squad_raw: dict[tuple, float] = {}   # (team_id, season) → total xpoints_added
+_squad_raw: dict[tuple, float] = {}
 
 for _s in _SQUAD_SEASONS:
     try:
         _pxg = asa.get_player_xgoals(leagues="mls", season_name=str(_s))
-        # Single-team players only; ≥500 min filters out cup/token appearances
         _pxg_s = _pxg[
             _pxg["team_id"].apply(lambda x: isinstance(x, str))
             & (_pxg["minutes_played"] >= 500)
@@ -393,7 +438,6 @@ for _s in _SQUAD_SEASONS:
     except Exception:
         pass
 
-# Z-score per season so the metric is comparable across expansion eras
 _squad_norm: dict[tuple, float] = {}
 for _s in _SQUAD_SEASONS:
     _vals = [v for (t, ss), v in _squad_raw.items() if ss == _s]
@@ -405,58 +449,140 @@ for _s in _SQUAD_SEASONS:
         if ss == _s:
             _squad_norm[(t, ss)] = (v - _mu) / _sd
 
-print(f"    Squad quality loaded: {len(_squad_norm)} team-seasons "
+print(f"    Squad quality: {len(_squad_norm)} team-seasons "
       f"({len({ss for _, ss in _squad_norm})} seasons)")
 
 
 def squad_z(team_id: str, season: int) -> float:
-    """Previous season squad quality z-score; falls back two seasons."""
     for lag in (1, 2):
         val = _squad_norm.get((team_id, season - lag))
         if val is not None:
             return val
-    return 0.0   # league average
+    return 0.0
 
 
 df["home_squad_xpa"] = [squad_z(r.home_team, r.season) for _, r in df.iterrows()]
 df["away_squad_xpa"] = [squad_z(r.away_team, r.season) for _, r in df.iterrows()]
 df["squad_xpa_diff"] = df["home_squad_xpa"] - df["away_squad_xpa"]
 
-# ─── Feature sets for A/B testing ────────────────────────────────────────────
+# ─── 7. Optional: Weather features ────────────────────────────────────────────
 
-_REST_TRAVEL_FEATS = ["home_rest_days", "away_rest_days", "rest_diff",
-                      "away_travel_km", "home_travel_km_recent"]
-_SQUAD_ALT_FEATS  = ["home_squad_xpa", "away_squad_xpa", "squad_xpa_diff",
-                      "is_high_alt"]
+_HAS_WEATHER = False
+if FETCH_WEATHER:
+    print("\n[6/9] Fetching historical weather from Open-Meteo...")
+    import requests
 
-_FEAT_BASE = (
-    ["elo_diff", "home_elo", "away_elo"]
-    + [f"{r}_xg_roll_{w}" for r in ("home", "away") for w in XG_WINDOWS]
+    _weather_cache: dict = {}
+
+    def _fetch_weather(team_id: str, date: pd.Timestamp, hour_utc: int) -> tuple:
+        if team_id in _DOME_TEAM_IDS:
+            return (None, None, None)
+        coords = _TEAM_COORDS.get(team_id)
+        if coords is None:
+            return (None, None, None)
+        key = (team_id, date.strftime("%Y-%m-%d"))
+        if key not in _weather_cache:
+            try:
+                resp = requests.get(
+                    "https://archive-api.open-meteo.com/v1/archive",
+                    params={
+                        "latitude": coords[0], "longitude": coords[1],
+                        "start_date": date.strftime("%Y-%m-%d"),
+                        "end_date": date.strftime("%Y-%m-%d"),
+                        "hourly": "temperature_2m,windspeed_10m,precipitation",
+                        "timezone": "UTC",
+                    },
+                    timeout=15,
+                )
+                h_data = resp.json().get("hourly", {})
+                _weather_cache[key] = {
+                    "temp": h_data.get("temperature_2m", []),
+                    "wind": h_data.get("windspeed_10m", []),
+                    "precip": h_data.get("precipitation", []),
+                }
+            except Exception:
+                _weather_cache[key] = {"temp": [], "wind": [], "precip": []}
+        d = _weather_cache[key]
+        h = min(hour_utc, len(d["temp"]) - 1) if d["temp"] else 0
+        return (
+            d["temp"][h]   if d["temp"]   else None,
+            d["wind"][h]   if d["wind"]   else None,
+            d["precip"][h] if d["precip"] else None,
+        )
+
+    temps, winds, precips = [], [], []
+    for _, row in df.iterrows():
+        t, w, p = _fetch_weather(row["home_team"], row["date"], row["kickoff_hour_utc"])
+        temps.append(t); winds.append(w); precips.append(p)
+
+    df["weather_temp_c"]    = temps
+    df["weather_wind_kph"]  = winds
+    df["weather_precip_mm"] = precips
+    _HAS_WEATHER = df["weather_temp_c"].notna().sum() > 100
+    print(f"    Weather: {df['weather_temp_c'].notna().sum():,} matches "
+          f"({df['weather_temp_c'].notna().mean():.0%} coverage)")
+else:
+    print("\n[6/9] Weather skipped (FETCH_WEATHER=False). Set True to enable.")
+
+# ─── Feature sets ─────────────────────────────────────────────────────────────
+
+_BASE_ELO  = ["elo_diff", "home_elo", "away_elo"]
+_BASE_XG   = (
+    [f"{r}_xg_roll_{w}" for r in ("home", "away") for w in XG_WINDOWS]
     + [f"{r}_xga_roll_{w}" for r in ("home", "away") for w in XG_WINDOWS]
-    + ["xg_diff", "form_diff", "home_form", "away_form", "is_playoff"]
+    + ["xg_diff", "home_xg_sum"]
 )
-_FEAT_DRAW     = _FEAT_BASE + [f"home_draw_rate_{DRAW_WINDOW}",
-                                f"away_draw_rate_{DRAW_WINDOW}"]
+_BASE_FORM = [f"home_form_{FORM_WINDOWS[0]}", f"away_form_{FORM_WINDOWS[0]}", "form_diff"]
+
+_FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + ["is_playoff"]
+
+_FEAT_FORM10 = _FEAT_BASE + [f"home_form_{FORM_WINDOWS[1]}", f"away_form_{FORM_WINDOWS[1]}"]
+
+_PPDA_FEATS: list[str] = []
+if _HAS_PPDA:
+    _PPDA_FEATS += ["home_ppda_roll_10", "away_ppda_roll_10", "ppda_diff"]
+if _HAS_POSS:
+    _PPDA_FEATS += ["home_poss_roll_10", "away_poss_roll_10", "poss_diff"]
+
+_FEAT_GAMES14D = _FEAT_BASE + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
+_FEAT_POSTFIFA = _FEAT_BASE + ["is_post_fifa_break"]
+_FEAT_KICKOFF  = _FEAT_BASE + ["kickoff_sin", "kickoff_cos", "is_weekday_game"]
 _FEAT_DC       = _FEAT_BASE + ["dc_lam", "dc_mu"]
-_FEAT_REST     = _FEAT_BASE + _REST_TRAVEL_FEATS
-_FEAT_SQUAD    = _FEAT_BASE + _SQUAD_ALT_FEATS
-_FEAT_ALL      = _FEAT_BASE + [
-    f"home_draw_rate_{DRAW_WINDOW}",
-    f"away_draw_rate_{DRAW_WINDOW}",
-    "dc_lam", "dc_mu",
-    "home_xg_sum",
-] + _REST_TRAVEL_FEATS + _SQUAD_ALT_FEATS
 
-AB_SETS = {
-    "Base":        _FEAT_BASE,
-    "+DrawRate":   _FEAT_DRAW,
-    "+DCParams":   _FEAT_DC,
-    "+RestTravel": _FEAT_REST,
-    "+SquadAlt":   _FEAT_SQUAD,
-    "+All":        _FEAT_ALL,
-}
+_SP_XG_FEATS = (["home_xga_sp_roll_15", "away_xga_sp_roll_15"] if _HAS_SP_XG else [])
+_WEATHER_FEATS = (["weather_temp_c", "weather_wind_kph", "weather_precip_mm", "is_dome"]
+                  if _HAS_WEATHER else [])
 
-# ─── 4. Dixon-Coles ───────────────────────────────────────────────────────────
+# +All combines everything available
+_ALL_EXTRA = (
+    [f"home_form_{FORM_WINDOWS[1]}", f"away_form_{FORM_WINDOWS[1]}"]
+    + _PPDA_FEATS
+    + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
+    + ["dc_lam", "dc_mu"]
+    + ["is_post_fifa_break"]
+    + ["kickoff_sin", "kickoff_cos", "is_weekday_game"]
+    + _SP_XG_FEATS
+    + _WEATHER_FEATS
+)
+_FEAT_ALL = list(dict.fromkeys(_FEAT_BASE + _ALL_EXTRA))
+
+AB_SETS: dict[str, list] = {"Base": _FEAT_BASE, "+Form10": _FEAT_FORM10}
+if _PPDA_FEATS:
+    AB_SETS["+PPDA"] = _FEAT_BASE + _PPDA_FEATS
+AB_SETS["+Games14d"] = _FEAT_GAMES14D
+AB_SETS["+DCParams"]  = _FEAT_DC
+AB_SETS["+PostFIFA"]  = _FEAT_POSTFIFA
+AB_SETS["+Kickoff"]   = _FEAT_KICKOFF
+if _WEATHER_FEATS:
+    AB_SETS["+Weather"] = _FEAT_BASE + _WEATHER_FEATS
+if _SP_XG_FEATS:
+    AB_SETS["+SetPieceXGA"] = _FEAT_BASE + _SP_XG_FEATS
+AB_SETS["+All"] = _FEAT_ALL
+
+print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
+
+# ─── Dixon-Coles ──────────────────────────────────────────────────────────────
+
 
 def dc_tau(x, y, lam, mu, rho):
     if x == 0 and y == 0: return 1 - lam * mu * rho
@@ -477,7 +603,7 @@ def dc_nll(params, teams, arr, decay_hl):
         hi, ai, hg, ag = int(row[1]), int(row[2]), int(row[3]), int(row[4])
         w = math.exp(-lam_d * days_ago)
         lam = math.exp(atk[hi] + dfd[ai] + ha)
-        mu = math.exp(atk[ai] + dfd[hi])
+        mu  = math.exp(atk[ai] + dfd[hi])
         tau = dc_tau(hg, ag, lam, mu, rho)
         if tau <= 1e-10:
             continue
@@ -492,35 +618,25 @@ def fit_dc(matches: pd.DataFrame, decay_hl: int = DC_DECAY_HL, recent_seasons: i
     tidx = {t: i for i, t in enumerate(teams)}
     n = len(teams)
     ref = recent["date"].max()
-    arr = np.array(
-        [
-            [
-                (ref - r["date"]).days,
-                tidx.get(r["home_team"], 0),
-                tidx.get(r["away_team"], 0),
-                r["home_goals"],
-                r["away_goals"],
-            ]
-            for _, r in recent.iterrows()
-        ],
-        dtype=float,
-    )
+    arr = np.array([
+        [(ref - r["date"]).days, tidx.get(r["home_team"], 0),
+         tidx.get(r["away_team"], 0), r["home_goals"], r["away_goals"]]
+        for _, r in recent.iterrows()
+    ], dtype=float)
     x0 = np.zeros(2 * n + 2)
-    x0[2 * n], x0[2 * n + 1] = 0.25, -0.05
-    bounds = [(-3, 3)] * (2 * n) + [(0.0, 1.0)] + [(-0.5, 0.0)]
-    res = minimize(
-        dc_nll, x0, args=(teams, arr, decay_hl),
-        method="L-BFGS-B", bounds=bounds,
-        options={"maxiter": 300, "ftol": 1e-7},
-    )
+    x0[2*n], x0[2*n+1] = 0.25, -0.05
+    bounds = [(-3, 3)] * (2*n) + [(0.0, 1.0)] + [(-0.5, 0.0)]
+    res = minimize(dc_nll, x0, args=(teams, arr, decay_hl),
+                   method="L-BFGS-B", bounds=bounds,
+                   options={"maxiter": 300, "ftol": 1e-7})
     atk = dict(zip(teams, res.x[:n]))
     dfd = dict(zip(teams, res.x[n:2*n]))
-    return atk, dfd, res.x[2*n], res.x[2*n + 1]
+    return atk, dfd, res.x[2*n], res.x[2*n+1]
 
 
 def dc_predict(ht, at, atk, dfd, ha, rho, max_g=8):
     lam = math.exp(atk.get(ht, 0) + dfd.get(at, 0) + ha)
-    mu = math.exp(atk.get(at, 0) + dfd.get(ht, 0))
+    mu  = math.exp(atk.get(at, 0) + dfd.get(ht, 0))
     M = np.zeros((max_g + 1, max_g + 1))
     for i in range(max_g + 1):
         for j in range(max_g + 1):
@@ -531,43 +647,35 @@ def dc_predict(ht, at, atk, dfd, ha, rho, max_g=8):
     ph = float(np.tril(M, -1).sum())
     pd_ = float(np.diag(M).sum())
     pa = float(np.triu(M, 1).sum())
-    po = float(M[np.add.outer(np.arange(max_g + 1), np.arange(max_g + 1)) > 2.5].sum())
     t = ph + pd_ + pa
-    return ph / t, pd_ / t, pa / t, po
+    return ph / t, pd_ / t, pa / t
 
 
 def dc_predict_batch(split_df, atk, dfd, ha, rho):
-    return np.array(
-        [dc_predict(r.home_team, r.away_team, atk, dfd, ha, rho)
-         for _, r in split_df.iterrows()]
-    )
+    return np.array([dc_predict(r.home_team, r.away_team, atk, dfd, ha, rho)
+                     for _, r in split_df.iterrows()])
 
 
 def dc_lam_mu_batch(split_df, atk, dfd, ha):
     lams, mus = [], []
     for _, r in split_df.iterrows():
         lam = math.exp(atk.get(r["home_team"], 0) + dfd.get(r["away_team"], 0) + ha)
-        mu = math.exp(atk.get(r["away_team"], 0) + dfd.get(r["home_team"], 0))
-        lams.append(lam)
-        mus.append(mu)
+        mu  = math.exp(atk.get(r["away_team"], 0) + dfd.get(r["home_team"], 0))
+        lams.append(lam); mus.append(mu)
     return np.array(lams), np.array(mus)
 
 
-# ─── 5. Calibration — Temperature scaling ────────────────────────────────────
-# Single scalar T divides all log-probabilities before softmax/sigmoid.
-# 1 parameter → no overfitting on small (~500-match) calibration sets.
-# Platt per-class used 3 independent logistic models → inter-class inconsistency.
+# ─── Calibration — Temperature scaling ───────────────────────────────────────
 
-def calibrate_multiclass(
-    raw_cal: np.ndarray, y_cal: np.ndarray, raw_test: np.ndarray
-) -> np.ndarray:
+
+def calibrate_multiclass(raw_cal: np.ndarray, y_cal: np.ndarray,
+                          raw_test: np.ndarray) -> np.ndarray:
     def _nll(T: float) -> float:
         log_p = np.log(np.clip(raw_cal, 1e-9, 1.0)) / max(T, 0.1)
         log_p -= log_p.max(axis=1, keepdims=True)
         exp_p = np.exp(log_p)
         probs = exp_p / exp_p.sum(axis=1, keepdims=True)
         return float(log_loss(y_cal, probs))
-
     T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
     log_p = np.log(np.clip(raw_test, 1e-9, 1.0)) / T
     log_p -= log_p.max(axis=1, keepdims=True)
@@ -575,29 +683,12 @@ def calibrate_multiclass(
     return exp_p / exp_p.sum(axis=1, keepdims=True)
 
 
-def calibrate_binary(
-    raw_cal: np.ndarray, y_cal: np.ndarray, raw_test: np.ndarray
-) -> np.ndarray:
-    def _nll(T: float) -> float:
-        p = np.clip(raw_cal, 1e-9, 1 - 1e-9)
-        logit = np.log(p / (1 - p)) / max(T, 0.1)
-        p_scaled = 1.0 / (1.0 + np.exp(-logit))
-        return float(log_loss(y_cal, p_scaled))
-
-    T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
-    p = np.clip(raw_test, 1e-9, 1 - 1e-9)
-    logit = np.log(p / (1 - p)) / T
-    return 1.0 / (1.0 + np.exp(-logit))
-
-
-def decile_cal_error(probs: np.ndarray, actuals: np.ndarray) -> tuple[float, float]:
+def decile_cal_error(probs: np.ndarray, actuals: np.ndarray) -> tuple:
     try:
         dec = pd.qcut(probs, 10, duplicates="drop")
-        cal = (
-            pd.DataFrame({"p": probs, "a": actuals.astype(float), "d": dec})
-            .groupby("d", observed=True)
-            .agg(mp=("p", "mean"), ma=("a", "mean"))
-        )
+        cal = (pd.DataFrame({"p": probs, "a": actuals.astype(float), "d": dec})
+               .groupby("d", observed=True)
+               .agg(mp=("p", "mean"), ma=("a", "mean")))
         errs = (cal["mp"] - cal["ma"]).abs()
         return float(errs.max()), float(errs.mean())
     except Exception:
@@ -612,10 +703,10 @@ def per_class_brier(y_oh: np.ndarray, probs: np.ndarray) -> tuple:
     return tuple(float(np.mean((probs[:, c] - y_oh[:, c]) ** 2)) for c in range(3))
 
 
-# ─── 6. Walk-forward evaluation ───────────────────────────────────────────────
+# ─── Walk-forward evaluation ──────────────────────────────────────────────────
 
 print(
-    f"\n[4/8] Walk-forward evaluation "
+    f"\n[7/9] Walk-forward evaluation "
     f"(test={TEST_SEASONS}, DC decay={DC_DECAY_HL}d, temperature cal)..."
 )
 print("      DC fit ~30–90 sec per season.")
@@ -626,26 +717,20 @@ all_imp: list[dict] = []
 
 for test_season in TEST_SEASONS:
     cal_season = test_season - 1
-
     train_raw = df[df["season"] < cal_season].copy()
-    cal_raw = df[df["season"] == cal_season].copy()
-    test_raw = df[df["season"] == test_season].copy()
+    cal_raw   = df[df["season"] == cal_season].copy()
+    test_raw  = df[df["season"] == test_season].copy()
 
     if len(train_raw) < 200 or len(cal_raw) < 50 or len(test_raw) < 50:
         print(f"    Season {test_season}: insufficient data, skipping.")
         continue
 
-    print(
-        f"    {test_season}: train={len(train_raw)} cal={len(cal_raw)} test={len(test_raw)}",
-        end="",
-        flush=True,
-    )
+    print(f"    {test_season}: train={len(train_raw)} cal={len(cal_raw)} "
+          f"test={len(test_raw)}", end="", flush=True)
 
-    y_cal_r = cal_raw["label_result"].values
-    y_cal_o = cal_raw["label_over25"].values
-    y_te_r = test_raw["label_result"].values
-    y_te_o = test_raw["label_over25"].values
-    y_te_oh = np.eye(3)[y_te_r]
+    y_cal_r  = cal_raw["label_result"].values
+    y_te_r   = test_raw["label_result"].values
+    y_te_oh  = np.eye(3)[y_te_r]
     y_cal_oh = np.eye(3)[y_cal_r]
 
     # ── Dixon-Coles ──────────────────────────────────────────────────────────
@@ -653,47 +738,42 @@ for test_season in TEST_SEASONS:
     try:
         atk, dfd, ha, rho = fit_dc(train_raw, decay_hl=DC_DECAY_HL)
         dc_pred_cal = dc_predict_batch(cal_raw, atk, dfd, ha, rho)
-        dc_pred_te = dc_predict_batch(test_raw, atk, dfd, ha, rho)
-        dc_cal_cal3 = calibrate_multiclass(dc_pred_cal[:, :3], y_cal_r, dc_pred_cal[:, :3])
-        dc_cal_te3 = calibrate_multiclass(dc_pred_cal[:, :3], y_cal_r, dc_pred_te[:, :3])
-        dc_cal_ou = calibrate_binary(dc_pred_cal[:, 3], y_cal_o, dc_pred_te[:, 3])
+        dc_pred_te  = dc_predict_batch(test_raw, atk, dfd, ha, rho)
+        dc_cal_te3  = calibrate_multiclass(dc_pred_cal, y_cal_r, dc_pred_te)
+        dc_cal_cal3 = calibrate_multiclass(dc_pred_cal, y_cal_r, dc_pred_cal)
         dc_ok = True
         print(" | DC✓", end="", flush=True)
     except Exception as e:
-        dc_pred_cal = dc_pred_te = dc_cal_cal3 = dc_cal_te3 = dc_cal_ou = None
+        dc_pred_cal = dc_pred_te = dc_cal_te3 = dc_cal_cal3 = None
         print(f" | DC✗({e})", end="", flush=True)
 
-    # ── Add DC λ/μ features to splits ────────────────────────────────────────
+    # Add DC λ/μ features to train/cal/test splits
     if dc_ok:
-        train = train_raw.copy()
-        cal = cal_raw.copy()
-        test = test_raw.copy()
+        train = train_raw.copy(); cal = cal_raw.copy(); test = test_raw.copy()
         train["dc_lam"], train["dc_mu"] = dc_lam_mu_batch(train, atk, dfd, ha)
-        cal["dc_lam"], cal["dc_mu"] = dc_lam_mu_batch(cal, atk, dfd, ha)
-        test["dc_lam"], test["dc_mu"] = dc_lam_mu_batch(test, atk, dfd, ha)
+        cal["dc_lam"],   cal["dc_mu"]   = dc_lam_mu_batch(cal,   atk, dfd, ha)
+        test["dc_lam"],  test["dc_mu"]  = dc_lam_mu_batch(test,  atk, dfd, ha)
     else:
         train, cal, test = train_raw, cal_raw, test_raw
 
-    # ── Exponential season weights ────────────────────────────────────────────
+    # Exponential season weights for XGBoost
     ref_s = train["season"].max()
     sw = train["season"].apply(
         lambda s: math.exp(-math.log(2) / WEIGHT_HL * (ref_s - s))
     ).values
 
-    # ── XGBoost hyperparameter search (inner val = last 2 seasons of train) ──
+    # XGBoost inner hyperparameter search (last 2 seasons of train as inner val)
     _inner_s = sorted(train["season"].unique())[-2:]
-    _itr = train[~train["season"].isin(_inner_s)]
+    _itr  = train[~train["season"].isin(_inner_s)]
     _ival = train[train["season"].isin(_inner_s)]
     _sw_i = _itr["season"].apply(
         lambda s: math.exp(-math.log(2) / WEIGHT_HL * (ref_s - s))
     ).values
-
     _gs_feat = [c for c in _FEAT_ALL if c in _itr.columns]
-    _xgb_grid = list(itertools.product([3, 4, 5], [200, 400], [0.05, 0.10]))
     _best_xgb_b = float("inf")
     _best_p = {"max_depth": 4, "n_estimators": 300, "learning_rate": 0.05}
 
-    for _md, _ne, _lr in _xgb_grid:
+    for _md, _ne, _lr in itertools.product([3, 4, 5], [200, 400], [0.05, 0.10]):
         try:
             _c = xgb.XGBClassifier(
                 n_estimators=_ne, max_depth=_md, learning_rate=_lr,
@@ -701,50 +781,44 @@ for test_season in TEST_SEASONS:
                 objective="multi:softprob", num_class=3,
                 eval_metric="mlogloss", verbosity=0, random_state=42,
             )
-            _c.fit(_itr[_gs_feat].fillna(0).values, _itr["label_result"].values,
-                   sample_weight=_sw_i)
+            _c.fit(_itr[_gs_feat].fillna(0).values,
+                   _itr["label_result"].values, sample_weight=_sw_i)
             _ip = _c.predict_proba(_ival[_gs_feat].fillna(0).values)
-            _yoh_i = np.eye(3)[_ival["label_result"].values]
-            _b = float(np.mean(np.sum((_ip - _yoh_i) ** 2, axis=1)))
+            _b = float(np.mean(np.sum((_ip - np.eye(3)[_ival["label_result"].values]) ** 2, axis=1)))
             if _b < _best_xgb_b:
                 _best_xgb_b = _b
                 _best_p = {"max_depth": _md, "n_estimators": _ne, "learning_rate": _lr}
         except Exception:
             pass
 
-    print(
-        f" | XGB-grid(d={_best_p['max_depth']},n={_best_p['n_estimators']},"
-        f"lr={_best_p['learning_rate']})",
-        end="",
-        flush=True,
-    )
+    print(f" | XGB-grid(d={_best_p['max_depth']},n={_best_p['n_estimators']},"
+          f"lr={_best_p['learning_rate']})", end="", flush=True)
 
-    # ── A/B test: run each feature set ───────────────────────────────────────
+    # ── A/B test: each feature set ───────────────────────────────────────────
     xgb_ok = False
     xgb_cal_probs_best = xgb_te_probs_best = xgb_cal_te3 = None
     ab_brier: dict[str, float] = {}
 
     for ab_name, ab_feat in AB_SETS.items():
-        feat = [c for c in ab_feat if c in train.columns]
-        X_tr = train[feat].fillna(0).values
+        feat  = [c for c in ab_feat if c in train.columns]
+        X_tr  = train[feat].fillna(0).values
         X_cal = cal[feat].fillna(0).values
-        X_te = test[feat].fillna(0).values
+        X_te  = test[feat].fillna(0).values
         try:
             clf = xgb.XGBClassifier(
                 objective="multi:softprob", num_class=3,
                 eval_metric="mlogloss", verbosity=0, random_state=42,
-                subsample=0.8, colsample_bytree=0.8,
-                **_best_p,
+                subsample=0.8, colsample_bytree=0.8, **_best_p,
             )
             clf.fit(X_tr, train["label_result"].values, sample_weight=sw)
-            cal_p = clf.predict_proba(X_cal)
-            te_p = clf.predict_proba(X_te)
+            cal_p  = clf.predict_proba(X_cal)
+            te_p   = clf.predict_proba(X_te)
             cal_te = calibrate_multiclass(cal_p, y_cal_r, te_p)
             ab_brier[ab_name] = multiclass_brier(y_te_oh, cal_te)
 
             if ab_name == "+All":
                 xgb_cal_probs_best = cal_p
-                xgb_te_probs_best = te_p
+                xgb_te_probs_best  = te_p
                 xgb_cal_te3 = cal_te
                 imp = clf.get_booster().get_score(importance_type="gain")
                 all_imp.append({f: imp.get(f"f{i}", 0.0) for i, f in enumerate(feat)})
@@ -756,40 +830,18 @@ for test_season in TEST_SEASONS:
 
     ab_records.append({"season": test_season, **ab_brier})
 
-    # ── LightGBM O/U ─────────────────────────────────────────────────────────
-    ou_feat = [c for c in _FEAT_ALL if c in train.columns]
-    lgb_cal_ou_cal = lgb_te_ou_raw = None
-    try:
-        lgb_clf = lgb.LGBMClassifier(
-            n_estimators=_best_p["n_estimators"],
-            max_depth=_best_p["max_depth"],
-            learning_rate=_best_p["learning_rate"],
-            subsample=0.8, colsample_bytree=0.8,
-            verbose=-1, random_state=42,
-        )
-        lgb_clf.fit(train[ou_feat].fillna(0).values, train["label_over25"].values,
-                    sample_weight=sw)
-        lgb_cal_ou_raw_probs = lgb_clf.predict_proba(cal[ou_feat].fillna(0).values)[:, 1]
-        lgb_te_ou_raw = lgb_clf.predict_proba(test[ou_feat].fillna(0).values)[:, 1]
-        lgb_cal_ou_cal = calibrate_binary(lgb_cal_ou_raw_probs, y_cal_o, lgb_te_ou_raw)
-    except Exception as e:
-        print(f" | LGB✗({e})", end="", flush=True)
-
     # ── Stacking meta-learner ─────────────────────────────────────────────────
     meta_ok = False
-    ens_stacked = ens_ou_stacked = None
+    ens_stacked = None
     if dc_ok and xgb_ok:
         try:
-            xgb_cal_cal3 = calibrate_multiclass(xgb_cal_probs_best, y_cal_r, xgb_cal_probs_best)
+            xgb_cal_cal3 = calibrate_multiclass(xgb_cal_probs_best, y_cal_r,
+                                                  xgb_cal_probs_best)
             meta_X_cal = np.hstack([dc_cal_cal3, xgb_cal_cal3])
-            meta_X_te = np.hstack([dc_cal_te3, xgb_cal_te3])
+            meta_X_te  = np.hstack([dc_cal_te3,  xgb_cal_te3])
             meta = LogisticRegression(max_iter=300, C=1.0, random_state=42)
             meta.fit(meta_X_cal, y_cal_r)
             ens_stacked = meta.predict_proba(meta_X_te)
-            if dc_cal_ou is not None and lgb_cal_ou_cal is not None:
-                ens_ou_stacked = (dc_cal_ou + lgb_cal_ou_cal) / 2.0
-            else:
-                ens_ou_stacked = dc_cal_ou if dc_cal_ou is not None else lgb_cal_ou_cal
             meta_ok = True
             print(" | Meta✓", end="", flush=True)
         except Exception as e:
@@ -797,9 +849,9 @@ for test_season in TEST_SEASONS:
 
     # ── Simple average ensemble ───────────────────────────────────────────────
     if dc_ok and xgb_ok:
-        ens_avg = (dc_pred_te[:, :3] + xgb_te_probs_best) / 2.0
+        ens_avg = (dc_pred_te + xgb_te_probs_best) / 2.0
     elif dc_ok:
-        ens_avg = dc_pred_te[:, :3]
+        ens_avg = dc_pred_te
     elif xgb_ok:
         ens_avg = xgb_te_probs_best
     else:
@@ -810,28 +862,22 @@ for test_season in TEST_SEASONS:
     naive_r = np.tile(
         [freq.get(0, 0.33), freq.get(1, 0.33), freq.get(2, 0.33)], (len(test), 1)
     )
-    naive_o = float(train_raw["label_over25"].mean())
 
     # ── Collect results ───────────────────────────────────────────────────────
     r: dict = {
-        "season": test_season,
-        "n": len(test),
+        "season": test_season, "n": len(test),
         "naive_brier": multiclass_brier(y_te_oh, naive_r),
         "naive_ll": log_loss(y_te_r, naive_r),
-        "naive_ou_brier": brier_score_loss(y_te_o, np.full(len(test), naive_o)),
         "home_win_rate": (y_te_r == 0).mean(),
         "draw_rate": (y_te_r == 1).mean(),
         "away_win_rate": (y_te_r == 2).mean(),
-        "over25_rate": y_te_o.mean(),
     }
 
     if dc_ok:
-        r["dc_brier_raw"] = multiclass_brier(y_te_oh, dc_pred_te[:, :3])
+        r["dc_brier_raw"] = multiclass_brier(y_te_oh, dc_pred_te)
         r["dc_brier_cal"] = multiclass_brier(y_te_oh, dc_cal_te3)
-        r["dc_ll_raw"] = log_loss(y_te_r, dc_pred_te[:, :3])
-        r["dc_ll_cal"] = log_loss(y_te_r, dc_cal_te3)
-        r["dc_ou_raw"] = brier_score_loss(y_te_o, dc_pred_te[:, 3])
-        r["dc_ou_cal"] = brier_score_loss(y_te_o, dc_cal_ou)
+        r["dc_ll_raw"]    = log_loss(y_te_r, dc_pred_te)
+        r["dc_ll_cal"]    = log_loss(y_te_r, dc_cal_te3)
         h, d, a = per_class_brier(y_te_oh, dc_cal_te3)
         r["dc_cal_h"], r["dc_cal_d"], r["dc_cal_a"] = h, d, a
         r["dc_cal_err_max"], _ = decile_cal_error(dc_cal_te3[:, 0], (y_te_r == 0))
@@ -839,26 +885,19 @@ for test_season in TEST_SEASONS:
     if xgb_ok:
         r["xgb_brier_raw"] = multiclass_brier(y_te_oh, xgb_te_probs_best)
         r["xgb_brier_cal"] = multiclass_brier(y_te_oh, xgb_cal_te3)
-        r["xgb_ll_raw"] = log_loss(y_te_r, xgb_te_probs_best)
-        r["xgb_ll_cal"] = log_loss(y_te_r, xgb_cal_te3)
+        r["xgb_ll_raw"]    = log_loss(y_te_r, xgb_te_probs_best)
+        r["xgb_ll_cal"]    = log_loss(y_te_r, xgb_cal_te3)
         h, d, a = per_class_brier(y_te_oh, xgb_cal_te3)
         r["xgb_cal_h"], r["xgb_cal_d"], r["xgb_cal_a"] = h, d, a
         r["xgb_cal_err_max"], _ = decile_cal_error(xgb_cal_te3[:, 0], (y_te_r == 0))
 
-    if lgb_te_ou_raw is not None:
-        r["xgb_ou_raw"] = brier_score_loss(y_te_o, lgb_te_ou_raw)
-    if lgb_cal_ou_cal is not None:
-        r["xgb_ou_cal"] = brier_score_loss(y_te_o, lgb_cal_ou_cal)
-
     if ens_avg is not None:
         r["ens_avg_brier"] = multiclass_brier(y_te_oh, ens_avg)
-        r["ens_avg_ll"] = log_loss(y_te_r, ens_avg)
+        r["ens_avg_ll"]    = log_loss(y_te_r, ens_avg)
 
     if meta_ok:
         r["ens_stacked_brier"] = multiclass_brier(y_te_oh, ens_stacked)
-        r["ens_stacked_ll"] = log_loss(y_te_r, ens_stacked)
-        if ens_ou_stacked is not None:
-            r["ens_stacked_ou"] = brier_score_loss(y_te_o, ens_ou_stacked)
+        r["ens_stacked_ll"]    = log_loss(y_te_r, ens_stacked)
         h, d, a = per_class_brier(y_te_oh, ens_stacked)
         r["ens_stacked_h"], r["ens_stacked_d"], r["ens_stacked_a"] = h, d, a
         r["ens_cal_err_max"], _ = decile_cal_error(ens_stacked[:, 0], (y_te_r == 0))
@@ -877,11 +916,11 @@ for test_season in TEST_SEASONS:
     print(f" | Best={best} vs Naive={r['naive_brier']:.4f}")
 
 
-# ─── 7. Report ────────────────────────────────────────────────────────────────
+# ─── 8. Report ────────────────────────────────────────────────────────────────
 
-print("\n" + "=" * 65)
-print("RESULTS — averaged over test seasons 2022–2024")
-print("=" * 65)
+print("\n" + "=" * 70)
+print("RESULTS — 1X2 only (O/U dropped)")
+print("=" * 70)
 
 rd = pd.DataFrame(results)
 
@@ -896,63 +935,47 @@ def pct(a: float, b: float) -> float:
 
 naive_b = avg("naive_brier")
 naive_l = avg("naive_ll")
-naive_ou = avg("naive_ou_brier")
 
 print(f"\n{'Model':<28} {'Brier':>8} {'vs Naive':>10} {'Log-Loss':>10}")
-print("-" * 58)
+print("-" * 60)
 print(f"{'Naive baseline':<28} {naive_b:8.4f} {'—':>10} {naive_l:10.4f}")
 
 for label, bk, lk in [
     ("DC (raw)",             "dc_brier_raw",       "dc_ll_raw"),
-    ("DC (calibrated)",      "dc_brier_cal",        "dc_ll_cal"),
-    ("XGBoost (raw)",        "xgb_brier_raw",       "xgb_ll_raw"),
-    ("XGBoost (cal, +All)",  "xgb_brier_cal",       "xgb_ll_cal"),
-    ("Ensemble avg",         "ens_avg_brier",        "ens_avg_ll"),
-    ("Ensemble stacked",     "ens_stacked_brier",    "ens_stacked_ll"),
+    ("DC (calibrated)",      "dc_brier_cal",       "dc_ll_cal"),
+    ("XGBoost (raw)",        "xgb_brier_raw",      "xgb_ll_raw"),
+    ("XGBoost (cal, +All)",  "xgb_brier_cal",      "xgb_ll_cal"),
+    ("Ensemble avg",         "ens_avg_brier",      "ens_avg_ll"),
+    ("Ensemble stacked",     "ens_stacked_brier",  "ens_stacked_ll"),
 ]:
-    b = avg(bk)
-    l = avg(lk)
+    b, l = avg(bk), avg(lk)
     if not math.isnan(b):
         print(f"  {label:<26} {b:8.4f} {pct(b, naive_b):>+9.1f}% {l:10.4f}")
-
-print(f"\n{'Model':<28} {'O/U Brier':>10} {'vs Naive':>10}")
-print("-" * 50)
-print(f"{'Naive baseline':<28} {naive_ou:10.4f} {'—':>10}")
-for label, k in [
-    ("DC (raw)",         "dc_ou_raw"),
-    ("DC (calibrated)",  "dc_ou_cal"),
-    ("LightGBM (raw)",   "xgb_ou_raw"),
-    ("LightGBM (cal)",   "xgb_ou_cal"),
-    ("Stacked avg",      "ens_stacked_ou"),
-]:
-    v = avg(k)
-    if not math.isnan(v):
-        print(f"  {label:<26} {v:10.4f} {pct(v, naive_ou):>+9.1f}%")
 
 # A/B feature test
 if ab_records:
     n_folds = len(ab_records)
     print(f"\nA/B feature test (XGBoost Brier, avg over {n_folds} seasons):")
-    print(f"  {'Feature set':<16} {'Brier':>8}  {'Δ vs Base':>10}  {'Keep?':>6}")
-    print("  " + "-" * 44)
+    print(f"  {'Feature set':<18} {'Brier':>8}  {'Δ vs Base':>10}  {'Keep?':>6}")
+    print("  " + "-" * 46)
     ab_df = pd.DataFrame(ab_records).drop(columns=["season"], errors="ignore")
     ab_avg = ab_df.mean()
     base_b = ab_avg.get("Base", float("nan"))
-    for fs in ["Base", "+DrawRate", "+DCParams", "+RestTravel", "+SquadAlt", "+All"]:
+    for fs in list(AB_SETS.keys()):
         v = ab_avg.get(fs, float("nan"))
         if math.isnan(v):
             continue
         if fs == "Base":
-            print(f"  {fs:<16} {v:8.4f}  {'—':>10}  {'—':>6}")
+            print(f"  {fs:<18} {v:8.4f}  {'—':>10}  {'—':>6}")
         else:
-            delta = base_b - v  # positive = improvement
+            delta = base_b - v
             keep = "YES" if delta > 0.001 else ("~" if delta > 0 else "NO")
-            print(f"  {fs:<16} {v:8.4f}  {delta:>+10.4f}  {keep:>6}")
+            print(f"  {fs:<18} {v:8.4f}  {delta:>+10.4f}  {keep:>6}")
 
 # Per-class Brier
 print(f"\nPer-class Brier (calibrated):")
 print(f"  {'Model':<24} {'Home':>8} {'Draw':>8} {'Away':>8}")
-print("  " + "-" * 48)
+print("  " + "-" * 50)
 for label, hk, dk, ak in [
     ("DC (calibrated)",      "dc_cal_h",       "dc_cal_d",       "dc_cal_a"),
     ("XGBoost (cal, +All)",  "xgb_cal_h",      "xgb_cal_d",      "xgb_cal_a"),
@@ -964,8 +987,8 @@ for label, hk, dk, ak in [
 
 # Calibration error
 print(f"\nCalibration error (temperature scaling, home-win deciles, max):")
-print(f"  {'Stage':<28} {'Max err':>8}")
-print("  " + "-" * 38)
+print(f"  {'Stage':<30} {'Max err':>8}")
+print("  " + "-" * 40)
 for label, k in [
     ("Raw average ensemble",   "cal_stage_raw_avg"),
     ("Stacked (meta-learner)", "cal_stage_stacked"),
@@ -973,7 +996,7 @@ for label, k in [
     v = avg(k)
     if not math.isnan(v):
         flag = "✓" if v < 0.05 else ("~" if v < 0.10 else "!")
-        print(f"  {label:<28} {v:8.4f}  [{flag}]")
+        print(f"  {label:<30} {v:8.4f}  [{flag}]")
 
 # Feature importances
 if all_imp:
@@ -983,18 +1006,15 @@ if all_imp:
         for f, v in fi.items():
             agg[f] = agg.get(f, 0.0) + v / len(all_imp)
     total = sum(agg.values()) or 1.0
-    print(f"  {'Feature':<28} {'Gain':>10} {'Share':>8}")
-    print("  " + "-" * 48)
-    for fn, fv in sorted(agg.items(), key=lambda x: x[1], reverse=True):
-        print(f"  {fn:<28} {fv:10.1f} {fv / total:8.1%}")
+    print(f"  {'Feature':<32} {'Gain':>10} {'Share':>8}")
+    print("  " + "-" * 52)
+    for fn, fv in sorted(agg.items(), key=lambda x: x[1], reverse=True)[:20]:
+        print(f"  {fn:<32} {fv:10.1f} {fv / total:8.1%}")
 
 # Match rates
 print(f"\nMatch outcome rates (test avg):")
 for col, label in [
-    ("home_win_rate", "Home wins"),
-    ("draw_rate", "Draws"),
-    ("away_win_rate", "Away wins"),
-    ("over25_rate", "Over 2.5"),
+    ("home_win_rate", "Home wins"), ("draw_rate", "Draws"), ("away_win_rate", "Away wins"),
 ]:
     if col in rd.columns:
         print(f"  {label}: {rd[col].mean():.1%}")
@@ -1007,13 +1027,12 @@ for c in ["dc_brier_cal", "xgb_brier_cal", "ens_stacked_brier"]:
         dcols.append(c)
 print(rd[dcols].to_string(index=False, float_format="{:.4f}".format))
 
-# ─── 8. Recommendations ──────────────────────────────────────────────────────
+# ─── 9. Recommendations ───────────────────────────────────────────────────────
 
-print("\n" + "=" * 65)
+print("\n" + "=" * 70)
 print("RECOMMENDATIONS")
-print("=" * 65)
-print()
-print(f"  ELO: K={K}, HOME_ADV={HOME_ADV}, REGRESS={REGRESS:.0%}")
+print("=" * 70)
+print(f"\n  ELO: K={K}, HOME_ADV={HOME_ADV}, REGRESS={REGRESS:.0%}")
 
 best_key = next(
     (k for k in ["ens_stacked_brier", "ens_avg_brier", "xgb_brier_cal", "dc_brier_cal"]
@@ -1025,7 +1044,8 @@ imp_pct = pct(best_b, naive_b)
 
 if not math.isnan(imp_pct):
     if imp_pct > -5:
-        print(f"  [!] WEAK:     Best model {imp_pct:+.1f}% vs naive. Calibration + features needed.")
+        print(f"  [!] WEAK:     Best model {imp_pct:+.1f}% vs naive. "
+              "More feature/architecture work needed.")
     elif imp_pct > -10:
         print(f"  [~] MODERATE: Best model {imp_pct:+.1f}% vs naive.")
     else:
@@ -1033,21 +1053,13 @@ if not math.isnan(imp_pct):
 
 xgb_d = avg("xgb_cal_d")
 if not math.isnan(xgb_d) and xgb_d > 0.18:
-    print(f"\n  [Draw] Brier={xgb_d:.4f} — draws remain the hardest class (~25% MLS rate).")
-
-xgb_ou = avg("xgb_ou_cal")
-dc_ou_cal = avg("dc_ou_cal")
-if not math.isnan(xgb_ou):
-    if xgb_ou >= naive_ou:
-        print(f"\n  [O/U] LightGBM ({xgb_ou:.4f}) ≥ naive. Use DC O/U ({dc_ou_cal:.4f}) directly.")
-    else:
-        print(f"\n  [O/U] LightGBM improved to {xgb_ou:.4f} (naive: {naive_ou:.4f}).")
+    print(f"\n  [Draw] Brier={xgb_d:.4f} — draws remain hardest class.")
 
 if ab_records:
     ab_df2 = pd.DataFrame(ab_records)
     ab_avg2 = ab_df2.drop(columns=["season"]).mean()
     base_b2 = ab_avg2.get("Base", float("nan"))
-    for fs in ["+DrawRate", "+DCParams", "+RestTravel", "+SquadAlt"]:
+    for fs in [k for k in AB_SETS if k not in ("Base", "+All")]:
         v = ab_avg2.get(fs, float("nan"))
         if not math.isnan(v) and not math.isnan(base_b2):
             delta = base_b2 - v
