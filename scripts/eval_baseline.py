@@ -16,7 +16,7 @@ Changes vs v1:
   - ELO: grid search K∈[20,25,30] × HOME_ADV∈[80,100,120], REGRESS 30%→40%
   - Rolling: two xG windows (5,15), rolling draw rate (10), home_xg_sum
   - DC: time-decay half-life 180→120 days; λ/μ exported as XGB features
-  - Calibration: isotonic → Platt scaling (LogisticRegression per class)
+  - Calibration: isotonic → temperature scaling (1-param, minimise NLL on cal set)
   - XGBoost: hyperparameter grid search, exponential season sample weights
   - A/B test: per-feature Brier delta for draw_rate and DC params
 """
@@ -27,7 +27,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
+from scipy.optimize import minimize, minimize_scalar
 from scipy.stats import poisson
 from sklearn.metrics import log_loss, brier_score_loss
 from sklearn.linear_model import LogisticRegression
@@ -51,7 +51,7 @@ WEIGHT_HL     = 4       # exponential season decay half-life in seasons
 # ─── 1. Fetch data ────────────────────────────────────────────────────────────
 
 print("=" * 65)
-print("MLS Model Evaluation  (3-way split + Platt calibration)")
+print("MLS Model Evaluation  (3-way split + temperature calibration)")
 print("=" * 65)
 print("\n[1/8] Fetching MLS data from ASA API...")
 
@@ -391,26 +391,41 @@ def dc_lam_mu_batch(split_df, atk, dfd, ha):
     return np.array(lams), np.array(mus)
 
 
-# ─── 5. Calibration — Platt scaling ──────────────────────────────────────────
+# ─── 5. Calibration — Temperature scaling ────────────────────────────────────
+# Single scalar T divides all log-probabilities before softmax/sigmoid.
+# 1 parameter → no overfitting on small (~500-match) calibration sets.
+# Platt per-class used 3 independent logistic models → inter-class inconsistency.
 
 def calibrate_multiclass(
     raw_cal: np.ndarray, y_cal: np.ndarray, raw_test: np.ndarray
 ) -> np.ndarray:
-    cal_out = np.zeros_like(raw_test, dtype=float)
-    for c in range(3):
-        platt = LogisticRegression(max_iter=300, C=1.0, random_state=42)
-        platt.fit(raw_cal[:, c].reshape(-1, 1), (y_cal == c).astype(int))
-        cal_out[:, c] = platt.predict_proba(raw_test[:, c].reshape(-1, 1))[:, 1]
-    row_sums = cal_out.sum(axis=1, keepdims=True).clip(1e-9, None)
-    return cal_out / row_sums
+    def _nll(T: float) -> float:
+        log_p = np.log(np.clip(raw_cal, 1e-9, 1.0)) / max(T, 0.1)
+        log_p -= log_p.max(axis=1, keepdims=True)
+        exp_p = np.exp(log_p)
+        probs = exp_p / exp_p.sum(axis=1, keepdims=True)
+        return float(log_loss(y_cal, probs))
+
+    T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
+    log_p = np.log(np.clip(raw_test, 1e-9, 1.0)) / T
+    log_p -= log_p.max(axis=1, keepdims=True)
+    exp_p = np.exp(log_p)
+    return exp_p / exp_p.sum(axis=1, keepdims=True)
 
 
 def calibrate_binary(
     raw_cal: np.ndarray, y_cal: np.ndarray, raw_test: np.ndarray
 ) -> np.ndarray:
-    platt = LogisticRegression(max_iter=300, C=1.0, random_state=42)
-    platt.fit(raw_cal.reshape(-1, 1), y_cal.astype(int))
-    return platt.predict_proba(raw_test.reshape(-1, 1))[:, 1]
+    def _nll(T: float) -> float:
+        p = np.clip(raw_cal, 1e-9, 1 - 1e-9)
+        logit = np.log(p / (1 - p)) / max(T, 0.1)
+        p_scaled = 1.0 / (1.0 + np.exp(-logit))
+        return float(log_loss(y_cal, p_scaled))
+
+    T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
+    p = np.clip(raw_test, 1e-9, 1 - 1e-9)
+    logit = np.log(p / (1 - p)) / T
+    return 1.0 / (1.0 + np.exp(-logit))
 
 
 def decile_cal_error(probs: np.ndarray, actuals: np.ndarray) -> tuple[float, float]:
@@ -439,7 +454,7 @@ def per_class_brier(y_oh: np.ndarray, probs: np.ndarray) -> tuple:
 
 print(
     f"\n[4/8] Walk-forward evaluation "
-    f"(test={TEST_SEASONS}, DC decay={DC_DECAY_HL}d, Platt cal)..."
+    f"(test={TEST_SEASONS}, DC decay={DC_DECAY_HL}d, temperature cal)..."
 )
 print("      DC fit ~30–90 sec per season.")
 
@@ -786,7 +801,7 @@ for label, hk, dk, ak in [
         print(f"  {label:<24} {h:8.4f} {d:8.4f} {a:8.4f}")
 
 # Calibration error
-print(f"\nCalibration error (Platt, home-win deciles, max):")
+print(f"\nCalibration error (temperature scaling, home-win deciles, max):")
 print(f"  {'Stage':<28} {'Max err':>8}")
 print("  " + "-" * 38)
 for label, k in [
