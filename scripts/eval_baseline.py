@@ -267,7 +267,111 @@ def add_rolling_features(
 
 df = add_rolling_features(df, XG_WINDOWS, FORM_WINDOW, DRAW_WINDOW)
 
+# ─── 3b. Rest days + travel distance ─────────────────────────────────────────
+
+# Stadium coordinates keyed by ASA team_id (lat, lon)
+_TEAM_COORDS: dict[str, tuple[float, float]] = {
+    "0KPqjA456v": (37.351, -121.925),   # San Jose Earthquakes
+    "19vQ2095K6": (42.091,  -71.264),   # New England Revolution
+    "4wM42l4qjB": (33.864, -118.261),   # Chivas USA (StubHub Center)
+    "9z5k7Yg5A3": (39.834,  -75.380),   # Philadelphia Union
+    "APk5LGOMOW": (45.564,  -73.551),   # CF Montréal
+    "EKXMeX3Q64": (38.868,  -77.013),   # D.C. United
+    "KAqBN0Vqbg": (33.755,  -84.401),   # Atlanta United FC
+    "NPqxKXZ59d": (35.226,  -80.853),   # Charlotte FC
+    "NWMWlBK5lz": (39.109,  -84.521),   # FC Cincinnati
+    "Vj58weDM8n": (40.829,  -73.926),   # New York City FC
+    "WBLMvYAQxe": (45.521, -122.692),   # Portland Timbers
+    "X0Oq66zq6D": (41.862,  -87.617),   # Chicago Fire
+    "YgOMngl5zy": (29.753,  -95.351),   # Houston Dynamo
+    "Z2vQ1xlqrA": (39.123,  -94.824),   # Sporting Kansas City
+    "a2lqR4JMr0": (40.583, -111.893),   # Real Salt Lake
+    "a2lqRX2Mr0": (40.737,  -74.150),   # New York Red Bulls
+    "eVq3ya6MWO": (34.013, -118.285),   # LAFC
+    "gpMOLwl5zy": (30.387,  -97.719),   # Austin FC
+    "jYQJ19EqGR": (47.595, -122.332),   # Seattle Sounders
+    "jYQJ8EW5GR": (28.541,  -81.389),   # Orlando City
+    "kRQabn8MKZ": (43.633,  -79.419),   # Toronto FC
+    "kRQand1MKZ": (44.953,  -93.165),   # Minnesota United
+    "kaDQ0wRqEv": (33.864, -118.261),   # LA Galaxy
+    "lgpMOvnQzy": (49.277, -123.112),   # Vancouver Whitecaps
+    "mKAqBBmqbg": (33.155,  -97.116),   # FC Dallas
+    "mvzqoLZQap": (39.968,  -83.018),   # Columbus Crew
+    "pzeQZ6xQKw": (39.805, -104.892),   # Colorado Rapids
+    "vzqoOgNqap": (36.130,  -86.766),   # Nashville SC
+    "wvq9B9wQWn": (38.633,  -90.212),   # St. Louis City SC
+    "zeQZBOzQKw": (32.707, -117.120),   # San Diego FC
+    "zeQZkL1MKw": (26.170,  -80.188),   # Inter Miami CF
+}
+
+
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(max(0.0, a)))
+
+
+def add_rest_travel_features(
+    df: pd.DataFrame, team_coords: dict[str, tuple[float, float]], rest_cap: int = 30
+) -> pd.DataFrame:
+    last_date: dict = {}
+    last_loc: dict = {}
+    h_rest_l, a_rest_l, h_travel_l, a_travel_l = [], [], [], []
+
+    for _, row in df.iterrows():
+        ht, at = row["home_team"], row["away_team"]
+        dt = row["date"]
+        h_coord = team_coords.get(ht)
+        a_coord = team_coords.get(at)
+
+        h_rest = min((dt - last_date[ht]).days, rest_cap) if ht in last_date else rest_cap
+        a_rest = min((dt - last_date[at]).days, rest_cap) if at in last_date else rest_cap
+        h_rest_l.append(h_rest)
+        a_rest_l.append(a_rest)
+
+        # Away team traveled from their last known location to the home stadium
+        if at in last_loc and h_coord is not None:
+            a_travel_l.append(haversine_km(*last_loc[at], *h_coord))
+        elif a_coord is not None and h_coord is not None:
+            a_travel_l.append(haversine_km(*a_coord, *h_coord))
+        else:
+            a_travel_l.append(0.0)
+
+        # Home team's most recent travel (captures return from long road trip)
+        if ht in last_loc and h_coord is not None:
+            h_travel_l.append(haversine_km(*last_loc[ht], *h_coord))
+        else:
+            h_travel_l.append(0.0)
+
+        # Update after reading to avoid leakage
+        last_date[ht] = dt
+        last_date[at] = dt
+        if h_coord is not None:
+            last_loc[ht] = h_coord   # home team stays at home
+            last_loc[at] = h_coord   # away team was at this stadium
+
+
+    out = df.copy()
+    out["home_rest_days"] = h_rest_l
+    out["away_rest_days"] = a_rest_l
+    out["rest_diff"] = out["home_rest_days"] - out["away_rest_days"]
+    out["away_travel_km"] = a_travel_l
+    out["home_travel_km_recent"] = h_travel_l
+    return out
+
+
+df = add_rest_travel_features(df, _TEAM_COORDS)
+_travel_mapped = sum(1 for tid in df["home_team"].unique() if tid in _TEAM_COORDS)
+print(f"    Rest + travel features added  |  "
+      f"{_travel_mapped}/{df['home_team'].nunique()} home teams mapped to coordinates")
+
 # ─── Feature sets for A/B testing ────────────────────────────────────────────
+
+_REST_TRAVEL_FEATS = ["home_rest_days", "away_rest_days", "rest_diff",
+                      "away_travel_km", "home_travel_km_recent"]
 
 _FEAT_BASE = (
     ["elo_diff", "home_elo", "away_elo"]
@@ -280,18 +384,20 @@ _FEAT_DRAW = _FEAT_BASE + [
     f"away_draw_rate_{DRAW_WINDOW}",
 ]
 _FEAT_DC  = _FEAT_BASE + ["dc_lam", "dc_mu"]
+_FEAT_REST = _FEAT_BASE + _REST_TRAVEL_FEATS
 _FEAT_ALL = _FEAT_BASE + [
     f"home_draw_rate_{DRAW_WINDOW}",
     f"away_draw_rate_{DRAW_WINDOW}",
     "dc_lam", "dc_mu",
     "home_xg_sum",
-]
+] + _REST_TRAVEL_FEATS
 
 AB_SETS = {
-    "Base":      _FEAT_BASE,
-    "+DrawRate": _FEAT_DRAW,
-    "+DCParams": _FEAT_DC,
-    "+All":      _FEAT_ALL,
+    "Base":        _FEAT_BASE,
+    "+DrawRate":   _FEAT_DRAW,
+    "+DCParams":   _FEAT_DC,
+    "+RestTravel": _FEAT_REST,
+    "+All":        _FEAT_ALL,
 }
 
 # ─── 4. Dixon-Coles ───────────────────────────────────────────────────────────
@@ -776,7 +882,7 @@ if ab_records:
     ab_df = pd.DataFrame(ab_records).drop(columns=["season"], errors="ignore")
     ab_avg = ab_df.mean()
     base_b = ab_avg.get("Base", float("nan"))
-    for fs in ["Base", "+DrawRate", "+DCParams", "+All"]:
+    for fs in ["Base", "+DrawRate", "+DCParams", "+RestTravel", "+All"]:
         v = ab_avg.get(fs, float("nan"))
         if math.isnan(v):
             continue
@@ -885,7 +991,7 @@ if ab_records:
     ab_df2 = pd.DataFrame(ab_records)
     ab_avg2 = ab_df2.drop(columns=["season"]).mean()
     base_b2 = ab_avg2.get("Base", float("nan"))
-    for fs in ["+DrawRate", "+DCParams"]:
+    for fs in ["+DrawRate", "+DCParams", "+RestTravel"]:
         v = ab_avg2.get(fs, float("nan"))
         if not math.isnan(v) and not math.isnan(base_b2):
             delta = base_b2 - v
