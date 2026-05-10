@@ -368,10 +368,66 @@ _travel_mapped = sum(1 for tid in df["home_team"].unique() if tid in _TEAM_COORD
 print(f"    Rest + travel features added  |  "
       f"{_travel_mapped}/{df['home_team'].nunique()} home teams mapped to coordinates")
 
+# ─── 3c. Altitude flag ────────────────────────────────────────────────────────
+# Colorado (1609 m) and Real Salt Lake (1283 m) — both above 1000 m,
+# documented physiological disadvantage for visiting sea-level teams.
+_HIGH_ALT_IDS = {"pzeQZ6xQKw", "a2lqR4JMr0"}
+df["is_high_alt"] = df["home_team"].isin(_HIGH_ALT_IDS).astype(int)
+
+# ─── 3d. Squad quality from player xpoints_added (prev-season, no leakage) ───
+print("\n[3d] Fetching player xpoints_added by season (prev-season squad quality)...")
+
+_SQUAD_SEASONS = [s for s in range(2016, 2026) if s not in _COVID]
+_squad_raw: dict[tuple, float] = {}   # (team_id, season) → total xpoints_added
+
+for _s in _SQUAD_SEASONS:
+    try:
+        _pxg = asa.get_player_xgoals(leagues="mls", season_name=str(_s))
+        # Single-team players only; ≥500 min filters out cup/token appearances
+        _pxg_s = _pxg[
+            _pxg["team_id"].apply(lambda x: isinstance(x, str))
+            & (_pxg["minutes_played"] >= 500)
+        ]
+        for _tid, _grp in _pxg_s.groupby("team_id"):
+            _squad_raw[(_tid, _s)] = float(_grp["xpoints_added"].sum())
+    except Exception:
+        pass
+
+# Z-score per season so the metric is comparable across expansion eras
+_squad_norm: dict[tuple, float] = {}
+for _s in _SQUAD_SEASONS:
+    _vals = [v for (t, ss), v in _squad_raw.items() if ss == _s]
+    if len(_vals) < 3:
+        continue
+    _mu, _sd = float(np.mean(_vals)), float(np.std(_vals))
+    _sd = max(_sd, 0.1)
+    for (t, ss), v in _squad_raw.items():
+        if ss == _s:
+            _squad_norm[(t, ss)] = (v - _mu) / _sd
+
+print(f"    Squad quality loaded: {len(_squad_norm)} team-seasons "
+      f"({len({ss for _, ss in _squad_norm})} seasons)")
+
+
+def squad_z(team_id: str, season: int) -> float:
+    """Previous season squad quality z-score; falls back two seasons."""
+    for lag in (1, 2):
+        val = _squad_norm.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return 0.0   # league average
+
+
+df["home_squad_xpa"] = [squad_z(r.home_team, r.season) for _, r in df.iterrows()]
+df["away_squad_xpa"] = [squad_z(r.away_team, r.season) for _, r in df.iterrows()]
+df["squad_xpa_diff"] = df["home_squad_xpa"] - df["away_squad_xpa"]
+
 # ─── Feature sets for A/B testing ────────────────────────────────────────────
 
 _REST_TRAVEL_FEATS = ["home_rest_days", "away_rest_days", "rest_diff",
                       "away_travel_km", "home_travel_km_recent"]
+_SQUAD_ALT_FEATS  = ["home_squad_xpa", "away_squad_xpa", "squad_xpa_diff",
+                      "is_high_alt"]
 
 _FEAT_BASE = (
     ["elo_diff", "home_elo", "away_elo"]
@@ -379,24 +435,24 @@ _FEAT_BASE = (
     + [f"{r}_xga_roll_{w}" for r in ("home", "away") for w in XG_WINDOWS]
     + ["xg_diff", "form_diff", "home_form", "away_form", "is_playoff"]
 )
-_FEAT_DRAW = _FEAT_BASE + [
-    f"home_draw_rate_{DRAW_WINDOW}",
-    f"away_draw_rate_{DRAW_WINDOW}",
-]
-_FEAT_DC  = _FEAT_BASE + ["dc_lam", "dc_mu"]
-_FEAT_REST = _FEAT_BASE + _REST_TRAVEL_FEATS
-_FEAT_ALL = _FEAT_BASE + [
+_FEAT_DRAW     = _FEAT_BASE + [f"home_draw_rate_{DRAW_WINDOW}",
+                                f"away_draw_rate_{DRAW_WINDOW}"]
+_FEAT_DC       = _FEAT_BASE + ["dc_lam", "dc_mu"]
+_FEAT_REST     = _FEAT_BASE + _REST_TRAVEL_FEATS
+_FEAT_SQUAD    = _FEAT_BASE + _SQUAD_ALT_FEATS
+_FEAT_ALL      = _FEAT_BASE + [
     f"home_draw_rate_{DRAW_WINDOW}",
     f"away_draw_rate_{DRAW_WINDOW}",
     "dc_lam", "dc_mu",
     "home_xg_sum",
-] + _REST_TRAVEL_FEATS
+] + _REST_TRAVEL_FEATS + _SQUAD_ALT_FEATS
 
 AB_SETS = {
     "Base":        _FEAT_BASE,
     "+DrawRate":   _FEAT_DRAW,
     "+DCParams":   _FEAT_DC,
     "+RestTravel": _FEAT_REST,
+    "+SquadAlt":   _FEAT_SQUAD,
     "+All":        _FEAT_ALL,
 }
 
@@ -882,7 +938,7 @@ if ab_records:
     ab_df = pd.DataFrame(ab_records).drop(columns=["season"], errors="ignore")
     ab_avg = ab_df.mean()
     base_b = ab_avg.get("Base", float("nan"))
-    for fs in ["Base", "+DrawRate", "+DCParams", "+RestTravel", "+All"]:
+    for fs in ["Base", "+DrawRate", "+DCParams", "+RestTravel", "+SquadAlt", "+All"]:
         v = ab_avg.get(fs, float("nan"))
         if math.isnan(v):
             continue
@@ -991,7 +1047,7 @@ if ab_records:
     ab_df2 = pd.DataFrame(ab_records)
     ab_avg2 = ab_df2.drop(columns=["season"]).mean()
     base_b2 = ab_avg2.get("Base", float("nan"))
-    for fs in ["+DrawRate", "+DCParams", "+RestTravel"]:
+    for fs in ["+DrawRate", "+DCParams", "+RestTravel", "+SquadAlt"]:
         v = ab_avg2.get(fs, float("nan"))
         if not math.isnan(v) and not math.isnan(base_b2):
             delta = base_b2 - v
