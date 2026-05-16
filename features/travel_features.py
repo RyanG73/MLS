@@ -52,9 +52,20 @@ _STADIUMS: dict[str, tuple[float, float]] = {
 
 _DEFAULT_COORDS = (39.5, -98.35)  # Geographic center of USA
 
+# Stadiums with retractable roofs — weather data is irrelevant for these venues
+_DOME_STADIUMS: set[str] = {
+    "ATL",   # Mercedes-Benz Stadium (ETFE retractable roof, climate-controlled)
+    "VAN",   # BC Place (retractable roof)
+}
+
 
 def stadium_coords(team_id: str) -> tuple[float, float]:
     return _STADIUMS.get(team_id, _DEFAULT_COORDS)
+
+
+def is_dome(team_id: str) -> bool:
+    """True if the home team's stadium has a retractable roof / dome."""
+    return team_id in _DOME_STADIUMS
 
 
 def travel_distance_km(home_team: str, away_team: str) -> float:

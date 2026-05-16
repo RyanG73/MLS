@@ -243,3 +243,119 @@ def _parse_date(raw: str) -> str:
         return datetime.fromisoformat(raw).isoformat()
     except Exception:
         return datetime.now(timezone.utc).isoformat()
+
+
+# ─── Match Preview Synthesis (Claude) ────────────────────────────────────────
+
+_PREVIEW_PROMPT = """You are an expert MLS analyst. Synthesize a 1-paragraph rationale for the upcoming match below using the recent news, results, and form data provided. Focus on what makes this match's outcome predictable or unpredictable.
+
+Match: {home} vs {away} on {date}
+
+Recent news headlines about both teams (past 7 days):
+{news_blob}
+
+Recent form (past 5 games):
+- {home}: {home_form}
+- {away}: {away_form}
+
+Output a 2-3 sentence rationale (no preamble), highlighting the most significant factors.
+"""
+
+
+def synthesize_preview(match_id: str, home_team: str, away_team: str, match_date: str) -> Optional[str]:
+    """Generate a Claude-written rationale for a match. Stored on predictions row."""
+    news = db_utils.query(
+        """
+        SELECT headline FROM news_items
+        WHERE published_at >= NOW() - INTERVAL '7 days'
+          AND (teams_mentioned ILIKE %s OR teams_mentioned ILIKE %s)
+        ORDER BY published_at DESC LIMIT 10
+        """,
+        [f"%{home_team}%", f"%{away_team}%"],
+    )
+    news_blob = "\n".join(f"- {h}" for h in news.get("headline", [])) if not news.empty else "(none)"
+
+    home_form = _recent_form_str(home_team)
+    away_form = _recent_form_str(away_team)
+
+    prompt = _PREVIEW_PROMPT.format(
+        home=home_team, away=away_team, date=match_date,
+        news_blob=news_blob, home_form=home_form, away_form=away_form,
+    )
+
+    try:
+        client = _get_client()
+        msg = client.messages.create(
+            model=_CLAUDE_MODEL,
+            max_tokens=300,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return msg.content[0].text.strip()
+    except Exception as exc:
+        logger.warning("Claude preview synthesis failed for %s: %s", match_id, exc)
+        return None
+
+
+def _recent_form_str(team_id: str, n: int = 5) -> str:
+    rows = db_utils.query(
+        """
+        SELECT date, home_team, away_team, home_goals, away_goals
+        FROM matches
+        WHERE (home_team = %s OR away_team = %s)
+          AND status = 'completed'
+        ORDER BY date DESC LIMIT %s
+        """,
+        [team_id, team_id, n],
+    )
+    if rows.empty:
+        return "(no data)"
+    parts = []
+    for _, r in rows.iterrows():
+        if r["home_team"] == team_id:
+            parts.append(f"{r['home_goals']}-{r['away_goals']} vs {r['away_team']}")
+        else:
+            parts.append(f"{r['away_goals']}-{r['home_goals']} @ {r['home_team']}")
+    return "; ".join(parts)
+
+
+# ─── Team Sentiment Aggregation ──────────────────────────────────────────────
+
+_SENTIMENT_PROMPT = """Score the overall sentiment of the recent news headlines about {team} on a scale from -1 (very negative — crisis, losses, internal strife) to +1 (very positive — momentum, signings, good form).
+
+Headlines:
+{headlines}
+
+Reply with ONLY a single number between -1 and 1.
+"""
+
+
+def compute_team_sentiment(team_id: str) -> Optional[float]:
+    """7-day rolling sentiment score for a team via Claude API."""
+    rows = db_utils.query(
+        """
+        SELECT headline FROM news_items
+        WHERE published_at >= NOW() - INTERVAL '7 days'
+          AND teams_mentioned ILIKE %s
+        ORDER BY published_at DESC LIMIT 15
+        """,
+        [f"%{team_id}%"],
+    )
+    if rows.empty:
+        return 0.0
+    blob = "\n".join(f"- {h}" for h in rows["headline"])
+    prompt = _SENTIMENT_PROMPT.format(team=team_id, headlines=blob)
+
+    try:
+        client = _get_client()
+        msg = client.messages.create(
+            model=_CLAUDE_MODEL,
+            max_tokens=20,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = msg.content[0].text.strip()
+        match = re.search(r"-?\d+\.?\d*", raw)
+        if match:
+            return max(-1.0, min(1.0, float(match.group())))
+    except Exception as exc:
+        logger.debug("Sentiment scoring failed for %s: %s", team_id, exc)
+    return 0.0

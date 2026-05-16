@@ -23,6 +23,9 @@ from features.xg_features import (
 )
 from features.travel_features import compute_travel_features
 from features.referee_features import get_referee_stats
+from features.match_context import build_match_context
+from features.style_features import compute_style_features, compute_setpiece_xg_split
+from features.suspensions import has_key_player_suspended
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +42,26 @@ def build_match_features(
     referee_id: Optional[str],
     matches_df: pd.DataFrame,
     injury_df: Optional[pd.DataFrame] = None,
+    kickoff_time=None,
+    competition: str = "mls",
+    weather: Optional[dict] = None,
+    is_playoff: bool = False,
 ) -> dict:
     """
     Build the complete feature vector for a single match.
     matches_df must contain all historical matches (completed + scheduled).
     """
     features: dict = {"match_id": match_id}
+
+    # ── Match context (rivalry, altitude, kickoff, FIFA break, surface, dome) ─
+    features.update(build_match_context(home_team, away_team, season, match_date, kickoff_time, competition))
+
+    # ── Weather ──────────────────────────────────────────────────────────────
+    if weather:
+        features["weather_temp_c"]    = weather.get("weather_temp_c")
+        features["weather_wind_kph"]  = weather.get("weather_wind_kph")
+        features["weather_precip_mm"] = weather.get("weather_precip_mm")
+        features["weather_humidity"]  = weather.get("weather_humidity")
 
     # ── ELO ──────────────────────────────────────────────────────────────────
     home_elo = get_elo_at_date(home_team, match_date)
@@ -54,15 +71,23 @@ def build_match_features(
     features["elo_diff"] = home_elo - away_elo
 
     # ── xG rolling features ──────────────────────────────────────────────────
+    # Leagues Cup intent varies by team; exclude from form/xG windows.
+    # Fatigue (travel features below) still uses all competitions.
+    if "competition" in matches_df.columns:
+        form_df = matches_df[matches_df["competition"] != "leagues_cup"]
+    else:
+        form_df = matches_df
+
     for team_id, role in [(home_team, "home"), (away_team, "away")]:
-        history = compute_team_xg_history(matches_df, team_id)
+        history = compute_team_xg_history(form_df, team_id)
         xg_feats = compute_rolling_features(history, match_date, _WINDOWS)
-        form = compute_form_points(history, matches_df, team_id, match_date)
+        form = compute_form_points(history, form_df, team_id, match_date)
         features[f"{role}_form_pts_5"] = form
         for k, v in xg_feats.items():
             features[f"{role}_{k}"] = v
 
     # ── Travel & schedule ────────────────────────────────────────────────────
+    # Use full matches_df (all competitions) — Leagues Cup creates real fatigue.
     travel = compute_travel_features(home_team, away_team, match_date, matches_df)
     features.update(travel)
 
@@ -96,8 +121,37 @@ def build_match_features(
         features.get("away_dp3_available", 1),
     ])
 
-    features["season"] = season
+    # ── Style features (PPDA, possession) ────────────────────────────────────
+    for team_id, role in [(home_team, "home"), (away_team, "away")]:
+        try:
+            style = compute_style_features(team_id, match_date, matches_df)
+            for k, v in style.items():
+                features[f"{role}_{k}"] = v
+        except Exception:
+            pass
 
+    # ── Set-piece xG split ───────────────────────────────────────────────────
+    for team_id, role in [(home_team, "home"), (away_team, "away")]:
+        try:
+            sp = compute_setpiece_xg_split(team_id, match_date, matches_df)
+            for k, v in sp.items():
+                features[f"{role}_{k}"] = v
+        except Exception:
+            pass
+
+    # ── Suspensions (yellow card accumulation + reds) ────────────────────────
+    try:
+        features["home_key_player_suspended"] = int(
+            has_key_player_suspended(home_team, season, match_date, is_playoff)
+        )
+        features["away_key_player_suspended"] = int(
+            has_key_player_suspended(away_team, season, match_date, is_playoff)
+        )
+    except Exception:
+        features["home_key_player_suspended"] = 0
+        features["away_key_player_suspended"] = 0
+
+    features["season"] = season
     return features
 
 
@@ -113,6 +167,10 @@ def build_training_dataset(matches_df: Optional[pd.DataFrame] = None) -> pd.Data
 
     completed = matches_df[matches_df["status"] == "completed"].copy()
     completed = completed.dropna(subset=["home_goals", "away_goals"])
+    # Leagues Cup matches excluded from training: competitive intent varies by team
+    # and they mix MLS clubs against Liga MX opponents (different quality level).
+    if "competition" in completed.columns:
+        completed = completed[completed["competition"] != "leagues_cup"]
     completed["date"] = pd.to_datetime(completed["date"])
     completed = completed.sort_values("date").reset_index(drop=True)
 

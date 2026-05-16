@@ -32,6 +32,23 @@ _FEATURE_COLS_PATH = _MODEL_DIR / "feature_columns.pkl"
 _ENCODERS_PATH = _MODEL_DIR / "feature_encoders.pkl"
 
 
+def betting_logloss(y_true: np.ndarray, y_pred: np.ndarray, odds: np.ndarray) -> float:
+    """
+    Profit-aware log-loss: standard log-loss weighted by 1/odds.
+    Penalizes mistakes on long-shot bets more than mistakes on favorites,
+    aligning training objective with bankroll growth.
+    y_pred shape (N, 3); y_true shape (N,) with class labels {0,1,2}.
+    odds shape (N, 3) with decimal odds for each outcome.
+    """
+    eps = 1e-12
+    n = len(y_true)
+    one_hot = np.zeros_like(y_pred)
+    one_hot[np.arange(n), y_true] = 1
+    base_ll = -np.sum(one_hot * np.log(np.clip(y_pred, eps, 1)), axis=1)
+    weights = 1.0 / np.maximum(np.sum(one_hot * odds, axis=1), 1.0)
+    return float(np.average(base_ll, weights=weights))
+
+
 class GradientBoostModels:
     def __init__(self):
         self.xgb_model = None

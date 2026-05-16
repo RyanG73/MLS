@@ -238,3 +238,8 @@ for match_date in dates:
                         st.info("Scoreline data unavailable.")
 
     st.markdown("---")
+
+# ── CSV export ────────────────────────────────────────────────────────────────
+if not ensemble_preds.empty:
+    csv = ensemble_preds.to_csv(index=False).encode("utf-8")
+    st.download_button("📥 Download predictions CSV", csv, "upcoming_predictions.csv", "text/csv")

@@ -48,46 +48,65 @@ def initialize_schema() -> None:
     ddl_statements = [
         """
         CREATE TABLE IF NOT EXISTS matches (
-            match_id        VARCHAR(20)  PRIMARY KEY,
-            date            DATE         NOT NULL,
-            season          INTEGER      NOT NULL,
-            home_team       VARCHAR(10)  NOT NULL,
-            away_team       VARCHAR(10)  NOT NULL,
-            home_goals      INTEGER,
-            away_goals      INTEGER,
-            home_xg         DOUBLE PRECISION,
-            away_xg         DOUBLE PRECISION,
-            conference_h    VARCHAR(2),
-            conference_a    VARCHAR(2),
-            is_playoff      BOOLEAN      DEFAULT FALSE,
-            referee_id      VARCHAR(40),
-            status          VARCHAR(20)  DEFAULT 'scheduled',
-            source          VARCHAR(20)
+            match_id          VARCHAR(20)  PRIMARY KEY,
+            date              DATE         NOT NULL,
+            season            INTEGER      NOT NULL,
+            home_team         VARCHAR(10)  NOT NULL,
+            away_team         VARCHAR(10)  NOT NULL,
+            home_goals        INTEGER,
+            away_goals        INTEGER,
+            home_xg           DOUBLE PRECISION,
+            away_xg           DOUBLE PRECISION,
+            conference_h      VARCHAR(2),
+            conference_a      VARCHAR(2),
+            is_playoff        BOOLEAN      DEFAULT FALSE,
+            referee_id        VARCHAR(40),
+            status            VARCHAR(20)  DEFAULT 'scheduled',
+            source            VARCHAR(20),
+            competition       VARCHAR(20)  DEFAULT 'mls',
+            kickoff_time      TIMESTAMP,
+            weather_temp_c    DOUBLE PRECISION,
+            weather_wind_kph  DOUBLE PRECISION,
+            weather_precip_mm DOUBLE PRECISION,
+            weather_humidity  DOUBLE PRECISION,
+            pitch_surface     VARCHAR(10),
+            is_post_fifa_break BOOLEAN     DEFAULT FALSE
         )
         """,
         """
         CREATE TABLE IF NOT EXISTS team_features (
-            match_id                VARCHAR(20)  NOT NULL,
-            team_id                 VARCHAR(10)  NOT NULL,
-            role                    VARCHAR(5)   NOT NULL,
-            elo_pre                 DOUBLE PRECISION,
-            xg_rolling_5            DOUBLE PRECISION,
-            xg_rolling_10           DOUBLE PRECISION,
-            xg_rolling_20           DOUBLE PRECISION,
-            xga_rolling_5           DOUBLE PRECISION,
-            xga_rolling_10          DOUBLE PRECISION,
-            xga_rolling_20          DOUBLE PRECISION,
-            xgd_rolling_10          DOUBLE PRECISION,
-            travel_km               DOUBLE PRECISION,
-            days_rest               INTEGER,
-            games_in_14d            INTEGER,
-            form_pts_5              DOUBLE PRECISION,
-            dp1_available           BOOLEAN DEFAULT TRUE,
-            dp2_available           BOOLEAN DEFAULT TRUE,
-            dp3_available           BOOLEAN DEFAULT TRUE,
-            supporter_shield_locked BOOLEAN DEFAULT FALSE,
-            is_expansion            BOOLEAN DEFAULT FALSE,
-            conference              VARCHAR(2),
+            match_id                  VARCHAR(20)  NOT NULL,
+            team_id                   VARCHAR(10)  NOT NULL,
+            role                      VARCHAR(5)   NOT NULL,
+            elo_pre                   DOUBLE PRECISION,
+            xg_rolling_5              DOUBLE PRECISION,
+            xg_rolling_10             DOUBLE PRECISION,
+            xg_rolling_20             DOUBLE PRECISION,
+            xga_rolling_5             DOUBLE PRECISION,
+            xga_rolling_10            DOUBLE PRECISION,
+            xga_rolling_20            DOUBLE PRECISION,
+            xgd_rolling_10            DOUBLE PRECISION,
+            xg_setpiece_rolling_10    DOUBLE PRECISION,
+            xg_openplay_rolling_10    DOUBLE PRECISION,
+            xga_setpiece_rolling_10   DOUBLE PRECISION,
+            ppda_rolling_10           DOUBLE PRECISION,
+            possession_rolling_10     DOUBLE PRECISION,
+            travel_km                 DOUBLE PRECISION,
+            days_rest                 INTEGER,
+            games_in_14d              INTEGER,
+            form_pts_5                DOUBLE PRECISION,
+            dp1_available             BOOLEAN DEFAULT TRUE,
+            dp2_available             BOOLEAN DEFAULT TRUE,
+            dp3_available             BOOLEAN DEFAULT TRUE,
+            gk_starting_available     BOOLEAN DEFAULT TRUE,
+            key_player_suspended      BOOLEAN DEFAULT FALSE,
+            n_internationals_unavail  INTEGER DEFAULT 0,
+            days_under_mgr            INTEGER,
+            news_sentiment_7d         DOUBLE PRECISION,
+            match_importance_score    DOUBLE PRECISION,
+            supporter_shield_locked   BOOLEAN DEFAULT FALSE,
+            is_expansion              BOOLEAN DEFAULT FALSE,
+            conference                VARCHAR(2),
             PRIMARY KEY (match_id, team_id, role)
         )
         """,
@@ -115,13 +134,15 @@ def initialize_schema() -> None:
             prediction_id   VARCHAR(24)  PRIMARY KEY,
             match_id        VARCHAR(20)  NOT NULL,
             model           VARCHAR(20)  NOT NULL,
+            model_version   VARCHAR(20),
             prob_home       DOUBLE PRECISION NOT NULL,
             prob_draw       DOUBLE PRECISION NOT NULL,
             prob_away       DOUBLE PRECISION NOT NULL,
             prob_over       DOUBLE PRECISION,
             prob_under      DOUBLE PRECISION,
             predicted_at    TIMESTAMP    DEFAULT NOW(),
-            features_hash   VARCHAR(16)
+            features_hash   VARCHAR(16),
+            claude_rationale TEXT
         )
         """,
         """
@@ -199,6 +220,78 @@ def initialize_schema() -> None:
             stadium_lon     DOUBLE PRECISION,
             stadium_name    VARCHAR(80),
             active          BOOLEAN DEFAULT TRUE
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS manager_history (
+            team_id    VARCHAR(10)  NOT NULL,
+            manager    VARCHAR(80)  NOT NULL,
+            start_date DATE         NOT NULL,
+            end_date   DATE,
+            PRIMARY KEY (team_id, start_date)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS card_log (
+            match_id   VARCHAR(20)  NOT NULL,
+            player     VARCHAR(80)  NOT NULL,
+            team_id    VARCHAR(10),
+            card_color VARCHAR(10)  NOT NULL,
+            PRIMARY KEY (match_id, player, card_color)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS predicted_lineups (
+            match_id     VARCHAR(20)  NOT NULL,
+            team_id      VARCHAR(10)  NOT NULL,
+            source       VARCHAR(30),
+            scraped_at   TIMESTAMP    DEFAULT NOW(),
+            predicted_xi TEXT,
+            PRIMARY KEY (match_id, team_id, source)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS backtest_results (
+            run_id          VARCHAR(20)  PRIMARY KEY,
+            parameters      TEXT,
+            brier_mean      DOUBLE PRECISION,
+            log_loss        DOUBLE PRECISION,
+            roi_kelly25     DOUBLE PRECISION,
+            roi_kelly50     DOUBLE PRECISION,
+            avg_clv         DOUBLE PRECISION,
+            max_drawdown    DOUBLE PRECISION,
+            n_bets          INTEGER,
+            generated_at    TIMESTAMP    DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS real_bets (
+            bet_id      VARCHAR(20)  PRIMARY KEY,
+            match_id    VARCHAR(20)  NOT NULL,
+            bookmaker   VARCHAR(30),
+            market      VARCHAR(10),
+            outcome     VARCHAR(10),
+            stake       DOUBLE PRECISION,
+            odds        DOUBLE PRECISION,
+            result      VARCHAR(10),
+            pnl         DOUBLE PRECISION,
+            placed_at   TIMESTAMP    DEFAULT NOW(),
+            notes       TEXT
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS season_simulations (
+            run_id       VARCHAR(20)  PRIMARY KEY,
+            season       INTEGER      NOT NULL,
+            simulated_at TIMESTAMP    DEFAULT NOW(),
+            results_json TEXT
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS system_state (
+            key         VARCHAR(40)  PRIMARY KEY,
+            value       TEXT,
+            updated_at  TIMESTAMP    DEFAULT NOW()
         )
         """,
         """
@@ -293,6 +386,24 @@ def execute(sql: str, params: list | None = None) -> None:
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, params or [])
+
+
+def get_state(key: str, default: str | None = None) -> str | None:
+    """Read a value from the system_state key-value table."""
+    df = query("SELECT value FROM system_state WHERE key = %s", [key])
+    return df["value"].iloc[0] if not df.empty else default
+
+
+def set_state(key: str, value: str) -> None:
+    """Upsert a value in system_state (e.g. betting_paused, last_optuna_run)."""
+    execute(
+        """
+        INSERT INTO system_state (key, value, updated_at)
+        VALUES (%s, %s, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        """,
+        [key, str(value)],
+    )
 
 
 def start_pipeline_run(run_type: str) -> str:

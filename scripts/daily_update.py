@@ -77,19 +77,27 @@ def main():
     from data_pipeline.schedule_client import sync_to_db as schedule_sync
     from data_pipeline.asa_client import sync_to_db as asa_sync
     from data_pipeline.injury_scraper import build_availability_snapshot
-    from data_pipeline.odds_client import sync_to_db as odds_sync
+    from data_pipeline.odds_client import sync_to_db as odds_sync, get_pinnacle_implied_prob
+    from data_pipeline.lineup_scraper import fetch_and_store_for_upcoming as fetch_lineups
     from features.elo_ratings import sync_elo_to_db
     from features.feature_builder import build_training_dataset, build_upcoming_features
+    from features.weather_features import backfill_recent_weather
     from models.dixon_coles import DixonColesModel
     from models.gradient_boost import GradientBoostModels
-    from models.r_bridge.run_bayes import prepare_train_data, prepare_predict_data, run_r_model, read_predictions
-    from models.stacking_ensemble import StackingEnsemble
+    from models.stacking_ensemble import StackingEnsemble, snapshot_model_version
+    from models.season_simulator import run_season_simulation
     from market.clv_tracker import evaluate_match, store_bets, update_bet_results
+    from market.risk_rules import check_drawdown_and_pause
 
     db_utils.initialize_schema()
     run_id = db_utils.start_pipeline_run("daily_update")
     stats: dict[str, str | int] = {}
     logger.info("=== MLS Daily Update — %s ===", datetime.now(timezone.utc).isoformat())
+
+    # Determine if today is the full-tuning day (default Sunday)
+    full_tune_weekday = SETTINGS.get("tuning", {}).get("full_tune_weekday", 6)
+    is_tuning_day = datetime.now().weekday() == full_tune_weekday
+    logger.info("Tuning day: %s (weekday=%d)", is_tuning_day, datetime.now().weekday())
 
     # ── 1. Match results + fixtures ───────────────────────────────────────────
     run_step("Fetch ESPN results + fixtures", schedule_sync, days_ahead=14, days_back=3, run_id=run_id, stats=stats)
@@ -97,6 +105,13 @@ def main():
     # ── 2. xG data from ASA ───────────────────────────────────────────────────
     current_season = SETTINGS["data"]["current_season"]
     run_step("Fetch ASA xG data", asa_sync, start_season=current_season - 1, run_id=run_id, stats=stats)
+
+    # ── 2b. Lineups (Phase 2) ─────────────────────────────────────────────────
+    run_step("Fetch predicted lineups", fetch_lineups, 3)
+
+    # ── 2c. Weather (Phase 2) ─────────────────────────────────────────────────
+    if SETTINGS.get("weather", {}).get("enabled", True):
+        run_step("Backfill weather data", backfill_recent_weather, 14, 14)
 
     # ── 3. Injury flags ───────────────────────────────────────────────────────
     injury_df = run_step("Fetch injury/suspension flags", build_availability_snapshot, run_id=run_id, stats=stats)
@@ -138,12 +153,18 @@ def main():
         gb_models.save()
 
     # ── 8. Bayesian model (R) ─────────────────────────────────────────────────
-    if train_df is not None:
-        run_step("Prepare Bayesian input data", prepare_train_data, train_df, run_id=run_id, stats=stats)
-    if upcoming_df is not None and not upcoming_df.empty:
-        run_step("Prepare Bayesian predict data", prepare_predict_data, upcoming_df, run_id=run_id, stats=stats)
-    bayes_success = run_step("Run R Bayesian model", run_r_model, run_id=run_id, stats=stats)
-    bayes_preds = run_step("Read Bayesian predictions", read_predictions, run_id=run_id, stats=stats) if bayes_success else None
+    bayesian_enabled = SETTINGS.get("bayesian", {}).get("enabled", False)
+    if bayesian_enabled:
+        from models.r_bridge.run_bayes import prepare_train_data, prepare_predict_data, run_r_model, read_predictions
+        if train_df is not None:
+            run_step("Prepare Bayesian input data", prepare_train_data, train_df, run_id=run_id, stats=stats)
+        if upcoming_df is not None and not upcoming_df.empty:
+            run_step("Prepare Bayesian predict data", prepare_predict_data, upcoming_df, run_id=run_id, stats=stats)
+        bayes_success = run_step("Run R Bayesian model", run_r_model, run_id=run_id, stats=stats)
+        bayes_preds = run_step("Read Bayesian predictions", read_predictions, run_id=run_id, stats=stats) if bayes_success else None
+    else:
+        logger.info("Bayesian model disabled (bayesian.enabled=false in settings.yaml). Skipping R bridge.")
+        bayes_preds = None
 
     # ── 9. Pinnacle odds before market comparison ─────────────────────────────
     odds_rows = run_step("Fetch Pinnacle opening odds", odds_sync, snapshot_type="open", run_id=run_id, stats=stats)
@@ -161,6 +182,26 @@ def main():
     settled = run_step("Update completed bet outcomes", _update_recent_bets, run_id=run_id, stats=stats)
     if settled is not None:
         stats["settled_matches"] = int(settled)
+
+    # ── 12. Risk management — check drawdown ──────────────────────────────────
+    run_step("Check drawdown stop-loss", check_drawdown_and_pause, 10000.0)
+
+    # ── 13. Snapshot model version ────────────────────────────────────────────
+    if gb_models is not None:
+        try:
+            ensemble = StackingEnsemble.load()
+            snapshot_model_version(ensemble, dc_model, gb_models)
+        except Exception as exc:
+            logger.warning("Snapshot failed: %s", exc)
+
+    # ── 14. Season simulation ─────────────────────────────────────────────────
+    current_season = SETTINGS["data"]["current_season"]
+    if is_tuning_day:
+        run_step("Run season Monte Carlo (10k sims)",
+                 run_season_simulation, current_season, 10000)
+    else:
+        run_step("Run season Monte Carlo (1k sims)",
+                 run_season_simulation, current_season, 1000)
 
     status = "failed" if any(v == "failed" for v in stats.values()) else "success"
     db_utils.update_pipeline_run(run_id, status, stats=json.dumps(stats), finished=True)

@@ -27,6 +27,41 @@ _ESPN_INJURIES_URL = (
 # Heuristic: players listed as "Out" or "Questionable" with high value are DPs
 _OUT_STATUSES = {"out", "injured reserve", "day-to-day", "questionable"}
 
+# Starting goalkeepers per team (manually curated; update at season start)
+# Used to flag when a backup GK is likely starting
+_STARTING_GKS: dict[str, list[str]] = {
+    "ATL":  ["Brad Guzan", "Quentin Westberg"],
+    "ATX":  ["Brad Stuver"],
+    "CLT":  ["Kristijan Kahlina"],
+    "CHI":  ["Chris Brady"],
+    "CIN":  ["Roman Celentano"],
+    "COL":  ["Zack Steffen"],
+    "CLB":  ["Patrick Schulte"],
+    "DC":   ["Luis Barraza"],
+    "DAL":  ["Maarten Paes"],
+    "HOU":  ["Steve Clark"],
+    "MIA":  ["Drake Callender", "Oscar Ustari"],
+    "LAG":  ["Novak Mićović"],
+    "LAFC": ["Hugo Lloris"],
+    "MIN":  ["Dayne St. Clair"],
+    "MTL":  ["Jonathan Sirois"],
+    "NSH":  ["Joe Willis"],
+    "NE":   ["Aljaž Ivačič"],
+    "NYC":  ["Matt Freese"],
+    "NYRB": ["Carlos Coronel"],
+    "ORL":  ["Pedro Gallese"],
+    "PHI":  ["Andre Blake"],
+    "POR":  ["James Pantemis"],
+    "RSL":  ["Rafael Cabral"],
+    "SJ":   ["Daniel"],
+    "SEA":  ["Stefan Frei"],
+    "SKC":  ["Tim Melia", "John Pulskamp"],
+    "STL":  ["Roman Bürki"],
+    "TOR":  ["Sean Johnson"],
+    "VAN":  ["Yohei Takaoka"],
+    "SD":   ["CJ Dos Santos"],
+}
+
 
 def fetch_espn_injuries() -> pd.DataFrame:
     """
@@ -97,24 +132,59 @@ def compute_dp_availability(
     }
 
 
+def starting_gk_available(injury_df: pd.DataFrame, team_id: str) -> bool:
+    """
+    Returns False if the team's primary starting GK is on the injury list.
+    Falls back to True if data is unavailable.
+    """
+    if injury_df.empty:
+        return True
+    starters = _STARTING_GKS.get(team_id, [])
+    if not starters:
+        return True
+    out = injury_df[
+        (injury_df["team_id"] == team_id)
+        & (injury_df["status"].isin(_OUT_STATUSES))
+        & (injury_df["player_name"].isin(starters))
+    ]
+    return out.empty
+
+
 def get_team_availability(team_id: str, injury_df: Optional[pd.DataFrame] = None) -> dict:
-    """Return DP availability dict for a team. Fetches fresh data if not provided."""
+    """Return availability flags for a team. Fetches fresh data if not provided."""
     if injury_df is None:
         injury_df = fetch_espn_injuries()
-    return compute_dp_availability(injury_df, team_id)
+    avail = compute_dp_availability(injury_df, team_id)
+    avail["gk_starting_available"] = starting_gk_available(injury_df, team_id)
+    return avail
 
 
 def build_availability_snapshot() -> pd.DataFrame:
     """
-    Build a snapshot of DP availability for all MLS teams as of today.
-    Returns DataFrame with columns: team_id, dp1_available, dp2_available, dp3_available, as_of
+    Build a snapshot of DP + GK availability for all MLS teams as of today.
     """
     injury_df = fetch_espn_injuries()
     all_teams = list(set(_TEAM_NAME_MAP.values()))
     rows = []
     for team_id in all_teams:
         avail = compute_dp_availability(injury_df, team_id)
+        avail["gk_starting_available"] = starting_gk_available(injury_df, team_id)
         avail["team_id"] = team_id
         avail["as_of"] = date.today().isoformat()
         rows.append(avail)
     return pd.DataFrame(rows)
+
+
+def count_internationals_unavailable(injury_df: pd.DataFrame, team_id: str, post_fifa_break: bool) -> int:
+    """
+    Estimate how many internationals are unavailable due to a recent FIFA window.
+    Uses the injury status text 'on international duty' if present; otherwise
+    returns 0 unless we're directly in the post-break window.
+    """
+    if not post_fifa_break or injury_df.empty:
+        return 0
+    matches = injury_df[
+        (injury_df["team_id"] == team_id)
+        & (injury_df["status"].str.contains("international", case=False, na=False))
+    ]
+    return len(matches)

@@ -227,3 +227,16 @@ if not bets_df.empty:
     fig_edge.add_hline(y=0, line_color="gray")
     fig_edge.update_layout(height=300, margin=dict(t=10), coloraxis_showscale=False)
     st.plotly_chart(fig_edge, use_container_width=True)
+
+# ── CSV exports ──────────────────────────────────────────────────────────────
+st.markdown("---")
+st.markdown("## Export")
+col_e1, col_e2 = st.columns(2)
+with col_e1:
+    if not perf_df.empty:
+        csv = perf_df.to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Predictions + outcomes CSV", csv, "performance.csv", "text/csv")
+with col_e2:
+    if not bets_df.empty:
+        csv = bets_df.to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Settled bets CSV", csv, "settled_bets.csv", "text/csv")

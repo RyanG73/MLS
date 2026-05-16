@@ -12,8 +12,8 @@ scikit-learn>=1.4.0
 optuna>=3.6.0
 shap>=0.45.0
 
-# R integration
-rpy2>=3.5.0
+# R integration (optional — only needed when bayesian.enabled: true in settings.yaml)
+# rpy2>=3.5.0
 
 # Market / statistics
 pyaml>=23.12.0
@@ -29,6 +29,9 @@ feedparser>=6.0.11
 requests>=2.31.0
 beautifulsoup4>=4.12.0
 lxml>=5.2.0
+
+# Open-Meteo weather (no API key required, uses requests)
+# Listed for documentation; no extra dep beyond requests
 
 # Utilities
 haversine>=2.8.0
