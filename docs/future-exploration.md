@@ -149,10 +149,14 @@
 
 ## Future feature/model exploration
 
-- **Add a historical close-odds column to the harness (unblocks betting loss).** The 1/max_prob proxy is
-  invalid — it upweights draws (lowest max-prob), not long-shots. `data_pipeline/odds_client.py` (The Odds API)
-  exists in production; backfill historical close odds per match to enable real CLV-aware `betting_logloss`.
-- **Crack the 2024 distribution shift.** Confirmed across 3 experiments: DC catastrophic in 2024, great in 2022;
+- **~~Historical close-odds column / betting-aware loss~~ — REMOVED from the model backlog (2026-05-30).**
+  Category error: the prediction model should optimise probability accuracy (Brier) only. Odds belong in the
+  *downstream betting layer* (`market/clv_tracker.py`, `market/kelly.py`), which compares model probabilities to
+  the market at bet time. Baking market odds into training (even as a loss weight) teaches the model to agree with
+  the market — the opposite of finding edge. The `betting_logloss` experiment already hurt Brier; do not revisit.
+  Odds are needed only for **evaluation** (ROI/CLV backtest), a separate workstream that can use *live forward* odds
+  on the free tier — **no paid historical backfill required**, and not a `/improve-model` concern.
+- **Crack the 2024 distribution shift (the real free next step).** Confirmed across 3 experiments: DC catastrophic in 2024, great in 2022;
   +PythagLuck/+TZShift help 2022-23 but go neutral in 2024; weight_hl=2 does NOT fix it → genuine league-level
   shift, not stale data. Try a regime/era indicator feature or a 2024-specific recalibration.
 - **Seed-lock cal_err.** 2-stage Platt shows ~0.01 XGB-seed variance in cal_err. Make `--seed` standard so
@@ -162,7 +166,8 @@
 
 ## Future subagent deployment
 
-- **data-integrator agent** — owns backfilling the historical odds column (and the unevaluated Transfermarkt path).
-- **drift/regime agent** — owns the 2024 distribution-shift investigation (era indicators, per-season recalibration).
+- **data-integrator agent** — owns new *model-relevant* free data sources (the unevaluated Transfermarkt squad-value path; ASA/worldfootballR). NOT odds — odds are an eval/betting-layer concern, not a model feature.
+- **drift/regime agent** — owns the 2024 distribution-shift investigation (era indicators, per-season recalibration). The highest-value FREE modeling lever now that knob-tuning has plateaued.
+- **betting/CLV agent (separate workstream, not /improve-model)** — if/when live betting starts, owns edge detection + Kelly + CLV tracking using *live forward* odds (free tier). Historical-odds backtest is paid and optional.
 - **Process:** the parallel 4-worktree cycle compressed 5 hourly cloud iterations into one pass — prefer it; consider
   a cloud orchestrator that fans out to 4 sub-sessions rather than rotating one component per hour.
