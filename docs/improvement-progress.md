@@ -34,6 +34,22 @@ Cal_err still 0.1130 vs target < 0.05 — more improvement needed via hyperparam
 
 <!-- cloud iterations 1–8 append below -->
 
+## Iteration 3 — feature (+TZShift) — 2026-05-30T05:11 UTC
+
+- **Experiments run:** (all `--ab-only Base,+TZShift --cache`)
+  - `feat-tzshift` (feat-tzshift-20260530T051118): Base=0.6386, +TZShift=0.6379, Δ=+0.0008; best_brier=0.6382 (stacked ens), cal_err=0.0911
+- **Verdict(s):**
+  - +TZShift → **marginal** (Δ=+0.0008 < 0.001 KEEP threshold; XGB AB comparison Base→+TZShift)
+  - AB set kept registered in `AB_SETS` but NOT promoted to `_FEAT_BASE`
+- **Best so far:** UNCHANGED — temperature cal, DC decay=120d, Base features → best_brier=0.6381, cal_err=0.1130
+  - Note: feat-tzshift stacked ensemble cal_err=0.0911 is notably better, but Brier (0.6382) is not improved enough to constitute a KEEP.
+- **Notes:**
+  - TZ-shift mean=0.88 zones, max=3 zones across test set.
+  - Per-season breakdown: BestAB=Base in 2022 and 2024; BestAB=+TZShift in 2023 only. Inconsistent cross-season benefit.
+  - The signed variant (`away_tz_shift_signed`) lets XGBoost discover eastward vs westward asymmetry, but feature importance was not individually broken out.
+  - The good cal_err (0.0911 vs current best 0.1130) may reflect run-to-run variability rather than a genuine improvement from the TZ feature — stochastic XGB fitting and temperature-scaling on ~500 cal matches can vary by ~0.02.
+  - Next feature candidate: `+PythagLuck` (rolling Pythagorean over-performance luck residual) — higher novelty, stronger theoretical basis for regression-to-mean signal.
+
 ## Iteration 2 — hyperparameters — 2026-05-30T04:46 UTC
 
 - **Experiments run:** (all `--ab-only Base --cache`)

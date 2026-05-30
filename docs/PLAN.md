@@ -1,11 +1,13 @@
 # MLS Prediction Dashboard — Implementation Plan
 
 > **Live eval results (last run: 2026-05-30, branch `claude/mls-prediction-dashboard-C2mQM`)**
-> Improvement loop Iteration 2: hyperparameter sweep (DC decay + REGRESS partial).
-> DC decay=90d → DROP (Δ Brier +0.000014, Δ CalErr +0.031 worse). DC decay stays at 120d.
-> REGRESS=0.40 experiment accidentally killed before 2024 result — UNRESOLVED, re-run in Iter 6.
-> Key finding: For 2024 test season, XGB alone (0.6376) beats stacked ensemble (0.6509) by 0.013 — DC drag confirmed. Highest-priority arch fix for Iteration 4.
+> Improvement loop Iteration 3: feature engineering (+TZShift).
+> +TZShift (timezone jetlag proxy, abs + signed) → **marginal** Δ=+0.0008 vs Base (below 0.001 KEEP threshold).
+> Per-season: BestAB=+TZShift only in 2023; Base wins 2022/2024 — inconsistent signal.
+> +TZShift stays in AB_SETS but NOT promoted to _FEAT_BASE. Harness defaults unchanged.
+> Stacked ensemble cal_err=0.0911 this run (vs current best 0.1130) — likely run-to-run variability.
 > Current best: temperature cal, Base features, DC decay=120d → best_brier=0.6381, cal_err=0.1130.
+> Next up: Iteration 4 (architecture) — test XGB-only ensemble (drop DC probs from meta-learner).
 >
 > **Previous live eval results (2026-05-10):**
 > Phase 6b eval (1X2 only). Test seasons: 2023–2024 (2022 skipped, COVID cal fold).

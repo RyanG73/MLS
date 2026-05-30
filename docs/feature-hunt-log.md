@@ -43,6 +43,11 @@ AB_SETS["+TZShift"] = _FEAT_BASE + _FEAT_TZ
 
 **should-implement: yes** — cheap, fast, and the only "match context" angle not yet evaluated. Recommend pairing with a signed variant in the same `_FEAT_TZ` list to let XGBoost discover the asymmetry.
 
+## 2026-05-30 — +TZShift A/B result (Iteration 3)
+**Result:** Δ=+0.0008 → **marginal** (below 0.001 KEEP threshold)
+**experiment_id:** feat-tzshift-20260530T051118
+**Notes:** Base XGB Brier=0.6386 → +TZShift XGB Brier=0.6379 (avg 2022–2024). BestAB=+TZShift only in 2023; Base wins 2022 and 2024. Stacked ensemble best_brier=0.6382, cal_err=0.0911. Feature stays in AB_SETS but not promoted to _FEAT_BASE. Signed variant (`away_tz_shift_signed`) tested alongside abs variant — insufficient to break 0.001 threshold. Consider revisiting if +PythagLuck or other features elevate the Base, which might reveal latent TZ interaction.
+
 ---
 
 ## 2026-05-16 18:30 — Iteration #2

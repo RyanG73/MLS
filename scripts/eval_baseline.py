@@ -1134,6 +1134,35 @@ if FETCH_TRANSFERMARKT:
 else:
     print("\n[6b/9] Transfermarkt skipped (FETCH_TRANSFERMARKT=False). Set True to enable.")
 
+# ─── TZ shift feature ─────────────────────────────────────────────────────────
+
+def _tz_band(lon: float) -> int:
+    return round(lon / 15)
+
+def _away_tz_shift_abs(home_team: str, away_team: str) -> float:
+    hc = _TEAM_COORDS.get(home_team)
+    ac = _TEAM_COORDS.get(away_team)
+    if not (hc and ac):
+        return 0.0
+    return float(abs(_tz_band(hc[1]) - _tz_band(ac[1])))
+
+def _away_tz_shift_signed(home_team: str, away_team: str) -> float:
+    """Positive = away travels east (harder per chronobiology lit); negative = westward."""
+    hc = _TEAM_COORDS.get(home_team)
+    ac = _TEAM_COORDS.get(away_team)
+    if not (hc and ac):
+        return 0.0
+    return float(_tz_band(hc[1]) - _tz_band(ac[1]))
+
+df["away_tz_shift"]        = [_away_tz_shift_abs(r.home_team, r.away_team)
+                               for _, r in df.iterrows()]
+df["away_tz_shift_signed"] = [_away_tz_shift_signed(r.home_team, r.away_team)
+                               for _, r in df.iterrows()]
+print(f"    TZ-shift computed: mean={df['away_tz_shift'].mean():.2f} "
+      f"max={df['away_tz_shift'].max():.0f} zones")
+
+_FEAT_TZ = ["away_tz_shift", "away_tz_shift_signed"]
+
 # ─── Feature sets ─────────────────────────────────────────────────────────────
 
 _BASE_ELO  = ["elo_diff", "home_elo", "away_elo"]
@@ -1211,6 +1240,7 @@ _ALL_EXTRA = (
     + _FEAT_XPASS
     + _FEAT_XG_SPLIT
     + _TM_FEATS
+    + _FEAT_TZ
 )
 _FEAT_ALL = list(dict.fromkeys(_FEAT_BASE + _ALL_EXTRA))
 
@@ -1232,6 +1262,7 @@ if _FEAT_XG_SPLIT:
     AB_SETS["+ASA_xGSplit"]  = _FEAT_BASE + _FEAT_XG_SPLIT
 if _TM_FEATS:
     AB_SETS["+TM_SquadValue"] = _FEAT_BASE + _TM_FEATS
+AB_SETS["+TZShift"]  = _FEAT_BASE + _FEAT_TZ
 AB_SETS["+All"]      = _FEAT_ALL
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")

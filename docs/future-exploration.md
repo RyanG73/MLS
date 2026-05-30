@@ -57,6 +57,19 @@
 
 <!-- cloud iterations append new ideas below -->
 
+### Iteration 3 additions (feature: +TZShift marginal)
+
+## Future feature/model exploration
+
+- **+PythagLuck (next priority).** Rolling Pythagorean over-performance is the next `should-implement: yes` candidate. Expected Δ −0.0010 to −0.0030; orthogonal to ELO and rolling xG. Implement as `home_pythag_luck_10`, `away_pythag_luck_10`, `pythag_luck_diff` in `add_rolling_features()` — no new I/O. This is the highest-priority feature for Iteration 7 (next feature round).
+- **+TZShift × +Games14d interaction.** TZ shift is inconsistent by season (helps 2023, neutral 2022/2024). The signal may only activate under schedule congestion — test `+TZShift+Games14d` combined set: XGB can learn the cross-term (cross-timezone trip AND tight schedule = compounding fatigue). May surface the latent effect without over-fitting either feature alone.
+- **Signed TZ shift deeper analysis.** Eastward vs westward travel may require a non-linear treatment (e.g., dummy for "≥2 zones eastward") rather than a single continuous column. Worth exploring if the combined set above shows promise.
+- **+MinutesHHI** — squad minutes concentration (starter-dependency / fatigue amplifier when HHI is high). Third `should-implement: yes` candidate.
+
+## Future subagent deployment
+
+- **Feature-interaction scanner.** A lightweight agent that takes pairs of marginal AB sets (e.g., +TZShift × +Games14d) and tests their combination — often marginal × marginal = synergistic KEEP when the interaction term is what carries signal.
+
 ### Iteration 2 additions (hyperparameter sweep findings)
 
 ## Future feature/model exploration
