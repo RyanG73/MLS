@@ -56,3 +56,32 @@
 - **Auto-PR on cumulative KEEP** — when the loop's cumulative Brier beats the start-of-loop baseline by a meaningful margin, open a PR rather than only committing to the branch.
 
 <!-- cloud iterations append new ideas below -->
+
+### Iteration 1 additions (calibration sweep findings)
+
+## Future feature/model exploration
+
+- **Install betacal and re-sweep.** Beta calibration was skipped because the package is absent.
+  `pip install betacal` in the venv and re-run once in a future calibration iteration.
+  With small ~500-sample cal folds, beta calibration's tighter parametric form may fit
+  better than Platt's unconstrained sigmoid.
+- **Post-stack calibration layer.** The stacked ensemble's cal_err (0.1130) is still far
+  from the <0.05 target. A second calibration pass applied *after* the meta-learner —
+  essentially a two-stage approach — is untested. This would not change any model, only
+  the final probability transformation.
+- **Draw-class separate calibration.** Draw is consistently the hardest class (Brier ~0.194).
+  Fitting a separate calibrator (e.g. isotonic) for the draw class while keeping temperature
+  for home/away might improve draw probability accuracy without risking overall Brier.
+- **Harness version audit.** The seeding session (main@ebedf812) and this branch (ae152d30)
+  produce materially different calibration metrics for the same method (Platt on main gave
+  cal_err=0.0941; on this branch 0.1561). Before assuming the branch harness is correct,
+  diff the calibration and stacking code between the two commits and document what changed.
+
+## Future subagent deployment
+
+- **betacal-installer sub-step.** Before the next calibration agent run, add a requirements.txt
+  entry for betacal so that all four calibration methods are available in the cloud env.
+- **Harness-diff agent.** One-shot agent to read the diff between main@ebedf812 and this branch
+  at ae152d30, specifically in the `calibrate_multiclass`, `decile_cal_error`, and
+  meta-learner sections, and explain *why* Platt's cal_err flips direction between branches.
+  The finding should inform whether future calibration iteration results can be trusted.
