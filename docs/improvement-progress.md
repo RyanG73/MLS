@@ -17,7 +17,9 @@
 | best_brier | **0.6363** | merge-final-confirm (capped-DC blend + weight_hl=6, seed=42, Base) |
 | max_cal_error | **0.1326** | same run |
 | naive_brier | 0.6406 | reference (~+0.67% over naive) |
-| harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, **weight_hl=6**, calibration=temp_then_platt, **ensemble=capped-DC convex blend (DC ≤30%)** | scripts/eval_baseline.py |
+| harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, **weight_hl=6**, **calibration=temperature**, **ensemble=capped-DC convex blend (DC ≤30%)** | scripts/eval_baseline.py |
+
+> **Calibration note (corrected cycle #3):** the committed `--calibration` default has always been `temperature`; the `temp_then_platt` 2-stage option exists but is a **no-op on the capped-DC blend** (it calibrated the old LR meta-learner). Earlier docs that listed `temp_then_platt` as the default and `cal_err≈0.1015` were referencing the pre-capped-DC LR-meta architecture and are obsolete. Current calibration = `temperature`, cal_err = 0.1326.
 
 **Status (after 2nd parallel /improve-model cycle, 2026-05-30):** Two compounding KEEPs.
 (1) **Capped-DC convex blend** replaces the unconstrained LogisticRegression meta-learner: fit scalar w on the cal fold (w ∈ [0.7,1.0]) so Dixon-Coles contributes ≤30%. This fixes the 2024 catastrophe (DC stacked 0.6523 → 0.6378) at small 2022/2023 cost; net best_brier 0.6388 → 0.6372.

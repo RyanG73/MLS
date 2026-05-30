@@ -1,8 +1,9 @@
 # MLS Prediction Dashboard — Implementation Plan
 
 > **Live eval results (updated 2026-05-30, parallel /improve-model cycle #2 — structural leads)**
-> Best model: **capped-DC convex blend** (DC ≤30%) + Base features + weight_hl=6 + temp_then_platt calibration.
+> Best model: **capped-DC convex blend** (DC ≤30%) + Base features + weight_hl=6 + **temperature** calibration.
 > best_brier **0.6363** (naive 0.6406; ~+0.67% over naive, best across all cycles) · max decile cal_err 0.1326 (target <0.05 unmet).
+> (Calibration default is `temperature`; `temp_then_platt` exists but is a no-op on the blend — corrected cycle #3. Knob-tuning has plateaued; next gains need new signal.)
 > KEPT: (1) capped-DC blend replaces unconstrained LR meta-learner — fixes 2024 (DC stacked 0.6523→0.6378); (2) weight_hl 4→6,
 >   a DROP in isolation but unlocked once capped-DC removed the DC drag (greedy re-eval surfaced the interaction). best_brier 0.6388→0.6372→0.6363.
 > Trade-off: calibration regressed 0.1015→0.1326 (Platt 2nd-pass is a no-op on the blend); Brier is the stated primary, so accepted.
