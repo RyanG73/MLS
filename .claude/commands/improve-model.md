@@ -56,12 +56,36 @@ python scripts/experiment.py baseline --cache
 
 Record the baseline `experiment_id` from the output. This becomes the comparison anchor for the whole cycle.
 
-### Step 3 — Dispatch agents in parallel worktrees
+### Step 3 — Dispatch agents
 
-Use `git worktree add` so each agent works on an isolated copy of the repo:
+> ⚠️ **RESOURCE SAFETY — read before dispatching (added 2026-05-30 after IDE/terminal crashes).**
+> Each agent spawns an `eval_baseline.py` run that trains ~90 XGBoost models holding the dataset in RAM.
+> Running **4 of these in parallel locally crashed a 16 GB machine** (RAM exhaustion → swap thrash → IDE/terminal killed).
+> Concurrency is therefore gated on where you run:
+>
+> | Venue | Max concurrent agents | Notes |
+> |-------|----------------------|-------|
+> | **Local (default)** | **1 — sequential** | One component at a time. Safe on 16 GB. The free, crash-safe default. |
+> | Local, ≥32 GB RAM | 2 | Only if you've confirmed headroom (`memory_pressure`). |
+> | **Cloud routine** | 4 (full fan-out) | Off-machine; no local resource risk. **Metered/paid** — avoid if cost matters. |
+>
+> Always rely on the harness thread cap (`EVAL_XGB_NJOBS`, default 2) as the safety net — never unset it for parallel runs.
+> **Default behaviour for this command is now LOCAL-SEQUENTIAL.** Only fan out 4-wide when explicitly running in the cloud routine.
+
+**Local-sequential (default).** Run one component at a time in a single worktree, re-using it:
 
 ```bash
-# Create one worktree per component
+git worktree add ../mls-improve claude/mls-prediction-dashboard-C2mQM   # one shared worktree
+# Then, for each component IN SEQUENCE (wait for each to finish before the next):
+#   feature-engineer → calibration-tuner → hyperparameter-optimizer → model-architect
+# Each runs its experiments via scripts/experiment.py (--cache --seed 42), reports, then the next starts.
+```
+
+If dispatching as Claude Code subagents, launch them **one at a time** (await each before the next), NOT in a single parallel batch. `--component <name>` runs just one.
+
+**Cloud / ≥32 GB only — parallel worktrees** (do NOT use locally on ≤16 GB):
+
+```bash
 git worktree add ../mls-feature    claude/mls-prediction-dashboard-C2mQM
 git worktree add ../mls-calib      claude/mls-prediction-dashboard-C2mQM
 git worktree add ../mls-hyperparam claude/mls-prediction-dashboard-C2mQM
