@@ -4,10 +4,10 @@
 > See `docs/experiment-protocol.md` for the protocol.
 >
 > Current state (from PLAN.md / CLAUDE.md):
->   ELO: K=25, HOME_ADV=80, REGRESS=40% (CLAUDE.md) vs REGRESS=50% (in-file default)
+>   ELO: K=25, HOME_ADV=80, REGRESS=50% (SETTLED: 0.50 empirically confirmed over 0.40)
 >   DC decay: 120-day half-life
 >   XGB season weight half-life: 4 seasons
->   Unresolved: REGRESS 0.40 vs 0.50 discrepancy needs empirical settlement.
+>   Resolved (2026-05-30): REGRESS 0.40 vs 0.50 — 0.50 wins (0.638135 vs 0.638389)
 
 ---
 
@@ -45,20 +45,50 @@ Per-model Brier for dc-hl090 (DC decay=90d):
 
 ---
 
-### Experiment: hyp-regress-040 (REGRESS=0.40 vs 0.50 default) — INCOMPLETE
+### Experiment: hyp-regress040 (REGRESS=0.40 vs 0.50 default) — COMPLETE
 
-**Status:** Process accidentally terminated (SIGUSR1 sent during debug investigation). Partial per-season data:
+| Param | Value | best_brier | max_decile_cal_error | Δ Brier | Δ CalErr | Verdict |
+|-------|-------|-----------|----------------------|---------|----------|---------|
+| regress | 0.50 (ref) | 0.638135 | 0.113035 | (ref) | (ref) | ref |
+| regress | 0.40 | 0.638389 | 0.151457 | +0.000254 | +0.038422 | **DROP** |
 
-| Season | REGRESS=0.40 (partial) | ref (0.50) | Δ |
-|--------|------------------------|------------|---|
-| 2022 | 0.6293 (estimate) | 0.629588 | ~-0.0003 |
-| 2023 | 0.6330 (estimate) | 0.633762 | ~-0.0008 |
-| 2024 | NOT CAPTURED | 0.651056 | unknown |
+Per-season (REGRESS=0.40 vs 0.50):
+
+| Season | REGRESS=0.40 | REGRESS=0.50 (ref) | Δ |
+|--------|-------------|---------------------|---|
+| 2022 | 0.629638 | 0.629588 | +0.000050 |
+| 2023 | 0.633737 | 0.633762 | -0.000025 |
+| 2024 | 0.651792 | 0.651056 | +0.000736 |
 
 **Notes:**
-- Partial results for 2022 and 2023 both show improvement for REGRESS=0.40 — consistent with CLAUDE.md's documented 40% value.
-- Cannot determine KEEP/DROP without the 2024 result.
-- **Action: Re-run in Iteration 6 (next hyperparameter iteration) as highest-priority sweep.**
-- **Recommendation: Run experiments sequentially (not in parallel) on this 4-core system.** Both experiments spawned 16+ XGB threads each, saturating all 4 cores and slowing each season from ~3 min to 30-45 min.
+- REGRESS=0.40 is worse on both Brier (+0.000254) and calibration (+0.038). The key driver is 2024 (+0.000736 Brier), which more than offsets the negligible 2023 gain.
+- Earlier partial run (Iteration 5) showed 2022/2023 improvements for 0.40 — those were noise; 2024 tells the full story.
+- CLAUDE.md's documented "40%" was aspirational/incorrect — 0.50 is empirically the better default.
+- **Decision: Keep REGRESS=0.50 (in-file default confirmed).**
 
-**experiment_id:** hyp-regress-040-20260530T041104 — incomplete (no registry entry, process killed at 2024 season)
+**experiment_id:** hyp-regress040-20260530T170859
+
+---
+
+### Experiment: hyp-whl2 (weight_hl=2 vs 4 default)
+
+| Param | Value | best_brier | max_decile_cal_error | Δ Brier | Δ CalErr | Verdict |
+|-------|-------|-----------|----------------------|---------|----------|---------|
+| weight_hl | 4 (ref) | 0.638135 | 0.113035 | (ref) | (ref) | ref |
+| weight_hl | 2 | 0.638700 | 0.122403 | +0.000565 | +0.009368 | **DROP** |
+
+Per-season (weight_hl=2 vs 4):
+
+| Season | whl=2 | whl=4 (ref) | Δ |
+|--------|-------|-------------|---|
+| 2022 | 0.630427 | 0.629588 | +0.000839 |
+| 2023 | 0.633783 | 0.633762 | +0.000021 |
+| 2024 | 0.651891 | 0.651056 | +0.000835 |
+
+**Notes:**
+- Halving the weight half-life (downweighting 2017-2019 more aggressively) makes Brier worse across all three seasons.
+- whl=2 means matches 4 seasons ago get weight 0.25x vs current; this strips too much signal from early seasons.
+- 2024 Brier still high (0.6519) — the 2024 weakness is not a training data recency problem.
+- **Decision: Keep weight_hl=4 (default unchanged).**
+
+**experiment_id:** hyp-whl2-20260530T171142

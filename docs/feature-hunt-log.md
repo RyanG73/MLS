@@ -125,3 +125,10 @@ AB_SETS["+MinutesHHI"] = _FEAT_BASE + _FEAT_HHI
 **Risk / novelty:** Low risk (3 columns, season-lagged so no in-season leakage). Mid-high novelty — distinct from `+ASA_TopN` (which is *quality of stars*) and from `+Squad`/`+TM_SquadValue` (which are *aggregate squad strength*). Expected effect size: Δ Brier ~ −0.0005 to −0.0020; standalone may be marginal, but the *interaction* with `home_games_in_14d` is where XGBoost could find lift — recommend running `+MinutesHHI` and `+Games14d+MinutesHHI` (combined) in the same A/B sweep.
 
 **should-implement: yes, after PythagLuck** — slightly more code (groupby + lag-merge) than PythagLuck, but reuses the exact pattern from the existing TopN / Squad lag-joins so the marginal effort is small. Pairs naturally with Games14d, which is already wired but currently marginal — concentration may be the missing context that turns fatigue from noise into signal.
+
+---
+
+## 2026-05-30 — +PythagLuck A/B result (Iteration 4)
+**Result:** Δ=+0.0008 (XGB avg 2022–2024) → **marginal** (below 0.001 KEEP threshold)
+**experiment_id:** feat-pythagluck-20260530T171203
+**Notes:** Base XGB Brier=0.6387 → +PythagLuck XGB Brier=0.6378 (avg 2022–2024). best_brier=0.6385, cal_err=0.1152. BestAB=+PythagLuck in 2022 and 2023; Base wins 2024. Per-season: 2022 Δ≈+0.003 (clearest signal — longer regression cycles after short season), 2023 Δ≈+0.001, 2024 Δ≈0 (neutral). home_pythag_luck_10 mean=-1.19, std=2.62 (asymmetric: away luck more volatile). Feature stays registered in AB_SETS as "+PythagLuck" but NOT promoted to _FEAT_BASE. The signal is real (correct direction in 2 of 3 seasons) but too noisy in 2024 to clear threshold. Consider revisiting combined with +MinutesHHI or after Base is elevated by another feature.

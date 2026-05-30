@@ -141,3 +141,28 @@
   at ae152d30, specifically in the `calibrate_multiclass`, `decile_cal_error`, and
   meta-learner sections, and explain *why* Platt's cal_err flips direction between branches.
   The finding should inform whether future calibration iteration results can be trusted.
+
+### Parallel /improve-model cycle additions (2026-05-30)
+
+> The "Post-stack calibration layer" idea above was **implemented and KEPT** this cycle —
+> 2-stage post-stack Platt is now the default (cal_err 0.1130 → ~0.0917–0.1015).
+
+## Future feature/model exploration
+
+- **Add a historical close-odds column to the harness (unblocks betting loss).** The 1/max_prob proxy is
+  invalid — it upweights draws (lowest max-prob), not long-shots. `data_pipeline/odds_client.py` (The Odds API)
+  exists in production; backfill historical close odds per match to enable real CLV-aware `betting_logloss`.
+- **Crack the 2024 distribution shift.** Confirmed across 3 experiments: DC catastrophic in 2024, great in 2022;
+  +PythagLuck/+TZShift help 2022-23 but go neutral in 2024; weight_hl=2 does NOT fix it → genuine league-level
+  shift, not stale data. Try a regime/era indicator feature or a 2024-specific recalibration.
+- **Seed-lock cal_err.** 2-stage Platt shows ~0.01 XGB-seed variance in cal_err. Make `--seed` standard so
+  calibration deltas use a fixed XGB realization.
+- **Resolved:** REGRESS=0.40 is definitively worse than 0.50 (2024 regresses). Isotonic post-stack overfits
+  (cal_err 0.242) — do not revisit. Path to <0.05 must come from raw-model changes, not calibration method.
+
+## Future subagent deployment
+
+- **data-integrator agent** — owns backfilling the historical odds column (and the unevaluated Transfermarkt path).
+- **drift/regime agent** — owns the 2024 distribution-shift investigation (era indicators, per-season recalibration).
+- **Process:** the parallel 4-worktree cycle compressed 5 hourly cloud iterations into one pass — prefer it; consider
+  a cloud orchestrator that fans out to 4 sub-sessions rather than rotating one component per hour.

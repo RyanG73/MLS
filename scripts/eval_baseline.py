@@ -79,9 +79,13 @@ def _parse_args() -> "_ap.Namespace":
     p.add_argument("--elo-home-adv", nargs="+", type=int, metavar="H",    default=None,
                    help="ELO HOME_ADV values to grid-search (default: 80 100 120)")
     p.add_argument("--calibration",
-                   choices=["temperature", "platt", "isotonic", "beta"],
+                   choices=["temperature", "platt", "isotonic", "beta",
+                            "temp_then_isotonic", "temp_then_platt"],
                    default="temperature",
-                   help="Post-hoc calibration method (default: temperature)")
+                   help="Post-hoc calibration method (default: temperature). "
+                        "temp_then_isotonic / temp_then_platt apply temperature "
+                        "scaling per-model then a second-pass calibration on the "
+                        "stacked ensemble output.")
     p.add_argument("--ab-only",      type=str,   default=None,
                    help="Comma-separated AB_SETS keys to evaluate, e.g. 'Base,+TZShift'")
     p.add_argument("--cache",        action="store_true",
@@ -418,9 +422,26 @@ print(f"\n[4/9] Rolling features "
       f"PPDA={'yes' if _HAS_PPDA else 'no'})...")
 
 
+_PYTHAG_EXP = 1.83  # soccer Pythagorean exponent (Hamilton 2011)
+_PYTHAG_WIN = 10    # rolling window for Pythagorean luck
+
+
+def _pythag_expected_pts(gf: float, ga: float, n: int) -> float:
+    """Pythagorean expected points over n matches (soccer exponent ≈ 1.83).
+
+    Returns n * 3 * win_rate, using 3*W approximation (draws ≈ partial wins).
+    Falls back to league-average rate (1.35 pts/match) when totals are zero.
+    """
+    if gf + ga == 0 or n == 0:
+        return 1.35 * n
+    win_rate = gf ** _PYTHAG_EXP / (gf ** _PYTHAG_EXP + ga ** _PYTHAG_EXP)
+    return 3.0 * win_rate * n
+
+
 def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     team_xg: dict[str, list] = {}       # per-game xg/xga records
     team_pts: dict[str, list] = {}      # points earned per game
+    team_goals: dict[str, list] = {}    # per-game (gf, ga) tuples for Pythagorean
     team_ppda: dict[str, list] = {}     # PPDA per game (float | None)
     team_poss: dict[str, list] = {}     # possession per game (float | None)
     team_dates: dict[str, list] = []    # type: ignore
@@ -436,6 +457,7 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         for fw in FORM_WINDOWS:
             res[f"{r}_form_{fw}"] = []
         res[f"{r}_games_in_14d"] = []
+        res[f"{r}_pythag_luck_{_PYTHAG_WIN}"] = []
         if _HAS_PPDA:
             res[f"{r}_ppda_roll_10"] = []
         if _HAS_POSS:
@@ -461,11 +483,12 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
             (ht, "home", h_xg, a_xg, h_xg_sp, a_xg_sp, h_ppda_v, h_poss_v),
             (at, "away", a_xg, h_xg, a_xg_sp, h_xg_sp, a_ppda_v, a_poss_v),
         ]:
-            xg_hist   = team_xg.get(team, [])
-            pts_hist  = team_pts.get(team, [])
-            ppda_hist = team_ppda.get(team, [])
-            poss_hist = team_poss.get(team, [])
-            date_hist = team_dates_d.get(team, [])
+            xg_hist    = team_xg.get(team, [])
+            pts_hist   = team_pts.get(team, [])
+            goals_hist = team_goals.get(team, [])
+            ppda_hist  = team_ppda.get(team, [])
+            poss_hist  = team_poss.get(team, [])
+            date_hist  = team_dates_d.get(team, [])
 
             for w in XG_WINDOWS:
                 seg = xg_hist[-w:]
@@ -480,6 +503,19 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
 
             cutoff = dt - timedelta(days=GAMES_14D)
             res[f"{role}_games_in_14d"].append(sum(1 for d in date_hist if d > cutoff))
+
+            # Pythagorean luck: actual pts - expected pts over last N matches
+            seg_goals = goals_hist[-_PYTHAG_WIN:]
+            seg_pts_w = pts_hist[-_PYTHAG_WIN:]
+            if seg_goals:
+                n = len(seg_goals)
+                gf_sum = sum(g[0] for g in seg_goals)
+                ga_sum = sum(g[1] for g in seg_goals)
+                pts_actual = sum(seg_pts_w)
+                pts_pythag = _pythag_expected_pts(gf_sum, ga_sum, n)
+                res[f"{role}_pythag_luck_{_PYTHAG_WIN}"].append(pts_actual - pts_pythag)
+            else:
+                res[f"{role}_pythag_luck_{_PYTHAG_WIN}"].append(0.0)
 
             if _HAS_PPDA:
                 seg_ppda = [v for v in ppda_hist[-10:] if v is not None]
@@ -501,6 +537,8 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         team_xg.setdefault(at, []).append({"xg": a_xg, "xga": h_xg, "opp_xg_sp": h_xg_sp})
         team_pts.setdefault(ht, []).append(h_pts)
         team_pts.setdefault(at, []).append(a_pts)
+        team_goals.setdefault(ht, []).append((float(hg), float(ag)))
+        team_goals.setdefault(at, []).append((float(ag), float(hg)))
         team_ppda.setdefault(ht, []).append(h_ppda_v)
         team_ppda.setdefault(at, []).append(a_ppda_v)
         team_poss.setdefault(ht, []).append(h_poss_v)
@@ -517,6 +555,8 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     out["form_diff"]    = out[f"home_form_{FORM_WINDOWS[0]}"] - out[f"away_form_{FORM_WINDOWS[0]}"]
     out["home_xg_sum"]  = out[f"home_xg_roll_{w0}"] + out[f"away_xg_roll_{w0}"]
     out["games14d_diff"] = out["home_games_in_14d"] - out["away_games_in_14d"]
+    out["pythag_luck_diff"] = (out[f"home_pythag_luck_{_PYTHAG_WIN}"]
+                               - out[f"away_pythag_luck_{_PYTHAG_WIN}"])
     if _HAS_PPDA:
         out["ppda_diff"] = out["home_ppda_roll_10"] - out["away_ppda_roll_10"]
     if _HAS_POSS:
@@ -1163,6 +1203,16 @@ print(f"    TZ-shift computed: mean={df['away_tz_shift'].mean():.2f} "
 
 _FEAT_TZ = ["away_tz_shift", "away_tz_shift_signed"]
 
+# ─── Pythagorean luck feature ─────────────────────────────────────────────────
+# Computed inside add_rolling_features(); columns already on df at this point.
+_FEAT_PYTHAG = [
+    f"home_pythag_luck_{_PYTHAG_WIN}",
+    f"away_pythag_luck_{_PYTHAG_WIN}",
+    "pythag_luck_diff",
+]
+print(f"    PythagLuck computed: home mean={df[_FEAT_PYTHAG[0]].mean():.3f} "
+      f"std={df[_FEAT_PYTHAG[0]].std():.3f}")
+
 # ─── Feature sets ─────────────────────────────────────────────────────────────
 
 _BASE_ELO  = ["elo_diff", "home_elo", "away_elo"]
@@ -1262,8 +1312,9 @@ if _FEAT_XG_SPLIT:
     AB_SETS["+ASA_xGSplit"]  = _FEAT_BASE + _FEAT_XG_SPLIT
 if _TM_FEATS:
     AB_SETS["+TM_SquadValue"] = _FEAT_BASE + _TM_FEATS
-AB_SETS["+TZShift"]  = _FEAT_BASE + _FEAT_TZ
-AB_SETS["+All"]      = _FEAT_ALL
+AB_SETS["+TZShift"]    = _FEAT_BASE + _FEAT_TZ
+AB_SETS["+PythagLuck"] = _FEAT_BASE + _FEAT_PYTHAG
+AB_SETS["+All"]        = _FEAT_ALL
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
 
@@ -1362,10 +1413,17 @@ def dc_lam_mu_batch(split_df, atk, dfd, ha):
 
 def calibrate_multiclass(raw_cal: np.ndarray, y_cal: np.ndarray,
                           raw_test: np.ndarray) -> np.ndarray:
-    """Calibrate multiclass probabilities.  Method selected by --calibration flag."""
-    _method = _ARGS.calibration  # "temperature" | "platt" | "isotonic" | "beta"
+    """Calibrate multiclass probabilities.  Method selected by --calibration flag.
 
-    if _method == "temperature":
+    For two-stage methods (temp_then_isotonic, temp_then_platt) this function
+    performs only the first-stage temperature scaling; the second pass on the
+    stacked ensemble output is handled separately by _calibrate_stacked_second_pass.
+    """
+    _method = _ARGS.calibration  # "temperature" | "platt" | "isotonic" | "beta"
+                                  # | "temp_then_isotonic" | "temp_then_platt"
+
+    # Two-stage variants use temperature scaling for the per-model first pass
+    if _method in ("temperature", "temp_then_isotonic", "temp_then_platt"):
         # Original temperature-scaling implementation (default)
         def _nll(T: float) -> float:
             log_p = np.log(np.clip(raw_cal, 1e-9, 1.0)) / max(T, 0.1)
@@ -1422,6 +1480,43 @@ def calibrate_multiclass(raw_cal: np.ndarray, y_cal: np.ndarray,
 
     else:
         raise ValueError(f"Unknown calibration method: {_method!r}")
+
+
+def _calibrate_stacked_second_pass(
+    stacked_cal: np.ndarray, y_cal: np.ndarray, stacked_te: np.ndarray
+) -> np.ndarray:
+    """Apply second-pass calibration to stacked ensemble output.
+
+    stacked_cal : shape (n_cal, 3) — meta-learner predictions on the cal fold
+                  (in-sample; acceptable here as the meta was NOT fitted on these
+                  directly — it was fitted on calibrated XGB/DC features, not on
+                  its own output)
+    y_cal       : integer labels (0/1/2) on the cal fold
+    stacked_te  : shape (n_te, 3) — meta-learner predictions on the test fold
+
+    Returns calibrated test probabilities.
+    """
+    _method = _ARGS.calibration
+    if _method == "temp_then_isotonic":
+        from sklearn.isotonic import IsotonicRegression as _IR2
+        out = np.zeros_like(stacked_te)
+        for c in range(3):
+            ir = _IR2(out_of_bounds="clip")
+            ir.fit(stacked_cal[:, c], (y_cal == c).astype(float))
+            out[:, c] = ir.predict(stacked_te[:, c])
+        return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
+
+    elif _method == "temp_then_platt":
+        from sklearn.linear_model import LogisticRegression as _PlattLR3
+        out = np.zeros_like(stacked_te)
+        for c in range(3):
+            platt = _PlattLR3(C=1.0, max_iter=300, solver="lbfgs")
+            platt.fit(stacked_cal[:, c].reshape(-1, 1), (y_cal == c).astype(int))
+            out[:, c] = platt.predict_proba(stacked_te[:, c].reshape(-1, 1))[:, 1]
+        return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
+
+    # Should not be called for single-stage methods
+    return stacked_te
 
 
 def decile_cal_error(probs: np.ndarray, actuals: np.ndarray) -> tuple:
@@ -1587,6 +1682,7 @@ for test_season in TEST_SEASONS:
     # ── Stacking meta-learner ─────────────────────────────────────────────────
     meta_ok = False
     ens_stacked = None
+    _two_stage = _ARGS.calibration in ("temp_then_isotonic", "temp_then_platt")
     if dc_ok and xgb_ok:
         try:
             xgb_cal_cal3 = calibrate_multiclass(xgb_cal_probs_best, y_cal_r,
@@ -1595,9 +1691,19 @@ for test_season in TEST_SEASONS:
             meta_X_te  = np.hstack([dc_cal_te3,  xgb_cal_te3])
             meta = LogisticRegression(max_iter=300, C=1.0, random_state=42)
             meta.fit(meta_X_cal, y_cal_r)
-            ens_stacked = meta.predict_proba(meta_X_te)
+            ens_stacked_raw = meta.predict_proba(meta_X_te)
+            if _two_stage:
+                # Second-pass calibration on the stacked ensemble output:
+                # fit on meta's cal-fold predictions, apply to test-fold predictions
+                stacked_cal_preds = meta.predict_proba(meta_X_cal)
+                ens_stacked = _calibrate_stacked_second_pass(
+                    stacked_cal_preds, y_cal_r, ens_stacked_raw
+                )
+                print(" | Meta✓+2ndPass", end="", flush=True)
+            else:
+                ens_stacked = ens_stacked_raw
+                print(" | Meta✓", end="", flush=True)
             meta_ok = True
-            print(" | Meta✓", end="", flush=True)
         except Exception as e:
             print(f" | Meta✗({e})", end="", flush=True)
 

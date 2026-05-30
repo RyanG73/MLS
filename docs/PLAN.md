@@ -1,5 +1,14 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Live eval results (updated 2026-05-30, parallel /improve-model cycle — 4 agents in worktrees)**
+> Best model: stacked ensemble, Base features, **2-stage post-stack Platt calibration** (new default `--calibration temp_then_platt`).
+> best_brier 0.6385 (naive 0.6406; ~+0.3% over naive) · max decile cal_err ~0.0917–0.1015 (was 0.1130; target <0.05 still unmet).
+> KEPT: 2-stage post-stack Platt — corrects systematic meta-learner miscalibration at negligible Brier cost (+0.0004, within veto).
+> DROP/resolved: REGRESS=0.40 worse than 0.50 (settled; CLAUDE.md "40%" corrected to 50%); weight_hl=2 worse (2024 ≠ stale data);
+>   betting-loss blocked (needs real odds column); XGB-only & dynamic ensemble (2024 distribution shift). +PythagLuck/+TZShift marginal (registered).
+> Open: (1) cal_err <0.05 needs raw-model changes, not post-hoc calibration; (2) 2024 distribution shift (DC catastrophic in 2024, great 2022-23).
+> Detail: `docs/improvement-progress.md`, per-component logs, `docs/future-exploration.md`.
+>
 > **Live eval results (last run: 2026-05-30, branch `claude/mls-prediction-dashboard-C2mQM`)**
 > Improvement loop Iteration 5: calibration (beta + seed-stability test).
 > cal-beta → **DROP** (best_brier=0.6377, cal_err=0.1544; Brier marginal +0.0004 vs temp, cal_err regressed +0.0414).

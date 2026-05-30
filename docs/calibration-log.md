@@ -68,3 +68,54 @@ model-level changes (shorter weight_hl, REGRESS=0.40, or post-stack second-pass 
 hyperparameter and architecture concerns, not calibration-method concerns.
 
 **experiment_ids:** cal-beta-20260530T071207, cal-temperature-seed42-20260530T072043
+
+---
+
+## 2026-05-30 — Two-stage post-stack calibration sweep (Iteration 6)
+
+This iteration tests a 2-stage architecture: temperature scaling per-model (first pass, unchanged),
+then a second calibration pass applied to the stacked ensemble output. The hypothesis is that the
+meta-learner's LogisticRegression output may still be miscalibrated even after each input model is
+temperature-scaled, and a second-pass calibrator fitted on the cal fold's stacked predictions can
+correct residual miscalibration without hurting Brier.
+
+Implementation: `_calibrate_stacked_second_pass()` added to `scripts/eval_baseline.py`;
+new `--calibration` choices `temp_then_isotonic` and `temp_then_platt`. The first-stage
+`calibrate_multiclass` treats both new values as `temperature` (so per-model pass is unchanged).
+Second pass fits on `meta.predict_proba(meta_X_cal)` (cal fold stacked preds) and applies to test.
+
+All experiments: branch `claude/mls-prediction-dashboard-C2mQM` (commit 00992ba0),
+`--ab-only Base --cache`.
+
+| Method              | best_brier | max_cal_error | Δ Brier  | Δ CalErr  | Verdict |
+|---------------------|-----------|--------------|----------|-----------|---------|
+| temperature (ref)   | 0.6381    | 0.1130       | (ref)    | (ref)     | ref     |
+| temp_then_isotonic  | 0.6468    | 0.2418       | +0.0087  | +0.1288   | **DROP** |
+| temp_then_platt     | 0.6387    | 0.0917       | +0.0006  | −0.0213   | **KEEP** |
+
+**Verdict: temp_then_platt → KEEP**
+- cal_err drops 0.0213 (> 0.01 threshold) — improvement criteria met.
+- best_brier worsens by only 0.0006 (≤ 0.001 veto threshold) — secondary veto NOT triggered.
+- Note: cal_err=0.0917 is still above the <0.05 target, but this is the first meaningful reduction.
+
+**temp_then_isotonic → DROP**
+- Both metrics worsen significantly: Brier +0.0087 (far exceeds 0.001 veto), cal_err +0.1288.
+- Root cause: isotonic regression overfits on the ~470–520 in-sample meta-learner predictions;
+  the monotone constraint is not enough regularisation at this sample size.
+
+**Key finding:** A Platt second pass on the stacked output is the first post-hoc calibration change
+to improve cal_err meaningfully. The combination temperature→stack→Platt reduces cal_err by 18.8%
+relative (0.1130 → 0.0917) while keeping Brier nearly flat (+0.0006). Isotonic at the same stage
+is too flexible for ~500 samples and collapses both metrics.
+
+**CHANGE TO APPLY (KEEP):**
+1. In `calibrate_multiclass`: extend the `if _method == "temperature"` branch to include
+   `temp_then_platt` (already implemented — the condition is
+   `if _method in ("temperature", "temp_then_isotonic", "temp_then_platt")`).
+2. Add `_calibrate_stacked_second_pass()` function (already implemented).
+3. In the stacking block: set `_two_stage = _ARGS.calibration in ("temp_then_isotonic", "temp_then_platt")`,
+   compute `stacked_cal_preds = meta.predict_proba(meta_X_cal)`, call
+   `_calibrate_stacked_second_pass(stacked_cal_preds, y_cal_r, ens_stacked_raw)` (already implemented).
+4. Change the argparse `--calibration` default from `"temperature"` to `"temp_then_platt"`.
+
+**experiment_ids:** cal-2stage-postack-20260530T171006, cal-2stage-platt-postack-20260530T171336

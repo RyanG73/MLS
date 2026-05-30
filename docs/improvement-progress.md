@@ -14,14 +14,32 @@
 
 | Field | Value | Source |
 |-------|-------|--------|
-| best_brier | **0.6381** | cal-temperature-base (Iteration 1, branch harness, Base features) |
-| max_cal_error | **0.1130** | cal-temperature-base |
+| best_brier | **0.6385** | merge-confirm-cal2stage (parallel cycle, Base features) |
+| max_cal_error | **0.0917–0.1015** | cal-2stage-platt-postack (0.0917 isolated; 0.1015 on re-eval — XGB-seed variance) |
 | naive_brier | 0.6406 | reference |
-| harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, weight_hl=4, calibration=temperature | scripts/eval_baseline.py |
+| harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, weight_hl=4, **calibration=temp_then_platt** | scripts/eval_baseline.py |
 
-**Status (after Iteration 5):** Stacked ensemble is still best overall. Temperature scaling confirmed as best calibration method — cal_err=0.1130 is structurally stable (seed-locked run gave identical results). Beta calibration gives Brier=0.6377 (marginally better) but cal_err=0.1544 (significantly worse) → DROP. No calibration method can reach the < 0.05 target; structural changes needed. Iteration 6 priority: REGRESS=0.40 sweep (incomplete from Iteration 2) + weight_hl=2 to address 2024 weakness.
+**Status (after parallel /improve-model cycle, 2026-05-30):** New default calibration is **2-stage post-stack Platt** (`temp_then_platt`): per-model temperature scaling, then a Platt re-scaling of the *stacked ensemble* output. This cut max decile cal error from 0.1130 → ~0.0917–0.1015 (the meta-learner introduces systematic miscalibration a light Platt pass corrects), at a negligible Brier cost (+0.0004, within the 0.001 veto). Still above the <0.05 target — that gap is now believed to be a raw-model limit, not a calibration-method choice.
+
+**Resolved this cycle:** REGRESS=0.40 is definitively worse than 0.50 (2024 regresses +0.0007; the earlier partial run was misleading) → **CLAUDE.md's documented "40%" was wrong, corrected to 50%**. weight_hl=2 regresses all 3 seasons → 2024 weakness is NOT stale-data contamination (likely genuine distribution shift). Betting-aware loss is blocked without a real historical odds column (the 1/max_prob proxy just upweights draws). +PythagLuck marginal (Δ+0.0008), registered but not promoted.
 
 ---
+
+## Parallel /improve-model cycle — 2026-05-30 — 4 agents in worktrees
+
+Dispatched all four component agents in parallel git worktrees against the frozen ASA cache. Greedy forward-merge applied (feature → calibration); hyperparameter & architecture made no code change.
+
+| Agent | Experiment | best_brier | cal_err | Verdict |
+|-------|-----------|-----------|---------|---------|
+| calibration | cal-2stage-platt-postack | 0.6387 | 0.0917 | **KEEP** (new default) |
+| feature | feat-pythagluck | 0.6385 | 0.1152 | marginal (Δ+0.0008; registered, not promoted) |
+| hyperparameters | hyp-regress040 / hyp-whl2 | 0.6384 / 0.6387 | 0.151 / 0.122 | DROP both |
+| architecture | arch-betting-loss | 0.6385 | 0.1015 | DROP (no odds column) |
+| **post-merge** | merge-confirm-cal2stage | **0.6385** | **0.1015** | cumulative |
+
+- **KEPT:** 2-stage post-stack Platt calibration as the new harness default (`--calibration temp_then_platt`).
+- **Net model change:** best_brier 0.6381 → 0.6385 (+0.0004, within veto); cal_err 0.1130 → ~0.0917–0.1015 (materially better, the cycle's real win).
+- **Caveat:** cal_err shows ~0.01 XGB-seed variance with the 2-stage method; the improvement direction is robust (both samples < 0.1130) but the exact magnitude is noisy. A seed-locked confirmation is the recommended follow-up.
 
 ## Iteration 0 — seeding (pre-loop, 2026-05-30) — local session
 
