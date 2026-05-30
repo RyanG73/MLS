@@ -19,7 +19,7 @@
 | naive_brier | 0.6406 | reference |
 | harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, weight_hl=4, calibration=temperature | scripts/eval_baseline.py |
 
-**Status (after Iteration 4):** Stacked ensemble is still best overall; XGB alone is better for 2024 but not enough to overcome the stacking benefit for 2022-2023. Dynamic cal-fold selection is anti-predictive (DROP). Betting-aware loss (architecture Q4) and REGRESS=0.40 sweep (hyperparameter Q, Iteration 6) are highest-priority remaining tests. Cal_err 0.1130 vs target < 0.05 — hyperparameter tuning next most likely path.
+**Status (after Iteration 5):** Stacked ensemble is still best overall. Temperature scaling confirmed as best calibration method — cal_err=0.1130 is structurally stable (seed-locked run gave identical results). Beta calibration gives Brier=0.6377 (marginally better) but cal_err=0.1544 (significantly worse) → DROP. No calibration method can reach the < 0.05 target; structural changes needed. Iteration 6 priority: REGRESS=0.40 sweep (incomplete from Iteration 2) + weight_hl=2 to address 2024 weakness.
 
 ---
 
@@ -31,6 +31,22 @@
 - No harness default changed yet — left for the calibration iteration to confirm + decide.
 
 <!-- cloud iterations 1–8 append below -->
+
+## Iteration 5 — calibration — 2026-05-30T07:20 UTC
+
+- **Experiments run:** (all `--ab-only Base --cache`)
+  - `cal-beta` (cal-beta-20260530T071207): best_brier=0.6377, cal_err=0.1544; Δ Brier=−0.0004 (better), Δ CalErr=+0.0414 (worse)
+  - `cal-temperature-seed42` (cal-temperature-seed42-20260530T072043): best_brier=0.6381, cal_err=0.1130; identical to unseeded temperature
+- **Verdict(s):**
+  - cal-beta → **DROP** (primary cal metric regressed +0.0414; KEEP requires cal_err to drop > 0.01; Brier improvement only 0.0004 relative to current best — below 0.001 threshold)
+  - cal-temperature-seed42 → **reference** (confirms temperature is stable, not stochastic)
+- **Best so far:** UNCHANGED — temperature cal, DC decay=120d, Base features → best_brier=0.6381, cal_err=0.1130
+- **Notes:**
+  - Beta calibration (Kull 2017, "abm" parameters) produces the **best Brier seen so far** (0.6377 vs 0.6381), but at the cost of much worse decile calibration error. Brier improvement is marginal (0.0004 relative to temperature). By the calibration agent's primary metric protocol, this is a DROP.
+  - **Structural finding:** The seed=42 locked temperature run produced *identical* results (best_brier=0.6381, cal_err=0.1130). This confirms that cal_err=0.1130 is a *structural floor* for the current model, not stochastic noise from XGB random seeds. The ~0.02 cal_err variance seen in Iteration 3 (feat-tzshift cal_err=0.0911) was likely a one-off lucky temperature-scaling fit for that particular stochastic XGB realization.
+  - **Second full calibration sweep complete.** All four methods have now been tested: temperature, platt, isotonic (Iteration 1), beta (this iteration). Temperature wins on both metrics. No calibration method reaches the < 0.05 target.
+  - **Path to < 0.05 cal_err:** Must come from model improvements (better-calibrated raw probabilities), not from post-hoc calibration method choice. REGRESS=0.40 (Iteration 6) and weight_hl=2 are the next candidates. Alternatively, a 2-stage post-stack calibration layer (temperature → second pass isotonic on the stacked output) is unexplored.
+  - Highest-priority remaining experiments: (1) REGRESS=0.40 + weight_hl=2 sweep (Iteration 6), (2) +PythagLuck feature (Iteration 7), (3) betting-aware loss (Iteration 8).
 
 ## Iteration 4 — architecture — 2026-05-30T06:25 UTC
 

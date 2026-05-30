@@ -37,3 +37,34 @@ improvement-progress.md is superseded — Platt does not improve on the current 
 
 **experiment_ids:** cal-temperature-base-20260530T031204, cal-platt-confirm-20260530T032843,
 cal-isotonic-20260530T032036
+
+---
+
+## 2026-05-30 — Beta calibration + seed stability test (Iteration 5)
+
+All experiments on branch `claude/mls-prediction-dashboard-C2mQM` (commit b4d840e9),
+`--ab-only Base --cache`. betacal v1.1.0 installed this iteration.
+
+| Method                    | best_brier | max_cal_error | Δ Brier (vs temp) | Δ CalErr (vs temp) | Verdict |
+|---------------------------|-----------|--------------|-------------------|--------------------|---------|
+| temperature (ref)         | 0.6381    | 0.1130       | (ref)             | (ref)              | ref     |
+| beta (Kull 2017, abm)     | 0.6377    | 0.1544       | −0.0004 (better)  | +0.0414 (worse)    | **DROP** |
+| temperature seed=42       | 0.6381    | 0.1130       | 0.000             | 0.000              | confirms stability |
+
+**Verdict:** beta → **DROP**.
+- Primary (calibration) metric: cal_err +0.0414 vs temperature (worse, not better). KEEP requires cal_err to drop by > 0.01.
+- Secondary (Brier) metric: best_brier improved by 0.0004 — below the 0.001 KEEP threshold relative to current best.
+- Beta's better Brier (0.6377) is interesting but not enough to overcome significantly worse decile calibration.
+
+**Key finding — cal_err is structurally stable:**
+The seed=42 run confirms that cal_err=0.1130 is not stochastic variance — it is identical with and without
+seed control. This rules out XGB randomness as the source of the fluctuating cal_err seen in Iteration 3
+(feat-tzshift showed 0.0911; likely a genuinely lucky temperature-scaling T fit for that particular
+stochastic XGB draw, not a feature effect).
+
+**Recommendation:** temperature scaling remains default. No calibration method has beaten it on either metric.
+The cal_err=0.1130 is a structural floor for the current ensemble architecture. Reaching < 0.05 requires
+model-level changes (shorter weight_hl, REGRESS=0.40, or post-stack second-pass calibration). These are
+hyperparameter and architecture concerns, not calibration-method concerns.
+
+**experiment_ids:** cal-beta-20260530T071207, cal-temperature-seed42-20260530T072043

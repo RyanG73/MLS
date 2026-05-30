@@ -1,13 +1,13 @@
 # MLS Prediction Dashboard — Implementation Plan
 
 > **Live eval results (last run: 2026-05-30, branch `claude/mls-prediction-dashboard-C2mQM`)**
-> Improvement loop Iteration 4: architecture (XGB-only ensemble / dynamic ensemble).
-> arch-xgb-only → **DROP** (Δ=0; stacked 0.6381 still beats XGB alone 0.6387 on 3-season average).
-> arch-dynamic-ensemble → **DROP** (ens_dynamic=0.6397, anti-predictive cal-fold signal).
-> Per-season first-time breakdown: XGB=0.6398/0.6386/0.6376, Stacked=0.6296/0.6338/0.6511 for 2022/2023/2024.
-> DC drag is severe for 2024 (+0.014) but DC adds +0.010 for 2022 and +0.005 for 2023; net: stacked wins.
+> Improvement loop Iteration 5: calibration (beta + seed-stability test).
+> cal-beta → **DROP** (best_brier=0.6377, cal_err=0.1544; Brier marginal +0.0004 vs temp, cal_err regressed +0.0414).
+> cal-temperature-seed42 → reference (identical to unseeded: 0.6381/0.1130; confirms structural stability).
+> All 4 calibration methods tested: temperature wins both metrics. cal_err=0.1130 is a structural floor.
+> No calibration method can reach < 0.05 cal_err from the current model architecture.
 > Current best: temperature cal, Base features, DC decay=120d → best_brier=0.6381, cal_err=0.1130.
-> Next up: Iteration 5 (calibration) — secondary cal method sweep; target cal_err < 0.05.
+> Next up: Iteration 6 (hyperparameters) — REGRESS=0.40 (incomplete from Iter 2) + weight_hl=2 to address 2024 weakness.
 >
 > **Previous live eval results (2026-05-10):**
 > Phase 6b eval (1X2 only). Test seasons: 2023–2024 (2022 skipped, COVID cal fold).

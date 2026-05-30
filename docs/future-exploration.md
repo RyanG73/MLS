@@ -57,6 +57,20 @@
 
 <!-- cloud iterations append new ideas below -->
 
+### Iteration 5 additions (calibration: beta DROP, temperature stability confirmed)
+
+## Future feature/model exploration
+
+- **Add betacal to requirements.txt.** Beta calibration is now known to work (betacal 1.1.0 installed this iteration) but requires `pip install betacal` each cloud run. Adding it to requirements.txt would make it available immediately in future cloud sessions.
+- **Two-stage post-stack calibration.** Apply temperature scaling first (as currently) then a second lightweight pass (isotonic or beta) on the stacked ensemble's output residuals. The hypothesis: temperature scales the raw confidence globally; a second pass could correct the per-bin systematic offsets. This is a code change but a small one (edit the calibration step in the walk-forward loop to call `calibrate_multiclass` twice). May move cal_err from 0.1130 toward < 0.05 without regressing Brier.
+- **Per-class calibration method mixing.** Temperature for home/away, beta for draw. Draw is consistently the hardest class (Brier ~0.194) and may benefit from beta's asymmetric shape. The current `calibrate_multiclass` applies one method to all three classes simultaneously; adding a `--calibration-draw` flag for a separate draw calibrator is a targeted extension.
+- **Calibration oracle study.** Sample-weight the cal fold toward recent matches (e.g., exponential decay within the ~500-match cal fold) before fitting temperature T. This might produce a T that better reflects the current season's confidence regime, rather than a T averaged over all cal-fold seasons. One-line change in `calibrate_multiclass` — fits within calibration tuner scope.
+- **Beta Brier note.** Beta at 0.6377 is the lowest Brier achieved so far (vs 0.6381 temperature), despite worse calibration. This hints that beta's probability shapes may be a better match for the data-generating process even if decile calibration error is higher. Worth revisiting after REGRESS / weight_hl tuning — if those reduce the systematic mismatch, beta may then also improve cal_err.
+
+## Future subagent deployment
+
+- **Two-stage calibration agent.** Extends the calibration-tuner scope: after applying the primary calibration method (temperature), fits a second-pass corrector (isotonic) on the residual calibration error of the stacked ensemble. This is a one-method-at-a-time code change that stays within the calibration tuner's file scope.
+
 ### Iteration 4 additions (architecture: XGB-only / dynamic ensemble — both DROP)
 
 ## Future feature/model exploration
