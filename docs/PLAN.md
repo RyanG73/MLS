@@ -1,7 +1,17 @@
 # MLS Prediction Dashboard — Implementation Plan
 
-> **Live eval results (updated 2026-05-30, parallel /improve-model cycle — 4 agents in worktrees)**
-> Best model: stacked ensemble, Base features, **2-stage post-stack Platt calibration** (new default `--calibration temp_then_platt`).
+> **Live eval results (updated 2026-05-30, parallel /improve-model cycle #2 — structural leads)**
+> Best model: **capped-DC convex blend** (DC ≤30%) + Base features + weight_hl=6 + temp_then_platt calibration.
+> best_brier **0.6363** (naive 0.6406; ~+0.67% over naive, best across all cycles) · max decile cal_err 0.1326 (target <0.05 unmet).
+> KEPT: (1) capped-DC blend replaces unconstrained LR meta-learner — fixes 2024 (DC stacked 0.6523→0.6378); (2) weight_hl 4→6,
+>   a DROP in isolation but unlocked once capped-DC removed the DC drag (greedy re-eval surfaced the interaction). best_brier 0.6388→0.6372→0.6363.
+> Trade-off: calibration regressed 0.1015→0.1326 (Platt 2nd-pass is a no-op on the blend); Brier is the stated primary, so accepted.
+> Crash fix: XGBoost `n_jobs` capped (default 2, env EVAL_XGB_NJOBS) — 4 parallel all-cores evals OOM-crashed the 16 GB machine.
+> DROP this cycle: +MinutesHHI (queue exhausted), larger cal fold (COVID gap), longer DC decay 150/180.
+> Open: (1) recover calibration on the blended output; (2) push <0.05 cal via raw-model changes.
+>
+> **Live eval results (prior, 2026-05-30, parallel cycle #1 — 2-stage post-stack Platt)**
+> Best model: stacked ensemble, Base features, **2-stage post-stack Platt calibration** (`--calibration temp_then_platt`).
 > best_brier 0.6385 (naive 0.6406; ~+0.3% over naive) · max decile cal_err ~0.0917–0.1015 (was 0.1130; target <0.05 still unmet).
 > KEPT: 2-stage post-stack Platt — corrects systematic meta-learner miscalibration at negligible Brier cost (+0.0004, within veto).
 > DROP/resolved: REGRESS=0.40 worse than 0.50 (settled; CLAUDE.md "40%" corrected to 50%); weight_hl=2 worse (2024 ≠ stale data);

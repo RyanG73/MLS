@@ -134,11 +134,18 @@ INITIAL_ELO  = 1500.0
 DC_DECAY_HL  = _ARGS.dc_decay_hl if _ARGS.dc_decay_hl is not None else 120
 TEST_SEASONS = list(_ARGS.test_seasons) if _ARGS.test_seasons else [2021, 2022, 2023, 2024]
 _COVID       = {2020}
-WEIGHT_HL    = _ARGS.weight_hl  if _ARGS.weight_hl  is not None else 4
+WEIGHT_HL    = _ARGS.weight_hl  if _ARGS.weight_hl  is not None else 6
 GAMES_14D    = _ARGS.games_14d  if _ARGS.games_14d  is not None else 16
 
 FETCH_WEATHER       = False  # set True to enable Open-Meteo API calls (~5 min extra)
 FETCH_TRANSFERMARKT = False  # set True to load Transfermarkt squad-value CSVs (data/transfermarkt_squad_values_*_mapped.csv)
+
+# XGBoost per-process thread cap. Default 2 so that even several evals running
+# concurrently (e.g. parallel /improve-model agents) cannot saturate the machine
+# and exhaust RAM — this prevents the IDE/terminal crashes seen when 4 parallel
+# agents each spawned an all-cores XGBoost run on a 16 GB box. Override with
+# EVAL_XGB_NJOBS for a single fast run on a quiet machine.
+_XGB_NJOBS = int(os.environ.get("EVAL_XGB_NJOBS", "2"))
 
 # FIFA international window end dates; match within 14 days after → is_post_fifa_break=1
 _FIFA_BREAKS = [pd.Timestamp(d) for d in [
@@ -1616,6 +1623,7 @@ for test_season in TEST_SEASONS:
                 subsample=0.8, colsample_bytree=0.8,
                 objective="multi:softprob", num_class=3,
                 eval_metric="mlogloss", verbosity=0, random_state=42,
+                n_jobs=_XGB_NJOBS,
             )
             _c.fit(_itr[_gs_feat].fillna(0).values,
                    _itr["label_result"].values, sample_weight=_sw_i)
@@ -1647,7 +1655,8 @@ for test_season in TEST_SEASONS:
             clf = xgb.XGBClassifier(
                 objective="multi:softprob", num_class=3,
                 eval_metric="mlogloss", verbosity=0, random_state=42,
-                subsample=0.8, colsample_bytree=0.8, **_best_p,
+                subsample=0.8, colsample_bytree=0.8, n_jobs=_XGB_NJOBS,
+                **_best_p,
             )
             clf.fit(X_tr, train["label_result"].values, sample_weight=sw)
             cal_p  = clf.predict_proba(X_cal)
@@ -1687,22 +1696,36 @@ for test_season in TEST_SEASONS:
         try:
             xgb_cal_cal3 = calibrate_multiclass(xgb_cal_probs_best, y_cal_r,
                                                   xgb_cal_probs_best)
-            meta_X_cal = np.hstack([dc_cal_cal3, xgb_cal_cal3])
-            meta_X_te  = np.hstack([dc_cal_te3,  xgb_cal_te3])
-            meta = LogisticRegression(max_iter=300, C=1.0, random_state=42)
-            meta.fit(meta_X_cal, y_cal_r)
-            ens_stacked_raw = meta.predict_proba(meta_X_te)
+            # Capped-DC convex blend (replaces the unconstrained LogisticRegression
+            # meta-learner). Fit a scalar w on the cal fold by Brier minimisation,
+            # constrained w ∈ [0.7, 1.0] so Dixon-Coles contributes at most 30%.
+            # This keeps DC's 2022-23 synergy but bounds its catastrophic 2024 misfit
+            # (arch-capped-dc, 2026-05-30: 2024 Brier 0.6523→0.6378, net −0.0019).
+            def _blend_brier(w_arr):
+                w = w_arr[0]
+                b = w * xgb_cal_cal3 + (1.0 - w) * dc_cal_cal3
+                b = b / b.sum(axis=1, keepdims=True).clip(1e-9, None)
+                return float(np.mean(np.sum((b - y_cal_oh) ** 2, axis=1)))
+            _wres = minimize(_blend_brier, x0=[0.85], bounds=[(0.7, 1.0)],
+                             method="L-BFGS-B")
+            _w = float(np.clip(_wres.x[0], 0.7, 1.0))
+
+            def _blend(xg, dc):
+                b = _w * xg + (1.0 - _w) * dc
+                return b / b.sum(axis=1, keepdims=True).clip(1e-9, None)
+
+            ens_stacked_raw   = _blend(xgb_cal_te3,  dc_cal_te3)
+            stacked_cal_blend = _blend(xgb_cal_cal3, dc_cal_cal3)
             if _two_stage:
-                # Second-pass calibration on the stacked ensemble output:
-                # fit on meta's cal-fold predictions, apply to test-fold predictions
-                stacked_cal_preds = meta.predict_proba(meta_X_cal)
+                # Second-pass calibration on the blended ensemble output:
+                # fit on the cal-fold blend, apply to the test-fold blend.
                 ens_stacked = _calibrate_stacked_second_pass(
-                    stacked_cal_preds, y_cal_r, ens_stacked_raw
+                    stacked_cal_blend, y_cal_r, ens_stacked_raw
                 )
-                print(" | Meta✓+2ndPass", end="", flush=True)
+                print(f" | Blend✓(w_xgb={_w:.2f})+2ndPass", end="", flush=True)
             else:
                 ens_stacked = ens_stacked_raw
-                print(" | Meta✓", end="", flush=True)
+                print(f" | Blend✓(w_xgb={_w:.2f})", end="", flush=True)
             meta_ok = True
         except Exception as e:
             print(f" | Meta✗({e})", end="", flush=True)

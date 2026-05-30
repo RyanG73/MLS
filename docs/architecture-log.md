@@ -51,3 +51,16 @@
 | 2023   | 2022 cal | XGB wins cal  | XGB           | 0.6386        | 0.6338 (cost: +0.005) |
 | 2024   | 2023 cal | DC wins cal   | STK           | 0.6511        | 0.6511 (cost: +0.013) |
 **Notes:** The raw cal-fold Brier is NOT a reliable predictor of test-fold model quality. In 2023, XGB won the cal fold (2022 data), but stacked was better on 2023 test (+0.005 cost from wrong choice). In 2024, DC won the cal fold (2023 data), but XGB was far better on 2024 test (+0.013 cost from wrong choice). The dynamic selection was ANTI-predictive. DC's failures are structural (Poisson model misfit for different team dynamics in certain seasons) and manifest between years, not within the prior calibration year. The cal-fold signal cannot detect inter-year distribution shift.
+## 2026-05-30 — Constrained convex blend with DC weight cap (arch-capped-dc)
+**Hypothesis:** Replacing the unconstrained LogisticRegression meta-learner with a scalar convex blend w*XGB + (1-w)*DC (w fitted on cal fold, constrained w >= 0.7) will limit DC's contribution to at most 30%, eliminating the 2024 catastrophe while retaining DC's 2022-23 synergy.
+**Result:** best_brier=0.6372 vs baseline 0.6392, Δ=−0.0019 → **KEEP** (exceeds 0.001 threshold)
+**experiment_id:** arch-capped-dc-20260530T173659
+**Per-season breakdown:**
+| Season | Baseline stacked | Capped blend | Fitted w_xgb | Delta |
+|--------|-----------------|-------------|-------------|-------|
+| 2022   | 0.6314          | 0.6359      | 0.70 (at bound) | +0.0045 (worse) |
+| 2023   | 0.6338          | 0.6380      | 0.76        | +0.0042 (worse) |
+| 2024   | 0.6523          | 0.6378      | 0.70 (at bound) | -0.0145 (much better) |
+| **avg**| **0.6392**      | **0.6372**  | —           | **-0.0019** |
+**Notes:** The 2024 catastrophe (DC inflating Brier by +0.013 vs XGB) is fixed: capped blend now matches XGB-alone quality in 2024. Trade-off: 2022 and 2023 regress ~+0.004 each because DC's positive contribution is limited. The net average is still a clear win (-0.0019). The fitted w_xgb hits the lower bound (0.70) in both 2022 and 2024, suggesting the optimizer finds DC helpful only when the constraint allows it (2023: w=0.76 uses 24% DC). Cal error also improves: 0.1411 vs baseline 0.1459. This is the best architecture found to date.
+

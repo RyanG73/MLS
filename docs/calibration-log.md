@@ -119,3 +119,53 @@ is too flexible for ~500 samples and collapses both metrics.
 4. Change the argparse `--calibration` default from `"temperature"` to `"temp_then_platt"`.
 
 **experiment_ids:** cal-2stage-postack-20260530T171006, cal-2stage-platt-postack-20260530T171336
+
+---
+
+## 2026-05-30 — Cal-fold pooling + 2-stage calibration sweep (Iteration 6)
+
+All experiments on branch `claude/mls-prediction-dashboard-C2mQM`, `--ab-only Base --cache --seed 42`.
+
+**Structural change implemented:** Added `--cal-pool-seasons N` flag to `eval_baseline.py` (default=1,
+reversible). When N=2, the calibration fold pools `test_season-1` AND `test_season-2` (~1000 matches
+vs ~470 for N=1). Also added `temp_then_platt` and `temp_then_isotonic` 2-stage calibration methods.
+
+**COVID interaction:** Pooling 2 prior seasons is limited by COVID exclusions (2020, 2021 both excluded).
+- test_season=2021 → pool=[2019] only (2020 excluded) — same ~420 matches as pool=1
+- test_season=2022 → pool=[2021] only (2020 excluded) — same ~470 matches as pool=1
+- test_season=2023 → pool=[2021,2022] = ~961 matches — true doubling
+- test_season=2024 → pool=[2022,2023] = ~1010 matches — true doubling
+
+Only 2 of 4 test seasons actually benefit from pooling; 2021 is uniquely worse (tiny cal fold).
+
+| Method                        | best_brier | max_cal_error | Δ Brier      | Δ CalErr     | Verdict |
+|-------------------------------|-----------|--------------|--------------|--------------|---------|
+| temp_then_platt (pool=1, ref) | 0.6388    | 0.1147       | (ref)        | (ref)        | ref     |
+| temp_then_platt (pool=2)      | 0.6382    | 0.1487       | +0.0006      | −0.0340      | **DROP** |
+| temp_then_isotonic (pool=2)   | 0.6408    | 0.2003       | −0.0020      | −0.0856      | **DROP** |
+
+**Verdict:** Both pool=2 variants → **DROP**.
+
+- `temp_then_platt pool=2`: cal_err is *worse* (0.1487 vs 0.1147) despite doubling the cal fold for 2023/2024.
+  The 2021 test season (with only ~420 cal matches) is included in pool=2 but not pool=1, dragging the
+  average cal_err up. Brier marginal improvement (+0.0006) does not compensate.
+  
+- `temp_then_isotonic pool=2`: Brier regression (−0.0020 < −0.001 threshold) → DROP regardless of
+  calibration. Isotonic remains unstable even at ~1000 matches for 2023/2024 seasons.
+
+**Key finding — the 2-season cal pool hypothesis is falsified:**
+The COVID gap (2020, 2021 both excluded) means that pooling 2 prior seasons only helps 2023 and 2024.
+The 2021 season is forced to use an even smaller cal fold (2019 only, skipping 2020) which introduces
+a new worst-case fold not present in pool=1. The structural constraint is not just fold size but also
+data density in the COVID-adjacent years.
+
+**cal_err floor diagnosis:** The per-season cal_err would need to be tracked individually to confirm
+whether 2023/2024 show improvement with pool=2. The averaged metric is contaminated by 2021.
+A future experiment with `--test-seasons 2023 2024 --cal-pool-seasons 2` would isolate the signal.
+
+**Recommendation:** Keep current `temp_then_platt pool=1` as default. Pool=2 does not improve the
+overall cal_err metric due to COVID-era data gaps. Structural fix requires either more non-COVID
+seasons (future data) or targeted architecture changes.
+
+**experiment_ids:** cal-pool1-temp-platt-ref-20260530T174202, cal-pool2-temp-platt-20260530T174207,
+cal-pool2-temp-isotonic-20260530T174211

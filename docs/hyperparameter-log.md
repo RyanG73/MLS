@@ -92,3 +92,60 @@ Per-season (weight_hl=2 vs 4):
 - **Decision: Keep weight_hl=4 (default unchanged).**
 
 **experiment_id:** hyp-whl2-20260530T171142
+
+---
+
+## 2026-05-30 — Longer-memory DC decay + XGB weight-hl sweep
+
+Reference: cal-temperature-seed42 (best_brier=0.638135, max_cal_err=0.113035, seed=42, dc_decay_hl=120, weight_hl=4)
+
+Per-season reference: 2022=0.6296, 2023=0.6338, 2024=0.6511 (ens_stacked)
+
+### DC decay half-life — longer direction (150d, 180d)
+
+| Param | Value | best_brier | max_cal_err | Δ Brier | Δ CalErr | Verdict |
+|-------|-------|-----------|-------------|---------|----------|---------|
+| dc_decay_hl | 120 (ref) | 0.638135 | 0.113035 | (ref) | (ref) | ref |
+| dc_decay_hl | 150 | 0.638500 | 0.108800 | +0.000365 (worse) | -0.004235 | **DROP** |
+| dc_decay_hl | 180 | 0.638600 | 0.104200 | +0.000465 (worse) | -0.008835 | **DROP** |
+
+Per-season Brier (ens_stacked):
+
+| Season | hl=120 (ref) | hl=150 | hl=180 |
+|--------|-------------|--------|--------|
+| 2022 | 0.6296 | 0.6297 | 0.6297 |
+| 2023 | 0.6338 | 0.6340 | 0.6340 |
+| 2024 | 0.6511 | 0.6519 | 0.6521 |
+
+**Notes:**
+- Longer DC half-life (150d, 180d) is slightly *worse* on Brier despite better calibration.
+- 2024 is marginally worse with longer half-life, not better — more historical smoothing does not reduce the 2024 DC-drag problem.
+- Calibration error does improve slightly (0.1130 → 0.1088 → 0.1042) but not enough to offset the Brier regression.
+- Direction confirmed: DC decay=120d is already optimal for this range (90d DROP, 150d DROP, 180d DROP).
+
+### XGB season weight half-life — longer direction (6, 8)
+
+| Param | Value | best_brier | max_cal_err | Δ Brier | XGB-only | Verdict |
+|-------|-------|-----------|-------------|---------|----------|---------|
+| weight_hl | 4 (ref) | 0.638135 | 0.113035 | (ref) | 0.638700 | ref |
+| weight_hl | 6 | 0.638600 | 0.099000 | +0.000465 (worse stacked) | 0.637400 | **DROP** |
+| weight_hl | 8 | 0.638200 | 0.134800 | +0.000065 (worse) | 0.636900 | **DROP** |
+
+Per-season Brier (ens_stacked):
+
+| Season | whl=4 (ref) | whl=6 | whl=8 |
+|--------|-------------|-------|-------|
+| 2022 | 0.6296 | 0.6299 | 0.6294 |
+| 2023 | 0.6338 | 0.6349 | 0.6344 |
+| 2024 | 0.6511 | 0.6510 | 0.6506 |
+
+**Notes:**
+- XGB alone improves substantially with longer weight half-life (whl=6: 0.6374, whl=8: 0.6369 vs ref 0.6387) — especially for 2024 (whl=6: 0.6356, whl=8: 0.6345 vs ref 0.6381).
+- However the *stacked* ensemble does not capture this improvement — DC drag still dominates at 2024, pulling the ensemble up.
+- whl=8 worsens calibration significantly (cal_err=0.1348 vs 0.1130 ref) while only matching stacked Brier.
+- The XGB-alone improvement from longer weighting is real, but blocked from lifting best_brier by the stacked ensemble architecture.
+- **Conclusion:** If the architecture were XGB-only, whl=6 or 8 might KEEP. Under current stacked architecture, both DROP.
+
+**experiment_ids:** hyp-dc-hl150-20260530T173635, hyp-dc-hl180-20260530T173920, hyp-whl-6-20260530T174242, hyp-whl-8-20260530T174609
+
+**Overall conclusion for longer-memory sweep:** All four experiments DROP vs threshold of Δ > 0.001. Longer memory helps XGB's standalone performance (especially 2024) but the stacked ensemble with DC drag negates the benefit. The 2024 DC-drag problem is architectural, not a hyperparameter problem.

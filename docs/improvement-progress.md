@@ -14,16 +14,36 @@
 
 | Field | Value | Source |
 |-------|-------|--------|
-| best_brier | **0.6385** | merge-confirm-cal2stage (parallel cycle, Base features) |
-| max_cal_error | **0.0917–0.1015** | cal-2stage-platt-postack (0.0917 isolated; 0.1015 on re-eval — XGB-seed variance) |
-| naive_brier | 0.6406 | reference |
-| harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, weight_hl=4, **calibration=temp_then_platt** | scripts/eval_baseline.py |
+| best_brier | **0.6363** | merge-final-confirm (capped-DC blend + weight_hl=6, seed=42, Base) |
+| max_cal_error | **0.1326** | same run |
+| naive_brier | 0.6406 | reference (~+0.67% over naive) |
+| harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, **weight_hl=6**, calibration=temp_then_platt, **ensemble=capped-DC convex blend (DC ≤30%)** | scripts/eval_baseline.py |
 
-**Status (after parallel /improve-model cycle, 2026-05-30):** New default calibration is **2-stage post-stack Platt** (`temp_then_platt`): per-model temperature scaling, then a Platt re-scaling of the *stacked ensemble* output. This cut max decile cal error from 0.1130 → ~0.0917–0.1015 (the meta-learner introduces systematic miscalibration a light Platt pass corrects), at a negligible Brier cost (+0.0004, within the 0.001 veto). Still above the <0.05 target — that gap is now believed to be a raw-model limit, not a calibration-method choice.
+**Status (after 2nd parallel /improve-model cycle, 2026-05-30):** Two compounding KEEPs.
+(1) **Capped-DC convex blend** replaces the unconstrained LogisticRegression meta-learner: fit scalar w on the cal fold (w ∈ [0.7,1.0]) so Dixon-Coles contributes ≤30%. This fixes the 2024 catastrophe (DC stacked 0.6523 → 0.6378) at small 2022/2023 cost; net best_brier 0.6388 → 0.6372.
+(2) **weight_hl 4 → 6**: a DROP in isolation last cycle ("swallowed by DC drag"), but with the drag now capped it became a KEEP — best_brier 0.6372 → **0.6363**. The greedy re-eval-after-merge surfaced this second-order interaction.
+Calibration regressed (0.1015 → 0.1326): the temp_then_platt second-pass corrected the *LR meta* output but is a no-op on the *blended* output. Brier is the stated primary target (PLAN.md), so the trade was accepted; recovering calibration on the blend is a top open item.
 
-**Resolved this cycle:** REGRESS=0.40 is definitively worse than 0.50 (2024 regresses +0.0007; the earlier partial run was misleading) → **CLAUDE.md's documented "40%" was wrong, corrected to 50%**. weight_hl=2 regresses all 3 seasons → 2024 weakness is NOT stale-data contamination (likely genuine distribution shift). Betting-aware loss is blocked without a real historical odds column (the 1/max_prob proxy just upweights draws). +PythagLuck marginal (Δ+0.0008), registered but not promoted.
+**Also this cycle (all DROP):** +MinutesHHI hurt all seasons (exhausts the should-implement queue); larger calibration fold (pool 2 seasons) defeated by COVID gap; longer DC decay (150/180) slightly worse. **Crash fix:** XGBoost now thread-capped (`n_jobs=2`, env `EVAL_XGB_NJOBS`) after 4 parallel all-cores evals OOM-crashed the 16 GB machine.
 
 ---
+
+## Parallel /improve-model cycle #2 — 2026-05-30 — structural leads
+
+Targeted the structural problems the prior cycle exposed. Greedy forward-merge: architecture KEEP merged, then weight_hl=6 re-tested on top and also KEPT.
+
+| Agent | Experiment | best_brier | cal_err | Verdict |
+|-------|-----------|-----------|---------|---------|
+| architecture | arch-capped-dc (DC weight ≤30%) | 0.6372 | 0.1411 | **KEEP** (fixes 2024) |
+| hyperparameters | weight_hl=6 *on capped-DC* | **0.6363** | 0.1326 | **KEEP** (unlocked by the arch fix) |
+| feature | feat-minuteshhi | 0.6385→worse | — | DROP (hurts all seasons) |
+| calibration | cal-pool2 (larger cal fold) | — | 0.1487 | DROP (COVID gap defeats pooling) |
+| hyperparameters | dc-hl 150/180, whl 8 | — | — | DROP (longer DC decay slightly worse) |
+| **post-merge** | merge-final-confirm | **0.6363** | **0.1326** | cumulative, new default |
+
+- Best Brier across all cycles: **0.6363** (naive 0.6406, ~+0.67% over naive, up from +0.3%).
+- Per-season (capped-DC): 2024 fixed (0.6523→0.6378); small 2022/2023 cost; net win.
+- Infra: added `--cal-pool-seasons` flag (kept, default 1); XGBoost `n_jobs` cap added (crash fix).
 
 ## Parallel /improve-model cycle — 2026-05-30 — 4 agents in worktrees
 

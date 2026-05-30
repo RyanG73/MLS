@@ -132,3 +132,8 @@ AB_SETS["+MinutesHHI"] = _FEAT_BASE + _FEAT_HHI
 **Result:** Δ=+0.0008 (XGB avg 2022–2024) → **marginal** (below 0.001 KEEP threshold)
 **experiment_id:** feat-pythagluck-20260530T171203
 **Notes:** Base XGB Brier=0.6387 → +PythagLuck XGB Brier=0.6378 (avg 2022–2024). best_brier=0.6385, cal_err=0.1152. BestAB=+PythagLuck in 2022 and 2023; Base wins 2024. Per-season: 2022 Δ≈+0.003 (clearest signal — longer regression cycles after short season), 2023 Δ≈+0.001, 2024 Δ≈0 (neutral). home_pythag_luck_10 mean=-1.19, std=2.62 (asymmetric: away luck more volatile). Feature stays registered in AB_SETS as "+PythagLuck" but NOT promoted to _FEAT_BASE. The signal is real (correct direction in 2 of 3 seasons) but too noisy in 2024 to clear threshold. Consider revisiting combined with +MinutesHHI or after Base is elevated by another feature.
+
+## 2026-05-30 — +MinutesHHI A/B result (Iteration 5)
+**Result:** Δ=-0.0016 → **DROP — hurts**
+**experiment_id:** feat-minuteshhi-20260530T174120
+**Notes:** Base XGB Brier=0.6372 → +MinutesHHI XGB Brier=0.6389 (avg 2022–2024). Combined +MinutesHHI+Games14d was even worse at Brier=0.6405 (Δ=-0.0032). The Games14d interaction hypothesis did not pay off — adding HHI alongside Games14d compounded the noise rather than activating a useful cross-term. Per-season: BestAB=Base in all three test years (2022, 2023, 2024). 96% match coverage for the feature. Technical note: get_player_xgoals returns mixed str/list team_id values (multi-team players), which causes parquet serialization to fail under --cache; experiment was run without --cache. Feature computation and AB_SETS entries removed from eval_baseline.py per DROP rule.
