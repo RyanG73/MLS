@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MLS Experiment Result",
+  "description": "Schema for the JSON produced by scripts/eval_baseline.py --out and consumed by scripts/experiment.py",
+  "type": "object",
+  "required": [
+    "experiment_id",
+    "git_sha",
+    "timestamp",
+    "config",
+    "naive_brier"
+  ],
+  "properties": {
+    "experiment_id": {
+      "type": "string",
+      "description": "Slug derived from the --out filename stem; unique per run"
+    },
+    "git_sha": {
+      "type": "string",
+      "description": "Full git SHA of HEAD when the experiment ran"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC ISO-8601 timestamp of when eval completed"
+    },
+    "config": {
+      "type": "object",
+      "description": "All harness configuration values used for this run",
+      "properties": {
+        "xg_windows":     { "type": "array",  "items": { "type": "integer" } },
+        "form_windows":   { "type": "array",  "items": { "type": "integer" } },
+        "regress":        { "type": "number", "description": "ELO season-regression fraction" },
+        "dc_decay_hl":    { "type": "integer","description": "Dixon-Coles half-life (days)" },
+        "weight_hl":      { "type": "number", "description": "XGBoost season sample-weight half-life" },
+        "games_14d":      { "type": "integer","description": "Schedule-density window (days)" },
+        "test_seasons":   { "type": "array",  "items": { "type": "integer" } },
+        "elo_k":          { "type": "integer","description": "Selected ELO K (winner of grid search)" },
+        "elo_home_adv":   { "type": "integer","description": "Selected ELO HOME_ADV (winner of grid search)" },
+        "calibration":    { "type": "string", "enum": ["temperature", "platt", "isotonic", "beta"] },
+        "seed":           { "type": ["integer", "null"] }
+      }
+    },
+    "naive_brier": {
+      "type": ["number", "null"],
+      "description": "Multiclass Brier of the naive (home-prior) baseline, averaged over test seasons"
+    },
+    "ab_sets": {
+      "type": "object",
+      "description": "Per-AB-set Brier score averaged over test seasons (key = AB_SETS name, value = Brier)",
+      "additionalProperties": { "type": ["number", "null"] }
+    },
+    "best_model": {
+      "type": ["string", "null"],
+      "description": "Key from results dict for the best-performing model (e.g. 'ens_stacked_brier')"
+    },
+    "best_brier": {
+      "type": ["number", "null"],
+      "description": "Brier of the best model, averaged over test seasons. LOWER IS BETTER."
+    },
+    "improvement_pct_vs_naive": {
+      "type": ["number", "null"],
+      "description": "Percentage improvement of best_brier over naive_brier. NEGATIVE IS BETTER (lower Brier)."
+    },
+    "max_decile_calibration_error": {
+      "type": ["number", "null"],
+      "description": "Max absolute decile calibration error (home-win class, stacked ensemble). Target < 0.05."
+    },
+    "per_class_brier": {
+      "type": "object",
+      "description": "Per-class Brier for calibrated XGBoost",
+      "properties": {
+        "home": { "type": ["number", "null"] },
+        "draw": { "type": ["number", "null"] },
+        "away": { "type": ["number", "null"] }
+      }
+    },
+    "per_season": {
+      "type": "object",
+      "description": "Best model Brier per test season (key = year string)",
+      "additionalProperties": { "type": ["number", "null"] }
+    }
+  }
+}

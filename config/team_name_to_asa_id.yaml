@@ -1,0 +1,120 @@
+# Transfermarkt team-name → ASA team_id mapping for MLS.
+#
+# Used by scripts/import_transfermarkt.py to join worldfootballR's TM squad-value
+# scrape onto the ASA-team-id'd match data in scripts/eval_baseline.py.
+#
+# ASA team ids are stable. Transfermarkt names occasionally drift (e.g. capitalization,
+# punctuation, or full vs short name). Include each variant you see — the
+# `_unmapped` warning in import_transfermarkt.py will surface anything missed.
+#
+# To verify an ASA id, cross-reference scripts/eval_baseline.py:_TEAM_COORDS (stadium
+# coordinates) or the live ASA API.
+
+transfermarkt:
+  # Atlanta United
+  "Atlanta United FC": "KAqBN0Vqbg"
+  "Atlanta United": "KAqBN0Vqbg"
+
+  # Austin FC
+  "Austin FC": "gpMOLwl5zy"
+
+  # CF Montréal
+  "CF Montréal": "APk5LGOMOW"
+  "CF Montreal": "APk5LGOMOW"
+  "Montreal Impact": "APk5LGOMOW"
+
+  # Charlotte FC
+  "Charlotte FC": "NPqxKXZ59d"
+
+  # Chicago Fire
+  "Chicago Fire FC": "X0Oq66zq6D"
+  "Chicago Fire": "X0Oq66zq6D"
+
+  # Colorado Rapids
+  "Colorado Rapids": "pzeQZ6xQKw"
+
+  # Columbus Crew
+  "Columbus Crew": "mvzqoLZQap"
+  "Columbus Crew SC": "mvzqoLZQap"
+
+  # D.C. United
+  "D.C. United": "EKXMeX3Q64"
+  "DC United": "EKXMeX3Q64"
+
+  # FC Cincinnati
+  "FC Cincinnati": "NWMWlBK5lz"
+
+  # FC Dallas
+  "FC Dallas": "mKAqBBmqbg"
+
+  # Houston Dynamo
+  "Houston Dynamo FC": "YgOMngl5zy"
+  "Houston Dynamo": "YgOMngl5zy"
+
+  # Inter Miami
+  "Inter Miami CF": "zeQZkL1MKw"
+  "Inter Miami": "zeQZkL1MKw"
+
+  # LA Galaxy
+  "Los Angeles Galaxy": "4wM42l4qjB"
+  "LA Galaxy": "4wM42l4qjB"
+
+  # Los Angeles FC
+  "Los Angeles FC": "eVq3ya6MWO"
+  "LAFC": "eVq3ya6MWO"
+
+  # Minnesota United
+  "Minnesota United FC": "kRQand1MKZ"
+  "Minnesota United": "kRQand1MKZ"
+
+  # Nashville SC
+  "Nashville SC": "vzqoOgNqap"
+
+  # New England Revolution
+  "New England Revolution": "19vQ2095K6"
+
+  # New York City FC
+  "New York City FC": "Vj58weDM8n"
+  "NYCFC": "Vj58weDM8n"
+
+  # New York Red Bulls
+  "New York Red Bulls": "a2lqRX2Mr0"
+  "Red Bull New York": "a2lqRX2Mr0"
+
+  # Orlando City SC
+  "Orlando City SC": "jYQJ8EW5GR"
+  "Orlando City": "jYQJ8EW5GR"
+
+  # Philadelphia Union
+  "Philadelphia Union": "9z5k7Yg5A3"
+
+  # Portland Timbers
+  "Portland Timbers": "WBLMvYAQxe"
+
+  # Real Salt Lake
+  "Real Salt Lake": "a2lqR4JMr0"
+
+  # San Diego FC (2025+)
+  "San Diego FC": "zeQZBOzQKw"
+
+  # San Jose Earthquakes
+  "San Jose Earthquakes": "0KPqjA456v"
+
+  # Seattle Sounders
+  "Seattle Sounders FC": "jYQJ19EqGR"
+  "Seattle Sounders": "jYQJ19EqGR"
+
+  # Sporting Kansas City
+  "Sporting Kansas City": "Z2vQ1xlqrA"
+  "Sporting KC": "Z2vQ1xlqrA"
+
+  # St. Louis City SC (2023+)
+  "St. Louis City SC": "wvq9B9wQWn"
+  "St. Louis City": "wvq9B9wQWn"
+
+  # Toronto FC
+  "Toronto FC": "kRQabn8MKZ"
+
+  # Vancouver Whitecaps
+  "Vancouver Whitecaps FC": "lgpMOvnQzy"
+  "Vancouver Whitecaps": "lgpMOvnQzy"

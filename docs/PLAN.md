@@ -11,6 +11,71 @@
 > PPDA/possession: unavailable (no get_game_xpass). Set-piece xGA: unavailable.
 > DC drag: stacked (0.6437) worse than XGB alone (0.6387). Consider XGB-only ensemble.
 > Next: A/B test GK in new Base; explore lineup / injury signal sources for match-level data.
+>
+> **Phase 7 results (2026-05-16):**
+> +ASA_TopN: Δ=−0.0021 → DROP (Top-3/Top-5 outfielder g+ concentration; hurts vs Base).
+> +ASA_xPass: Δ=+0.0002 → marginal (minutes-weighted player passing over-expected).
+> +ASA_xGSplit: Δ=+0.0006 → marginal (set-piece xG share + xG over-performance;
+>   set-piece column unavailable, so this is xG over-performance only).
+> +TM_SquadValue: not yet evaluated — run `python scripts/import_transfermarkt.py --seasons 2017-2025`,
+>   then `FETCH_TRANSFERMARKT=True python scripts/eval_baseline.py`.
+> Per-season: 2022 Brier 0.6284, 2023 0.6352, 2024 0.6493. Naive: 0.6406 avg. +0.5% over naive.
+> Calibration still weak (stacked max err 0.1258).
+> FotMob: deferred (see "Deferred features" section below).
+> Feature-hunt log: `docs/feature-hunt-log.md` (auto-populated every 30 min via /loop).
+> Multi-agent improvement workflow: see `docs/experiment-protocol.md` and `/improve-model`.
+
+---
+
+## Multi-agent improvement workflow (2026-05-29)
+
+The serial `/loop` feature hunt is now backed by a **parallel multi-agent workflow** that dispatches four specialised subagents (feature engineering, calibration, hyperparameters, model architecture), each isolated in its own git worktree, against a shared instrumented harness.
+
+### Key files
+| File | Purpose |
+|------|---------|
+| `scripts/eval_baseline.py` | Research harness — now accepts `--ab-only`, `--calibration`, `--elo-k`, `--elo-home-adv`, `--regress`, `--dc-decay-hl`, `--weight-hl`, `--cache`, `--seed`, `--out` flags |
+| `scripts/experiment.py` | Runner (`run`), registry (`compare`), baseline (`baseline`) |
+| `scripts/run_improvement_cycle.sh` | Headless single-component cycle for autonomous/cron use |
+| `docs/experiment-protocol.md` | Shared agent contract (KEEP/DROP rules, scope guards, logging) |
+| `docs/experiment-schema.json` | JSON schema for harness result files |
+| `experiments/registry.jsonl` | Append-only experiment history |
+| `.claude/agents/feature-engineer.md` | Feature engineering agent definition |
+| `.claude/agents/calibration-tuner.md` | Calibration agent definition |
+| `.claude/agents/hyperparameter-optimizer.md` | Hyperparameter agent definition |
+| `.claude/agents/model-architect.md` | Architecture agent definition |
+| `.claude/commands/improve-model.md` | `/improve-model` orchestrator command |
+| `docs/calibration-log.md` | Calibration experiment log |
+| `docs/hyperparameter-log.md` | Hyperparameter experiment log |
+| `docs/architecture-log.md` | Architecture experiment log |
+
+### Quick start
+```bash
+# 1. Record baseline (pre-warms the ASA data cache)
+python scripts/experiment.py baseline --cache
+
+# 2. Run one agent (e.g. calibration sweep — no code changes, flags only)
+python scripts/experiment.py run --name cal-platt --cache -- --calibration platt --ab-only "Base"
+
+# 3. Compare all experiments
+python scripts/experiment.py compare
+
+# 4. Full parallel cycle via Claude Code
+/improve-model
+```
+
+### Design decisions
+- The KEEP threshold is Δ > 0.001 Brier (same rule as the existing AB_SETS framework)
+- Greedy forward-merging (re-eval after each merge) rather than simultaneous because calibration, hyperparameter, and architecture agents all touch overlapping harness regions
+- `--cache` freezes ASA data at the start of each cycle so deltas are from the same dataset
+- Production port (features/, models/, config/) is a separate step; research harness is always the gate
+
+---
+
+## Deferred features
+
+- **FotMob integration** — deferred 2026-05-16. No documented public API; `pyfotmob` is reverse-engineered against the mobile endpoint and can break silently on any FotMob frontend change. Revisit only if ASA player metrics + Transfermarkt squad value plateau; needs an explicit ADR on scraping cost/risk vs incremental signal. Likely candidates if revived: per-match player ratings (avg starter rating, top-3 starter mean, defensive line rating). Same one-time-fetch-cached-to-CSV pattern as weather.
+- **Lineup-aware availability features** — predicted/actual lineups × player g+. Source data lives in the production `predicted_lineups` DB table and the eval harness is DB-free by design (`scripts/eval_baseline.py:3`). Would require lifting the eval-DB-free constraint; reconsider after Phase 7 results.
 
 ---
 

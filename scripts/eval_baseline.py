@@ -47,29 +47,128 @@ os.environ.setdefault("PYTHONHTTPSVERIFY", "0")
 os.environ.setdefault("CURL_CA_BUNDLE", "")
 os.environ.setdefault("REQUESTS_CA_BUNDLE", "")
 
+# ─── CLI overrides (multi-agent experiment harness) ───────────────────────────
+# Agents invoke this script via scripts/experiment.py, passing flags to configure
+# a single isolated experiment.  Default behaviour (no flags) is identical to
+# the original script so nothing breaks when run manually.
+
+import argparse as _ap
+import json as _json
+from pathlib import Path as _Path
+
+
+def _parse_args() -> "_ap.Namespace":
+    p = _ap.ArgumentParser(
+        description="MLS 1X2 eval harness (multi-agent instrumented)",
+        add_help=True,
+    )
+    p.add_argument("--xg-windows",   nargs="+", type=int, metavar="N", default=None,
+                   help="xG rolling windows, e.g. --xg-windows 5 15")
+    p.add_argument("--form-windows", nargs="+", type=int, metavar="N", default=None)
+    p.add_argument("--regress",      type=float, default=None,
+                   help="ELO season-regression fraction (0..1)")
+    p.add_argument("--dc-decay-hl",  type=int,   default=None,
+                   help="Dixon-Coles time-decay half-life (days)")
+    p.add_argument("--weight-hl",    type=float, default=None,
+                   help="XGBoost sample-weight season half-life")
+    p.add_argument("--games-14d",    type=int,   default=None,
+                   help="Schedule-density window (days)")
+    p.add_argument("--test-seasons", nargs="+", type=int, metavar="YEAR", default=None)
+    p.add_argument("--elo-k",        nargs="+", type=int, metavar="K",    default=None,
+                   help="ELO K values to grid-search (default: 20 25 30)")
+    p.add_argument("--elo-home-adv", nargs="+", type=int, metavar="H",    default=None,
+                   help="ELO HOME_ADV values to grid-search (default: 80 100 120)")
+    p.add_argument("--calibration",
+                   choices=["temperature", "platt", "isotonic", "beta"],
+                   default="temperature",
+                   help="Post-hoc calibration method (default: temperature)")
+    p.add_argument("--ab-only",      type=str,   default=None,
+                   help="Comma-separated AB_SETS keys to evaluate, e.g. 'Base,+TZShift'")
+    p.add_argument("--cache",        action="store_true",
+                   help="Cache ASA API responses to data/eval_cache/ (parquet)")
+    p.add_argument("--seed",         type=int,   default=None,
+                   help="Random seed for numpy/xgboost reproducibility")
+    p.add_argument("--out",          type=str,   default=None,
+                   help="Write results JSON to this file path")
+    return p.parse_args()
+
+
+_ARGS = _parse_args()
+
+if _ARGS.seed is not None:
+    import random as _random
+    _random.seed(_ARGS.seed)
+    np.random.seed(_ARGS.seed)
+
+# ASA response cache — opt-in via --cache so default live behaviour is unchanged
+_CACHE_DIR: "_Path | None" = _Path("data/eval_cache") if _ARGS.cache else None
+
+
+def _cf(fn, *args, **kw):
+    """Invoke fn(*args, **kw), caching the DataFrame result as parquet when --cache is set."""
+    if _CACHE_DIR is None:
+        return fn(*args, **kw)
+    import hashlib
+    _key = hashlib.md5(
+        _json.dumps([fn.__name__, list(args), sorted(kw.items())], default=str).encode()
+    ).hexdigest()[:12]
+    _p = _CACHE_DIR / f"{fn.__name__}_{_key}.parquet"
+    if _p.exists():
+        return pd.read_parquet(_p)
+    _result = fn(*args, **kw)
+    _p.parent.mkdir(parents=True, exist_ok=True)
+    _result.to_parquet(_p, index=False)
+    return _result
+
+
 # ─── Configuration ────────────────────────────────────────────────────────────
 
-XG_WINDOWS   = (5, 15)
-FORM_WINDOWS = (5, 10)      # both windows computed; A/B tests adding form_10
-REGRESS      = 0.40
+XG_WINDOWS   = tuple(_ARGS.xg_windows)  if _ARGS.xg_windows  else (3, 5, 10, 15)
+FORM_WINDOWS = tuple(_ARGS.form_windows) if _ARGS.form_windows else (3, 5, 10, 15)
+REGRESS      = _ARGS.regress     if _ARGS.regress   is not None else 0.50
 INITIAL_ELO  = 1500.0
-DC_DECAY_HL  = 120
-TEST_SEASONS = [2022, 2023, 2024]
-_COVID       = {2020, 2021}
-WEIGHT_HL    = 4            # exponential season decay half-life (seasons)
-GAMES_14D    = 14           # window for schedule-density feature
+DC_DECAY_HL  = _ARGS.dc_decay_hl if _ARGS.dc_decay_hl is not None else 120
+TEST_SEASONS = list(_ARGS.test_seasons) if _ARGS.test_seasons else [2021, 2022, 2023, 2024]
+_COVID       = {2020}
+WEIGHT_HL    = _ARGS.weight_hl  if _ARGS.weight_hl  is not None else 4
+GAMES_14D    = _ARGS.games_14d  if _ARGS.games_14d  is not None else 16
 
-FETCH_WEATHER = False       # set True to enable Open-Meteo API calls (~5 min extra)
+FETCH_WEATHER       = False  # set True to enable Open-Meteo API calls (~5 min extra)
+FETCH_TRANSFERMARKT = False  # set True to load Transfermarkt squad-value CSVs (data/transfermarkt_squad_values_*_mapped.csv)
 
 # FIFA international window end dates; match within 14 days after → is_post_fifa_break=1
 _FIFA_BREAKS = [pd.Timestamp(d) for d in [
-    "2017-06-13", "2017-09-05", "2017-10-10",
-    "2018-06-12", "2018-09-11", "2018-10-16",
-    "2019-06-11", "2019-09-10", "2019-10-15",
+    # 2017
+    "2017-03-28",  # March window end
+    "2017-06-13",
+    "2017-09-05",
+    "2017-10-10",
+    # 2018
+    "2018-03-27",
+    "2018-06-12",
+    "2018-09-11",
+    "2018-10-16",
+    # 2019
+    "2019-03-26",
+    "2019-06-11",
+    "2019-09-10",
+    "2019-10-15",
     # 2020, 2021 excluded (COVID)
-    "2022-06-14", "2022-09-27",
-    "2023-06-20", "2023-09-12", "2023-10-17",
-    "2024-06-11", "2024-09-10", "2024-10-15",
+    # 2022
+    "2022-03-29",
+    "2022-06-14",
+    "2022-09-27",
+    "2022-11-15",  # World Cup year — November window displaces Oct
+    # 2023
+    "2023-03-28",
+    "2023-06-20",
+    "2023-09-12",
+    "2023-10-17",
+    # 2024
+    "2024-03-26",
+    "2024-06-11",
+    "2024-09-10",
+    "2024-10-15",
 ]]
 
 # Dome stadiums: weather is irrelevant (retractable roof / climate-controlled)
@@ -123,7 +222,7 @@ asa = AmericanSoccerAnalysis()
 # Setting verify=False disables cert checking for all ASA requests.
 asa.session.verify = False
 
-games_raw = asa.get_games(leagues="mls")
+games_raw = _cf(asa.get_games, leagues="mls")
 _avail = set(games_raw.columns)
 
 _stage_col = next(
@@ -152,7 +251,7 @@ else:
     games["is_playoff"] = 0
 
 # xG — also try to pull set-piece split if available
-gxg_raw = asa.get_game_xgoals(leagues="mls")
+gxg_raw = _cf(asa.get_game_xgoals, leagues="mls")
 gxg_want = {
     "game_id": "match_id",
     "home_team_xgoals": "home_xg",
@@ -221,7 +320,7 @@ _HAS_PPDA = False
 _HAS_POSS = False
 
 try:
-    gxpass = asa.get_game_xpass(leagues="mls")
+    gxpass = _cf(asa.get_game_xpass, leagues="mls")
     cols = list(gxpass.columns)
     print(f"    Available columns: {cols[:12]}{'...' if len(cols) > 12 else ''}")
 
@@ -292,7 +391,9 @@ _VAL_S = {2019}
 _val_draw_rate = df[df["season"] < min(_VAL_S)]["label_result"].eq(1).mean()
 _best_elo_b, _best_K, _best_HA = float("inf"), 20, 100
 
-for _K, _HA in itertools.product([20, 25, 30], [80, 100, 120]):
+_ELO_K_GRID  = _ARGS.elo_k        if _ARGS.elo_k        else [20, 25, 30]
+_ELO_HA_GRID = _ARGS.elo_home_adv if _ARGS.elo_home_adv else [80, 100, 120]
+for _K, _HA in itertools.product(_ELO_K_GRID, _ELO_HA_GRID):
     _tmp = compute_elo(df, _K, _HA, REGRESS, INITIAL_ELO, return_expected=True)
     _v = _tmp[_tmp["season"].isin(_VAL_S)]
     if len(_v) < 30:
@@ -440,7 +541,7 @@ _squad_raw: dict[tuple, float] = {}
 
 for _s in _SQUAD_SEASONS:
     try:
-        _pxg = asa.get_player_xgoals(leagues="mls", season_name=str(_s))
+        _pxg = _cf(asa.get_player_xgoals, leagues="mls", season_name=str(_s))
         _pxg_s = _pxg[
             _pxg["team_id"].apply(lambda x: isinstance(x, str))
             & (_pxg["minutes_played"] >= 500)
@@ -490,7 +591,7 @@ _GK_MIN_MINUTES = 500   # minimum minutes to qualify as team's main GK
 _gk_raw_dict: dict[tuple, float] = {}
 for _s in _SQUAD_SEASONS:
     try:
-        _gkxg_s = asa.get_goalkeeper_xgoals(leagues="mls", season_name=str(_s))
+        _gkxg_s = _cf(asa.get_goalkeeper_xgoals, leagues="mls", season_name=str(_s))
         _gk_cols = list(_gkxg_s.columns)
         _gk_tid_c  = next((c for c in ["team_id"] if c in _gk_cols), None)
         _gk_min_c  = next((c for c in ["minutes_played", "minutes"] if c in _gk_cols), None)
@@ -508,7 +609,7 @@ for _s in _SQUAD_SEASONS:
         pass
 
 if _gk_raw_dict:
-    _gk_cols_disp = list(asa.get_goalkeeper_xgoals(leagues="mls", season_name="2023").columns)
+    _gk_cols_disp = list(_cf(asa.get_goalkeeper_xgoals, leagues="mls", season_name="2023").columns)
     print(f"    GK columns (sample): {_gk_cols_disp[:8]}")
     for _s in sorted({ss for (_, ss) in _gk_raw_dict}):
         _vals = [v for (t, ss), v in _gk_raw_dict.items() if ss == _s]
@@ -552,7 +653,7 @@ _team_poss_season: dict[tuple, float] = {}   # (team_id, season) → possession
 
 for _s in _SQUAD_SEASONS:
     try:
-        _txpass_s = asa.get_team_xpass(leagues="mls", season_name=str(_s))
+        _txpass_s = _cf(asa.get_team_xpass, leagues="mls", season_name=str(_s))
         _tp_cols = list(_txpass_s.columns)
         _tp_tid  = next((c for c in ["team_id"] if c in _tp_cols), None)
         _tp_ppda = next((c for c in ["ppda", "passes_allowed_per_defensive_action"]
@@ -572,7 +673,7 @@ for _s in _SQUAD_SEASONS:
         pass
 
 if _team_ppda_season or _team_poss_season:
-    _sample_cols = list(asa.get_team_xpass(leagues="mls", season_name="2023").columns)
+    _sample_cols = list(_cf(asa.get_team_xpass, leagues="mls", season_name="2023").columns)
     print(f"    Team xpass columns: {_sample_cols[:8]}{'...' if len(_sample_cols) > 8 else ''}")
     print(f"    Season PPDA: {len(_team_ppda_season)} | Possession: {len(_team_poss_season)}")
 else:
@@ -613,12 +714,15 @@ print("\n[5d/9] Fetching player goals added (star-player effect, season-lagged).
 _top_player_ga: dict[tuple, float] = {}   # (team_id, season) → top player goals_added z-score
 
 _ga_raw: dict[tuple, float] = {}
+_pga_players: dict[tuple, list[float]] = {}   # (team_id, season) → per-outfielder ga list (Top-N source)
 for _s in _SQUAD_SEASONS:
     try:
-        _pga_s = asa.get_player_goals_added(leagues="mls", season_name=str(_s))
+        _pga_s = _cf(asa.get_player_goals_added, leagues="mls", season_name=str(_s))
         _pga_cols = list(_pga_s.columns)
         _pga_tid = next((c for c in ["team_id"] if c in _pga_cols), None)
         _pga_min = next((c for c in ["minutes_played", "minutes"] if c in _pga_cols), None)
+        _pga_pos = next((c for c in ["general_position", "position", "primary_position"]
+                         if c in _pga_cols), None)
         # goals_added may be in a "data" column (JSON list of action types) or direct columns
         _pga_ga  = next((c for c in ["goals_added_above_avg", "goals_added_above_replacement",
                                       "goals_added_raw", "num_actions_ranked_goals_added_above_avg"]
@@ -647,6 +751,12 @@ for _s in _SQUAD_SEASONS:
             if isinstance(tid, str) and pd.notna(ga):
                 key = (tid, _s)
                 _ga_raw[key] = _ga_raw.get(key, 0.0) + float(ga)
+                # Top-N source: keep per-outfielder ga (skip GKs if position column exists)
+                if _pga_pos:
+                    pos_v = str(row.get(_pga_pos, "")).upper()
+                    if pos_v.startswith("GK") or pos_v == "GOALKEEPER":
+                        continue
+                _pga_players.setdefault(key, []).append(float(ga))
     except Exception:
         pass
 
@@ -678,6 +788,202 @@ if _top_player_ga:
     df["away_goals_added_z"] = [_ga_z(r.away_team, r.season) for _, r in df.iterrows()]
     df["goals_added_z_diff"] = (df["home_goals_added_z"].fillna(0)
                                  - df["away_goals_added_z"].fillna(0))
+
+# ─── 5d2. Top-N goals added (star concentration, season-lagged) ──────────────
+# Top-3 and top-5 outfielder g+ sums per team-season, z-scored within season.
+# Differentiates "one DP carrying" vs "deep squad" from the overall team sum.
+
+print("\n[5d2/9] Computing Top-N goals-added concentration (Top-3, Top-5)...")
+
+_top3_raw: dict[tuple, float] = {}
+_top5_raw: dict[tuple, float] = {}
+_top3_z:   dict[tuple, float] = {}
+_top5_z:   dict[tuple, float] = {}
+
+for _key, _vals_list in _pga_players.items():
+    _sorted = sorted(_vals_list, reverse=True)
+    _top3_raw[_key] = float(sum(_sorted[:3]))
+    _top5_raw[_key] = float(sum(_sorted[:5]))
+
+for _raw, _norm in [(_top3_raw, _top3_z), (_top5_raw, _top5_z)]:
+    for _s in sorted({ss for (_, ss) in _raw}):
+        _vals = [v for (t, ss), v in _raw.items() if ss == _s]
+        if len(_vals) < 3:
+            continue
+        _mu, _sd = float(np.mean(_vals)), float(np.std(_vals))
+        _sd = max(_sd, 0.1)
+        for (t, ss), v in _raw.items():
+            if ss == _s:
+                _norm[(t, ss)] = (v - _mu) / _sd
+
+
+def _top3_lookup(team_id: str, season: int) -> float | None:
+    for lag in (1, 2):
+        val = _top3_z.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return None
+
+
+def _top5_lookup(team_id: str, season: int) -> float | None:
+    for lag in (1, 2):
+        val = _top5_z.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return None
+
+
+if _top3_z:
+    df["home_top3_ga_z"] = [_top3_lookup(r.home_team, r.season) for _, r in df.iterrows()]
+    df["away_top3_ga_z"] = [_top3_lookup(r.away_team, r.season) for _, r in df.iterrows()]
+    df["top3_ga_diff"]   = df["home_top3_ga_z"].fillna(0) - df["away_top3_ga_z"].fillna(0)
+if _top5_z:
+    df["home_top5_ga_z"] = [_top5_lookup(r.home_team, r.season) for _, r in df.iterrows()]
+    df["away_top5_ga_z"] = [_top5_lookup(r.away_team, r.season) for _, r in df.iterrows()]
+    df["top5_ga_diff"]   = df["home_top5_ga_z"].fillna(0) - df["away_top5_ga_z"].fillna(0)
+print(f"    Top-N concentration: {len(_top3_z)} team-seasons (Top-3 / Top-5)")
+
+# ─── 5e. Player xPass: minutes-weighted passing over-performance ──────────────
+# Captures team's ball-progression quality via individual passer skill.
+# Lagged one season, z-scored, gated on column presence.
+
+print("\n[5e/9] Fetching player xpass (minutes-weighted team mean, season-lagged)...")
+
+_team_xpass_oe: dict[tuple, float] = {}    # (team_id, season) → minutes-weighted xPass over-expected
+_team_xpass_oe_z: dict[tuple, float] = {}
+
+for _s in _SQUAD_SEASONS:
+    try:
+        _pxp = _cf(asa.get_player_xpass, leagues="mls", season_name=str(_s))
+        _pxp_cols = list(_pxp.columns)
+        _pxp_tid  = next((c for c in ["team_id"] if c in _pxp_cols), None)
+        _pxp_min  = next((c for c in ["minutes_played", "minutes"] if c in _pxp_cols), None)
+        _pxp_oe   = next((c for c in [
+            "passes_completed_over_expected_p100",
+            "passes_completed_over_expected_per_100",
+            "passes_completed_over_expected",
+            "pass_oe_p100",
+            "pass_completion_over_expected_pct",
+        ] if c in _pxp_cols), None)
+        if not (_pxp_tid and _pxp_min and _pxp_oe):
+            continue
+        _pxp_s = _pxp[_pxp[_pxp_tid].apply(lambda x: isinstance(x, str))]
+        _pxp_s = _pxp_s[_pxp_s[_pxp_min] >= 500]
+        for _tid, _grp in _pxp_s.groupby(_pxp_tid):
+            _wts = _grp[_pxp_min].values
+            _vals = _grp[_pxp_oe].values
+            if _wts.sum() <= 0:
+                continue
+            _team_xpass_oe[(_tid, _s)] = float(np.average(_vals, weights=_wts))
+    except Exception:
+        pass
+
+if _team_xpass_oe:
+    for _s in sorted({ss for (_, ss) in _team_xpass_oe}):
+        _vals = [v for (t, ss), v in _team_xpass_oe.items() if ss == _s]
+        if len(_vals) < 3:
+            continue
+        _mu, _sd = float(np.mean(_vals)), float(np.std(_vals))
+        _sd = max(_sd, 0.1)
+        for (t, ss), v in _team_xpass_oe.items():
+            if ss == _s:
+                _team_xpass_oe_z[(t, ss)] = (v - _mu) / _sd
+    print(f"    Player xPass: {len(_team_xpass_oe_z)} team-seasons")
+else:
+    print("    Player xPass: no matching columns in ASA player xpass.")
+
+
+def _xpass_oe_lookup(team_id: str, season: int) -> float | None:
+    for lag in (1, 2):
+        val = _team_xpass_oe_z.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return None
+
+
+if _team_xpass_oe_z:
+    df["home_xpass_oe_z"] = [_xpass_oe_lookup(r.home_team, r.season) for _, r in df.iterrows()]
+    df["away_xpass_oe_z"] = [_xpass_oe_lookup(r.away_team, r.season) for _, r in df.iterrows()]
+    df["xpass_oe_diff"]   = (df["home_xpass_oe_z"].fillna(0)
+                              - df["away_xpass_oe_z"].fillna(0))
+
+# ─── 5f. Team xG split (set-piece share + xG over-performance) ────────────────
+# Season-lagged style/finishing signal from team-level xgoals.
+# - setpiece_xg_share: how much of attack comes from dead balls
+# - xg_overperformance: G - xG (finishing skill or persistent luck)
+
+print("\n[5f/9] Fetching team xgoals (set-piece share + xG over-performance, season-lagged)...")
+
+_team_sp_share: dict[tuple, float] = {}
+_team_xg_oe:    dict[tuple, float] = {}
+_team_sp_share_z: dict[tuple, float] = {}
+_team_xg_oe_z:    dict[tuple, float] = {}
+
+for _s in _SQUAD_SEASONS:
+    try:
+        _txg = _cf(asa.get_team_xgoals, leagues="mls", season_name=str(_s))
+        _txg_cols = list(_txg.columns)
+        _txg_tid  = next((c for c in ["team_id"] if c in _txg_cols), None)
+        _txg_xg   = next((c for c in ["xgoals", "xgoals_for", "xg"] if c in _txg_cols), None)
+        _txg_g    = next((c for c in ["goals", "goals_for"] if c in _txg_cols), None)
+        _txg_sp   = next((c for c in [
+            "xgoals_from_set_play", "xgoals_set_play",
+            "set_play_xgoals", "xgoals_from_dead_ball",
+        ] if c in _txg_cols), None)
+        if not _txg_tid or not _txg_xg:
+            continue
+        for _, row in _txg.iterrows():
+            tid = row[_txg_tid]
+            if not isinstance(tid, str):
+                continue
+            xg_v = row.get(_txg_xg)
+            if pd.isna(xg_v) or float(xg_v) <= 0:
+                continue
+            if _txg_sp and pd.notna(row.get(_txg_sp)):
+                _team_sp_share[(tid, _s)] = float(row[_txg_sp]) / float(xg_v)
+            if _txg_g and pd.notna(row.get(_txg_g)):
+                _team_xg_oe[(tid, _s)] = float(row[_txg_g]) - float(xg_v)
+    except Exception:
+        pass
+
+for _raw, _norm in [(_team_sp_share, _team_sp_share_z), (_team_xg_oe, _team_xg_oe_z)]:
+    for _s in sorted({ss for (_, ss) in _raw}):
+        _vals = [v for (t, ss), v in _raw.items() if ss == _s]
+        if len(_vals) < 3:
+            continue
+        _mu, _sd = float(np.mean(_vals)), float(np.std(_vals))
+        _sd = max(_sd, 0.1)
+        for (t, ss), v in _raw.items():
+            if ss == _s:
+                _norm[(t, ss)] = (v - _mu) / _sd
+
+print(f"    Set-piece share: {len(_team_sp_share_z)} | xG over-perf: {len(_team_xg_oe_z)} team-seasons")
+
+
+def _sp_share_lookup(team_id: str, season: int) -> float | None:
+    for lag in (1, 2):
+        val = _team_sp_share_z.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return None
+
+
+def _xg_oe_lookup(team_id: str, season: int) -> float | None:
+    for lag in (1, 2):
+        val = _team_xg_oe_z.get((team_id, season - lag))
+        if val is not None:
+            return val
+    return None
+
+
+if _team_sp_share_z:
+    df["home_sp_share_z"] = [_sp_share_lookup(r.home_team, r.season) for _, r in df.iterrows()]
+    df["away_sp_share_z"] = [_sp_share_lookup(r.away_team, r.season) for _, r in df.iterrows()]
+    df["sp_share_diff"]   = df["home_sp_share_z"].fillna(0) - df["away_sp_share_z"].fillna(0)
+if _team_xg_oe_z:
+    df["home_xg_oe_z"] = [_xg_oe_lookup(r.home_team, r.season) for _, r in df.iterrows()]
+    df["away_xg_oe_z"] = [_xg_oe_lookup(r.away_team, r.season) for _, r in df.iterrows()]
+    df["xg_oe_diff"]   = df["home_xg_oe_z"].fillna(0) - df["away_xg_oe_z"].fillna(0)
 
 # ─── 7. Optional: Weather features ────────────────────────────────────────────
 
@@ -738,6 +1044,96 @@ if FETCH_WEATHER:
 else:
     print("\n[6/9] Weather skipped (FETCH_WEATHER=False). Set True to enable.")
 
+# ─── 6b. Optional: Transfermarkt squad value (season-lagged) ─────────────────
+
+_HAS_TM = False
+if FETCH_TRANSFERMARKT:
+    import glob as _glob
+    import yaml as _yaml
+    print("\n[6b/9] Loading Transfermarkt squad-value CSVs...")
+    _tm_map_path = os.path.join(os.path.dirname(__file__), "..", "config",
+                                 "team_name_to_asa_id.yaml")
+    _tm_name_to_asa: dict[str, str] = {}
+    try:
+        with open(_tm_map_path) as _fh:
+            _tm_map_yaml = _yaml.safe_load(_fh) or {}
+        _tm_name_to_asa = _tm_map_yaml.get("transfermarkt", {}) or {}
+    except Exception as _e:
+        print(f"    Warning: team-name map not loaded ({_e}).")
+
+    _tm_raw: dict[tuple, dict] = {}      # (asa_team_id, season) → {squad_value_eur, avg_age, ...}
+    _tm_csvs = sorted(_glob.glob(os.path.join(
+        os.path.dirname(__file__), "..", "data",
+        "transfermarkt_squad_values_*_mapped.csv")))
+    _tm_unmapped: set = set()
+    for _csv in _tm_csvs:
+        try:
+            _tm_df = pd.read_csv(_csv)
+        except Exception:
+            continue
+        for _, _row in _tm_df.iterrows():
+            tm_name = _row.get("tm_team_name", "")
+            asa_id  = _row.get("asa_team_id", None)
+            if (not isinstance(asa_id, str)) or not asa_id:
+                if isinstance(tm_name, str):
+                    _tm_unmapped.add(tm_name)
+                continue
+            try:
+                _season = int(_row["season"])
+            except Exception:
+                continue
+            _tm_raw[(asa_id, _season)] = {
+                "squad_value_eur": float(_row.get("squad_value_eur") or 0.0),
+                "avg_age":         float(_row.get("avg_age") or 0.0),
+                "n_internationals": float(_row.get("n_internationals") or 0.0),
+            }
+    if _tm_unmapped:
+        print(f"    Unmapped TM teams (skipped): {sorted(_tm_unmapped)[:8]}"
+              f"{' ...' if len(_tm_unmapped) > 8 else ''}")
+
+    _tm_sv_z: dict[tuple, float] = {}
+    if _tm_raw:
+        for _s in sorted({ss for (_, ss) in _tm_raw}):
+            _vals = [d["squad_value_eur"] for (t, ss), d in _tm_raw.items() if ss == _s]
+            if len(_vals) < 3:
+                continue
+            _mu, _sd = float(np.mean(_vals)), float(np.std(_vals))
+            _sd = max(_sd, 0.1)
+            for (t, ss), d in _tm_raw.items():
+                if ss == _s:
+                    _tm_sv_z[(t, ss)] = (d["squad_value_eur"] - _mu) / _sd
+
+    def _tm_lookup(team_id: str, season: int, field: str) -> float | None:
+        for lag in (1, 2):
+            entry = _tm_raw.get((team_id, season - lag))
+            if entry is not None and field in entry:
+                return entry[field]
+        return None
+
+    def _tm_sv_z_lookup(team_id: str, season: int) -> float | None:
+        for lag in (1, 2):
+            val = _tm_sv_z.get((team_id, season - lag))
+            if val is not None:
+                return val
+        return None
+
+    if _tm_sv_z:
+        df["home_squad_value_z"] = [_tm_sv_z_lookup(r.home_team, r.season) for _, r in df.iterrows()]
+        df["away_squad_value_z"] = [_tm_sv_z_lookup(r.away_team, r.season) for _, r in df.iterrows()]
+        df["squad_value_diff_z"] = (df["home_squad_value_z"].fillna(0)
+                                     - df["away_squad_value_z"].fillna(0))
+        df["home_avg_age"] = [_tm_lookup(r.home_team, r.season, "avg_age")
+                              for _, r in df.iterrows()]
+        df["away_avg_age"] = [_tm_lookup(r.away_team, r.season, "avg_age")
+                              for _, r in df.iterrows()]
+        _HAS_TM = True
+        print(f"    Transfermarkt squad values loaded: {len(_tm_sv_z)} team-seasons "
+              f"({df['home_squad_value_z'].notna().mean():.0%} match coverage)")
+    else:
+        print("    Transfermarkt: no usable rows found.")
+else:
+    print("\n[6b/9] Transfermarkt skipped (FETCH_TRANSFERMARKT=False). Set True to enable.")
+
 # ─── Feature sets ─────────────────────────────────────────────────────────────
 
 _BASE_ELO  = ["elo_diff", "home_elo", "away_elo"]
@@ -780,6 +1176,27 @@ _GOALS_ADDED_FEATS = (["home_goals_added_z", "away_goals_added_z", "goals_added_
 # Squad quality (xpoints_added, from Phase 5 — dropped individually but include in +All)
 _SQUAD_FEATS = ["home_squad_xpa", "away_squad_xpa", "squad_xpa_diff", "is_high_alt"]
 
+# Top-N concentration (Phase 7 candidate — star-player concentration)
+_FEAT_TOPN = (
+    (["home_top3_ga_z", "away_top3_ga_z", "top3_ga_diff"] if "home_top3_ga_z" in df.columns else [])
+    + (["home_top5_ga_z", "away_top5_ga_z", "top5_ga_diff"] if "home_top5_ga_z" in df.columns else [])
+)
+
+# Player xPass over-expected (Phase 7 candidate — ball-progression quality)
+_FEAT_XPASS = (["home_xpass_oe_z", "away_xpass_oe_z", "xpass_oe_diff"]
+               if "home_xpass_oe_z" in df.columns else [])
+
+# Team xG split (Phase 7 candidate — set-piece share + finishing over-performance)
+_FEAT_XG_SPLIT = (
+    (["home_sp_share_z", "away_sp_share_z", "sp_share_diff"] if "home_sp_share_z" in df.columns else [])
+    + (["home_xg_oe_z", "away_xg_oe_z", "xg_oe_diff"] if "home_xg_oe_z" in df.columns else [])
+)
+
+# Transfermarkt squad value (Phase 7 candidate — market-value strength signal)
+_TM_FEATS = ((["home_squad_value_z", "away_squad_value_z", "squad_value_diff_z",
+                "home_avg_age", "away_avg_age"])
+              if "home_squad_value_z" in df.columns else [])
+
 # +All combines everything available (form_10 already in Base)
 _ALL_EXTRA = (
     _GK_FEATS
@@ -790,6 +1207,10 @@ _ALL_EXTRA = (
     + ["dc_lam", "dc_mu"]
     + _SP_XG_FEATS
     + _WEATHER_FEATS
+    + _FEAT_TOPN
+    + _FEAT_XPASS
+    + _FEAT_XG_SPLIT
+    + _TM_FEATS
 )
 _FEAT_ALL = list(dict.fromkeys(_FEAT_BASE + _ALL_EXTRA))
 
@@ -803,9 +1224,23 @@ if _GOALS_ADDED_FEATS:
 AB_SETS["+Squad"]    = _FEAT_BASE + _SQUAD_FEATS
 AB_SETS["+DCParams"] = _FEAT_BASE + ["dc_lam", "dc_mu"]
 AB_SETS["+Games14d"] = _FEAT_BASE + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
+if _FEAT_TOPN:
+    AB_SETS["+ASA_TopN"]     = _FEAT_BASE + _FEAT_TOPN
+if _FEAT_XPASS:
+    AB_SETS["+ASA_xPass"]    = _FEAT_BASE + _FEAT_XPASS
+if _FEAT_XG_SPLIT:
+    AB_SETS["+ASA_xGSplit"]  = _FEAT_BASE + _FEAT_XG_SPLIT
+if _TM_FEATS:
+    AB_SETS["+TM_SquadValue"] = _FEAT_BASE + _TM_FEATS
 AB_SETS["+All"]      = _FEAT_ALL
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
+
+# --ab-only: restrict evaluation to a named subset (agents pass e.g. "Base,+TZShift")
+if _ARGS.ab_only:
+    _ab_keep = [k.strip() for k in _ARGS.ab_only.split(",")]
+    AB_SETS = {k: v for k, v in AB_SETS.items() if k in _ab_keep}
+    print(f"    (--ab-only filter: {list(AB_SETS.keys())})")
 
 # ─── Dixon-Coles ──────────────────────────────────────────────────────────────
 
@@ -896,17 +1331,66 @@ def dc_lam_mu_batch(split_df, atk, dfd, ha):
 
 def calibrate_multiclass(raw_cal: np.ndarray, y_cal: np.ndarray,
                           raw_test: np.ndarray) -> np.ndarray:
-    def _nll(T: float) -> float:
-        log_p = np.log(np.clip(raw_cal, 1e-9, 1.0)) / max(T, 0.1)
+    """Calibrate multiclass probabilities.  Method selected by --calibration flag."""
+    _method = _ARGS.calibration  # "temperature" | "platt" | "isotonic" | "beta"
+
+    if _method == "temperature":
+        # Original temperature-scaling implementation (default)
+        def _nll(T: float) -> float:
+            log_p = np.log(np.clip(raw_cal, 1e-9, 1.0)) / max(T, 0.1)
+            log_p -= log_p.max(axis=1, keepdims=True)
+            exp_p = np.exp(log_p)
+            probs = exp_p / exp_p.sum(axis=1, keepdims=True)
+            return float(log_loss(y_cal, probs))
+        T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
+        log_p = np.log(np.clip(raw_test, 1e-9, 1.0)) / T
         log_p -= log_p.max(axis=1, keepdims=True)
         exp_p = np.exp(log_p)
-        probs = exp_p / exp_p.sum(axis=1, keepdims=True)
-        return float(log_loss(y_cal, probs))
-    T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
-    log_p = np.log(np.clip(raw_test, 1e-9, 1.0)) / T
-    log_p -= log_p.max(axis=1, keepdims=True)
-    exp_p = np.exp(log_p)
-    return exp_p / exp_p.sum(axis=1, keepdims=True)
+        return exp_p / exp_p.sum(axis=1, keepdims=True)
+
+    elif _method == "platt":
+        # Per-class Platt scaling (logistic regression on scalar confidence)
+        # Well-calibrated on ~500 samples; better than isotonic at small cal-fold sizes
+        from sklearn.linear_model import LogisticRegression as _PlattLR
+        out = np.zeros_like(raw_test)
+        for c in range(3):
+            platt = _PlattLR(C=1.0, max_iter=300, solver="lbfgs")
+            platt.fit(raw_cal[:, c].reshape(-1, 1), (y_cal == c).astype(int))
+            out[:, c] = platt.predict_proba(raw_test[:, c].reshape(-1, 1))[:, 1]
+        return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
+
+    elif _method == "isotonic":
+        # Per-class isotonic regression (requires ~1000+ cal samples for stability)
+        from sklearn.isotonic import IsotonicRegression as _IR
+        out = np.zeros_like(raw_test)
+        for c in range(3):
+            ir = _IR(out_of_bounds="clip")
+            ir.fit(raw_cal[:, c], (y_cal == c).astype(float))
+            out[:, c] = ir.predict(raw_test[:, c])
+        return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
+
+    elif _method == "beta":
+        # Beta calibration (Kull et al. 2017); falls back to Platt if betacal absent
+        try:
+            from betacal import BetaCalibration as _BC
+            out = np.zeros_like(raw_test)
+            for c in range(3):
+                bc = _BC(parameters="abm")
+                bc.fit(raw_cal[:, c], (y_cal == c).astype(int))
+                out[:, c] = bc.predict(raw_test[:, c])
+            return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
+        except ImportError:
+            print("    [warn] betacal not installed — falling back to Platt scaling")
+            from sklearn.linear_model import LogisticRegression as _PlattLR2
+            out = np.zeros_like(raw_test)
+            for c in range(3):
+                platt = _PlattLR2(C=1.0, max_iter=300, solver="lbfgs")
+                platt.fit(raw_cal[:, c].reshape(-1, 1), (y_cal == c).astype(int))
+                out[:, c] = platt.predict_proba(raw_test[:, c].reshape(-1, 1))[:, 1]
+            return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
+
+    else:
+        raise ValueError(f"Unknown calibration method: {_method!r}")
 
 
 def decile_cal_error(probs: np.ndarray, actuals: np.ndarray) -> tuple:
@@ -1307,3 +1791,88 @@ if ab_records:
 
 print()
 print("Evaluation complete.")
+
+# ─── JSON output (for experiment runner / agent comparisons) ──────────────────
+if _ARGS.out:
+    import datetime as _dt
+    import subprocess as _sp
+
+    def _avg_safe(col: str) -> "float | None":
+        v = avg(col)
+        return None if math.isnan(v) else round(v, 6)
+
+    def _pct_safe(a, b) -> "float | None":
+        if a is None or b is None:
+            return None
+        v = pct(a, b)
+        return None if math.isnan(v) else round(v, 4)
+
+    try:
+        _sha = _sp.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    except Exception:
+        _sha = "unknown"
+
+    # Per-AB-set averaged Brier
+    _ab_out: dict = {}
+    if ab_records:
+        _ab_df3 = pd.DataFrame(ab_records).drop(columns=["season"], errors="ignore")
+        _ab_avg3 = _ab_df3.mean()
+        for _fs in AB_SETS:
+            _v = _ab_avg3.get(_fs, float("nan"))
+            _ab_out[_fs] = None if math.isnan(float(_v)) else round(float(_v), 6)
+
+    _nb = _avg_safe("naive_brier")
+    _best_key3 = next(
+        (k for k in ["ens_stacked_brier", "ens_avg_brier", "xgb_brier_cal", "dc_brier_cal"]
+         if k in rd.columns and not math.isnan(avg(k))),
+        None,
+    )
+    _best_b3 = _avg_safe(_best_key3) if _best_key3 else None
+
+    _per_season: dict = {}
+    for _, _row in rd.iterrows():
+        _syr = str(int(_row.get("season", 0)))
+        _bk  = next(
+            (c for c in ["ens_stacked_brier", "xgb_brier_cal", "dc_brier_cal"]
+             if c in _row.index and not math.isnan(float(_row[c]))),
+            None,
+        )
+        if _bk:
+            _per_season[_syr] = round(float(_row[_bk]), 6)
+
+    _result_json = {
+        "experiment_id":               _Path(_ARGS.out).stem,
+        "git_sha":                     _sha,
+        "timestamp":                   _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "config": {
+            "xg_windows":     list(XG_WINDOWS),
+            "form_windows":   list(FORM_WINDOWS),
+            "regress":        REGRESS,
+            "dc_decay_hl":    DC_DECAY_HL,
+            "weight_hl":      WEIGHT_HL,
+            "games_14d":      GAMES_14D,
+            "test_seasons":   list(TEST_SEASONS),
+            "elo_k":          int(K),
+            "elo_home_adv":   int(HOME_ADV),
+            "calibration":    _ARGS.calibration,
+            "seed":           _ARGS.seed,
+        },
+        "naive_brier":                 _nb,
+        "ab_sets":                     _ab_out,
+        "best_model":                  _best_key3,
+        "best_brier":                  _best_b3,
+        "improvement_pct_vs_naive":    _pct_safe(_best_b3, _nb),
+        "max_decile_calibration_error": _avg_safe("cal_stage_stacked"),
+        "per_class_brier": {
+            "home":  _avg_safe("xgb_cal_h"),
+            "draw":  _avg_safe("xgb_cal_d"),
+            "away":  _avg_safe("xgb_cal_a"),
+        },
+        "per_season": _per_season,
+    }
+
+    _out_path = _Path(_ARGS.out)
+    _out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(_out_path, "w") as _fh:
+        _json.dump(_result_json, _fh, indent=2)
+    print(f"Results JSON → {_out_path}")

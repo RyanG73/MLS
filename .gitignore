@@ -4,7 +4,13 @@ data/*.pkl
 data/*.csv
 data/*.rds
 data/raw/
+data/eval_cache/
 logs/
+
+# Multi-agent experiment runner
+# Keep the registry index (experiment history) but ignore large per-run JSON blobs
+experiments/*.json
+!experiments/registry.jsonl
 
 # Environment and secrets
 .env
@@ -26,6 +32,9 @@ venv/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Claude Code (machine-local permissions/overrides)
+.claude/settings.local.json
 
 # OS
 .DS_Store
