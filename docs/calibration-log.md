@@ -169,3 +169,18 @@ seasons (future data) or targeted architecture changes.
 
 **experiment_ids:** cal-pool1-temp-platt-ref-20260530T174202, cal-pool2-temp-platt-20260530T174207,
 cal-pool2-temp-isotonic-20260530T174211
+
+---
+
+## 2026-05-30 — Calibration on the capped-DC blend (cycle #3)
+
+Post cycle-2, the ensemble is a capped-DC convex blend (not the LR meta-learner). Re-tested calibrators:
+
+| Method | best_brier | cal_err | Verdict |
+|--------|-----------|---------|---------|
+| temp_then_platt (default) | 0.6363 | 0.1326 | ref |
+| temperature (no 2nd pass) | 0.6363 | 0.1326 | **identical** — temp_then_platt is a NO-OP on the blend |
+| temp_then_isotonic | 0.6409 | 0.1722 | **DROP** (isotonic overfits) |
+
+**Finding:** the cycle-1 Platt 2nd-pass was neutralized by the cycle-2 blend (it calibrated the LR meta-learner output, which no longer exists). No post-hoc calibrator recovers the blend's cal_err (0.1326). Reaching <0.05 needs a calibrator re-targeted at the blended output, or raw-model changes — not method choice. Default left as temp_then_platt (≡ temperature here) pending that work.
+**experiment_ids:** c3-cal-temp-20260530T222153, c3-cal-iso-20260530T222417

@@ -28,6 +28,23 @@ Calibration regressed (0.1015 → 0.1326): the temp_then_platt second-pass corre
 
 ---
 
+## /improve-model cycle #3 — 2026-05-30 — local-sequential (no KEEP; plateau)
+
+Run local-sequential (post-crash-fix default), one eval at a time, `EVAL_XGB_NJOBS=2`, `--seed 42 --ab-only Base`.
+
+| Experiment | best_brier | cal_err | Verdict |
+|-----------|-----------|---------|---------|
+| c3-whl8 (weight_hl=8 on capped-DC) | 0.6359 | 0.1723 | marginal Brier (Δ+0.0004 <0.001), cal much worse → **DROP** (keep whl=6) |
+| c3-cal-temp (temperature on blend) | 0.6363 | 0.1326 | identical to temp_then_platt default → 2nd-pass is a **no-op** on the blend |
+| c3-cal-iso (temp_then_isotonic on blend) | 0.6409 | 0.1722 | worse both → **DROP** (isotonic overfits) |
+
+**No harness change.** Best remains capped-DC blend + weight_hl=6 + temp_then_platt → **0.6363 / 0.1326**.
+
+**Conclusions:**
+- **Plateau reached on the current architecture/feature set.** whl 4→6→8 trades Brier (0.6388→0.6363→0.6359) for calibration (0.1015→0.1326→0.1723) monotonically; whl=6 is the knee. No post-hoc calibrator recovers the blend's cal_err (temperature = temp_then_platt; isotonic worse).
+- **Known no-op:** the `temp_then_platt` 2nd-pass (cycle-1 KEEP) was neutralized by the cycle-2 capped-DC blend (which replaced the LR meta-learner it calibrated). Default could be simplified to `temperature` (identical output). Left in place as reversible.
+- **Next gains require NEW signal, not knob-tuning:** historical odds column (unblocks betting loss), 2024-regime/distribution-shift features, or a calibrator re-targeted at the blended output. See `docs/future-exploration.md`.
+
 ## Parallel /improve-model cycle #2 — 2026-05-30 — structural leads
 
 Targeted the structural problems the prior cycle exposed. Greedy forward-merge: architecture KEEP merged, then weight_hl=6 re-tested on top and also KEPT.

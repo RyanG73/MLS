@@ -149,3 +149,15 @@ Per-season Brier (ens_stacked):
 **experiment_ids:** hyp-dc-hl150-20260530T173635, hyp-dc-hl180-20260530T173920, hyp-whl-6-20260530T174242, hyp-whl-8-20260530T174609
 
 **Overall conclusion for longer-memory sweep:** All four experiments DROP vs threshold of Δ > 0.001. Longer memory helps XGB's standalone performance (especially 2024) but the stacked ensemble with DC drag negates the benefit. The 2024 DC-drag problem is architectural, not a hyperparameter problem.
+
+---
+
+## 2026-05-30 — weight_hl=8 on capped-DC (cycle #3)
+
+| Param | Value | best_brier | cal_err | Verdict |
+|-------|-------|-----------|---------|---------|
+| weight_hl | 6 (current) | 0.6363 | 0.1326 | ref |
+| weight_hl | 8 | 0.6359 | 0.1723 | **DROP** (Δ+0.0004 Brier <0.001; cal_err +0.040 worse) |
+
+weight_hl 4→6→8 trades Brier for calibration monotonically; 6 is the knee. Keep weight_hl=6.
+**experiment_id:** c3-whl8-20260530T221843
