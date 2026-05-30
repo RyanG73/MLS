@@ -1,6 +1,13 @@
 # MLS Prediction Dashboard — Implementation Plan
 
-> **Live eval results (last run: 2026-05-10, branch `claude/mls-prediction-dashboard-C2mQM`)**
+> **Live eval results (last run: 2026-05-30, branch `claude/mls-prediction-dashboard-C2mQM`)**
+> Improvement loop Iteration 2: hyperparameter sweep (DC decay + REGRESS partial).
+> DC decay=90d → DROP (Δ Brier +0.000014, Δ CalErr +0.031 worse). DC decay stays at 120d.
+> REGRESS=0.40 experiment accidentally killed before 2024 result — UNRESOLVED, re-run in Iter 6.
+> Key finding: For 2024 test season, XGB alone (0.6376) beats stacked ensemble (0.6509) by 0.013 — DC drag confirmed. Highest-priority arch fix for Iteration 4.
+> Current best: temperature cal, Base features, DC decay=120d → best_brier=0.6381, cal_err=0.1130.
+>
+> **Previous live eval results (2026-05-10):**
 > Phase 6b eval (1X2 only). Test seasons: 2023–2024 (2022 skipped, COVID cal fold).
 > Naive baseline: 0.6469. XGBoost +GKQuality: 0.6387 (+1.3%). Ensemble stacked: 0.6437 (+0.5%).
 > Calibration error: 0.1829 (stacked, still poor; temperature scaling; target <0.05).

@@ -57,6 +57,20 @@
 
 <!-- cloud iterations append new ideas below -->
 
+### Iteration 2 additions (hyperparameter sweep findings)
+
+## Future feature/model exploration
+
+- **Re-run REGRESS=0.40 sweep (highest priority).** The Iteration 2 experiment was accidentally killed before capturing the 2024 result. Partial 2022/2023 data both favor REGRESS=0.40 over 0.50 (matching CLAUDE.md). This is the most important unresolved question going into Iteration 6 (next hyperparameter round). Run SEQUENTIALLY (not in parallel).
+- **DC decay sweep: test 150d and 180d.** The 90d half-life is clearly worse (calibration degrades). Worth testing longer half-lives (150d, 180d) to see if more history helps — especially given the 2024 DC drag problem. The DC fit weights recent matches more with shorter hl; longer hl might produce more stable probs.
+- **weight-hl sweep.** The XGB season sample-weight half-life (currently 4) was not tested in Iteration 2 due to time. Candidates: 2, 6, 8. A shorter weight-hl would give more emphasis to recent seasons (e.g., 2023 over 2019 when training for 2024), which may help the 2024 weakness.
+- **XGB-only ensemble (top priority for Iteration 4).** The 2024 per-season table for dc-hl090 clearly shows XGB alone (0.6376) beats stacked (0.6509) by 0.013. DC drag is severe for 2024. The model-architect agent should test removing DC probabilities from the meta-learner, keeping only dc_lam/dc_mu as XGB features (via +DCParams).
+- **Sequential experiment execution.** Running experiments in parallel on this 4-core machine causes severe XGB thread contention (16 threads per process × 2 = 32 threads on 4 cores). Each experiment took 30-45 minutes instead of the expected 5-10 minutes. All future iterations MUST run experiments sequentially to stay within the 1-hour budget.
+
+## Future subagent deployment
+
+- **Sequential executor.** The improvement loop should run experiments one at a time (not launch all in parallel) when on a 4-core machine. Consider adding `nthread=2` to XGBoost in eval_baseline.py to cap per-process thread use and enable parallel experiment runs safely.
+
 ### Iteration 1 additions (calibration sweep findings)
 
 ## Future feature/model exploration

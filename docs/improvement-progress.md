@@ -34,6 +34,20 @@ Cal_err still 0.1130 vs target < 0.05 — more improvement needed via hyperparam
 
 <!-- cloud iterations 1–8 append below -->
 
+## Iteration 2 — hyperparameters — 2026-05-30T04:46 UTC
+
+- **Experiments run:** (all `--ab-only Base --cache`)
+  - `hyp-dc-hl090`: best_brier=0.6381, cal_err=0.1440
+  - `hyp-regress-040`: **INCOMPLETE** — process accidentally killed via SIGUSR1 sent during DC fit debugging; 2024 season not captured. Partial: 2022≈0.6293, 2023≈0.6330.
+- **Verdict(s):**
+  - dc-hl090 → **DROP** (Δ Brier +0.000014 negligible, Δ CalErr +0.031 significant regression; DC decay=90d amplifies DC drag)
+  - regress-040 → **INCOMPLETE** (cannot assess; re-run needed in Iteration 6)
+- **Best so far:** UNCHANGED — temperature + DC decay=120d → best_brier=0.6381, cal_err=0.1130
+- **Notes:**
+  - **XGB-beats-stacked for 2024 confirmed:** in both hyp-dc-hl090 and (partially) regress-040, for 2024 the stacked ensemble scored ~0.6509 while XGB alone scored ~0.6376 — a 0.013 Brier gap. DC drag is real and worsens with shorter decay half-life.
+  - **Execution bottleneck:** Running both experiments in parallel on this 4-core system caused severe CPU contention. Each process spawned 16 XGB threads (32 total on 4 cores), slowing season evaluation from ~3 min to 30-45 min each. Future iterations MUST run experiments sequentially.
+  - **REGRESS discrepancy unresolved:** CLAUDE.md documents REGRESS=40% but code defaults to 50%. Partial data for 2022/2023 favors 40%. This is the highest-priority sweep for Iteration 6 (next hyperparameter iteration).
+
 ## Iteration 1 — calibration — 2026-05-30T03:45 UTC
 
 - **Experiments run:** (all `--ab-only Base --cache` on branch ae152d30)
