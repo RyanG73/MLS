@@ -19,9 +19,7 @@
 | naive_brier | 0.6406 | reference |
 | harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, weight_hl=4, calibration=temperature | scripts/eval_baseline.py |
 
-**Status:** Temperature scaling confirmed as best calibration method on this branch's harness.
-Platt and isotonic both DROP (higher cal_err AND marginal Brier regression vs temperature).
-Cal_err still 0.1130 vs target < 0.05 — more improvement needed via hyperparameter/architecture work.
+**Status (after Iteration 4):** Stacked ensemble is still best overall; XGB alone is better for 2024 but not enough to overcome the stacking benefit for 2022-2023. Dynamic cal-fold selection is anti-predictive (DROP). Betting-aware loss (architecture Q4) and REGRESS=0.40 sweep (hyperparameter Q, Iteration 6) are highest-priority remaining tests. Cal_err 0.1130 vs target < 0.05 — hyperparameter tuning next most likely path.
 
 ---
 
@@ -33,6 +31,26 @@ Cal_err still 0.1130 vs target < 0.05 — more improvement needed via hyperparam
 - No harness default changed yet — left for the calibration iteration to confirm + decide.
 
 <!-- cloud iterations 1–8 append below -->
+
+## Iteration 4 — architecture — 2026-05-30T06:25 UTC
+
+- **Experiments run:** (all `--ab-only Base --cache`)
+  - `arch-xgb-only` (arch-xgb-only-20260530T061344): best_brier=0.6381, cal_err=0.1130; Δ=0.000 vs current best
+  - `arch-dynamic-ensemble` (arch-dynamic-ensemble-20260530T062523): best_brier=0.6381, ens_dynamic=0.6397, cal_err=0.1130; dynamic worse than stacked by 0.0016
+- **Verdict(s):**
+  - arch-xgb-only → **DROP** (Δ=0.000; reporting change only — stacked is still best on average)
+  - arch-dynamic-ensemble → **DROP** (dynamic is anti-predictive; cal-fold signal misleads for both 2023 and 2024)
+- **Best so far:** UNCHANGED — temperature cal, DC decay=120d, Base features → best_brier=0.6381, cal_err=0.1130
+- **Per-season insight (first per-season XGB vs stacked breakdown):**
+  - 2022: XGB=0.6398, stacked=0.6296 → stacked +0.010 (DC adds major value)
+  - 2023: XGB=0.6386, stacked=0.6338 → stacked +0.005 (DC still helpful)
+  - 2024: XGB=0.6376, stacked=0.6511 → XGB +0.013 (DC catastrophically bad)
+  - Stacked wins 2022-2023 by enough to offset 2024 loss on the 3-year average
+- **Notes:**
+  - DC's 2024 failure is structural (Poisson model mis-parameterized for 2024 team dynamics), NOT detectable from the 2023 calibration fold's raw Brier — DC actually wins the 2023 cal fold raw comparison.
+  - Dynamic model selection via cal-fold signal is ANTI-predictive in this dataset: correct for 2022 (STK chosen, STK is right), wrong for 2023 (XGB chosen, STK was better), wrong for 2024 (STK chosen, XGB was right).
+  - The highest-value remaining architecture questions are: (1) betting-aware loss for XGB (Iteration 8), (2) shorter XGB weight_hl to downweight 2017-2019 data for 2024 test — may help both XGB alone AND the stacked ensemble in 2024. This is a hyperparameter, not architecture.
+  - `eval_baseline.py` reverted to HEAD state (no architecture changes adopted).
 
 ## Iteration 3 — feature (+TZShift) — 2026-05-30T05:11 UTC
 

@@ -1,13 +1,13 @@
 # MLS Prediction Dashboard — Implementation Plan
 
 > **Live eval results (last run: 2026-05-30, branch `claude/mls-prediction-dashboard-C2mQM`)**
-> Improvement loop Iteration 3: feature engineering (+TZShift).
-> +TZShift (timezone jetlag proxy, abs + signed) → **marginal** Δ=+0.0008 vs Base (below 0.001 KEEP threshold).
-> Per-season: BestAB=+TZShift only in 2023; Base wins 2022/2024 — inconsistent signal.
-> +TZShift stays in AB_SETS but NOT promoted to _FEAT_BASE. Harness defaults unchanged.
-> Stacked ensemble cal_err=0.0911 this run (vs current best 0.1130) — likely run-to-run variability.
+> Improvement loop Iteration 4: architecture (XGB-only ensemble / dynamic ensemble).
+> arch-xgb-only → **DROP** (Δ=0; stacked 0.6381 still beats XGB alone 0.6387 on 3-season average).
+> arch-dynamic-ensemble → **DROP** (ens_dynamic=0.6397, anti-predictive cal-fold signal).
+> Per-season first-time breakdown: XGB=0.6398/0.6386/0.6376, Stacked=0.6296/0.6338/0.6511 for 2022/2023/2024.
+> DC drag is severe for 2024 (+0.014) but DC adds +0.010 for 2022 and +0.005 for 2023; net: stacked wins.
 > Current best: temperature cal, Base features, DC decay=120d → best_brier=0.6381, cal_err=0.1130.
-> Next up: Iteration 4 (architecture) — test XGB-only ensemble (drop DC probs from meta-learner).
+> Next up: Iteration 5 (calibration) — secondary cal method sweep; target cal_err < 0.05.
 >
 > **Previous live eval results (2026-05-10):**
 > Phase 6b eval (1X2 only). Test seasons: 2023–2024 (2022 skipped, COVID cal fold).

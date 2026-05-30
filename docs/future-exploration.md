@@ -57,6 +57,21 @@
 
 <!-- cloud iterations append new ideas below -->
 
+### Iteration 4 additions (architecture: XGB-only / dynamic ensemble — both DROP)
+
+## Future feature/model exploration
+
+- **Betting-aware XGB loss (top architecture priority for Iteration 8).** The `betting_logloss()` function in `models/gradient_boost.py` weights XGB training by `1/decimal_odds`. This was not tested in Iteration 4 and is the last major architectural question. Implement by porting the custom objective to the inline XGB training block in the A/B loop in `eval_baseline.py`. Key question: are odds data available per-match via ASA or a secondary source?
+- **Shorter XGB weight_hl to downweight historical data for 2024 test.** The current weight_hl=4 gives seasons 4 years ago about 50% of the weight of the current season. For the 2024 test fold, seasons 2017-2019 may be harmful noise. Test weight_hl=2 or even weight_hl=1 (only last 1-2 seasons matter) — this is a hyperparameter change but directly addresses the 2024 weakness. Should be Iteration 6 first experiment.
+- **Longer DC decay (180d or 240d) to smooth DC inter-season volatility.** In Iteration 4, DC won the 2023 cal fold (raw) but failed catastrophically on 2024 test. Longer decay (less recency bias) may produce more stable DC probs across years. Combine with weight_hl sweep.
+- **Capped ensemble mixing weight.** Instead of an unconstrained LogisticRegression meta-learner, fit a constrained meta-learner where DC weight ∈ [0, 0.3] — keeps DC's structural information but prevents DC from dominating in any season. This limits the downside when DC is systematically wrong.
+- **Test seasons 2022-2024 leave-one-out to understand DC seasonality.** The DC failures are season-specific (2024 worst). A diagnostic run that evaluates DC alone, XGB alone, and stacked for each season separately — and logs which seasons see DC regression vs improvement — would inform whether DC's bad 2024 is a one-off or a trend.
+
+## Future subagent deployment
+
+- **Distribution-shift detector.** A lightweight diagnostic agent that, for each test season, computes Jensen-Shannon divergence between the training-year and test-year feature distributions. High divergence (particularly for DC λ/μ features) would flag years where DC structural mismatch is likely — and could activate XGB-only mode for those seasons without relying on the unreliable cal-fold signal.
+- **Constrained ensemble agent.** Extends the model-architect scope to test bounded meta-learner weights (DC contribution capped at 30%), which may retain DC's synergy while limiting its catastrophic 2024 failure mode.
+
 ### Iteration 3 additions (feature: +TZShift marginal)
 
 ## Future feature/model exploration
