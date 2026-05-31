@@ -186,3 +186,17 @@ Dispatched all four component agents in parallel git worktrees against the froze
 
 ### Phase 11 loop — Iteration 4 (2026-05-31): GK distribution g+ DROP
 `+GKDistribution` (non-shotstopping GK goals-added: Passing+Sweeping+Handling+Claiming, season-lagged z): Δ=−0.0014 → **DROP**. Redundant with the GK shot-stopping quality already in Base; adds noise. Default unchanged 0.6344. experiment_id: p11-gkdist-20260531T063804
+
+### Phase 11 loop — Iteration 5 (2026-05-31): availability×congestion marginal — LOOP COMPLETE
+`+AvailCongestion` (avail_share × games_in_14d): Δ=+0.0005 → **marginal** (directionally right — depletion hurts more under congestion — but below 0.001 KEEP bar; registered, not promoted).
+
+**PHASE 11 LOOP COMPLETE (5/5 iterations).** Scoreboard:
+| Iter | Experiment | Δ vs Base | Verdict |
+|------|-----------|-----------|---------|
+| 1 | +Availability (full history) | +0.0011 | **KEEP** → 0.6344 |
+| 2 | +TeamSalary | −0.0045 | DROP |
+| 3 | +AvailStarters | −0.0013 | DROP |
+| 4 | +GKDistribution | −0.0014 | DROP |
+| 5 | +AvailCongestion | +0.0005 | marginal |
+
+**Final best_brier 0.6344 (+0.97% over naive), up from 0.6363 (+0.67%) at loop start.** Goal 0.6086 (+5%) NOT reached. The one real new signal was roster **availability** (+0.3%); all talent-investment proxies (salary, payroll) and GK-detail signals were redundant with ELO/xG/GK-quality. This matches the benchmark literature: market-blind MLS 1X2 tops out ~+1-3% over naive (the bookmaker market itself scores ~0.59 in an easier league). +5% is below the market's own Brier and beyond a market-blind model's reach. Cron `a9fd1c3f` deleted.

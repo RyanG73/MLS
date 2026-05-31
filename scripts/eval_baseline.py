@@ -1568,6 +1568,16 @@ _FEAT_GKDIST = ["home_gk_dist_z", "away_gk_dist_z", "gk_dist_diff"]
 # with full 2017-2024 roster history. Empty list (graceful) when rosters absent.
 _FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + ["is_playoff"] + _FEAT_AVAIL
 
+# ─── Phase 11 iter 5: availability × congestion interaction ───────────────────
+# Hypothesis: depleted availability hurts MORE under fixture congestion. Product of
+# the KEEP'd availability share and games_in_14d (both already in df).
+_FEAT_AVAILCONG: list = []
+if _FEAT_AVAIL and "home_games_in_14d" in df.columns:
+    df["home_avail_cong"] = df["home_avail_share"] * df["home_games_in_14d"]
+    df["away_avail_cong"] = df["away_avail_share"] * df["away_games_in_14d"]
+    df["avail_cong_diff"] = df["home_avail_cong"] - df["away_avail_cong"]
+    _FEAT_AVAILCONG = ["home_avail_cong", "away_avail_cong", "avail_cong_diff"]
+
 _SP_XG_FEATS   = ["home_xga_sp_roll_15", "away_xga_sp_roll_15"] if _HAS_SP_XG else []
 _WEATHER_FEATS = (["weather_temp_c", "weather_wind_kph", "weather_precip_mm", "is_dome"]
                   if _HAS_WEATHER else [])
@@ -1662,6 +1672,8 @@ if _FEAT_SALARY:
     AB_SETS["+SalaryRoster"] = _FEAT_BASE + _FEAT_SALARY
 AB_SETS["+TeamSalary"] = _FEAT_BASE + _FEAT_TEAMSAL
 AB_SETS["+GKDistribution"] = _FEAT_BASE + _FEAT_GKDIST
+if _FEAT_AVAILCONG:
+    AB_SETS["+AvailCongestion"] = _FEAT_BASE + _FEAT_AVAILCONG
 if _FEAT_AVAIL_ST:
     AB_SETS["+AvailStarters"] = _FEAT_BASE + _FEAT_AVAIL_ST
 if _FEAT_AVAIL and _FEAT_SALARY:
