@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-Build real model-derived data for the predictions dashboard (webapp/data.js).
+Build real model data for the predictions dashboard (webapp/data.js).
 
-- Fits the validated model (models/research_model.py) on 2017-2023, predicts every
-  2024 match (home/draw/away probabilities).
-- Monte-Carlo simulates the 2024 season from those match probabilities (N sims) to
-  produce, per team: playoff odds (top 9 in conference), top-4 home-field odds,
-  Supporters' Shield odds (best overall record), wooden-spoon odds (worst overall).
-- Emits webapp/data.js as `window.MLS_DATA = {...}` (inlined so it opens over file://).
+IN-SEASON mode (default, for the current 2026 season):
+  - Current standings from games already played (actual results).
+  - Game-by-game: played games show the full ensemble prediction + actual result;
+    upcoming games (from the live ESPN schedule) show the Dixon-Coles projection.
+  - Season odds (playoff / top-4 home field / Supporters' Shield / wooden spoon) from
+    Monte-Carlo: start at current points, simulate the REMAINING ESPN fixtures via DC.
 
-Usage: python scripts/build_dashboard_data.py [--season 2024] [--sims 20000]
+Emits webapp/data.js as `window.MLS_DATA = {...}` (inlined to open over file://).
+Usage: python scripts/build_dashboard_data.py [--season 2026] [--sims 20000]
 """
 
 import argparse
@@ -20,24 +21,27 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import requests
+import urllib3
 
+urllib3.disable_warnings()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# ── MLS 2024 conference map (by normalized ASA team_name) ─────────────────────
-_EAST = {
-    "atlanta united fc", "charlotte fc", "chicago fire fc", "fc cincinnati",
-    "columbus crew", "dc united", "inter miami cf", "cf montreal", "nashville sc",
-    "new england revolution", "new york city fc", "new york red bulls",
-    "orlando city sc", "philadelphia union", "toronto fc",
-}
-_WEST = {
-    "austin fc", "colorado rapids", "fc dallas", "houston dynamo fc", "la galaxy",
-    "los angeles fc", "minnesota united fc", "portland timbers fc", "real salt lake",
-    "san jose earthquakes", "seattle sounders fc", "sporting kansas city",
-    "st louis city sc", "vancouver whitecaps fc",
-}
-_PLAYOFF_SLOTS = 9   # top N per conference make the playoffs (2024 format)
-_HFA_SLOTS = 4       # top N per conference host round 1
+_ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1"
+_HDR = {"User-Agent": "Mozilla/5.0"}
+
+# MLS 2026 conferences (30 teams; San Diego FC added 2025)
+_EAST = {"atlanta united fc", "charlotte fc", "chicago fire fc", "fc cincinnati",
+         "columbus crew", "dc united", "inter miami cf", "cf montreal", "nashville sc",
+         "new england revolution", "new york city fc", "new york red bulls",
+         "orlando city sc", "philadelphia union", "toronto fc"}
+_WEST = {"austin fc", "colorado rapids", "fc dallas", "houston dynamo fc", "la galaxy",
+         "los angeles fc", "minnesota united fc", "portland timbers fc", "real salt lake",
+         "san diego fc", "san jose earthquakes", "seattle sounders fc",
+         "sporting kansas city", "st louis city sc", "vancouver whitecaps fc"}
+_PLAYOFF_SLOTS, _HFA_SLOTS = 9, 4
+_SUFFIX = {"fc", "sc", "cf"}
+_ALIAS = {"lafc": "los angeles fc", "red bull new york": "new york red bulls"}
 
 
 def _norm(n):
@@ -45,146 +49,190 @@ def _norm(n):
     return "".join(c for c in n.lower() if c.isalnum() or c == " ").strip()
 
 
-def _conf(name):
-    nn = _norm(name)
-    if nn in _EAST:
-        return "East"
-    if nn in _WEST:
-        return "West"
-    return None
+def _conf(nn):
+    return "East" if nn in _EAST else "West" if nn in _WEST else None
+
+
+def _toks(nn):
+    return tuple(t for t in nn.split() if t not in _SUFFIX)
+
+
+def espn_schedule(season):
+    """Return list of fixtures: (date, home_norm, away_norm, status, hg, ag)."""
+    r = requests.get(f"{_ESPN}/scoreboard",
+                     params={"dates": f"{season}0201-{season}1215", "limit": 1000},
+                     headers=_HDR, verify=False, timeout=30).json()
+    out = []
+    for e in r.get("events", []):
+        comp = e["competitions"][0]
+        cs = {x["homeAway"]: x for x in comp["competitors"]}
+        if "home" not in cs or "away" not in cs:
+            continue
+        state = e.get("status", {}).get("type", {}).get("state", "")
+        hg = ag = None
+        if state == "post":
+            try:
+                hg, ag = int(cs["home"]["score"]), int(cs["away"]["score"])
+            except Exception:
+                pass
+        out.append((e["date"][:10], _norm(cs["home"]["team"]["displayName"]),
+                    _norm(cs["away"]["team"]["displayName"]), state, hg, ag))
+    return out
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--frame", default="data/parity_frame.parquet")
-    ap.add_argument("--season", type=int, default=2024)
+    ap.add_argument("--season", type=int, default=2026)
     ap.add_argument("--sims", type=int, default=20000)
     args = ap.parse_args()
-
-    frame = Path(args.frame)
-    meta = json.loads(frame.with_suffix(".meta.json").read_text())
-    feat_base = meta["feat_base"]
-    df = pd.read_parquet(frame)
-    df["date"] = pd.to_datetime(df["date"])
     ts = args.season
 
-    from models.research_model import (
-        fit_dc, dc_predict_batch, fit_xgb, calibrate_temperature,
-        fit_capped_blend, blend,
-    )
+    meta = json.loads(Path(args.frame).with_suffix(".meta.json").read_text())
+    feat_base = meta["feat_base"]
+    df = pd.read_parquet(args.frame)
+    df["date"] = pd.to_datetime(df["date"])
+
+    from models.research_model import (fit_dc, dc_predict_batch, fit_xgb,
+                                        calibrate_temperature, fit_capped_blend, blend)
     from itscalledsoccer.client import AmericanSoccerAnalysis
+    import models.research_model as rm
     asa = AmericanSoccerAnalysis(); asa.session.verify = False
     teams = asa.get_teams(leagues="mls")
     id2name = {r.team_id: r.team_name for r in teams.itertuples()}
+    # ESPN-normalized-name -> ASA team_id (suffix-tolerant + alias)
+    tok2id = {_toks(_norm(r.team_name)): r.team_id for r in teams.itertuples()}
 
-    # ── Fit model on <2023, calibrate on 2023, predict the target season ──────
+    def map_team(norm_name):
+        nn = _ALIAS.get(norm_name, norm_name)
+        return tok2id.get(_toks(nn))
+
     feat = [c for c in feat_base if c in df.columns]
+    played = df[(df["season"] == ts) & df["home_goals"].notna()].dropna(
+        subset=["home_goals", "away_goals"]).copy()
+    print(f"In-season {ts}: {len(played)} games played in the frame.")
+
+    # ── Ensemble predictions for PLAYED games (game-by-game accuracy) ─────────
     train = df[df["season"] < ts - 1].dropna(subset=["home_goals", "away_goals"])
     cal = df[df["season"] == ts - 1].dropna(subset=["home_goals", "away_goals"])
-    test = df[df["season"] == ts].dropna(subset=["home_goals", "away_goals"]).copy()
-    y_cal = cal["label_result"].values.astype(int)
-    y_cal_oh = np.eye(3)[y_cal]
-
-    print(f"Fitting model: train={len(train)} cal={len(cal)} test({ts})={len(test)}")
-    atk, dfd, ha, rho = fit_dc(train)
-    dc_cal = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
-                                   dc_predict_batch(cal, atk, dfd, ha, rho))
-    dc_te = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
-                                  dc_predict_batch(test, atk, dfd, ha, rho))
+    y_cal = cal["label_result"].values.astype(int); y_cal_oh = np.eye(3)[y_cal]
+    atk0, dfd0, ha0, rho0 = fit_dc(train)
+    dccal = calibrate_temperature(dc_predict_batch(cal, atk0, dfd0, ha0, rho0), y_cal,
+                                  dc_predict_batch(cal, atk0, dfd0, ha0, rho0))
+    dcte = calibrate_temperature(dc_predict_batch(cal, atk0, dfd0, ha0, rho0), y_cal,
+                                 dc_predict_batch(played, atk0, dfd0, ha0, rho0))
     clf, _ = fit_xgb(train, feat)
     xc = clf.predict_proba(cal[feat].fillna(0).values)
-    xt = clf.predict_proba(test[feat].fillna(0).values)
-    xgb_cal = calibrate_temperature(xc, y_cal, xc)
-    xgb_te = calibrate_temperature(xc, y_cal, xt)
-    w = fit_capped_blend(xgb_cal, dc_cal, y_cal_oh)
-    probs = blend(xgb_te, dc_te, w)   # N x 3 (home, draw, away) for season `ts`
-    test = test.reset_index(drop=True)
+    xt = clf.predict_proba(played[feat].fillna(0).values)
+    xgbcal = calibrate_temperature(xc, y_cal, xc); xgbte = calibrate_temperature(xc, y_cal, xt)
+    w = fit_capped_blend(xgbcal, dccal, y_cal_oh)
+    pe = blend(xgbte, dcte, w)
+    played = played.reset_index(drop=True)
 
-    # ── Games list (only teams with a known conference = MLS regular season) ──
-    games = []
-    sim_rows = []   # (home_id, away_id, pH, pD, pA)
-    for i, r in test.iterrows():
+    # ── Dixon-Coles fit on ALL played-through-now (forward projection) ────────
+    allplayed = df[df["home_goals"].notna()].dropna(subset=["home_goals", "away_goals"])
+    atk, dfd, ha, rho = fit_dc(allplayed)
+
+    def dc_probs(htid, atid):
+        return rm._dc_predict(htid, atid, atk, dfd, ha, rho)   # (pH, pD, pA)
+
+    # ── Current standings from played frame games ────────────────────────────
+    pts, gp = {}, {}
+    for _, r in played.iterrows():
         h, a = r["home_team"], r["away_team"]
-        hn, an = id2name.get(h, h), id2name.get(a, a)
-        if _conf(hn) is None or _conf(an) is None:
+        if _conf(_norm(id2name.get(h, ""))) is None: continue
+        hg, ag = r["home_goals"], r["away_goals"]
+        for t in (h, a): gp[t] = gp.get(t, 0) + 1
+        if hg > ag: pts[h] = pts.get(h, 0) + 3
+        elif hg < ag: pts[a] = pts.get(a, 0) + 3
+        else: pts[h] = pts.get(h, 0) + 1; pts[a] = pts.get(a, 0) + 1
+
+    # ── ESPN schedule: played (for game cards) + remaining (for sim/cards) ────
+    sched = espn_schedule(ts)
+    remaining = []   # (htid, atid) for unplayed MLS fixtures
+    upcoming_cards = []
+    for date, hn, an, state, hg, ag in sched:
+        htid, atid = map_team(hn), map_team(an)
+        if not htid or not atid:        # non-MLS (All-Star game, etc.)
             continue
-        pH, pD, pA = float(probs[i, 0]), float(probs[i, 1]), float(probs[i, 2])
-        actual = (None if pd.isna(r["home_goals"]) else
-                  ("H" if r["home_goals"] > r["away_goals"]
-                   else "D" if r["home_goals"] == r["away_goals"] else "A"))
-        games.append({
-            "date": r["date"].strftime("%Y-%m-%d"),
-            "home": hn, "away": an,
-            "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
-            "hg": None if pd.isna(r["home_goals"]) else int(r["home_goals"]),
-            "ag": None if pd.isna(r["away_goals"]) else int(r["away_goals"]),
-            "result": actual,
-        })
-        sim_rows.append((hn, an, pH, pD, pA))
-    games.sort(key=lambda g: g["date"])
+        if (_conf(_norm(id2name.get(htid, ""))) is None or
+                _conf(_norm(id2name.get(atid, ""))) is None):
+            continue
+        if state != "post":
+            pH, pD, pA = dc_probs(htid, atid)
+            remaining.append((htid, atid))
+            upcoming_cards.append({"date": date, "home": id2name.get(htid), "away": id2name.get(atid),
+                                   "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
+                                   "hg": None, "ag": None, "result": None})
 
-    team_names = sorted({g["home"] for g in games} | {g["away"] for g in games})
-    idx = {t: i for i, t in enumerate(team_names)}
-    nT = len(team_names)
-    confs = np.array([_conf(t) for t in team_names])
+    # universe = all teams with a conference that appear in standings or schedule
+    tids = {t for t in pts} | {t for fx in remaining for t in fx}
+    tids = [t for t in tids if _conf(_norm(id2name.get(t, ""))) ]
+    idx = {t: i for i, t in enumerate(tids)}; nT = len(tids)
+    confs = np.array([_conf(_norm(id2name.get(t, ""))) for t in tids])
+    base_pts = np.array([pts.get(t, 0) for t in tids], dtype=float)
 
-    # ── Monte-Carlo season simulation ────────────────────────────────────────
+    # ── Monte-Carlo: current points + simulate remaining via DC ──────────────
     rng = np.random.default_rng(42)
-    P = np.array([[r[2], r[3], r[4]] for r in sim_rows])
-    HI = np.array([idx[r[0]] for r in sim_rows])
-    AI = np.array([idx[r[1]] for r in sim_rows])
+    RP = np.array([dc_probs(h, a) for (h, a) in remaining]) if remaining else np.zeros((0, 3))
+    RH = np.array([idx[h] for (h, a) in remaining]); RA = np.array([idx[a] for (h, a) in remaining])
     N = args.sims
     playoff = np.zeros(nT); hfa = np.zeros(nT); shield = np.zeros(nT); spoon = np.zeros(nT)
-    proj_pts = np.zeros(nT)
-    east_i = np.where(confs == "East")[0]
-    west_i = np.where(confs == "West")[0]
-    print(f"Simulating {N:,} seasons over {len(sim_rows)} matches, {nT} teams...")
+    proj = np.zeros(nT)
+    east_i = np.where(confs == "East")[0]; west_i = np.where(confs == "West")[0]
+    print(f"Simulating {N:,} seasons · {len(remaining)} remaining fixtures · {nT} teams...")
     for _ in range(N):
-        u = rng.random(len(sim_rows))
-        outc = np.where(u < P[:, 0], 0, np.where(u < P[:, 0] + P[:, 1], 1, 2))
-        pts = np.zeros(nT)
-        np.add.at(pts, HI[outc == 0], 3)               # home win
-        np.add.at(pts, HI[outc == 1], 1); np.add.at(pts, AI[outc == 1], 1)  # draw
-        np.add.at(pts, AI[outc == 2], 3)               # away win
-        proj_pts += pts
-        jitter = pts + rng.random(nT) * 0.01           # break ties randomly
-        for conf_idx in (east_i, west_i):
-            order = conf_idx[np.argsort(-jitter[conf_idx])]
-            playoff[order[:_PLAYOFF_SLOTS]] += 1
-            hfa[order[:_HFA_SLOTS]] += 1
-        shield[np.argmax(jitter)] += 1
-        spoon[np.argmin(jitter)] += 1
+        p = base_pts.copy()
+        if len(remaining):
+            u = rng.random(len(remaining))
+            o = np.where(u < RP[:, 0], 0, np.where(u < RP[:, 0] + RP[:, 1], 1, 2))
+            np.add.at(p, RH[o == 0], 3)
+            np.add.at(p, RH[o == 1], 1); np.add.at(p, RA[o == 1], 1)
+            np.add.at(p, RA[o == 2], 3)
+        proj += p
+        j = p + rng.random(nT) * 0.01
+        for ci in (east_i, west_i):
+            order = ci[np.argsort(-j[ci])]
+            playoff[order[:_PLAYOFF_SLOTS]] += 1; hfa[order[:_HFA_SLOTS]] += 1
+        shield[np.argmax(j)] += 1; spoon[np.argmin(j)] += 1
 
     standings = []
-    for t in team_names:
+    for t in tids:
         i = idx[t]
-        standings.append({
-            "team": t, "conf": confs[i],
-            "proj_pts": round(proj_pts[i] / N, 1),
-            "playoff": round(playoff[i] / N * 100, 1),
-            "hfa": round(hfa[i] / N * 100, 1),
-            "shield": round(shield[i] / N * 100, 1),
-            "spoon": round(spoon[i] / N * 100, 1),
-        })
-    standings.sort(key=lambda s: -s["proj_pts"])
+        standings.append({"team": id2name.get(t, t), "conf": confs[i],
+                          "pts": int(base_pts[i]), "gp": gp.get(t, 0),
+                          "proj_pts": round(proj[i] / N, 1),
+                          "playoff": round(playoff[i] / N * 100, 1),
+                          "hfa": round(hfa[i] / N * 100, 1),
+                          "shield": round(shield[i] / N * 100, 1),
+                          "spoon": round(spoon[i] / N * 100, 1)})
+    standings.sort(key=lambda s: (-s["pts"], -s["proj_pts"]))
 
-    data = {
-        "season": ts,
-        "model": {"best_brier": 0.6344, "naive": 0.6406, "improve_pct": 0.97},
-        "n_sims": N,
-        "playoff_slots": _PLAYOFF_SLOTS, "hfa_slots": _HFA_SLOTS,
-        "standings": standings,
-        "games": games,
-        "generated": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-    }
+    # ── Game cards: played (ensemble) + upcoming (DC) ────────────────────────
+    games = []
+    for i, r in played.iterrows():
+        h, a = r["home_team"], r["away_team"]
+        if _conf(_norm(id2name.get(h, ""))) is None or _conf(_norm(id2name.get(a, ""))) is None:
+            continue
+        res = "H" if r["home_goals"] > r["away_goals"] else "D" if r["home_goals"] == r["away_goals"] else "A"
+        games.append({"date": r["date"].strftime("%Y-%m-%d"), "home": id2name.get(h), "away": id2name.get(a),
+                      "pH": round(float(pe[i, 0]), 3), "pD": round(float(pe[i, 1]), 3),
+                      "pA": round(float(pe[i, 2]), 3), "hg": int(r["home_goals"]),
+                      "ag": int(r["away_goals"]), "result": res})
+    games += upcoming_cards
+    games.sort(key=lambda g: g["date"])
+
+    data = {"season": ts, "in_season": True,
+            "played": len(games) - len(upcoming_cards), "upcoming": len(upcoming_cards),
+            "model": {"best_brier": 0.6344, "naive": 0.6406, "improve_pct": 0.97},
+            "n_sims": N, "playoff_slots": _PLAYOFF_SLOTS, "hfa_slots": _HFA_SLOTS,
+            "standings": standings, "games": games,
+            "generated": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC")}
     out = Path("webapp/data.js")
-    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("window.MLS_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
-    print(f"Wrote {out}  ({len(games)} games, {len(standings)} teams)")
-    # quick sanity print
-    top = standings[:3]
-    for s in top:
-        print(f"  {s['team']:<24} {s['conf']} proj {s['proj_pts']}  "
+    print(f"Wrote {out} · {data['played']} played + {data['upcoming']} upcoming · {len(standings)} teams")
+    for s in standings[:3]:
+        print(f"  {s['team']:<22} {s['conf']} {s['pts']}pts/{s['gp']}gp  proj {s['proj_pts']}  "
               f"PO {s['playoff']}%  Shield {s['shield']}%")
 
 
