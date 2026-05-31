@@ -116,6 +116,7 @@ python scripts/experiment.py compare
 - **T1 — salary-weighted roster** (`+SalaryRoster`: payroll-share active + DP-available; `+RosterState`: g+ avail + salary): **DROP** (Δ−0.0008 / −0.0012) — **but CONFOUNDED**: roster data only existed 2022-2024, so the walk-forward had ≤1 roster-populated training season; the feature was untrainable on most folds. Not a valid verdict.
 - **T2 — backfill ESPN rosters 2017-2021** ✅ DONE: full 2017-2024 roster history (3,227 matches, 123k player-rows; 2017 join 96%).
 - **T3 — FAIR roster A/B (Iteration 1)** ✅ **KEEP**: with full training history, `+Availability` (g+ roster-share, expanding-mean normalized) Δ=**+0.0011 → KEEP**; salary-share variants DROP. **Promoted to Base: best_brier 0.6363 → 0.6344 (+0.97% over naive).** The lineup hypothesis holds once given history; the earlier DROP was a 3-season-history confound. **Goal 0.6086 still ~4% away.**
+- **T4 — team salary (Iteration 2)** ❌ DROP (Δ=−0.0045): payroll/DP-concentration redundant with ELO. Talent-investment proxies (player salary-share + team payroll) now both confirmed redundant. Default unchanged 0.6344.
 - **T4+ (loop iterations 2-5, hourly):** next data sources — ASA managers/team-salaries/GK-goals-added, weather, FBref richer signals; and refine the availability feature (starter-XI vs matchday-squad weighting).
 
 ---

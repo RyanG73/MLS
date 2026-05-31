@@ -177,3 +177,6 @@ Dispatched all four component agents in parallel git worktrees against the froze
   optimisation align better with the stacked ensemble than Platt's sigmoid fitting.
   Cal_err=0.1130 is improved vs old baseline (0.1459) but still far from the <0.05 target —
   next best path is via hyperparameter tuning or architecture changes, not calibration method.
+
+### Phase 11 loop — Iteration 2 (2026-05-31): team salary structure DROP
+`+TeamSalary` (payroll z-score + DP-concentration std/avg, same-season, full coverage): Δ=−0.0045 → **DROP** (Base-with-avail 0.6351 → 0.6396). Team payroll is strongly redundant with ELO; 6 features add noise. With iter-1's salary-share DROP, talent-investment proxies are confirmed redundant with ELO. Default unchanged at best_brier 0.6344 (+0.97%). experiment_id: p11-teamsalary-20260531T043838

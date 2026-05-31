@@ -1451,6 +1451,60 @@ else:
     print("\n[5g/9] ESPN availability: data/espn_rosters.csv not found — skipping.")
 
 
+# ─── 5i. Team salary structure (Phase 11 iter 2): payroll + DP-concentration ──
+# guaranteed_compensation set pre-season → same-season leakage-safe. Tests whether
+# squad investment / DP-dependence carries signal beyond ELO. Full coverage 2017-2024.
+print("\n[5i/9] Building team salary structure features...")
+_pay: dict[tuple, float] = {}     # (team_id, season) -> total payroll
+_conc: dict[tuple, float] = {}    # (team_id, season) -> std/avg (coefficient of variation)
+for _s in _SQUAD_SEASONS:
+    try:
+        _ts = _cf(asa.get_team_salaries, leagues="mls", season_name=str(_s))
+    except Exception:
+        continue
+    _tot_c = next((c for c in ["total_guaranteed_compensation"] if c in _ts.columns), None)
+    _avg_c = next((c for c in ["avg_guaranteed_compensation"] if c in _ts.columns), None)
+    _std_c = next((c for c in ["std_dev_guaranteed_compensation"] if c in _ts.columns), None)
+    if not _tot_c:
+        continue
+    _vals = []
+    for _r in _ts.itertuples():
+        tid = getattr(_r, "team_id", None)
+        if not isinstance(tid, str):
+            continue
+        tot = float(getattr(_r, _tot_c, 0) or 0)
+        _pay[(tid, _s)] = tot
+        _vals.append(tot)
+        if _avg_c and _std_c:
+            avg = float(getattr(_r, _avg_c, 0) or 0)
+            std = float(getattr(_r, _std_c, 0) or 0)
+            _conc[(tid, _s)] = (std / avg) if avg > 0 else 0.0
+    # z-score payroll within season
+    if len(_vals) >= 3:
+        _mu, _sd = float(np.mean(_vals)), max(float(np.std(_vals)), 1.0)
+        for tid in [t for (t, ss) in _pay if ss == _s]:
+            _pay[(tid, _s)] = (_pay[(tid, _s)] - _mu) / _sd
+print(f"    Team salary: {len(_pay)} team-seasons")
+
+
+def _pay_lookup(tid, season):
+    return _pay.get((tid, season), 0.0)
+
+
+def _conc_lookup(tid, season):
+    return _conc.get((tid, season), 0.0)
+
+
+df["home_payroll_z"] = [_pay_lookup(r.home_team, int(r.season)) for r in df.itertuples()]
+df["away_payroll_z"] = [_pay_lookup(r.away_team, int(r.season)) for r in df.itertuples()]
+df["payroll_z_diff"] = df["home_payroll_z"] - df["away_payroll_z"]
+df["home_pay_conc"] = [_conc_lookup(r.home_team, int(r.season)) for r in df.itertuples()]
+df["away_pay_conc"] = [_conc_lookup(r.away_team, int(r.season)) for r in df.itertuples()]
+df["pay_conc_diff"] = df["home_pay_conc"] - df["away_pay_conc"]
+_FEAT_TEAMSAL = ["home_payroll_z", "away_payroll_z", "payroll_z_diff",
+                 "home_pay_conc", "away_pay_conc", "pay_conc_diff"]
+
+
 # _FEAT_AVAIL (ESPN roster availability) promoted to Base 2026-05-31 — KEEP Δ=+0.0011
 # with full 2017-2024 roster history. Empty list (graceful) when rosters absent.
 _FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + ["is_playoff"] + _FEAT_AVAIL
@@ -1547,6 +1601,7 @@ if _FEAT_AVAIL:
     AB_SETS["+Availability"] = _FEAT_BASE + _FEAT_AVAIL
 if _FEAT_SALARY:
     AB_SETS["+SalaryRoster"] = _FEAT_BASE + _FEAT_SALARY
+AB_SETS["+TeamSalary"] = _FEAT_BASE + _FEAT_TEAMSAL
 if _FEAT_AVAIL and _FEAT_SALARY:
     AB_SETS["+RosterState"] = _FEAT_BASE + _FEAT_AVAIL + _FEAT_SALARY
 AB_SETS["+All"]        = _FEAT_ALL
