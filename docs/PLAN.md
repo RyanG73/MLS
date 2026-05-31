@@ -115,7 +115,9 @@ python scripts/experiment.py compare
 
 **Risks:** name-join coverage; ESPN scrape fragility/rate limits; whether availability adds signal beyond ELO/form (the empirical question). Free throughout (ESPN no-key).
 
-**STATUS: feasibility verified; build not yet started (awaiting go-ahead before the ~1,530-call scrape).**
+**Name-join — VERIFIED (2026-05-31):** on a 25-match 2023 sample (452 ESPN active players), ESPN→ASA normalized name match = **91% exact / 97% with last-name fallback**. The 13 unmatched are backup/3rd-choice GKs + fringe players (near-zero g+) → effective quality-weighted coverage is higher. The join risk is resolved.
+
+**STATUS: both gates GREEN (data exists + names join). Remaining question is purely modeling — does availability improve Brier? Next: full 2022-2024 scrape + `+Availability` index + A/B (awaiting go-ahead for the ~1,530-call scrape).**
 
 ---
 
