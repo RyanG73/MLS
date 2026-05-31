@@ -157,3 +157,19 @@ registered AB sets (NOT in Base) for the future availability×congestion interac
 unchanged at 0.6363. The reliably-available ASA data is PLAYER-LEVEL (minutes, xG, xA, goals-added)
 — which is exactly what the Phase-C availability flagship needs.
 **experiment_ids:** pa-travelrest-20260531T004259, pa-context-20260531T004808
+
+---
+
+## 2026-05-31 — Feature-interaction probe (Phase D): +TZShift × +PythagLuck
+
+| AB set | XGB Brier | Δ vs Base | Verdict |
+|--------|-----------|-----------|---------|
+| +TZShift (alone) | 0.63559 | +0.0006 | marginal |
+| +PythagLuck (alone) | 0.63558 | +0.0006 | marginal |
+| **+TZ_Pythag (combined)** | 0.63650 | **−0.0003** | **DROP** |
+
+The two positive-marginal singles **anti-stack** — combined they're worse than Base. Closes the
+last untested feature class (interactions). Singles marginal/DROP, interactions DROP, calibration/
+hyperparameters/architecture settled, availability DROP. **Feature space comprehensively exhausted;
+model plateaued at 0.6363 within the free ASA+ESPN data envelope.**
+**experiment_id:** p-interaction-tz-pythag-20260531T022509

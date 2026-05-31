@@ -1462,6 +1462,9 @@ if _TM_FEATS:
     AB_SETS["+TM_SquadValue"] = _FEAT_BASE + _TM_FEATS
 AB_SETS["+TZShift"]    = _FEAT_BASE + _FEAT_TZ
 AB_SETS["+PythagLuck"] = _FEAT_BASE + _FEAT_PYTHAG
+# Interaction probe: the two positive-marginal singles (+0.0008 each) combined —
+# do they stack past the 0.001 KEEP bar? (Phase-D feature-interaction hypothesis)
+AB_SETS["+TZ_Pythag"]  = _FEAT_BASE + _FEAT_TZ + _FEAT_PYTHAG
 _FEAT_TRAVEL = ["travel_km", "home_days_rest", "away_days_rest", "rest_advantage"]
 AB_SETS["+TravelRest"] = _FEAT_BASE + _FEAT_TRAVEL
 _FEAT_CONTEXT = ["is_dome", "is_high_alt"]   # match-context flags (already computed)
