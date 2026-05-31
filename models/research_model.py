@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""
+Shared, validated 1X2 model — faithful port of the research-harness pipeline that
+produced best_brier 0.6363 (Dixon-Coles + season-weighted XGBoost grid + temperature
+calibration + capped-DC convex blend). DataFrame-in, no database, no O/U.
+
+This is the single validated implementation intended for BOTH local validation
+(scripts/parity_check.py) and the production pipeline (replacing the divergent
+GradientBoostModels/StackingEnsemble model logic). The Pi sees only DB read/write IO.
+
+Validated config (CLAUDE.md / Phase 8-10): DC decay 120d, XGB season weight_hl 6,
+temperature calibration, capped-DC blend with DC contribution <= 30% (w_xgb in [0.7,1.0]).
+"""
+
+import itertools
+import math
+
+import numpy as np
+import pandas as pd
+from scipy.optimize import minimize, minimize_scalar
+from scipy.stats import poisson
+from sklearn.metrics import log_loss
+import xgboost as xgb
+
+DEFAULT_DC_DECAY_HL = 120
+DEFAULT_WEIGHT_HL = 6
+DEFAULT_XGB_NJOBS = 2
+
+
+# ─── Dixon-Coles ──────────────────────────────────────────────────────────────
+
+def _dc_tau(x, y, lam, mu, rho):
+    if x == 0 and y == 0: return 1 - lam * mu * rho
+    if x == 0 and y == 1: return 1 + lam * rho
+    if x == 1 and y == 0: return 1 + mu * rho
+    if x == 1 and y == 1: return 1 - rho
+    return 1.0
+
+
+def _dc_nll(params, teams, arr, decay_hl):
+    n = len(teams)
+    atk, dfd = params[:n], params[n:2 * n]
+    ha, rho = params[2 * n], params[2 * n + 1]
+    lam_d = math.log(2) / decay_hl
+    ll = 0.0
+    for row in arr:
+        days_ago = int(row[0]); hi, ai = int(row[1]), int(row[2])
+        hg, ag = int(row[3]), int(row[4])
+        w = math.exp(-lam_d * days_ago)
+        lam = math.exp(atk[hi] + dfd[ai] + ha)
+        mu = math.exp(atk[ai] + dfd[hi])
+        tau = _dc_tau(hg, ag, lam, mu, rho)
+        if tau <= 1e-10:
+            continue
+        ll += w * (math.log(tau) + poisson.logpmf(hg, lam) + poisson.logpmf(ag, mu))
+    return -ll
+
+
+def fit_dc(matches, decay_hl=DEFAULT_DC_DECAY_HL, recent_seasons=4):
+    max_s = matches["season"].max()
+    recent = matches[matches["season"] >= max_s - recent_seasons + 1].copy()
+    teams = sorted(set(recent["home_team"]) | set(recent["away_team"]))
+    tidx = {t: i for i, t in enumerate(teams)}
+    n = len(teams)
+    ref = recent["date"].max()
+    arr = np.array([
+        [(ref - r["date"]).days, tidx.get(r["home_team"], 0),
+         tidx.get(r["away_team"], 0), r["home_goals"], r["away_goals"]]
+        for _, r in recent.iterrows()
+    ], dtype=float)
+    x0 = np.zeros(2 * n + 2)
+    x0[2 * n], x0[2 * n + 1] = 0.25, -0.05
+    bounds = [(-3, 3)] * (2 * n) + [(0.0, 1.0)] + [(-0.5, 0.0)]
+    res = minimize(_dc_nll, x0, args=(teams, arr, decay_hl),
+                   method="L-BFGS-B", bounds=bounds,
+                   options={"maxiter": 300, "ftol": 1e-7})
+    atk = dict(zip(teams, res.x[:n]))
+    dfd = dict(zip(teams, res.x[n:2 * n]))
+    return atk, dfd, res.x[2 * n], res.x[2 * n + 1]
+
+
+def _dc_predict(ht, at, atk, dfd, ha, rho, max_g=8):
+    lam = math.exp(atk.get(ht, 0) + dfd.get(at, 0) + ha)
+    mu = math.exp(atk.get(at, 0) + dfd.get(ht, 0))
+    M = np.zeros((max_g + 1, max_g + 1))
+    for i in range(max_g + 1):
+        for j in range(max_g + 1):
+            M[i, j] = max(_dc_tau(i, j, lam, mu, rho), 1e-10) * \
+                poisson.pmf(i, lam) * poisson.pmf(j, mu)
+    M = np.clip(M, 1e-15, None)
+    M /= M.sum()
+    ph = float(np.tril(M, -1).sum())
+    pdr = float(np.diag(M).sum())
+    pa = float(np.triu(M, 1).sum())
+    t = ph + pdr + pa
+    return ph / t, pdr / t, pa / t
+
+
+def dc_predict_batch(split_df, atk, dfd, ha, rho):
+    return np.array([_dc_predict(r.home_team, r.away_team, atk, dfd, ha, rho)
+                     for _, r in split_df.iterrows()])
+
+
+# ─── Temperature calibration ──────────────────────────────────────────────────
+
+def calibrate_temperature(raw_cal, y_cal, raw_test):
+    def _nll(T):
+        log_p = np.log(np.clip(raw_cal, 1e-9, 1.0)) / max(T, 0.1)
+        log_p -= log_p.max(axis=1, keepdims=True)
+        ep = np.exp(log_p)
+        return float(log_loss(y_cal, ep / ep.sum(axis=1, keepdims=True)))
+    T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
+    log_p = np.log(np.clip(raw_test, 1e-9, 1.0)) / T
+    log_p -= log_p.max(axis=1, keepdims=True)
+    ep = np.exp(log_p)
+    return ep / ep.sum(axis=1, keepdims=True)
+
+
+def multiclass_brier(y_oh, probs):
+    return float(np.mean(np.sum((probs - y_oh) ** 2, axis=1)))
+
+
+# ─── XGBoost (season-weighted, inner grid) ────────────────────────────────────
+
+def _season_weights(seasons, ref_s, weight_hl):
+    return seasons.apply(lambda s: math.exp(-math.log(2) / weight_hl * (ref_s - s))).values
+
+
+def fit_xgb(train, feat, weight_hl=DEFAULT_WEIGHT_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42):
+    """Inner-grid-tuned, season-weighted XGB multiclass on `feat`."""
+    ref_s = train["season"].max()
+    sw = _season_weights(train["season"], ref_s, weight_hl)
+    inner_s = sorted(train["season"].unique())[-2:]
+    itr, ival = train[~train["season"].isin(inner_s)], train[train["season"].isin(inner_s)]
+    sw_i = _season_weights(itr["season"], ref_s, weight_hl)
+    best_b, best_p = float("inf"), {"max_depth": 4, "n_estimators": 300, "learning_rate": 0.05}
+    if len(ival) >= 30:
+        for md, ne, lr in itertools.product([3, 4, 5], [200, 400], [0.05, 0.10]):
+            try:
+                c = xgb.XGBClassifier(n_estimators=ne, max_depth=md, learning_rate=lr,
+                                      subsample=0.8, colsample_bytree=0.8,
+                                      objective="multi:softprob", num_class=3,
+                                      eval_metric="mlogloss", verbosity=0,
+                                      random_state=seed, n_jobs=n_jobs)
+                c.fit(itr[feat].fillna(0).values, itr["label_result"].values, sample_weight=sw_i)
+                ip = c.predict_proba(ival[feat].fillna(0).values)
+                b = multiclass_brier(np.eye(3)[ival["label_result"].values], ip)
+                if b < best_b:
+                    best_b, best_p = b, {"max_depth": md, "n_estimators": ne, "learning_rate": lr}
+            except Exception:
+                pass
+    clf = xgb.XGBClassifier(objective="multi:softprob", num_class=3,
+                            eval_metric="mlogloss", verbosity=0, random_state=seed,
+                            subsample=0.8, colsample_bytree=0.8, n_jobs=n_jobs, **best_p)
+    clf.fit(train[feat].fillna(0).values, train["label_result"].values, sample_weight=sw)
+    return clf, best_p
+
+
+# ─── Capped-DC convex blend ───────────────────────────────────────────────────
+
+def fit_capped_blend(xgb_cal3, dc_cal3, y_cal_oh, w_min=0.7, w_max=1.0):
+    """Scalar w (XGB weight, DC <= 1-w_min) fit on the cal fold by Brier minimisation."""
+    def _bl(w_arr):
+        w = w_arr[0]
+        b = w * xgb_cal3 + (1.0 - w) * dc_cal3
+        b = b / b.sum(axis=1, keepdims=True).clip(1e-9, None)
+        return multiclass_brier(y_cal_oh, b)
+    res = minimize(_bl, x0=[0.85], bounds=[(w_min, w_max)], method="L-BFGS-B")
+    return float(np.clip(res.x[0], w_min, w_max))
+
+
+def blend(xg, dc, w):
+    b = w * xg + (1.0 - w) * dc
+    return b / b.sum(axis=1, keepdims=True).clip(1e-9, None)
+
+
+# ─── End-to-end walk-forward (the validated 0.6363 pipeline) ──────────────────
+
+def walk_forward(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
+                 dc_decay_hl=DEFAULT_DC_DECAY_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42):
+    """Returns {'per_season': {yr: brier}, 'avg_brier': float, 'w_xgb': {yr: w}}."""
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"])
+    feat = [c for c in feat_base if c in df.columns]
+    per_season, w_used = {}, {}
+    for ts in test_seasons:
+        cal_s = ts - 1
+        train = df[df["season"] < cal_s].dropna(subset=["home_goals", "away_goals"])
+        cal = df[df["season"] == cal_s].dropna(subset=["home_goals", "away_goals"])
+        test = df[df["season"] == ts].dropna(subset=["home_goals", "away_goals"])
+        if len(train) < 200 or len(cal) < 50 or len(test) < 50:
+            continue
+        y_cal = cal["label_result"].values.astype(int)
+        y_te = test["label_result"].values.astype(int)
+        y_cal_oh, y_te_oh = np.eye(3)[y_cal], np.eye(3)[y_te]
+
+        atk, dfd, ha, rho = fit_dc(train, decay_hl=dc_decay_hl)
+        dc_cal = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
+                                       dc_predict_batch(cal, atk, dfd, ha, rho))
+        dc_te = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
+                                      dc_predict_batch(test, atk, dfd, ha, rho))
+
+        clf, _ = fit_xgb(train, feat, weight_hl=weight_hl, n_jobs=n_jobs, seed=seed)
+        xgb_cal_raw = clf.predict_proba(cal[feat].fillna(0).values)
+        xgb_te_raw = clf.predict_proba(test[feat].fillna(0).values)
+        xgb_cal = calibrate_temperature(xgb_cal_raw, y_cal, xgb_cal_raw)
+        xgb_te = calibrate_temperature(xgb_cal_raw, y_cal, xgb_te_raw)
+
+        w = fit_capped_blend(xgb_cal, dc_cal, y_cal_oh)
+        ens_te = blend(xgb_te, dc_te, w)
+        per_season[str(ts)] = round(multiclass_brier(y_te_oh, ens_te), 6)
+        w_used[str(ts)] = round(w, 3)
+
+    avg = round(float(np.mean(list(per_season.values()))), 6) if per_season else float("nan")
+    return {"per_season": per_season, "avg_brier": avg, "w_xgb": w_used}

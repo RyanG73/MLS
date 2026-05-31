@@ -1705,9 +1705,18 @@ if _ARGS.dump_frame:
     _dp = _Path(_ARGS.dump_frame)
     _dp.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(_dp, index=False)
+    # sidecar: feature list + validated config, so the parity harness is self-contained
+    _sidecar = _dp.with_suffix(".meta.json")
+    with open(_sidecar, "w") as _sf:
+        _json.dump({
+            "feat_base": [c for c in _FEAT_BASE if c in df.columns],
+            "weight_hl": WEIGHT_HL, "dc_decay_hl": DC_DECAY_HL,
+            "regress": REGRESS, "test_seasons": list(TEST_SEASONS),
+            "calibration": _ARGS.calibration,
+        }, _sf, indent=2)
     print(f"\nAssembled feature frame dumped → {_dp} "
           f"({len(df):,} rows, {len(df.columns)} cols, seasons "
-          f"{int(df['season'].min())}–{int(df['season'].max())})")
+          f"{int(df['season'].min())}–{int(df['season'].max())}); meta → {_sidecar}")
     _sys.exit(0)
 
 

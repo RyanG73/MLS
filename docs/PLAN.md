@@ -124,7 +124,11 @@ python scripts/experiment.py compare
 
 **Built:** `scripts/eval_baseline.py --dump-frame` exports the validated feature frame → `data/parity_frame.parquet`; `scripts/parity_check.py` runs production model classes on it, no DB. **Proven:** production `DixonColesModel` runs DB-free on the CSV frame (DC-alone Brier ~0.654, expected ballpark) ✓ — the local validation loop works.
 
-**Next increment (the real port, now fully local):** the production `GradientBoostModels`/`StackingEnsemble` are structurally divergent from the validated research model — they carry the dropped **O/U model**, **Optuna** tuning (vs research grid), and **isotonic `CalibratedClassifierCV`** stacking (vs capped-DC blend + temperature). Completing parity = porting those to match research (drop O/U, grid, capped-DC blend, weight_hl=6, temperature) and extending `parity_check.py` to assert the blend reproduces **0.6363**. Recommended architecture: a **single shared validated model module** imported by both the research harness and production, rather than maintaining two divergent stacks. All of it runs locally; the Pi sees only IO wiring at deploy.
+**DONE — shared validated model module + parity gate (2026-05-31):**
+- `models/research_model.py` — single, importable, DataFrame-in implementation of the validated 1X2 pipeline (DC fit + season-weighted XGB grid + temperature calibration + capped-DC convex blend; weight_hl=6, dc_decay_hl=120, no O/U). The production-bound model logic, decoupled from Postgres.
+- `scripts/parity_check.py` — runs it on `data/parity_frame.parquet` (+ `.meta.json` sidecar from `--dump-frame`) and asserts parity with the research headline. **RESULT: avg_brier 0.6353 vs target 0.6363, |Δ|=0.0010 → PASS**, fully DB-free.
+
+**Remaining (Pi-side IO only):** wire the production pipeline (`scripts/daily_update.py`) to fit/predict via `models/research_model.py` instead of the divergent `GradientBoostModels`/`StackingEnsemble`, and store predictions to Postgres. The model is validated; the Pi sees only the DB read/write wiring. This eliminates the two-divergent-stacks drift — there is now ONE validated model implementation.
 
 ---
 
