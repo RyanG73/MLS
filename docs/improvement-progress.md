@@ -14,10 +14,14 @@
 
 | Field | Value | Source |
 |-------|-------|--------|
-| best_brier | **0.6363** | merge-final-confirm (capped-DC blend + weight_hl=6, seed=42, Base) |
-| max_cal_error | **0.1326** | same run |
-| naive_brier | 0.6406 | reference (~+0.67% over naive) |
-| harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, **weight_hl=6**, **calibration=temperature**, **ensemble=capped-DC convex blend (DC ≤30%)** | scripts/eval_baseline.py |
+| best_brier | **0.6344** | p11-base-avail-confirm (availability promoted to Base, seed=42) |
+| max_cal_error | **0.1314** | same run |
+| naive_brier | 0.6406 | reference (**~+0.97% over naive**, up from +0.67%) |
+| harness defaults | ELO K=25 HA=80 REGRESS=0.50, DC hl=120, weight_hl=6, calibration=temperature, capped-DC blend, **+ availability (ESPN roster g+ share) in Base** | scripts/eval_baseline.py |
+
+### Phase 11 loop — Iteration 1 (2026-05-31): roster availability KEEP
+Backfilled ESPN rosters to full 2017-2024 history (3,227 matches). FAIR roster A/B (full training history):
+`+Availability` Δ=**+0.0011 → KEEP** (g+ availability share, expanding-mean normalized); `+SalaryRoster` Δ=−0.0006 DROP; `+RosterState` (g++salary) Δ=−0.0006 DROP. Salary-share is noisier than the normalized g+ share. **Promoted +Availability to Base → best_brier 0.6363→0.6344 (+0.97% over naive).** Validates the lineup hypothesis once given training history (the prior DROP was a 3-season-history confound). Goal 0.6086 still distant; +4% to go.
 
 > **Calibration note (corrected cycle #3):** the committed `--calibration` default has always been `temperature`; the `temp_then_platt` 2-stage option exists but is a **no-op on the capped-DC blend** (it calibrated the old LR meta-learner). Earlier docs that listed `temp_then_platt` as the default and `cal_err≈0.1015` were referencing the pre-capped-DC LR-meta architecture and are obsolete. Current calibration = `temperature`, cal_err = 0.1326.
 
