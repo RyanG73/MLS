@@ -1285,6 +1285,7 @@ def _norm_nm(n) -> str:
 
 
 _FEAT_AVAIL: list = []
+_FEAT_AVAIL_ST: list = []
 _FEAT_SALARY: list = []
 if _HAS_AVAIL:
     print("\n[5g/9] Building ESPN availability-weighted xG+xA features...")
@@ -1324,61 +1325,69 @@ if _HAS_AVAIL:
         nm = _ESPN_ALIAS.get(_norm_nm(espn_name), espn_name)
         return _team_by_tok.get(_team_tok(nm))
 
-    _avail_roster: dict[tuple, list] = {}
+    _avail_roster: dict[tuple, list] = {}      # all active matchday players
+    _avail_starters: dict[tuple, list] = {}    # starters only (iter 3 refinement)
     _unmapped: set = set()
     with open(_AVAIL_CSV) as _fh:
         for _row in _csv.DictReader(_fh):
             tid = _map_team(_row["team_name"])
             if not tid:
                 _unmapped.add(_row["team_name"]); continue
-            _avail_roster.setdefault((tid, _row["date"][:10]), []).append(
-                _norm_nm(_row["player_name"]))
+            _day = _row["date"][:10]; _nm = _norm_nm(_row["player_name"])
+            _avail_roster.setdefault((tid, _day), []).append(_nm)
+            if str(_row.get("starter", "")) in ("1", "True", "true"):
+                _avail_starters.setdefault((tid, _day), []).append(_nm)
     if _unmapped:
         print(f"    Unmapped ESPN teams (skipped): {sorted(_unmapped)[:6]}")
     print(f"    Roster coverage: {len(_avail_roster):,} (team,date) entries")
 
     import datetime as _dt2
 
-    def _avail_q(team_id, day, season):
-        names = _avail_roster.get((team_id, day))
+    def _roster_names(roster, team_id, day):
+        names = roster.get((team_id, day))
         if names is None:                     # tolerate UTC/local day-boundary offset
             _b = _dt2.date.fromisoformat(day)
             for _off in (-1, 1):
-                names = _avail_roster.get(
-                    (team_id, (_b + _dt2.timedelta(days=_off)).isoformat()))
+                names = roster.get((team_id, (_b + _dt2.timedelta(days=_off)).isoformat()))
                 if names:
                     break
-        if not names:
-            return None
-        return sum(_qual.get((nm, season - 1), 0.0) for nm in names)
+        return names
 
-    _rsum: dict[tuple, float] = {}
-    _rcnt: dict[tuple, int] = {}
-    _hsh, _ash = [], []
-    for _, _r in df.iterrows():
-        _day = _r["date"].strftime("%Y-%m-%d")
-        _sea = int(_r["season"])
-        vals = {}
-        for _tid, _k in [(_r["home_team"], "h"), (_r["away_team"], "a")]:
-            q = _avail_q(_tid, _day, _sea)
-            if q is None:
-                vals[_k] = 1.0                       # no roster data -> neutral
-            else:
-                key = (_tid, _sea)
-                pm = (_rsum[key] / _rcnt[key]) if _rcnt.get(key) else None
-                vals[_k] = (q / pm) if pm and pm > 0 else 1.0   # prior matches only
-                _rsum[key] = _rsum.get(key, 0.0) + q
-                _rcnt[key] = _rcnt.get(key, 0) + 1
-        _hsh.append(vals["h"]); _ash.append(vals["a"])
+    def _share_cols(roster):
+        """Expanding-mean-normalized available g+ share per match (home, away lists)."""
+        rs: dict[tuple, float] = {}
+        rc: dict[tuple, int] = {}
+        hsh, ash = [], []
+        for _, _r in df.iterrows():
+            _day = _r["date"].strftime("%Y-%m-%d"); _sea = int(_r["season"])
+            vals = {}
+            for _tid, _k in [(_r["home_team"], "h"), (_r["away_team"], "a")]:
+                names = _roster_names(roster, _tid, _day)
+                if not names:
+                    vals[_k] = 1.0
+                else:
+                    q = sum(_qual.get((nm, _sea - 1), 0.0) for nm in names)
+                    key = (_tid, _sea)
+                    pm = (rs[key] / rc[key]) if rc.get(key) else None
+                    vals[_k] = (q / pm) if pm and pm > 0 else 1.0
+                    rs[key] = rs.get(key, 0.0) + q
+                    rc[key] = rc.get(key, 0) + 1
+            hsh.append(vals["h"]); ash.append(vals["a"])
+        return hsh, ash
+
+    _hsh, _ash = _share_cols(_avail_roster)
     df["home_avail_share"] = _hsh
     df["away_avail_share"] = _ash
     df["avail_share_diff"] = df["home_avail_share"] - df["away_avail_share"]
+    _hst, _ast = _share_cols(_avail_starters)
+    df["home_avail_st_share"] = _hst
+    df["away_avail_st_share"] = _ast
+    df["avail_st_share_diff"] = df["home_avail_st_share"] - df["away_avail_st_share"]
     _tw = df[df["season"].isin(TEST_SEASONS)]
     _cov = float((_tw["home_avail_share"] != 1.0).mean()) if len(_tw) else 0.0
-    _glob = float((df["home_avail_share"] != 1.0).mean())
-    print(f"    Availability built. Coverage: test-seasons {_cov:.0%}, "
-          f"whole-history {_glob:.0%} (rosters only exist 2022-2024)")
+    print(f"    Availability built (active + starters). Test-season coverage: {_cov:.0%}")
     _FEAT_AVAIL = ["home_avail_share", "away_avail_share", "avail_share_diff"]
+    _FEAT_AVAIL_ST = ["home_avail_st_share", "away_avail_st_share", "avail_st_share_diff"]
 
     # ── Salary-weighted roster strength (5h) ─────────────────────────────────
     # guaranteed_compensation is set pre-season → same-season use is leakage-safe,
@@ -1602,6 +1611,8 @@ if _FEAT_AVAIL:
 if _FEAT_SALARY:
     AB_SETS["+SalaryRoster"] = _FEAT_BASE + _FEAT_SALARY
 AB_SETS["+TeamSalary"] = _FEAT_BASE + _FEAT_TEAMSAL
+if _FEAT_AVAIL_ST:
+    AB_SETS["+AvailStarters"] = _FEAT_BASE + _FEAT_AVAIL_ST
 if _FEAT_AVAIL and _FEAT_SALARY:
     AB_SETS["+RosterState"] = _FEAT_BASE + _FEAT_AVAIL + _FEAT_SALARY
 AB_SETS["+All"]        = _FEAT_ALL

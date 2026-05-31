@@ -180,3 +180,6 @@ Dispatched all four component agents in parallel git worktrees against the froze
 
 ### Phase 11 loop — Iteration 2 (2026-05-31): team salary structure DROP
 `+TeamSalary` (payroll z-score + DP-concentration std/avg, same-season, full coverage): Δ=−0.0045 → **DROP** (Base-with-avail 0.6351 → 0.6396). Team payroll is strongly redundant with ELO; 6 features add noise. With iter-1's salary-share DROP, talent-investment proxies are confirmed redundant with ELO. Default unchanged at best_brier 0.6344 (+0.97%). experiment_id: p11-teamsalary-20260531T043838
+
+### Phase 11 loop — Iteration 3 (2026-05-31): starter-weighted availability DROP
+`+AvailStarters` (g+ share of STARTERS only, on top of active-squad availability already in Base): Δ=−0.0013 → **DROP**. The active-matchday-squad availability already captures the lineup signal; starter-only granularity is redundant + adds 3 noisy features. The availability vein is a single feature (active-squad g+ share), not deepenable. Default unchanged 0.6344. experiment_id: p11-avail-starters-20260531T053820

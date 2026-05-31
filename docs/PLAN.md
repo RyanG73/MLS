@@ -117,6 +117,7 @@ python scripts/experiment.py compare
 - **T2 — backfill ESPN rosters 2017-2021** ✅ DONE: full 2017-2024 roster history (3,227 matches, 123k player-rows; 2017 join 96%).
 - **T3 — FAIR roster A/B (Iteration 1)** ✅ **KEEP**: with full training history, `+Availability` (g+ roster-share, expanding-mean normalized) Δ=**+0.0011 → KEEP**; salary-share variants DROP. **Promoted to Base: best_brier 0.6363 → 0.6344 (+0.97% over naive).** The lineup hypothesis holds once given history; the earlier DROP was a 3-season-history confound. **Goal 0.6086 still ~4% away.**
 - **T4 — team salary (Iteration 2)** ❌ DROP (Δ=−0.0045): payroll/DP-concentration redundant with ELO. Talent-investment proxies (player salary-share + team payroll) now both confirmed redundant. Default unchanged 0.6344.
+- **T5 — starter-weighted availability (Iteration 3)** ❌ DROP (Δ=−0.0013): redundant with active-squad availability already in Base. The lineup signal is one feature, not deepenable.
 - **T4+ (loop iterations 2-5, hourly):** next data sources — ASA managers/team-salaries/GK-goals-added, weather, FBref richer signals; and refine the availability feature (starter-XI vs matchday-squad weighting).
 
 ---
