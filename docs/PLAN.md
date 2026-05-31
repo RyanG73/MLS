@@ -103,6 +103,16 @@ python scripts/experiment.py compare
 
 ## Phase 8 — Feature Expansion & Subagent Roster Expansion (planned 2026-05-30)
 
+> **STATUS: CLOSED 2026-05-31 — Option A (stop & bank).** The ASA-only feature hunt is concluded.
+> Two phases blocked at the *data layer* (not modeling): the cheap tier is absorbed/unavailable and
+> the availability flagship needs per-game data ASA doesn't provide. **Banked best model: best_brier
+> 0.6363 / cal_err 0.1326 (~+0.67% over naive)** — capped-DC convex blend + weight_hl=6 + temperature,
+> Base features. This is judged near the ceiling for free, season-aggregate, ASA-only data.
+> **Re-entry condition:** reopen only by committing to an **ESPN box-score / lineup scraping integration**
+> (per-game participation → match-level availability), after first verifying 2022-2024 historical depth.
+> Durable deliverables retained: instrumented harness + `experiment.py`, multi-agent `/improve-model`
+> workflow, capped-DC architecture, XGBoost thread cap, and this realistic, annotated plan.
+
 **Why:** Knob-tuning has plateaued at **best_brier 0.6363 / cal_err 0.1326** (~+0.67% over naive). Every parameter sweep + post-hoc calibration tweak now DROPs; the only KEEPs were structural (capped-DC blend, weight_hl unlocked by it). Further gains require **new signal — richer team/player features**, not more sweeps. Plan built from a 28-question requirements deep-dive.
 
 **Hard constraints:** all sources **free** (ASA, ESPN, Open-Meteo, Transfermarkt-via-R); **Brier sole KEEP metric** (Δ>0.001, calibration reported not gated); venue **cloud-when-free-credits else local-sequential** (thread-capped).
