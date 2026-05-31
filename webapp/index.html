@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>MLS Season Model — Predictions & Odds</title>
+<title>MLS Projections</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
   --ink-0:#0a111e; --ink-1:#101a2c; --ink-2:#16243c; --ink-3:#1d2e49;
   --line:rgba(150,180,220,.10); --line-2:rgba(150,180,220,.18); --line-3:rgba(150,180,220,.30);
   --txt-1:#eef3fb; --txt-2:#9fb0c8; --txt-3:#65748d;
-  --floodlight:#56d2ff;
+  --floodlight:#56d2ff; --west:#f6894a;
   --qualify:#34d39a; --hfa:#f6b53f; --shield:#d7deea; --spoon:#bd7d4e;
   --draw:#5d6b82;
   --r-sm:6px; --r-md:10px; --r-lg:16px;
@@ -62,17 +62,23 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
   border:1px solid var(--line-2);overflow:hidden}
 .crest img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:2px;background:transparent}
 
-/* favorites */
-.favs{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3);margin-bottom:var(--s5)}
+/* favorites — four title races: Shield · East · West · Spoon */
+.favs{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3);margin-bottom:var(--s5)}
 .fav{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4);position:relative;overflow:hidden}
+.fav::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
 .fav .lab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3);display:flex;align-items:center;gap:6px}
 .fav .lab .sq{width:9px;height:9px;border-radius:3px}
-.fav .teamrow{display:flex;align-items:center;gap:9px;margin-top:9px}
-.fav .team{font-family:"Archivo";font-weight:700;font-size:16px;line-height:1.15}
-.fav .pct{font-family:"Archivo";font-weight:800;font-size:26px;margin-top:2px}
-.fav.shield .pct{color:var(--shield)} .fav.shield .sq{background:var(--shield)}
-.fav.hfa .pct{color:var(--hfa)} .fav.hfa .sq{background:var(--hfa)}
-.fav.spoon .pct{color:var(--spoon)} .fav.spoon .sq{background:var(--spoon)}
+.fav .teamrow{display:flex;align-items:center;gap:9px;margin-top:10px}
+.fav .ftxt{min-width:0}
+.fav .team{font-family:"Archivo";font-weight:700;font-size:15px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fav .favstats{display:flex;align-items:baseline;gap:9px;margin-top:9px;flex-wrap:wrap}
+.fav .pct{font-family:"Archivo";font-weight:800;font-size:26px;line-height:1}
+.fav .pp{font-size:11.5px;color:var(--txt-3);font-weight:600}
+.fav .pp b{font-family:"Archivo";color:var(--txt-2);font-weight:700}
+.fav.shield::before{background:var(--shield)} .fav.shield .pct{color:var(--shield)} .fav.shield .sq{background:var(--shield)}
+.fav.east::before{background:var(--floodlight)} .fav.east .pct{color:var(--floodlight)} .fav.east .sq{background:var(--floodlight)}
+.fav.west::before{background:var(--west)} .fav.west .pct{color:var(--west)} .fav.west .sq{background:var(--west)}
+.fav.spoon::before{background:var(--spoon)} .fav.spoon .pct{color:var(--spoon)} .fav.spoon .sq{background:var(--spoon)}
 
 /* ladders */
 .ladders{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
@@ -80,10 +86,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .ladder-h{display:flex;align-items:center;justify-content:space-between;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:var(--ink-2)}
 .ladder-h .name{font-family:"Archivo";font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px}
 .conf-dot{width:8px;height:8px;border-radius:50%}
-.east .conf-dot{background:var(--floodlight)} .west .conf-dot{background:#f6894a}
-.col-head,.row{display:grid;grid-template-columns:24px minmax(0,1fr) 34px 44px 44px 44px 44px;align-items:center;gap:6px;padding:8px var(--s3)}
-.col-head{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);border-bottom:1px solid var(--line)}
-.col-head .c{text-align:center}
+.east .conf-dot{background:var(--floodlight)} .west .conf-dot{background:var(--west)}
+.col-head,.row{display:grid;grid-template-columns:22px minmax(0,1fr) 30px 50px 40px 44px 46px 42px;align-items:center;gap:6px;padding:8px var(--s3)}
+.col-head{font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt-3);border-bottom:1px solid var(--line)}
+.col-head .c{text-align:center;line-height:1.1}
 .row{border-bottom:1px solid var(--line);position:relative;transition:background .12s}
 .row:last-child{border-bottom:none}
 .row:hover{background:var(--ink-2)}
@@ -91,14 +97,20 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .rank{font-family:"Archivo";font-weight:700;font-size:13px;color:var(--txt-3);text-align:center}
 .row.hfa .rank{color:var(--hfa)}
 .tcell{display:flex;align-items:center;gap:9px;min-width:0}
-.tname{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tsub{display:block;font-size:10px;color:var(--txt-3);font-weight:500;white-space:nowrap}
+.tcol{min-width:0;display:flex;flex-direction:column;gap:1px}
+.tname{display:block;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tsub{display:block;font-size:10px;color:var(--txt-3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pts{font-family:"Archivo";font-weight:700;font-size:14px;text-align:center}
+.projc{font-family:"Archivo";font-weight:700;font-size:12.5px;text-align:center;color:var(--txt-2)}
 .heat{font-family:"Archivo";font-weight:700;font-size:11.5px;text-align:center;padding:5px 0;border-radius:5px;color:var(--txt-1)}
 .heat.z{color:var(--txt-3);font-weight:500;background:transparent!important}
-.po-line{position:relative;height:0}
-.po-line .lab{position:absolute;left:var(--s3);top:-8px;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--qualify);background:var(--ink-1);padding:0 6px}
+/* playoff cut line (1–9 in, glowing) + wild-card divider (after 7) */
+.po-line,.wc-line{position:relative;height:0}
+.po-line .lab,.wc-line .lab{position:absolute;left:var(--s3);top:-8px;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;background:var(--ink-1);padding:0 6px}
+.po-line .lab{color:var(--qualify)}
 .po-line::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--qualify),transparent);box-shadow:0 0 10px rgba(52,211,154,.6)}
+.wc-line .lab{color:var(--hfa)}
+.wc-line::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;background:repeating-linear-gradient(90deg,var(--line-3) 0 7px,transparent 7px 13px)}
 
 /* matches */
 .controls{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap;margin-bottom:var(--s4)}
@@ -129,6 +141,12 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .band > div span{padding:0 4px;white-space:nowrap;overflow:hidden}
 .band > div.fav-seg{box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
 .band > div.tiny span{display:none}
+/* fair American-odds strip under each band */
+.odds3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2);margin-top:9px}
+.oc{display:flex;flex-direction:column;align-items:center;gap:1px;background:var(--ink-0);border:1px solid var(--line);border-radius:6px;padding:6px 4px}
+.oc .ol{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3)}
+.oc .op{font-size:11.5px;font-weight:600;color:var(--txt-2);font-family:"Archivo"}
+.oc .oa{font-family:"Archivo";font-weight:800;font-size:15px;line-height:1.1}
 .res{font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:5px;white-space:nowrap;flex:none}
 .res.ok{background:rgba(52,211,154,.14);color:var(--qualify);border:1px solid rgba(52,211,154,.3)}
 .res.miss{background:rgba(246,137,74,.13);color:#f6894a;border:1px solid rgba(246,137,74,.3)}
@@ -140,16 +158,19 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 .hidden{display:none!important}
 
 @media(max-width:860px){
-  .ladders,.favs{grid-template-columns:1fr}
+  .ladders{grid-template-columns:1fr}
+  .favs{grid-template-columns:1fr 1fr}
   .acc{margin-left:0;width:100%;justify-content:space-between}
-  .col-head,.row{grid-template-columns:22px minmax(0,1fr) 30px 40px 40px 40px 40px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
+  .col-head,.row{grid-template-columns:22px minmax(0,1fr) 30px 44px 36px 40px 42px 38px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
   .dayhead{top:56px}
 }
 @media(max-width:480px){
-  .col-head .c-pts,.row .pts{display:none}
-  .col-head,.row{grid-template-columns:20px minmax(0,1fr) 38px 38px 38px 38px}
+  .col-head .c-proj,.row .projc{display:none}
+  .col-head,.row{grid-template-columns:20px minmax(0,1fr) 28px 34px 36px 40px 36px;gap:3px}
+  .heat{font-size:10px;padding:4px 0}
   .g-side .tn{font-size:12.5px}
   .acc .bars{display:none}
+  .fav .team{font-size:13.5px} .fav .pct{font-size:22px}
 }
 </style>
 </head>
@@ -158,7 +179,7 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
   <div class="wrap head-in">
     <div class="brand">
       <div class="beacon"></div>
-      <div><h1>MLS Season Model</h1><div class="sub" id="sub"></div></div>
+      <div><h1>MLS Projections</h1><div class="sub" id="sub"></div></div>
     </div>
     <div class="acc" id="acc"></div>
   </div>
@@ -177,7 +198,7 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
   </section>
 
   <section id="view-matches" class="hidden">
-    <div class="sec-h"><h2>Game-by-game predictions</h2><span class="note">Model win / draw / loss probability per match</span></div>
+    <div class="sec-h"><h2>Game-by-game predictions</h2><span class="note">Model win / draw / loss probability per match, with fair American odds</span></div>
     <div class="controls">
       <div class="dd" id="teamDD">
         <button class="dd-btn" id="teamBtn"><span id="teamSel">All teams</span><span class="car">▼</span></button>
@@ -192,7 +213,8 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
       <span class="count" id="gcount"></span>
     </div>
     <div class="legend-band" id="bandLegend">
-      <span><i style="background:var(--draw)"></i>Draw</span>
+      <span><i style="background:var(--draw)"></i>Draw = gray</span>
+      <span>American odds are fair (no-vig)</span>
       <span style="margin-left:auto"><i style="background:var(--qualify)"></i>✓ model's top pick was correct</span>
     </div>
     <div id="gameList"></div>
@@ -215,6 +237,8 @@ const txtOn=hex=>lum(hexrgb(hex))>0.6?'#06121d':'#fff';
 /* heatmap background for an odds value */
 function heat(v,rgb,maxv){const a=v<=0?0:Math.min(0.62,0.07+0.55*(v/(maxv||100)));return `background:rgba(${rgb.join(',')},${a.toFixed(3)})`;}
 const RGB={po:[52,211,154],hfa:[246,181,63],sh:[215,222,234],sp:[189,125,78]};
+/* fair (no-vig) American odds from a probability */
+const american=p=>{if(p==null||p<=0)return'—';const v=p>=0.5?-100*p/(1-p):100*(1-p)/p;const r=Math.round(v);return r>0?`+${r}`:`${r}`;};
 
 /* header + accuracy vs naive */
 $('#sub').textContent = D.in_season?`${D.season} season · live · ${D.played} played · ${D.upcoming} to play`:`${D.season} season projection`;
@@ -231,30 +255,44 @@ $('#sub').textContent = D.in_season?`${D.season} season · live · ${D.played} p
 $('#foot').innerHTML=`Capped Dixon-Coles + XGBoost ensemble, availability-weighted · Brier ${D.model.best_brier} vs naive ${D.model.naive} (lower is better → ${D.model.improve_pct}% better) · `+
   `odds from ${D.n_sims.toLocaleString()} Monte-Carlo simulations of the remaining schedule · crests & colors © their clubs (via ESPN) · generated ${D.generated}.`;
 
-/* favorites */
+/* favorites — four title races: Shield · Eastern Conf · Western Conf · Spoon */
 const sBy=k=>[...D.standings].sort((a,b)=>b[k]-a[k])[0];
+const sByConf=c=>[...D.standings].filter(s=>s.conf===c).sort((a,b)=>b.conf_win-a.conf_win)[0];
 const fav=(cls,lab,t,k)=>`<div class="fav ${cls}"><div class="lab"><span class="sq"></span>${lab}</div>
-  <div class="teamrow">${crest(t.team,t.logo)}<div><div class="team">${t.team}</div><div class="pct">${fmt(t[k])}</div></div></div></div>`;
-$('#favs').innerHTML=fav('shield',"Supporters' Shield",sBy('shield'),'shield')+fav('hfa','Top-4 Home Field',sBy('hfa'),'hfa')+fav('spoon','Wooden Spoon',sBy('spoon'),'spoon');
-$('#laddernote').textContent=`Top ${D.playoff_slots} per conference make the playoffs · top ${D.hfa_slots} host round one · cells heat-mapped by odds`;
+  <div class="teamrow">${crest(t.team,t.logo)}<div class="ftxt"><div class="team">${t.team}</div></div></div>
+  <div class="favstats"><span class="pct">${fmt(t[k])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts</span></div></div>`;
+$('#favs').innerHTML=
+  fav('shield',"Supporters' Shield",sBy('shield'),'shield')+
+  fav('east','Eastern Conference',sByConf('East'),'conf_win')+
+  fav('west','Western Conference',sByConf('West'),'conf_win')+
+  fav('spoon','Wooden Spoon',sBy('spoon'),'spoon');
+$('#laddernote').textContent=`Top ${D.playoff_slots} per conference make the playoffs · seeds 8–9 play a wild-card play-in · top ${D.hfa_slots} host round one · cells heat-mapped by odds`;
 
 /* ladders with heat-mapped odds */
 const MAX={po:Math.max(...D.standings.map(s=>s.playoff),1),hfa:Math.max(...D.standings.map(s=>s.hfa),1),
   sh:Math.max(...D.standings.map(s=>s.shield),1),sp:Math.max(...D.standings.map(s=>s.spoon),1)};
 function hcell(v,key){return v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGB[key],MAX[key])}">${v.toFixed(0)}</span>`;}
+const sgn=v=>(v>0?'+':'')+v;
+const sgnf=v=>(v>0?'+':'')+v.toFixed(1);
 function ladder(conf){
-  const teams=D.standings.filter(s=>s.conf===conf).sort((a,b)=>(b.pts-a.pts)||(b.proj_pts-a.proj_pts));
+  const teams=D.standings.filter(s=>s.conf===conf).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
   const box=el('div','ladder '+conf.toLowerCase());
   box.appendChild(el('div','ladder-h',`<span class="name"><span class="conf-dot"></span>${conf}ern Conference</span>`));
-  box.appendChild(el('div','col-head',`<span>#</span><span>Club</span><span class="c c-pts">Pts</span><span class="c">PO</span><span class="c">Host</span><span class="c">Sh</span><span class="c">Sp</span>`));
+  box.appendChild(el('div','col-head',
+    `<span>#</span><span>Club</span>`+
+    `<span class="c c-pts">Pts</span>`+
+    `<span class="c c-proj">Proj Pts</span>`+
+    `<span class="c">PO</span><span class="c">Top 4</span><span class="c">Shield</span><span class="c">Spoon</span>`));
   teams.forEach((t,i)=>{
     const r=el('div','row'+(i<D.hfa_slots?' hfa':''));
-    const sub=(t.gp!=null)?`${t.gp} GP · proj ${t.proj_pts}`:`proj ${t.proj_pts}`;
+    const sub=`${t.gp} GP · ${sgn(t.gd)} GD · ${sgnf(t.xgd)} xGD`;
     r.innerHTML=`<span class="rank">${i+1}</span>`+
-      `<span class="tcell">${crest(t.team,t.logo)}<span style="min-width:0"><span class="tname">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
-      `<span class="pts">${t.pts!=null?t.pts:t.proj_pts}</span>`+
+      `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
+      `<span class="pts">${t.pts}</span>`+
+      `<span class="projc">${t.proj_pts}</span>`+
       hcell(t.playoff,'po')+hcell(t.hfa,'hfa')+hcell(t.shield,'sh')+hcell(t.spoon,'sp');
     box.appendChild(r);
+    if(i===6) box.appendChild(el('div','wc-line','<span class="lab">Wild card · play-in</span>'));
     if(i===D.playoff_slots-1) box.appendChild(el('div','po-line','<span class="lab">Playoff line</span>'));
   });
   return box;
@@ -279,6 +317,12 @@ function band(g){
   return `<div class="band">`+segs.map(([k,p,bg,fg])=>{const w=p*100;
     return `<div class="${k===favk?'fav-seg':''}${w<13?' tiny':''}" style="width:${w}%;background:${bg};color:${fg}"><span>${w.toFixed(1)}%</span></div>`;}).join('')+`</div>`;
 }
+/* fair American odds row, color-keyed to the band (home/away team color, draw gray) */
+function oddsRow(g){
+  const cells=[['Home',g.pH,vis(g.hcolor)],['Draw',g.pD,'var(--txt-2)'],['Away',g.pA,vis(g.acolor)]];
+  return `<div class="odds3">`+cells.map(([lab,p,col])=>
+    `<div class="oc"><span class="ol">${lab}</span><span class="op">${(p*100).toFixed(1)}%</span><span class="oa" style="color:${col}">${american(p)}</span></div>`).join('')+`</div>`;
+}
 function topPick(g){return [['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,s)=>s[1]>m[1]?s:m)[0];}
 function resultBadge(g){if(g.result==null)return'';const ok=topPick(g)===g.result;
   return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${g.result==='H'?'Home':g.result==='D'?'Draw':'Away'}</span>`;}
@@ -296,8 +340,8 @@ function renderGames(){
       (played?`<div class="g-score">${g.hg}<span class="v">–</span>${g.ag}</div>`:`<div class="g-score upcoming">vs</div>`)+
       `<div class="g-side away">${crest(g.away,g.alogo)}<span style="min-width:0"><span class="tn">${g.away}</span></span></div></div>`+
       band(g)+
-      `<div class="g-foot"><span>Home ${fmt(g.pH*100)} · Draw ${fmt(g.pD*100)} · Away ${fmt(g.pA*100)}</span>`+
-      `<span style="margin-left:auto">${resultBadge(g)}</span></div>`;
+      oddsRow(g)+
+      (played?`<div class="g-foot"><span style="margin-left:auto">${resultBadge(g)}</span></div>`:'');
     grp.appendChild(card);});
   if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
 }

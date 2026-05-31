@@ -154,13 +154,18 @@ def main():
     def dc_probs(htid, atid):
         return rm._dc_predict(htid, atid, atk, dfd, ha, rho)   # (pH, pD, pA)
 
-    # ── Current standings from played frame games ────────────────────────────
-    pts, gp = {}, {}
+    # ── Current standings from played frame games (pts, GD, xGD) ─────────────
+    pts, gp, gf, ga, xgf, xga = {}, {}, {}, {}, {}, {}
     for _, r in played.iterrows():
         h, a = r["home_team"], r["away_team"]
         if _conf(_norm(id2name.get(h, ""))) is None: continue
         hg, ag = r["home_goals"], r["away_goals"]
+        hx, ax = float(np.nan_to_num(r["home_xg"])), float(np.nan_to_num(r["away_xg"]))
         for t in (h, a): gp[t] = gp.get(t, 0) + 1
+        gf[h] = gf.get(h, 0) + hg; ga[h] = ga.get(h, 0) + ag
+        gf[a] = gf.get(a, 0) + ag; ga[a] = ga.get(a, 0) + hg
+        xgf[h] = xgf.get(h, 0) + hx; xga[h] = xga.get(h, 0) + ax
+        xgf[a] = xgf.get(a, 0) + ax; xga[a] = xga.get(a, 0) + hx
         if hg > ag: pts[h] = pts.get(h, 0) + 3
         elif hg < ag: pts[a] = pts.get(a, 0) + 3
         else: pts[h] = pts.get(h, 0) + 1; pts[a] = pts.get(a, 0) + 1
@@ -198,7 +203,7 @@ def main():
     RH = np.array([idx[h] for (h, a) in remaining]); RA = np.array([idx[a] for (h, a) in remaining])
     N = args.sims
     playoff = np.zeros(nT); hfa = np.zeros(nT); shield = np.zeros(nT); spoon = np.zeros(nT)
-    proj = np.zeros(nT)
+    confwin = np.zeros(nT); proj = np.zeros(nT)
     east_i = np.where(confs == "East")[0]; west_i = np.where(confs == "West")[0]
     print(f"Simulating {N:,} seasons · {len(remaining)} remaining fixtures · {nT} teams...")
     for _ in range(N):
@@ -214,6 +219,7 @@ def main():
         for ci in (east_i, west_i):
             order = ci[np.argsort(-j[ci])]
             playoff[order[:_PLAYOFF_SLOTS]] += 1; hfa[order[:_HFA_SLOTS]] += 1
+            confwin[order[0]] += 1
         shield[np.argmax(j)] += 1; spoon[np.argmin(j)] += 1
 
     standings = []
@@ -221,13 +227,16 @@ def main():
         i = idx[t]
         standings.append({"team": id2name.get(t, t), "conf": confs[i],
                           "pts": int(base_pts[i]), "gp": gp.get(t, 0),
+                          "gd": int(round(gf.get(t, 0) - ga.get(t, 0))),
+                          "xgd": round(xgf.get(t, 0) - xga.get(t, 0), 1),
                           "proj_pts": round(proj[i] / N, 1),
                           "playoff": round(playoff[i] / N * 100, 1),
                           "hfa": round(hfa[i] / N * 100, 1),
                           "shield": round(shield[i] / N * 100, 1),
                           "spoon": round(spoon[i] / N * 100, 1),
+                          "conf_win": round(confwin[i] / N * 100, 1),
                           "logo": meta(t).get("logo"), "color": meta(t).get("color")})
-    standings.sort(key=lambda s: (-s["pts"], -s["proj_pts"]))
+    standings.sort(key=lambda s: (-s["pts"], -s["gd"], -s["proj_pts"]))
 
     # ── Game cards: played (ensemble) + upcoming (DC) ────────────────────────
     games = []
