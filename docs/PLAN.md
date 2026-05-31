@@ -101,6 +101,24 @@ python scripts/experiment.py compare
 
 ---
 
+## Phase 9 — Match-level Availability via ESPN box scores (opened 2026-05-31)
+
+**Why:** Phase 8 closed because match-level availability (the one lever with real upside) wasn't reachable from ASA. Per the documented re-entry condition, Phase 9 verifies + builds the ESPN box-score integration.
+
+**Feasibility — VERIFIED (2026-05-31):** ESPN hidden API `summary?event={id}` (`site.api.espn.com/apis/site/v2/sports/soccer/usa.1`) returns full per-match **rosters back to 2022**: each player has `starter`, `subbedIn`, `subbedOut`, `active`, `position`, `athlete.displayName`. Match-level participation EXISTS, is free, and covers the 2022-2024 eval window. The data-availability blocker that killed the ASA approach is resolved.
+
+**Build plan:**
+1. **Scraper** (`data_pipeline/` + cache to CSV like weather/TM): enumerate MLS event IDs per date via `scoreboard?dates=YYYYMMDD`, fetch `summary` per event (~1,530 matches over 2022-2024), extract per-team matchday roster (active players + starter/sub flags). Cache to `data/espn_rosters_*.csv`; polite rate-limiting.
+2. **Name-join (THE RISK):** match ESPN `displayName` → ASA player (which holds g+/xG/xA quality). Needs a fuzzy/normalized name map + a coverage report; unmatched players degrade the index. De-risk this on one season before the full scrape.
+3. **Availability index:** per match, `avail_g+_share = Σ(season g+ of active players) / Σ(season g+ of full squad)`, computed for attackers (xG/xA) and GK. Leakage-safe (uses the matchday roster, known at kickoff, × prior-season quality).
+4. **AB set** `+Availability` → `experiment.py run --cache --seed 42 -- --ab-only "Base,+Availability"` → KEEP if Δ>0.001.
+
+**Risks:** name-join coverage; ESPN scrape fragility/rate limits; whether availability adds signal beyond ELO/form (the empirical question). Free throughout (ESPN no-key).
+
+**STATUS: feasibility verified; build not yet started (awaiting go-ahead before the ~1,530-call scrape).**
+
+---
+
 ## Phase 8 — Feature Expansion & Subagent Roster Expansion (planned 2026-05-30)
 
 > **STATUS: CLOSED 2026-05-31 — Option A (stop & bank).** The ASA-only feature hunt is concluded.
