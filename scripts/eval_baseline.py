@@ -1514,6 +1514,56 @@ _FEAT_TEAMSAL = ["home_payroll_z", "away_payroll_z", "payroll_z_diff",
                  "home_pay_conc", "away_pay_conc", "pay_conc_diff"]
 
 
+# ─── 5j. GK distribution/sweeping g+ (Phase 11 iter 4) ────────────────────────
+# Shot-stopping is already in Base (goals-prevented). NEW signal: the GK's NON-
+# shotstopping goals-added (Passing+Sweeping+Handling+Claiming) — distribution &
+# command of area. Season-lagged z-score of the team's main GK.
+print("\n[5j/9] Building GK distribution g+ features...")
+_gk_dist: dict[tuple, float] = {}     # (team_id, season) -> non-shotstopping g+ z
+_gk_dist_raw: dict[tuple, float] = {}
+for _s in _SQUAD_SEASONS:
+    try:
+        _gga = _cf(asa.get_goalkeeper_goals_added, leagues="mls", season_name=str(_s))
+    except Exception:
+        continue
+    if "data" not in _gga.columns:
+        continue
+    _by_team: dict = {}      # team -> (minutes, non_ss_g+)
+    for _r in _gga.itertuples():
+        tid = getattr(_r, "team_id", None)
+        mins = float(getattr(_r, "minutes_played", 0) or 0)
+        data = getattr(_r, "data", None)
+        if not isinstance(tid, str) or not isinstance(data, (list, tuple)):
+            continue
+        nonss = sum(float(a.get("goals_added_above_avg", 0) or 0)
+                    for a in data if a.get("action_type") != "Shotstopping")
+        if mins > _by_team.get(tid, (0.0, 0.0))[0]:   # keep team's main GK (most minutes)
+            _by_team[tid] = (mins, nonss)
+    for tid, (_m, v) in _by_team.items():
+        _gk_dist_raw[(tid, _s)] = v
+    _vals = [v for (t, ss), v in _gk_dist_raw.items() if ss == _s]
+    if len(_vals) >= 3:
+        _mu, _sd = float(np.mean(_vals)), max(float(np.std(_vals)), 0.1)
+        for (t, ss), v in list(_gk_dist_raw.items()):
+            if ss == _s:
+                _gk_dist[(t, _s)] = (v - _mu) / _sd
+print(f"    GK distribution: {len(_gk_dist)} team-seasons")
+
+
+def _gkd_lookup(tid, season):
+    for lag in (1, 2):
+        val = _gk_dist.get((tid, season - lag))
+        if val is not None:
+            return val
+    return 0.0
+
+
+df["home_gk_dist_z"] = [_gkd_lookup(r.home_team, int(r.season)) for r in df.itertuples()]
+df["away_gk_dist_z"] = [_gkd_lookup(r.away_team, int(r.season)) for r in df.itertuples()]
+df["gk_dist_diff"] = df["home_gk_dist_z"] - df["away_gk_dist_z"]
+_FEAT_GKDIST = ["home_gk_dist_z", "away_gk_dist_z", "gk_dist_diff"]
+
+
 # _FEAT_AVAIL (ESPN roster availability) promoted to Base 2026-05-31 — KEEP Δ=+0.0011
 # with full 2017-2024 roster history. Empty list (graceful) when rosters absent.
 _FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + ["is_playoff"] + _FEAT_AVAIL
@@ -1611,6 +1661,7 @@ if _FEAT_AVAIL:
 if _FEAT_SALARY:
     AB_SETS["+SalaryRoster"] = _FEAT_BASE + _FEAT_SALARY
 AB_SETS["+TeamSalary"] = _FEAT_BASE + _FEAT_TEAMSAL
+AB_SETS["+GKDistribution"] = _FEAT_BASE + _FEAT_GKDIST
 if _FEAT_AVAIL_ST:
     AB_SETS["+AvailStarters"] = _FEAT_BASE + _FEAT_AVAIL_ST
 if _FEAT_AVAIL and _FEAT_SALARY:

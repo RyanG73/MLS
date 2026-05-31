@@ -118,6 +118,7 @@ python scripts/experiment.py compare
 - **T3 — FAIR roster A/B (Iteration 1)** ✅ **KEEP**: with full training history, `+Availability` (g+ roster-share, expanding-mean normalized) Δ=**+0.0011 → KEEP**; salary-share variants DROP. **Promoted to Base: best_brier 0.6363 → 0.6344 (+0.97% over naive).** The lineup hypothesis holds once given history; the earlier DROP was a 3-season-history confound. **Goal 0.6086 still ~4% away.**
 - **T4 — team salary (Iteration 2)** ❌ DROP (Δ=−0.0045): payroll/DP-concentration redundant with ELO. Talent-investment proxies (player salary-share + team payroll) now both confirmed redundant. Default unchanged 0.6344.
 - **T5 — starter-weighted availability (Iteration 3)** ❌ DROP (Δ=−0.0013): redundant with active-squad availability already in Base. The lineup signal is one feature, not deepenable.
+- **T6 — GK distribution g+ (Iteration 4)** ❌ DROP (Δ=−0.0014): non-shotstopping GK g+ redundant with GK quality in Base.
 - **T4+ (loop iterations 2-5, hourly):** next data sources — ASA managers/team-salaries/GK-goals-added, weather, FBref richer signals; and refine the availability feature (starter-XI vs matchday-squad weighting).
 
 ---

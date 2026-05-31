@@ -183,3 +183,6 @@ Dispatched all four component agents in parallel git worktrees against the froze
 
 ### Phase 11 loop — Iteration 3 (2026-05-31): starter-weighted availability DROP
 `+AvailStarters` (g+ share of STARTERS only, on top of active-squad availability already in Base): Δ=−0.0013 → **DROP**. The active-matchday-squad availability already captures the lineup signal; starter-only granularity is redundant + adds 3 noisy features. The availability vein is a single feature (active-squad g+ share), not deepenable. Default unchanged 0.6344. experiment_id: p11-avail-starters-20260531T053820
+
+### Phase 11 loop — Iteration 4 (2026-05-31): GK distribution g+ DROP
+`+GKDistribution` (non-shotstopping GK goals-added: Passing+Sweeping+Handling+Claiming, season-lagged z): Δ=−0.0014 → **DROP**. Redundant with the GK shot-stopping quality already in Base; adds noise. Default unchanged 0.6344. experiment_id: p11-gkdist-20260531T063804
