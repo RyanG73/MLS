@@ -101,6 +101,31 @@ python scripts/experiment.py compare
 
 ---
 
+## Phase 8 — Feature Expansion & Subagent Roster Expansion (planned 2026-05-30)
+
+**Why:** Knob-tuning has plateaued at **best_brier 0.6363 / cal_err 0.1326** (~+0.67% over naive). Every parameter sweep + post-hoc calibration tweak now DROPs; the only KEEPs were structural (capped-DC blend, weight_hl unlocked by it). Further gains require **new signal — richer team/player features**, not more sweeps. Plan built from a 28-question requirements deep-dive.
+
+**Hard constraints:** all sources **free** (ASA, ESPN, Open-Meteo, Transfermarkt-via-R); **Brier sole KEEP metric** (Δ>0.001, calibration reported not gated); venue **cloud-when-free-credits else local-sequential** (thread-capped).
+
+**Design decisions:** roster/injury-aware (not full XI) · in-season rolling preferred (as-of cutoffs) · opt-in DB reads behind a flag (default DB-free) · feature-**family** discovery (sweep a family, isolate winner) · breadth-first (cheap probes first, then deepen).
+
+**Keystone unlock — availability from ASA minutes:** proxy historical absences from per-player minutes (a regular starter whose minutes collapse to ~0 was likely out). Reconstructs availability for 2017-2024 free, no scraping, leakage-safe (as-of match date). ESPN injuries handle live/forward; minutes-proxy handles backtest.
+
+**Feature families (execution order):**
+- *Phase A — cheap probes:* (1) **finish Transfermarkt** `+TM_SquadValue` (value/avg-age/n_internationals) — START HERE; (2) travel/rest + all-competition congestion (port `features/travel_features.py`); (3) match context — rivalry/altitude/turf (`features/match_context.py`); (4) set-piece xG **conceded** (untested half of `+ASA_xGSplit`); (5) rolling tactical style — PPDA+pressure%, field tilt, progression (unused `get_team_xpass` cols).
+- *Phase B — data layer:* ASA-minutes injury proxy + ESPN forward injuries + opt-in DB/CSV layer; referee tendencies (`features/referee_features.py`).
+- *Phase C — flagship:* availability-weighted g+ index (attackers xG/xA + GK), action-type-decomposed g+, availability-weighted star power (re-frame failed TopN), GK availability + save%-over-expected.
+- *Phase D — interactions:* matchup style×style + availability×congestion cross-terms.
+- *Parked:* 2024 distribution-shift (capped-DC masks it); FBref/R (fragility) — revisit only if families stall.
+
+**New subagents (`.claude/agents/`):** `data-integrator` (free-source wiring, minutes-proxy, opt-in DB), `availability-modeler` (avail-g+ family end-to-end), `feature-interaction` (marginal×marginal + matchup sweeps). Existing 4 agents move to family-discovery mode.
+
+**Files:** `scripts/eval_baseline.py` (per-player extraction helpers, minutes-availability index, rolling style features, new `AB_SETS`, opt-in DB flag); `scripts/import_transfermarkt.py`; port from `features/{travel_features,match_context,referee_features}.py`; `data_pipeline/injury_scraper.py` + minutes-proxy helper; new agent defs + `.claude/commands/improve-model.md` (family discovery + venue policy).
+
+**Verification:** each family → `+Family` AB set → `experiment.py run --cache --seed 42 -- --ab-only "Base,+Family"` → KEEP if Δ>0.001 → promote to `_FEAT_BASE`; minutes-proxy leakage test (as-of cutoff; spot-check a known injury reduces `avail_g+_share`); opt-in DB flag OFF reproduces 0.6363 exactly; `pytest` green; runs stay local-sequential / free-credit cloud.
+
+---
+
 ## Deferred features
 
 - **FotMob integration** — deferred 2026-05-16. No documented public API; `pyfotmob` is reverse-engineered against the mobile endpoint and can break silently on any FotMob frontend change. Revisit only if ASA player metrics + Transfermarkt squad value plateau; needs an explicit ADR on scraping cost/risk vs incremental signal. Likely candidates if revived: per-match player ratings (avg starter rating, top-3 starter mean, defensive line rating). Same one-time-fetch-cached-to-CSV pattern as weather.
