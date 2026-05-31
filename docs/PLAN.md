@@ -116,7 +116,15 @@ python scripts/experiment.py compare
 - **xg_windows [5,10,20]→[5,15]** and **drop the O/U model** (research is 1X2-only) — feature/structural changes.
 - These change prediction behavior and must be validated on the Pi (DuckDB + data) before deploy; the unit tests don't exercise the blend math.
 
-**STATUS: config + bug-fix ported and verified; structural model port specified, pending the production environment for E2E validation.**
+**STATUS: config + bug-fix ported and verified; structural model port specified.**
+
+### Phase 10b — CSV-backed local validation (no Pi needed) — 2026-05-31
+
+**Key finding:** the production model classes are **DataFrame-in and DB-agnostic** (`DixonColesModel.fit(df)`, `GradientBoostModels` uses *dynamic* `get_feature_columns(df)`, `StackingEnsemble.fit(oof_df)`). The DB (Postgres) only feeds `feature_builder.build_training_dataset()` and stores predictions — **not the model logic**. So the structural port can be validated **locally on a CSV frame**; only the DB read/write IO waits for the Pi.
+
+**Built:** `scripts/eval_baseline.py --dump-frame` exports the validated feature frame → `data/parity_frame.parquet`; `scripts/parity_check.py` runs production model classes on it, no DB. **Proven:** production `DixonColesModel` runs DB-free on the CSV frame (DC-alone Brier ~0.654, expected ballpark) ✓ — the local validation loop works.
+
+**Next increment (the real port, now fully local):** the production `GradientBoostModels`/`StackingEnsemble` are structurally divergent from the validated research model — they carry the dropped **O/U model**, **Optuna** tuning (vs research grid), and **isotonic `CalibratedClassifierCV`** stacking (vs capped-DC blend + temperature). Completing parity = porting those to match research (drop O/U, grid, capped-DC blend, weight_hl=6, temperature) and extending `parity_check.py` to assert the blend reproduces **0.6363**. Recommended architecture: a **single shared validated model module** imported by both the research harness and production, rather than maintaining two divergent stacks. All of it runs locally; the Pi sees only IO wiring at deploy.
 
 ---
 

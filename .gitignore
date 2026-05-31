@@ -39,3 +39,6 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Derived parity dataset (regenerable via eval_baseline --dump-frame)
+data/*.parquet

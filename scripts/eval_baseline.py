@@ -94,6 +94,9 @@ def _parse_args() -> "_ap.Namespace":
                    help="Random seed for numpy/xgboost reproducibility")
     p.add_argument("--out",          type=str,   default=None,
                    help="Write results JSON to this file path")
+    p.add_argument("--dump-frame",   type=str,   default=None,
+                   help="Export the fully-assembled feature DataFrame to this parquet "
+                        "path and exit (for the production parity harness)")
     return p.parse_args()
 
 
@@ -1694,6 +1697,18 @@ def multiclass_brier(y_oh: np.ndarray, probs: np.ndarray) -> float:
 
 def per_class_brier(y_oh: np.ndarray, probs: np.ndarray) -> tuple:
     return tuple(float(np.mean((probs[:, c] - y_oh[:, c]) ** 2)) for c in range(3))
+
+
+# ─── Optional: dump the assembled feature frame and exit (parity harness) ─────
+if _ARGS.dump_frame:
+    import sys as _sys
+    _dp = _Path(_ARGS.dump_frame)
+    _dp.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(_dp, index=False)
+    print(f"\nAssembled feature frame dumped → {_dp} "
+          f"({len(df):,} rows, {len(df.columns)} cols, seasons "
+          f"{int(df['season'].min())}–{int(df['season'].max())})")
+    _sys.exit(0)
 
 
 # ─── Walk-forward evaluation ──────────────────────────────────────────────────
