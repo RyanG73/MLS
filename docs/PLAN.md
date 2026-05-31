@@ -111,12 +111,18 @@ python scripts/experiment.py compare
 
 **Keystone unlock — availability from ASA minutes:** proxy historical absences from per-player minutes (a regular starter whose minutes collapse to ~0 was likely out). Reconstructs availability for 2017-2024 free, no scraping, leakage-safe (as-of match date). ESPN injuries handle live/forward; minutes-proxy handles backtest.
 
-**Feature families (execution order):**
-- *Phase A — cheap probes:* (1) **finish Transfermarkt** `+TM_SquadValue` (value/avg-age/n_internationals) — START HERE; (2) travel/rest + all-competition congestion (port `features/travel_features.py`); (3) match context — rivalry/altitude/turf (`features/match_context.py`); (4) set-piece xG **conceded** (untested half of `+ASA_xGSplit`); (5) rolling tactical style — PPDA+pressure%, field tilt, progression (unused `get_team_xpass` cols).
-- *Phase B — data layer:* ASA-minutes injury proxy + ESPN forward injuries + opt-in DB/CSV layer; referee tendencies (`features/referee_features.py`).
-- *Phase C — flagship:* availability-weighted g+ index (attackers xG/xA + GK), action-type-decomposed g+, availability-weighted star power (re-frame failed TopN), GK availability + save%-over-expected.
-- *Phase D — interactions:* matchup style×style + availability×congestion cross-terms.
-- *Parked:* 2024 distribution-shift (capped-DC masks it); FBref/R (fragility) — revisit only if families stall.
+> **⚠️ EXECUTION FINDINGS (2026-05-31) — major data-feasibility blocks discovered on kickoff:**
+> - **Phase A cheap tier is a dead end:** +TravelRest and +Context both DROP (−0.0002, absorbed by ELO/form). Set-piece xG splits and game-level PPDA/possession are **not populated in ASA's MLS feed** (so +ASA_xGSplit-conceded and rolling tactical-style are impossible, not just untested).
+> - **Phase C keystone is INFEASIBLE as designed:** ASA player endpoints are **season-aggregate only — no per-game minutes**. The "injury proxy from ASA minutes" cannot work (a season total can't reveal which matches a player missed). Match-level availability would require **ESPN box-score/lineup scraping per game** (heavier build; 2022-2024 historical-depth unverified) — a different, larger project than planned.
+> - **Transfermarkt:** `worldfootballR` install **failed** on macOS (system-dep issue); still blocked.
+> - **Implication:** 0.6363 (+0.67% vs naive) may be near the genuine ceiling for free, season-aggregate, ASA-only data. The remaining real lever (match-level availability via ESPN box scores) is a scraping-integration decision, not a quick feature. Revisit the family list below only after that decision.
+
+**Feature families (ORIGINAL plan — superseded in part by the findings above):**
+- *Phase A — cheap probes:* travel/rest + context = DROP; set-piece-conceded + tactical-style = data-unavailable. Tier exhausted.
+- *Phase B — data layer:* the ASA-minutes injury proxy is infeasible (see findings); ESPN forward-injuries + opt-in DB + referee remain *possible* but unvalidated.
+- *Phase C — flagship:* availability-weighted g+ requires **per-game** participation data ASA does not provide → blocked pending an ESPN box-score integration decision.
+- *Phase D — interactions:* matchup style×style + availability×congestion — depends on the above data, currently blocked.
+- *Parked:* 2024 distribution-shift (capped-DC masks it); FBref/R (fragility).
 
 **New subagents (`.claude/agents/`):** `data-integrator` (free-source wiring, minutes-proxy, opt-in DB), `availability-modeler` (avail-g+ family end-to-end), `feature-interaction` (marginal×marginal + matchup sweeps). Existing 4 agents move to family-discovery mode.
 
