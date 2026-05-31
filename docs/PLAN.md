@@ -101,6 +101,25 @@ python scripts/experiment.py compare
 
 ---
 
+## Phase 10 — Production Port (opened 2026-05-31)
+
+**Why:** the research harness validated a materially better model (0.6392→0.6363) but the live pipeline (`features/`, `models/`, `config/`) still runs an older, unvalidated config. Per CLAUDE.md ("improve eval first, then port"), this port is overdue. **Constraint discovered: no DuckDB in this env, so the production pipeline can't be run end-to-end here** — verification is unit tests + clean imports + config-flow checks; full E2E must run on the Pi/production box.
+
+**DONE (verified here):**
+- **Fixed the long-standing `datetime` NameError** in `models/stacking_ensemble.py` (missing import) → test suite now **10 passed / 1 skipped** (was 9/1-fail all session).
+- **Aligned wired+validated config** in `config/settings.yaml` to CLAUDE.md decisions, confirmed consumed by production modules: ELO `k_factor 20→25`, `home_advantage_elo 100→80`, `season_regression_pct 0.30→0.50`; Dixon-Coles `time_decay_half_life_days 180→120`.
+
+**DEFERRED — structural sub-step (needs CODE changes + production-env E2E validation):**
+- **Capped-DC convex blend** — replace the LR+isotonic meta-learner in `models/stacking_ensemble.py` `fit/predict` with the validated `w*XGB+(1-w)*DC, w∈[0.7,1.0]` blend.
+- **Temperature calibration** — code hardcodes `CalibratedClassifierCV(method="isotonic")`; wire it to the validated temperature method (the `calibration_method` YAML is currently ignored).
+- **XGB season weighting `weight_hl=6`** — add to `models/gradient_boost.py` (absent in prod).
+- **xg_windows [5,10,20]→[5,15]** and **drop the O/U model** (research is 1X2-only) — feature/structural changes.
+- These change prediction behavior and must be validated on the Pi (DuckDB + data) before deploy; the unit tests don't exercise the blend math.
+
+**STATUS: config + bug-fix ported and verified; structural model port specified, pending the production environment for E2E validation.**
+
+---
+
 ## Phase 9 — Match-level Availability via ESPN box scores (opened 2026-05-31)
 
 **Why:** Phase 8 closed because match-level availability (the one lever with real upside) wasn't reachable from ASA. Per the documented re-entry condition, Phase 9 verifies + builds the ESPN box-score integration.
