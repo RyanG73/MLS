@@ -33,8 +33,12 @@ _FIELDS = [
     "season", "event_id", "date", "team_abbr", "team_name", "is_home",
     "player_name", "active", "starter", "subbed_in", "subbed_out",
 ]
-# MLS season windows (regular season + playoffs)
+# MLS season windows (regular season + playoffs). 2020 excluded (COVID; model drops it).
 _WINDOWS = {
+    2017: ("20170301", "20171215"),
+    2018: ("20180301", "20181215"),
+    2019: ("20190301", "20191115"),
+    2021: ("20210401", "20211215"),
     2022: ("20220225", "20221105"),
     2023: ("20230225", "20231210"),
     2024: ("20240221", "20241210"),

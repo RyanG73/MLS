@@ -1285,6 +1285,7 @@ def _norm_nm(n) -> str:
 
 
 _FEAT_AVAIL: list = []
+_FEAT_SALARY: list = []
 if _HAS_AVAIL:
     print("\n[5g/9] Building ESPN availability-weighted xG+xA features...")
     _pl = _cf(asa.get_players, leagues="mls")
@@ -1378,6 +1379,74 @@ if _HAS_AVAIL:
     print(f"    Availability built. Coverage: test-seasons {_cov:.0%}, "
           f"whole-history {_glob:.0%} (rosters only exist 2022-2024)")
     _FEAT_AVAIL = ["home_avail_share", "away_avail_share", "avail_share_diff"]
+
+    # ── Salary-weighted roster strength (5h) ─────────────────────────────────
+    # guaranteed_compensation is set pre-season → same-season use is leakage-safe,
+    # and covers ~100% of players (incl. new DPs), unlike prior-season g+.
+    # Feature = fraction of team payroll active in the matchday squad + DP-present flag.
+    print("[5h/9] Building salary-weighted roster features...")
+    _sal: dict[tuple, float] = {}        # (norm_name, season) -> guaranteed comp
+    _team_sal: dict[tuple, float] = {}   # (team_id, season) -> total payroll
+    _top_paid: dict[tuple, str] = {}     # (team_id, season) -> norm_name of top earner
+    for _s in _SQUAD_SEASONS:
+        try:
+            _sl = _cf(asa.get_player_salaries, leagues="mls", season_name=str(_s))
+        except Exception:
+            continue
+        if "guaranteed_compensation" not in _sl.columns:
+            continue
+        _best: dict = {}
+        for _r in _sl.dropna(subset=["player_id", "guaranteed_compensation"]).itertuples():
+            nm = _id2name.get(_r.player_id)
+            comp = float(_r.guaranteed_compensation)
+            tid = getattr(_r, "team_id", None)
+            if nm:
+                _sal[(nm, _s)] = _sal.get((nm, _s), 0.0) + comp
+            if isinstance(tid, str):
+                _team_sal[(tid, _s)] = _team_sal.get((tid, _s), 0.0) + comp
+                if nm and comp > _best.get(tid, ("", -1.0))[1]:
+                    _best[tid] = (nm, comp)
+        for tid, (nm, _c) in _best.items():
+            _top_paid[(tid, _s)] = nm
+    print(f"    Salary map: {len(_sal):,} (player,season); {len(_team_sal)} team-seasons")
+
+    def _active_set(team_id, day):
+        names = _avail_roster.get((team_id, day))
+        if names is None:
+            _b = _dt2.date.fromisoformat(day)
+            for _off in (-1, 1):
+                names = _avail_roster.get(
+                    (team_id, (_b + _dt2.timedelta(days=_off)).isoformat()))
+                if names:
+                    break
+        return names
+
+    _hs, _as, _hdp, _adp = [], [], [], []
+    for _, _r in df.iterrows():
+        _day = _r["date"].strftime("%Y-%m-%d"); _sea = int(_r["season"])
+        sv, dv = {}, {}
+        for _tid, _k in [(_r["home_team"], "h"), (_r["away_team"], "a")]:
+            names = _active_set(_tid, _day)
+            tot = _team_sal.get((_tid, _sea), 0.0)
+            if not names or tot <= 0:
+                sv[_k] = 1.0; dv[_k] = 1.0       # neutral when no roster/salary data
+            else:
+                avail = sum(_sal.get((nm, _sea), 0.0) for nm in set(names))
+                sv[_k] = avail / tot
+                top = _top_paid.get((_tid, _sea))
+                dv[_k] = 1.0 if (top and top in set(names)) else 0.0
+        _hs.append(sv["h"]); _as.append(sv["a"]); _hdp.append(dv["h"]); _adp.append(dv["a"])
+    df["home_salary_share"] = _hs
+    df["away_salary_share"] = _as
+    df["salary_share_diff"] = df["home_salary_share"] - df["away_salary_share"]
+    df["home_dp_avail"] = _hdp
+    df["away_dp_avail"] = _adp
+    df["dp_avail_diff"] = df["home_dp_avail"] - df["away_dp_avail"]
+    _scov = (float((df[df["season"].isin(TEST_SEASONS)]["home_salary_share"] != 1.0).mean())
+             if len(_tw) else 0.0)
+    print(f"    Salary roster built. Test-season coverage: {_scov:.0%}")
+    _FEAT_SALARY = ["home_salary_share", "away_salary_share", "salary_share_diff",
+                    "home_dp_avail", "away_dp_avail", "dp_avail_diff"]
 else:
     print("\n[5g/9] ESPN availability: data/espn_rosters.csv not found — skipping.")
 
@@ -1474,6 +1543,10 @@ _FEAT_CONTEXT = ["is_dome", "is_high_alt"]   # match-context flags (already comp
 AB_SETS["+Context"]    = _FEAT_BASE + _FEAT_CONTEXT
 if _FEAT_AVAIL:
     AB_SETS["+Availability"] = _FEAT_BASE + _FEAT_AVAIL
+if _FEAT_SALARY:
+    AB_SETS["+SalaryRoster"] = _FEAT_BASE + _FEAT_SALARY
+if _FEAT_AVAIL and _FEAT_SALARY:
+    AB_SETS["+RosterState"] = _FEAT_BASE + _FEAT_AVAIL + _FEAT_SALARY
 AB_SETS["+All"]        = _FEAT_ALL
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")

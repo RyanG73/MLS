@@ -101,6 +101,23 @@ python scripts/experiment.py compare
 
 ---
 
+## Phase 11 — Data Expansion toward +5% (opened 2026-05-31)
+
+**Goal (user):** best_brier ≤ **0.6086** (5% better than naive 0.6406). Current 0.6363 (+0.67%). Pursue richer data: team/player/manager/conditions, and especially **lineup/roster state**. Market-blind (model must stay blind to betting odds to preserve edge — the production purpose).
+
+**Honest ceiling (research):** peer benchmarks ([Wilkens 2026, Bundesliga](https://journals.sagepub.com/doi/10.1177/22150218261416681)) — a strong xG model scores Brier ~0.63, the **bookmaker market ~0.59**, in a *more predictable* league than MLS. +5% (0.6086) is below the market's own Brier; market-blind in high-variance MLS it is likely **beyond the achievable frontier**. Realistic ambitious target: close the gap toward the MLS market-implied Brier (~0.61–0.63). Pursue hard; report the true frontier rather than spin on an impossible number.
+
+**New data sources found (all free):**
+- **ASA player salaries** (`get_player_salaries`) — `guaranteed_compensation` per player/season, **100% coverage 2017-2024**, set pre-season (leakage-safe same-season), captures DP/star structure. The right roster-quality weight (fixes the g+ coverage gap that sank +Availability).
+- **ASA managers** (`get_managers`), **team salaries**, **GK goals-added** — unused, queued.
+- **ESPN box-score rosters back to 2017** (verified) — enables full-history lineup features.
+
+**Task log:**
+- **T1 — salary-weighted roster** (`+SalaryRoster`: payroll-share active + DP-available; `+RosterState`: g+ avail + salary): **DROP** (Δ−0.0008 / −0.0012) — **but CONFOUNDED**: roster data only existed 2022-2024, so the walk-forward had ≤1 roster-populated training season; the feature was untrainable on most folds. Not a valid verdict.
+- **T2 — backfill ESPN rosters 2017-2021** (in progress): gives roster features full training history for a FAIR walk-forward test. Then re-run T1's roster A/B.
+
+---
+
 ## Phase 10 — Production Port (opened 2026-05-31)
 
 **Why:** the research harness validated a materially better model (0.6392→0.6363) but the live pipeline (`features/`, `models/`, `config/`) still runs an older, unvalidated config. Per CLAUDE.md ("improve eval first, then port"), this port is overdue. **Constraint discovered: no DuckDB in this env, so the production pipeline can't be run end-to-end here** — verification is unit tests + clean imports + config-flow checks; full E2E must run on the Pi/production box.
