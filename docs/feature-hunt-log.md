@@ -137,3 +137,23 @@ AB_SETS["+MinutesHHI"] = _FEAT_BASE + _FEAT_HHI
 **Result:** Δ=-0.0016 → **DROP — hurts**
 **experiment_id:** feat-minuteshhi-20260530T174120
 **Notes:** Base XGB Brier=0.6372 → +MinutesHHI XGB Brier=0.6389 (avg 2022–2024). Combined +MinutesHHI+Games14d was even worse at Brier=0.6405 (Δ=-0.0032). The Games14d interaction hypothesis did not pay off — adding HHI alongside Games14d compounded the noise rather than activating a useful cross-term. Per-season: BestAB=Base in all three test years (2022, 2023, 2024). 96% match coverage for the feature. Technical note: get_player_xgoals returns mixed str/list team_id values (multi-team players), which causes parquet serialization to fail under --cache; experiment was run without --cache. Feature computation and AB_SETS entries removed from eval_baseline.py per DROP rule.
+
+---
+
+## 2026-05-31 — Phase 8.A cheap-probe tier (kickoff)
+
+| Probe | Status | Δ vs Base | Verdict |
+|-------|--------|-----------|---------|
+| +TravelRest (travel_km, days_rest, rest_advantage) | tested | -0.0002 | **DROP** |
+| +Context (is_dome, is_high_alt) | tested | -0.0002 | **DROP** |
+| Transfermarkt (+TM_SquadValue) | **BLOCKED** | — | worldfootballR R package not installed |
+| Set-piece xG conceded | **BLOCKED** | — | ASA MLS feed has no set-piece columns (_HAS_SP_XG=False) |
+| Tactical style (PPDA/possession/field-tilt) | **BLOCKED** | — | no get_game_xpass data (_HAS_PPDA/_HAS_POSS=False) |
+
+**Finding:** the cheap-probe tier is largely unavailable or absorbed. ASA's MLS feed does NOT
+populate set-piece splits or game-level PPDA/possession; travel/rest and venue flags are already
+captured by ELO/form (both DROP -0.0002). Travel/rest + context computation kept in-harness as
+registered AB sets (NOT in Base) for the future availability×congestion interaction; default model
+unchanged at 0.6363. The reliably-available ASA data is PLAYER-LEVEL (minutes, xG, xA, goals-added)
+— which is exactly what the Phase-C availability flagship needs.
+**experiment_ids:** pa-travelrest-20260531T004259, pa-context-20260531T004808

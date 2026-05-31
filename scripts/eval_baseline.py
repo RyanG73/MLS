@@ -445,6 +445,16 @@ def _pythag_expected_pts(gf: float, ga: float, n: int) -> float:
     return 3.0 * win_rate * n
 
 
+def _haversine_km(a: "tuple | None", b: "tuple | None") -> float:
+    """Great-circle distance (km) between two (lat, lon) points. 0 if either missing."""
+    if not a or not b:
+        return 0.0
+    lat1, lon1, lat2, lon2 = map(math.radians, [a[0], a[1], b[0], b[1]])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return 2 * 6371.0 * math.asin(math.sqrt(h))
+
+
 def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     team_xg: dict[str, list] = {}       # per-game xg/xga records
     team_pts: dict[str, list] = {}      # points earned per game
@@ -464,6 +474,7 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         for fw in FORM_WINDOWS:
             res[f"{r}_form_{fw}"] = []
         res[f"{r}_games_in_14d"] = []
+        res[f"{r}_days_rest"] = []
         res[f"{r}_pythag_luck_{_PYTHAG_WIN}"] = []
         if _HAS_PPDA:
             res[f"{r}_ppda_roll_10"] = []
@@ -510,6 +521,11 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
 
             cutoff = dt - timedelta(days=GAMES_14D)
             res[f"{role}_games_in_14d"].append(sum(1 for d in date_hist if d > cutoff))
+
+            # Days rest since most recent prior match (date_hist excludes current → leakage-safe).
+            # Cap at 21d so cross-season offseason gaps don't dominate; default 7 if no history.
+            res[f"{role}_days_rest"].append(
+                min((dt - date_hist[-1]).days, 21) if date_hist else 7)
 
             # Pythagorean luck: actual pts - expected pts over last N matches
             seg_goals = goals_hist[-_PYTHAG_WIN:]
@@ -562,6 +578,11 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     out["form_diff"]    = out[f"home_form_{FORM_WINDOWS[0]}"] - out[f"away_form_{FORM_WINDOWS[0]}"]
     out["home_xg_sum"]  = out[f"home_xg_roll_{w0}"] + out[f"away_xg_roll_{w0}"]
     out["games14d_diff"] = out["home_games_in_14d"] - out["away_games_in_14d"]
+    out["rest_advantage"] = out["home_days_rest"] - out["away_days_rest"]
+    out["travel_km"] = [
+        _haversine_km(_TEAM_COORDS.get(h), _TEAM_COORDS.get(a))
+        for h, a in zip(out["home_team"], out["away_team"])
+    ]
     out["pythag_luck_diff"] = (out[f"home_pythag_luck_{_PYTHAG_WIN}"]
                                - out[f"away_pythag_luck_{_PYTHAG_WIN}"])
     if _HAS_PPDA:
@@ -1321,6 +1342,10 @@ if _TM_FEATS:
     AB_SETS["+TM_SquadValue"] = _FEAT_BASE + _TM_FEATS
 AB_SETS["+TZShift"]    = _FEAT_BASE + _FEAT_TZ
 AB_SETS["+PythagLuck"] = _FEAT_BASE + _FEAT_PYTHAG
+_FEAT_TRAVEL = ["travel_km", "home_days_rest", "away_days_rest", "rest_advantage"]
+AB_SETS["+TravelRest"] = _FEAT_BASE + _FEAT_TRAVEL
+_FEAT_CONTEXT = ["is_dome", "is_high_alt"]   # match-context flags (already computed)
+AB_SETS["+Context"]    = _FEAT_BASE + _FEAT_CONTEXT
 AB_SETS["+All"]        = _FEAT_ALL
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
