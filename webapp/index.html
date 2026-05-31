@@ -9,219 +9,147 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* floodlit ink-navy world — surfaces shift only in lightness, hue held */
-  --ink-0:#0a111e;          /* canvas: evening stadium */
-  --ink-1:#101a2c;          /* card */
-  --ink-2:#16243c;          /* raised: hover, dropdown */
-  --ink-3:#1d2e49;          /* highest */
-  --line:rgba(150,180,220,.10);
-  --line-2:rgba(150,180,220,.18);
-  --line-3:rgba(150,180,220,.30);
-  --txt-1:#eef3fb;          /* primary */
-  --txt-2:#9fb0c8;          /* secondary */
-  --txt-3:#65748d;          /* tertiary / metadata */
-  --floodlight:#56d2ff;     /* single accent: brand + interactive */
-  /* motivated season-status colors — each means an outcome */
-  --qualify:#34d39a;        /* phosphor green — playoff */
-  --hfa:#f6b53f;            /* warm amber — top-4 home field */
-  --shield:#d7deea;         /* platinum — Supporters' Shield */
-  --spoon:#bd7d4e;          /* wood-rust — wooden spoon */
-  /* match outcome band */
-  --home:#56d2ff; --draw:#5d6b82; --away:#f6894a;
+  --ink-0:#0a111e; --ink-1:#101a2c; --ink-2:#16243c; --ink-3:#1d2e49;
+  --line:rgba(150,180,220,.10); --line-2:rgba(150,180,220,.18); --line-3:rgba(150,180,220,.30);
+  --txt-1:#eef3fb; --txt-2:#9fb0c8; --txt-3:#65748d;
+  --floodlight:#56d2ff;
+  --qualify:#34d39a; --hfa:#f6b53f; --shield:#d7deea; --spoon:#bd7d4e;
+  --draw:#5d6b82;
   --r-sm:6px; --r-md:10px; --r-lg:16px;
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:36px;
-  --maxw:1180px;
+  --maxw:1200px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
-body{
-  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  background:
-    radial-gradient(1200px 500px at 70% -10%, rgba(86,210,255,.08), transparent 60%),
-    var(--ink-0);
-  color:var(--txt-1);
-  font-feature-settings:"tnum" 1,"cv05" 1;
-  line-height:1.45;-webkit-font-smoothing:antialiased;
-  padding-bottom:48px;
-}
-.tnum{font-variant-numeric:tabular-nums}
+body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:radial-gradient(1200px 500px at 70% -10%, rgba(86,210,255,.08), transparent 60%), var(--ink-0);
+  color:var(--txt-1); font-feature-settings:"tnum" 1; line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:48px}
 h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--s4)}
 
-/* ── Header ─────────────────────────────────────────────── */
-header{
-  position:sticky;top:0;z-index:30;
-  background:linear-gradient(180deg, rgba(10,17,30,.95), rgba(10,17,30,.82));
-  backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--line);
-}
-.head-in{display:flex;align-items:center;gap:var(--s4);padding:var(--s4) 0;flex-wrap:wrap}
+header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(10,17,30,.96),rgba(10,17,30,.84));
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.head-in{display:flex;align-items:center;gap:var(--s4);padding:var(--s3) 0;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:var(--s3);min-width:0}
-.beacon{width:30px;height:30px;border-radius:8px;flex:none;
-  background:radial-gradient(circle at 50% 30%, var(--floodlight), #1b6f93 75%);
-  box-shadow:0 0 18px rgba(86,210,255,.45);position:relative}
-.beacon::after{content:"";position:absolute;inset:0;border-radius:8px;
-  background:linear-gradient(180deg,rgba(255,255,255,.5),transparent 45%);opacity:.5}
+.beacon{width:30px;height:30px;border-radius:8px;flex:none;background:radial-gradient(circle at 50% 30%,var(--floodlight),#1b6f93 75%);box-shadow:0 0 18px rgba(86,210,255,.45)}
 .brand h1{font-size:18px;font-weight:800;line-height:1.1}
 .brand .sub{font-size:12px;color:var(--txt-3);font-weight:500}
-.head-meta{margin-left:auto;display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
-.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
-  padding:5px 10px;border-radius:999px;border:1px solid var(--line-2);
-  background:var(--ink-1);color:var(--txt-2);white-space:nowrap}
-.pill b{color:var(--txt-1);font-weight:700}
-.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--qualify)}
+/* model accuracy vs naive */
+.acc{margin-left:auto;display:flex;align-items:center;gap:var(--s4);background:var(--ink-1);
+  border:1px solid var(--line-2);border-radius:var(--r-md);padding:8px var(--s3)}
+.acc .lab{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-3)}
+.acc .stat{display:flex;flex-direction:column;gap:3px}
+.acc .bars{display:flex;flex-direction:column;gap:4px;min-width:120px}
+.acc .brow{display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--txt-2)}
+.acc .brow .t{width:40px;color:var(--txt-3);font-weight:600}
+.acc .track{flex:1;height:6px;border-radius:3px;background:rgba(150,180,220,.10);overflow:hidden}
+.acc .track > span{display:block;height:100%;border-radius:3px}
+.acc .brow .v{font-family:"Archivo";font-weight:700;color:var(--txt-1);width:42px;text-align:right}
+.acc .delta{font-family:"Archivo";font-weight:800;font-size:20px;color:var(--qualify);line-height:1}
+.acc .delta small{display:block;font-family:"Inter";font-size:9.5px;font-weight:600;color:var(--txt-3);letter-spacing:.04em}
 
-/* ── Segmented control ──────────────────────────────────── */
-.seg{display:inline-flex;background:var(--ink-1);border:1px solid var(--line-2);
-  border-radius:999px;padding:3px;margin:var(--s5) 0 var(--s4);gap:2px}
-.seg button{font:inherit;font-weight:600;font-size:13.5px;color:var(--txt-2);
-  background:none;border:none;padding:8px 18px;border-radius:999px;cursor:pointer;
-  transition:color .15s, background .15s}
-.seg button[aria-selected="true"]{background:var(--ink-3);color:var(--txt-1);
-  box-shadow:inset 0 0 0 1px var(--line-2)}
+.seg{display:inline-flex;background:var(--ink-1);border:1px solid var(--line-2);border-radius:999px;padding:3px;margin:var(--s5) 0 var(--s4);gap:2px}
+.seg button{font:inherit;font-weight:600;font-size:13.5px;color:var(--txt-2);background:none;border:none;padding:8px 18px;border-radius:999px;cursor:pointer;transition:.15s}
+.seg button[aria-selected="true"]{background:var(--ink-3);color:var(--txt-1);box-shadow:inset 0 0 0 1px var(--line-2)}
 .seg button:hover:not([aria-selected="true"]){color:var(--txt-1)}
-
-/* ── Headline / section labels ──────────────────────────── */
 .sec-h{display:flex;align-items:baseline;gap:var(--s3);margin:var(--s5) 0 var(--s3);flex-wrap:wrap}
 .sec-h h2{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txt-2)}
 .sec-h .note{font-size:12.5px;color:var(--txt-3)}
 
-/* ── Outlook: favorites strip ───────────────────────────── */
+/* crest */
+.crest{width:26px;height:26px;border-radius:6px;flex:none;display:grid;place-items:center;position:relative;
+  font-family:"Archivo";font-weight:700;font-size:9.5px;color:var(--txt-2);background:var(--ink-3);
+  border:1px solid var(--line-2);overflow:hidden}
+.crest img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:2px;background:transparent}
+
+/* favorites */
 .favs{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3);margin-bottom:var(--s5)}
-.fav{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);
-  padding:var(--s4);position:relative;overflow:hidden}
-.fav .lab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
-  color:var(--txt-3);display:flex;align-items:center;gap:6px}
+.fav{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4);position:relative;overflow:hidden}
+.fav .lab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3);display:flex;align-items:center;gap:6px}
 .fav .lab .sq{width:9px;height:9px;border-radius:3px}
-.fav .team{font-family:"Archivo";font-weight:700;font-size:17px;margin-top:6px;line-height:1.15}
+.fav .teamrow{display:flex;align-items:center;gap:9px;margin-top:9px}
+.fav .team{font-family:"Archivo";font-weight:700;font-size:16px;line-height:1.15}
 .fav .pct{font-family:"Archivo";font-weight:800;font-size:26px;margin-top:2px}
 .fav.shield .pct{color:var(--shield)} .fav.shield .sq{background:var(--shield)}
 .fav.hfa .pct{color:var(--hfa)} .fav.hfa .sq{background:var(--hfa)}
 .fav.spoon .pct{color:var(--spoon)} .fav.spoon .sq{background:var(--spoon)}
-.fav::after{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;
-  border-radius:50%;opacity:.10}
-.fav.shield::after{background:var(--shield)} .fav.hfa::after{background:var(--hfa)}
-.fav.spoon::after{background:var(--spoon)}
 
-/* ── Conference ladders ─────────────────────────────────── */
+/* ladders */
 .ladders{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
 .ladder{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
-.ladder-h{display:flex;align-items:center;justify-content:space-between;
-  padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:var(--ink-2)}
-.ladder-h .name{font-family:"Archivo";font-weight:700;font-size:14px;letter-spacing:.02em;
-  display:flex;align-items:center;gap:8px}
-.ladder-h .legend{font-size:10.5px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.06em}
+.ladder-h{display:flex;align-items:center;justify-content:space-between;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:var(--ink-2)}
+.ladder-h .name{font-family:"Archivo";font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px}
 .conf-dot{width:8px;height:8px;border-radius:50%}
-.east .conf-dot{background:var(--floodlight)} .west .conf-dot{background:var(--away)}
-
-.col-head,.row{display:grid;
-  grid-template-columns:26px minmax(0,1fr) 44px 1fr 40px 40px;
-  align-items:center;gap:var(--s2);padding:9px var(--s4)}
-.col-head{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3);
-  padding-top:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
-.col-head .r{text-align:right}
+.east .conf-dot{background:var(--floodlight)} .west .conf-dot{background:#f6894a}
+.col-head,.row{display:grid;grid-template-columns:24px minmax(0,1fr) 34px 44px 44px 44px 44px;align-items:center;gap:6px;padding:8px var(--s3)}
+.col-head{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);border-bottom:1px solid var(--line)}
+.col-head .c{text-align:center}
 .row{border-bottom:1px solid var(--line);position:relative;transition:background .12s}
 .row:last-child{border-bottom:none}
 .row:hover{background:var(--ink-2)}
-.row.hfa{box-shadow:inset 3px 0 0 var(--hfa)}      /* top-4 host glow */
+.row.hfa{box-shadow:inset 3px 0 0 var(--hfa)}
 .rank{font-family:"Archivo";font-weight:700;font-size:13px;color:var(--txt-3);text-align:center}
 .row.hfa .rank{color:var(--hfa)}
 .tcell{display:flex;align-items:center;gap:9px;min-width:0}
-.crest{width:24px;height:24px;border-radius:6px;flex:none;display:grid;place-items:center;
-  font-family:"Archivo";font-weight:700;font-size:10px;color:var(--txt-1);
-  background:var(--ink-3);border:1px solid var(--line-2)}
-.tname{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tsub{display:block;font-size:10.5px;color:var(--txt-3);font-weight:500;white-space:nowrap}
-.pts{font-family:"Archivo";font-weight:700;font-size:14px;text-align:right;color:var(--txt-1)}
-.pbar{height:7px;border-radius:4px;background:rgba(150,180,220,.10);position:relative;overflow:hidden}
-.pbar > span{position:absolute;inset:0 auto 0 0;border-radius:4px;
-  background:linear-gradient(90deg,#1f8f6c,var(--qualify))}
-.mini{font-size:11.5px;font-weight:600;text-align:right;color:var(--txt-2)}
-.mini.sh{color:var(--shield)} .mini.sp{color:var(--spoon)}
-.mini.dim{color:var(--txt-3);opacity:.5}
+.tname{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tsub{display:block;font-size:10px;color:var(--txt-3);font-weight:500;white-space:nowrap}
+.pts{font-family:"Archivo";font-weight:700;font-size:14px;text-align:center}
+.heat{font-family:"Archivo";font-weight:700;font-size:11.5px;text-align:center;padding:5px 0;border-radius:5px;color:var(--txt-1)}
+.heat.z{color:var(--txt-3);font-weight:500;background:transparent!important}
+.po-line{position:relative;height:0}
+.po-line .lab{position:absolute;left:var(--s3);top:-8px;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--qualify);background:var(--ink-1);padding:0 6px}
+.po-line::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--qualify),transparent);box-shadow:0 0 10px rgba(52,211,154,.6)}
 
-/* the luminous playoff line */
-.po-line{position:relative;height:0;border-top:2px dashed transparent}
-.po-line .lab{position:absolute;left:var(--s4);top:-9px;font-size:9.5px;font-weight:700;
-  letter-spacing:.10em;text-transform:uppercase;color:var(--qualify);
-  background:var(--ink-1);padding:0 6px}
-.po-line::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;
-  background:linear-gradient(90deg,transparent,var(--qualify),transparent);
-  box-shadow:0 0 10px rgba(52,211,154,.6)}
-
-/* ── Match predictions ──────────────────────────────────── */
+/* matches */
 .controls{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap;margin-bottom:var(--s4)}
 .dd{position:relative}
-.dd-btn{font:inherit;font-weight:600;font-size:13px;color:var(--txt-1);cursor:pointer;
-  background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-sm);
-  padding:9px 12px;display:flex;align-items:center;gap:10px;min-width:190px;justify-content:space-between}
+.dd-btn{font:inherit;font-weight:600;font-size:13px;color:var(--txt-1);cursor:pointer;background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:9px 12px;display:flex;align-items:center;gap:10px;min-width:190px;justify-content:space-between}
 .dd-btn:hover{border-color:var(--line-3)} .dd-btn .car{color:var(--txt-3);font-size:10px}
-.dd-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:240px;max-height:330px;
-  overflow:auto;background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-md);
-  padding:5px;box-shadow:0 14px 40px rgba(0,0,0,.5);display:none}
+.dd-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:240px;max-height:340px;overflow:auto;background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-md);padding:5px;box-shadow:0 14px 40px rgba(0,0,0,.5);display:none}
 .dd-menu.open{display:block} .dd.open .dd-btn{border-color:var(--floodlight)}
-.dd-opt{font-size:13px;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--txt-2);
-  display:flex;align-items:center;gap:8px}
-.dd-opt:hover{background:var(--ink-3);color:var(--txt-1)}
-.dd-opt[aria-selected="true"]{color:var(--floodlight)}
-.seg-mini{display:inline-flex;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:2px}
-.seg-mini button{font:inherit;font-size:12px;font-weight:600;color:var(--txt-3);background:none;border:none;
-  padding:6px 11px;border-radius:5px;cursor:pointer}
+.dd-opt{font-size:13px;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--txt-2);display:flex;align-items:center;gap:8px}
+.dd-opt:hover{background:var(--ink-3);color:var(--txt-1)} .dd-opt[aria-selected="true"]{color:var(--floodlight)}
+.seg-mini{display:inline-flex;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:2px;flex-wrap:wrap}
+.seg-mini button{font:inherit;font-size:12px;font-weight:600;color:var(--txt-3);background:none;border:none;padding:6px 11px;border-radius:5px;cursor:pointer}
 .seg-mini button[aria-selected="true"]{background:var(--ink-3);color:var(--txt-1)}
 .count{font-size:12px;color:var(--txt-3);margin-left:auto}
-
 .daygrp{margin-bottom:var(--s4)}
-.dayhead{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
-  color:var(--txt-3);padding:var(--s2) 2px;position:sticky;top:64px;background:var(--ink-0);z-index:5}
-.game{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);
-  padding:var(--s3) var(--s4);margin-bottom:var(--s2);transition:border-color .12s,background .12s}
+.dayhead{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3);padding:var(--s2) 2px;position:sticky;top:60px;background:var(--ink-0);z-index:5}
+.game{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4);margin-bottom:var(--s2);transition:.12s}
 .game:hover{border-color:var(--line-2);background:var(--ink-2)}
 .g-top{display:flex;align-items:center;gap:var(--s3);margin-bottom:10px}
 .g-side{display:flex;align-items:center;gap:9px;flex:1;min-width:0}
 .g-side.away{flex-direction:row-reverse;text-align:right}
 .g-side .tn{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.g-side .pk{font-size:10.5px;color:var(--txt-3);font-weight:600}
-.g-score{font-family:"Archivo";font-weight:800;font-size:18px;flex:none;min-width:54px;text-align:center;
-  color:var(--txt-1);letter-spacing:.03em}
+.g-score{font-family:"Archivo";font-weight:800;font-size:18px;flex:none;min-width:54px;text-align:center;letter-spacing:.03em}
 .g-score .v{color:var(--txt-3);font-size:13px;font-weight:600;margin:0 3px}
 .g-score.upcoming{font-size:11px;font-weight:600;color:var(--txt-3);letter-spacing:.06em;text-transform:uppercase}
-/* LED probability band */
-.band{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid var(--line);background:var(--ink-0)}
-.band > div{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;
-  font-family:"Archivo";color:#06121d;min-width:0;position:relative;transition:filter .12s}
-.band .h{background:linear-gradient(180deg,#7fdcff,var(--home))}
-.band .d{background:linear-gradient(180deg,#6c7a92,var(--draw));color:#0a111e}
-.band .a{background:linear-gradient(180deg,#ffa468,var(--away))}
-.band > div span{padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:clip}
-.band > div.fav-seg{box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)}
+.band{display:flex;height:28px;border-radius:6px;overflow:hidden;border:1px solid var(--line);background:var(--ink-0)}
+.band > div{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:"Archivo";min-width:0;position:relative;transition:filter .12s}
+.band > div span{padding:0 4px;white-space:nowrap;overflow:hidden}
+.band > div.fav-seg{box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
 .band > div.tiny span{display:none}
 .res{font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:5px;white-space:nowrap;flex:none}
 .res.ok{background:rgba(52,211,154,.14);color:var(--qualify);border:1px solid rgba(52,211,154,.3)}
-.res.miss{background:rgba(246,137,74,.13);color:var(--away);border:1px solid rgba(246,137,74,.3)}
+.res.miss{background:rgba(246,137,74,.13);color:#f6894a;border:1px solid rgba(246,137,74,.3)}
 .g-foot{display:flex;align-items:center;gap:var(--s2);margin-top:9px;font-size:11px;color:var(--txt-3)}
 .legend-band{display:flex;gap:var(--s4);font-size:11px;color:var(--txt-3);margin:0 2px var(--s3);flex-wrap:wrap}
 .legend-band span{display:inline-flex;align-items:center;gap:6px}
 .legend-band i{width:10px;height:10px;border-radius:3px;display:inline-block}
-
-footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6);padding-top:var(--s4);
-  border-top:1px solid var(--line)}
+footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6);padding-top:var(--s4);border-top:1px solid var(--line)}
 .hidden{display:none!important}
 
-/* ── Responsive ─────────────────────────────────────────── */
 @media(max-width:860px){
-  .ladders{grid-template-columns:1fr}
-  .favs{grid-template-columns:1fr}
-  .fav{display:flex;align-items:center;justify-content:space-between}
-  .fav .pct{font-size:22px}
-  .col-head,.row{grid-template-columns:22px minmax(0,1fr) 38px 64px 36px 36px;gap:6px;padding-left:var(--s3);padding-right:var(--s3)}
-  .dayhead{top:60px}
-  .head-meta .pill.hide-sm{display:none}
+  .ladders,.favs{grid-template-columns:1fr}
+  .acc{margin-left:0;width:100%;justify-content:space-between}
+  .col-head,.row{grid-template-columns:22px minmax(0,1fr) 30px 40px 40px 40px 40px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
+  .dayhead{top:56px}
 }
 @media(max-width:480px){
-  .col-head .h-pts,.col-head .h-po{display:none}
-  .g-side .tn{font-size:13px}
-  .pbar{display:none}                /* on tiny screens, show playoff % number only */
-  .col-head,.row{grid-template-columns:22px minmax(0,1fr) 36px 0 38px 38px}
+  .col-head .c-pts,.row .pts{display:none}
+  .col-head,.row{grid-template-columns:20px minmax(0,1fr) 38px 38px 38px 38px}
+  .g-side .tn{font-size:12.5px}
+  .acc .bars{display:none}
 }
 </style>
 </head>
@@ -230,12 +158,9 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
   <div class="wrap head-in">
     <div class="brand">
       <div class="beacon"></div>
-      <div>
-        <h1>MLS Season Model</h1>
-        <div class="sub" id="sub">Game predictions &amp; season odds</div>
-      </div>
+      <div><h1>MLS Season Model</h1><div class="sub" id="sub"></div></div>
     </div>
-    <div class="head-meta" id="headMeta"></div>
+    <div class="acc" id="acc"></div>
   </div>
 </header>
 
@@ -245,20 +170,14 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
     <button role="tab" aria-selected="false" data-view="matches">Match Predictions</button>
   </div>
 
-  <!-- SEASON OUTLOOK -->
   <section id="view-outlook">
     <div class="favs" id="favs"></div>
-    <div class="sec-h">
-      <h2>Conference standings — projected</h2>
-      <span class="note" id="laddernote"></span>
-    </div>
+    <div class="sec-h"><h2>Conference standings &amp; odds</h2><span class="note" id="laddernote"></span></div>
     <div class="ladders" id="ladders"></div>
   </section>
 
-  <!-- MATCH PREDICTIONS -->
   <section id="view-matches" class="hidden">
-    <div class="sec-h"><h2>Game-by-game predictions</h2>
-      <span class="note">Model win / draw / loss probability per match</span></div>
+    <div class="sec-h"><h2>Game-by-game predictions</h2><span class="note">Model win / draw / loss probability per match</span></div>
     <div class="controls">
       <div class="dd" id="teamDD">
         <button class="dd-btn" id="teamBtn"><span id="teamSel">All teams</span><span class="car">▼</span></button>
@@ -272,10 +191,8 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
       </div>
       <span class="count" id="gcount"></span>
     </div>
-    <div class="legend-band">
-      <span><i style="background:var(--home)"></i>Home win</span>
+    <div class="legend-band" id="bandLegend">
       <span><i style="background:var(--draw)"></i>Draw</span>
-      <span><i style="background:var(--away)"></i>Away win</span>
       <span style="margin-left:auto"><i style="background:var(--qualify)"></i>✓ model's top pick was correct</span>
     </div>
     <div id="gameList"></div>
@@ -286,155 +203,107 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 
 <script src="data.js"></script>
 <script>
-const D = window.MLS_DATA;
-const $ = s => document.querySelector(s);
-const el = (t,c,h)=>{const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;};
-const mono = n => n.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean).slice(0,1).map(w=>w[0]).join('') +
-                  (n.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean)[1]?.[0]||'');
-const pct = v => (v>=0.5? Math.round(v*100): (v*100).toFixed(0));
+const D = window.MLS_DATA, $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+const monogram=n=>{const w=n.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean);return ((w[0]?.[0]||'')+(w[1]?.[0]||'')).toUpperCase();};
+const fmt=v=>`${v.toFixed(1)}%`;                         // percentages with one decimal + sign
+const crest=(name,logo)=>`<span class="crest">${monogram(name)}${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:''}</span>`;
+/* visibility-safe team color on dark band */
+function hexrgb(h){h=(h||'#888').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+const lum=([r,g,b])=>(0.2126*r+0.7152*g+0.0722*b)/255;
+function vis(hex){let c=hexrgb(hex);if(lum(c)<0.20){c=c.map(x=>Math.round(x+(255-x)*0.5));}return `rgb(${c.join(',')})`;}
+const txtOn=hex=>lum(hexrgb(hex))>0.6?'#06121d':'#fff';
+/* heatmap background for an odds value */
+function heat(v,rgb,maxv){const a=v<=0?0:Math.min(0.62,0.07+0.55*(v/(maxv||100)));return `background:rgba(${rgb.join(',')},${a.toFixed(3)})`;}
+const RGB={po:[52,211,154],hfa:[246,181,63],sh:[215,222,234],sp:[189,125,78]};
 
-/* header meta */
-$('#sub').textContent = D.in_season
-  ? `${D.season} season · live · ${D.played} played · ${D.upcoming} to play`
-  : `${D.season} season · ${D.n_sims.toLocaleString()} simulations`;
-$('#headMeta').innerHTML =
-  `<span class="pill"><span class="dot"></span>Brier <b>${D.model.best_brier}</b></span>`+
-  `<span class="pill hide-sm">+<b>${D.model.improve_pct}%</b> vs naive</span>`+
-  `<span class="pill hide-sm">${D.season} projection</span>`;
-$('#foot').innerHTML = `Model: capped Dixon-Coles + XGBoost ensemble, availability-weighted. `+
-  `Brier ${D.model.best_brier} (+${D.model.improve_pct}% over naive baseline ${D.model.naive}). `+
-  `Odds from ${D.n_sims.toLocaleString()} Monte-Carlo season simulations · generated ${D.generated}.`;
+/* header + accuracy vs naive */
+$('#sub').textContent = D.in_season?`${D.season} season · live · ${D.played} played · ${D.upcoming} to play`:`${D.season} season projection`;
+(()=>{const m=D.model.best_brier,n=D.model.naive,worst=0.667;             // lower Brier = better
+  const wm=(worst-m)/(worst-0.55)*100, wn=(worst-n)/(worst-0.55)*100;
+  $('#acc').innerHTML=
+    `<div class="stat"><span class="lab">Model accuracy</span>
+       <div class="bars">
+         <div class="brow"><span class="t">Model</span><span class="track"><span style="width:${wm.toFixed(0)}%;background:var(--qualify)"></span></span><span class="v">${m}</span></div>
+         <div class="brow"><span class="t">Naive</span><span class="track"><span style="width:${wn.toFixed(0)}%;background:var(--txt-3)"></span></span><span class="v">${n}</span></div>
+       </div></div>
+     <div class="delta">+${D.model.improve_pct}%<small>Brier vs naive</small></div>`;
+})();
+$('#foot').innerHTML=`Capped Dixon-Coles + XGBoost ensemble, availability-weighted · Brier ${D.model.best_brier} vs naive ${D.model.naive} (lower is better → ${D.model.improve_pct}% better) · `+
+  `odds from ${D.n_sims.toLocaleString()} Monte-Carlo simulations of the remaining schedule · crests & colors © their clubs (via ESPN) · generated ${D.generated}.`;
 
-/* ── favorites strip ── */
-const byShield=[...D.standings].sort((a,b)=>b.shield-a.shield)[0];
-const bySpoon =[...D.standings].sort((a,b)=>b.spoon-a.spoon)[0];
-const byHfa   =[...D.standings].sort((a,b)=>b.hfa-a.hfa)[0];
-$('#favs').innerHTML = `
-  <div class="fav shield"><div class="lab"><span class="sq"></span>Supporters' Shield</div>
-    <div><div class="team">${byShield.team}</div></div><div class="pct">${byShield.shield}%</div></div>
-  <div class="fav hfa"><div class="lab"><span class="sq"></span>Top-4 Home Field</div>
-    <div><div class="team">${byHfa.team}</div></div><div class="pct">${byHfa.hfa}%</div></div>
-  <div class="fav spoon"><div class="lab"><span class="sq"></span>Wooden Spoon</div>
-    <div><div class="team">${bySpoon.team}</div></div><div class="pct">${bySpoon.spoon}%</div></div>`;
-$('#laddernote').textContent =
-  `Top ${D.playoff_slots} per conference make the playoffs · top ${D.hfa_slots} host round one`;
+/* favorites */
+const sBy=k=>[...D.standings].sort((a,b)=>b[k]-a[k])[0];
+const fav=(cls,lab,t,k)=>`<div class="fav ${cls}"><div class="lab"><span class="sq"></span>${lab}</div>
+  <div class="teamrow">${crest(t.team,t.logo)}<div><div class="team">${t.team}</div><div class="pct">${fmt(t[k])}</div></div></div></div>`;
+$('#favs').innerHTML=fav('shield',"Supporters' Shield",sBy('shield'),'shield')+fav('hfa','Top-4 Home Field',sBy('hfa'),'hfa')+fav('spoon','Wooden Spoon',sBy('spoon'),'spoon');
+$('#laddernote').textContent=`Top ${D.playoff_slots} per conference make the playoffs · top ${D.hfa_slots} host round one · cells heat-mapped by odds`;
 
-/* ── conference ladders ── */
+/* ladders with heat-mapped odds */
+const MAX={po:Math.max(...D.standings.map(s=>s.playoff),1),hfa:Math.max(...D.standings.map(s=>s.hfa),1),
+  sh:Math.max(...D.standings.map(s=>s.shield),1),sp:Math.max(...D.standings.map(s=>s.spoon),1)};
+function hcell(v,key){return v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGB[key],MAX[key])}">${v.toFixed(0)}</span>`;}
 function ladder(conf){
-  const teams=D.standings.filter(s=>s.conf===conf).sort((a,b)=>b.proj_pts-a.proj_pts);
-  const maxPO=Math.max(...teams.map(t=>t.playoff),1);
+  const teams=D.standings.filter(s=>s.conf===conf).sort((a,b)=>(b.pts-a.pts)||(b.proj_pts-a.proj_pts));
   const box=el('div','ladder '+conf.toLowerCase());
-  box.appendChild(el('div','ladder-h',
-    `<span class="name"><span class="conf-dot"></span>${conf}ern Conference</span>`+
-    `<span class="legend">PO% · Shield · Spoon</span>`));
-  box.appendChild(el('div','col-head',
-    `<span>#</span><span>Club</span><span class="r h-pts">Pts</span>`+
-    `<span class="h-po">Playoff odds</span><span class="r">Sh</span><span class="r">Sp</span>`));
+  box.appendChild(el('div','ladder-h',`<span class="name"><span class="conf-dot"></span>${conf}ern Conference</span>`));
+  box.appendChild(el('div','col-head',`<span>#</span><span>Club</span><span class="c c-pts">Pts</span><span class="c">PO</span><span class="c">Host</span><span class="c">Sh</span><span class="c">Sp</span>`));
   teams.forEach((t,i)=>{
     const r=el('div','row'+(i<D.hfa_slots?' hfa':''));
-    const sub = (t.gp!=null) ? `${t.gp} GP · proj ${t.proj_pts}` : `proj ${t.proj_pts}`;
-    const ptsMain = (t.pts!=null) ? t.pts : t.proj_pts;
-    r.innerHTML=
-      `<span class="rank">${i+1}</span>`+
-      `<span class="tcell"><span class="crest">${mono(t.team)}</span>`+
-        `<span style="min-width:0"><span class="tname">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
-      `<span class="pts">${ptsMain}</span>`+
-      `<span class="pbar"><span style="width:${t.playoff}%"></span></span>`+
-      `<span class="mini sh ${t.shield<1?'dim':''}">${t.shield<1?'—':t.shield}</span>`+
-      `<span class="mini sp ${t.spoon<1?'dim':''}">${t.spoon<1?'—':t.spoon}</span>`;
-    // show playoff % inline on the bar cell via title + small overlay
-    r.querySelector('.pbar').title=`${t.playoff}% playoff`;
+    const sub=(t.gp!=null)?`${t.gp} GP · proj ${t.proj_pts}`:`proj ${t.proj_pts}`;
+    r.innerHTML=`<span class="rank">${i+1}</span>`+
+      `<span class="tcell">${crest(t.team,t.logo)}<span style="min-width:0"><span class="tname">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
+      `<span class="pts">${t.pts!=null?t.pts:t.proj_pts}</span>`+
+      hcell(t.playoff,'po')+hcell(t.hfa,'hfa')+hcell(t.shield,'sh')+hcell(t.spoon,'sp');
     box.appendChild(r);
-    if(i===D.playoff_slots-1){
-      const line=el('div','po-line','<span class="lab">Playoff line</span>');
-      box.appendChild(line);
-    }
+    if(i===D.playoff_slots-1) box.appendChild(el('div','po-line','<span class="lab">Playoff line</span>'));
   });
   return box;
 }
-$('#ladders').append(ladder('East'), ladder('West'));
+$('#ladders').append(ladder('East'),ladder('West'));
 
-/* ── match predictions ── */
+/* matches */
 const teams=[...new Set(D.games.flatMap(g=>[g.home,g.away]))].sort();
-let fTeam='All teams', fRes='all';
+let fTeam='All teams',fRes='all';
 const menu=$('#teamMenu');
-['All teams',...teams].forEach(t=>{
-  const o=el('div','dd-opt'+(t===fTeam?'':''),t); o.setAttribute('role','option');
-  if(t===fTeam)o.setAttribute('aria-selected','true');
-  o.onclick=()=>{fTeam=t;$('#teamSel').textContent=t;
-    [...menu.children].forEach(c=>c.setAttribute('aria-selected', c.textContent===t?'true':'false'));
-    closeDD(); renderGames();};
-  menu.appendChild(o);
-});
+['All teams',...teams].forEach(t=>{const o=el('div','dd-opt',t);o.setAttribute('role','option');if(t===fTeam)o.setAttribute('aria-selected','true');
+  o.onclick=()=>{fTeam=t;$('#teamSel').textContent=t;[...menu.children].forEach(c=>c.setAttribute('aria-selected',c.textContent===t?'true':'false'));closeDD();renderGames();};menu.appendChild(o);});
 function closeDD(){$('#teamDD').classList.remove('open');menu.classList.remove('open');}
-$('#teamBtn').onclick=e=>{e.stopPropagation();const o=menu.classList.toggle('open');
-  $('#teamDD').classList.toggle('open',o);};
+$('#teamBtn').onclick=e=>{e.stopPropagation();const o=menu.classList.toggle('open');$('#teamDD').classList.toggle('open',o);};
 document.addEventListener('click',closeDD);
-$('#resultFilter').onclick=e=>{const b=e.target.closest('button');if(!b)return;
-  fRes=b.dataset.f;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));
-  renderGames();};
+$('#resultFilter').onclick=e=>{const b=e.target.closest('button');if(!b)return;fRes=b.dataset.f;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));renderGames();};
 
 function band(g){
-  const segs=[['h',g.pH,'H'],['d',g.pD,'D'],['a',g.pA,'A']];
-  const fav=segs.reduce((m,s)=>s[1]>m[1]?s:m);
-  return `<div class="band">`+segs.map(([c,p,k])=>{
-    const w=(p*100); const tiny=w<14;
-    return `<div class="${c}${k===fav[2]?' fav-seg':''}${tiny?' tiny':''}" style="width:${w}%">`+
-           `<span>${Math.round(w)}%</span></div>`;}).join('')+`</div>`;
+  const hc=vis(g.hcolor),ac=vis(g.acolor);
+  const segs=[['H',g.pH,hc,txtOn(g.hcolor)],['D',g.pD,'var(--draw)','#0a111e'],['A',g.pA,ac,txtOn(g.acolor)]];
+  const favk=segs.reduce((m,s)=>s[1]>m[1]?s:m)[0];
+  return `<div class="band">`+segs.map(([k,p,bg,fg])=>{const w=p*100;
+    return `<div class="${k===favk?'fav-seg':''}${w<13?' tiny':''}" style="width:${w}%;background:${bg};color:${fg}"><span>${w.toFixed(1)}%</span></div>`;}).join('')+`</div>`;
 }
-function resultBadge(g){
-  if(g.result==null) return '';
-  const segs=[['H',g.pH],['D',g.pD],['A',g.pA]];
-  const pick=segs.reduce((m,s)=>s[1]>m[1]?s:m)[0];
-  const ok=pick===g.result;
-  return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${g.result==='H'?'Home':g.result==='D'?'Draw':'Away'}</span>`;
-}
+function topPick(g){return [['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,s)=>s[1]>m[1]?s:m)[0];}
+function resultBadge(g){if(g.result==null)return'';const ok=topPick(g)===g.result;
+  return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${g.result==='H'?'Home':g.result==='D'?'Draw':'Away'}</span>`;}
 function renderGames(){
-  let gs=D.games.filter(g=>{
-    if(fTeam!=='All teams' && g.home!==fTeam && g.away!==fTeam) return false;
-    if(fRes==='played' && g.result==null) return false;
-    if(fRes==='upcoming' && g.result!=null) return false;
-    if(fRes==='hit'){ if(g.result==null) return false;
-      const pick=[['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,s)=>s[1]>m[1]?s:m)[0];
-      if(pick!==g.result) return false; }
-    return true;
-  });
+  let gs=D.games.filter(g=>{if(fTeam!=='All teams'&&g.home!==fTeam&&g.away!==fTeam)return false;
+    if(fRes==='played'&&g.result==null)return false; if(fRes==='upcoming'&&g.result!=null)return false;
+    if(fRes==='hit'){if(g.result==null)return false;if(topPick(g)!==g.result)return false;} return true;});
   $('#gcount').textContent=`${gs.length} match${gs.length!==1?'es':''}`;
-  const list=$('#gameList'); list.innerHTML='';
-  let curDay=null, grp=null;
+  const list=$('#gameList');list.innerHTML='';let cur=null,grp=null;
   const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-  gs.forEach(g=>{
-    if(g.date!==curDay){curDay=g.date;grp=el('div','daygrp');
-      grp.appendChild(el('div','dayhead',fmtDay(g.date)));list.appendChild(grp);}
-    const played=g.result!=null;
-    const card=el('div','game');
-    card.innerHTML=
-      `<div class="g-top">`+
-        `<div class="g-side home"><span class="crest">${mono(g.home)}</span>`+
-          `<span style="min-width:0"><span class="tn">${g.home}</span></span></div>`+
-        (played?`<div class="g-score">${g.hg}<span class="v">–</span>${g.ag}</div>`
-               :`<div class="g-score upcoming">vs</div>`)+
-        `<div class="g-side away"><span class="crest">${mono(g.away)}</span>`+
-          `<span style="min-width:0"><span class="tn">${g.away}</span></span></div>`+
-      `</div>`+
+  gs.forEach(g=>{if(g.date!==cur){cur=g.date;grp=el('div','daygrp');grp.appendChild(el('div','dayhead',fmtDay(g.date)));list.appendChild(grp);}
+    const played=g.result!=null,card=el('div','game');
+    card.innerHTML=`<div class="g-top">`+
+      `<div class="g-side home">${crest(g.home,g.hlogo)}<span style="min-width:0"><span class="tn">${g.home}</span></span></div>`+
+      (played?`<div class="g-score">${g.hg}<span class="v">–</span>${g.ag}</div>`:`<div class="g-score upcoming">vs</div>`)+
+      `<div class="g-side away">${crest(g.away,g.alogo)}<span style="min-width:0"><span class="tn">${g.away}</span></span></div></div>`+
       band(g)+
-      `<div class="g-foot">`+
-        `<span>Home ${Math.round(g.pH*100)}% · Draw ${Math.round(g.pD*100)}% · Away ${Math.round(g.pA*100)}%</span>`+
-        `<span style="margin-left:auto">${resultBadge(g)}</span>`+
-      `</div>`;
-    grp.appendChild(card);
-  });
-  if(!gs.length) list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
+      `<div class="g-foot"><span>Home ${fmt(g.pH*100)} · Draw ${fmt(g.pD*100)} · Away ${fmt(g.pA*100)}</span>`+
+      `<span style="margin-left:auto">${resultBadge(g)}</span></div>`;
+    grp.appendChild(card);});
+  if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
 }
-
-/* ── view switch ── */
-$('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
-  [...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));
-  const v=b.dataset.view;
-  $('#view-outlook').classList.toggle('hidden',v!=='outlook');
-  $('#view-matches').classList.toggle('hidden',v!=='matches');
-  if(v==='matches' && !$('#gameList').children.length) renderGames();
-};
+$('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));
+  const v=b.dataset.view;$('#view-outlook').classList.toggle('hidden',v!=='outlook');$('#view-matches').classList.toggle('hidden',v!=='matches');
+  if(v==='matches'&&!$('#gameList').children.length)renderGames();};
 </script>
 </body>
 </html>

@@ -107,6 +107,24 @@ def main():
         nn = _ALIAS.get(norm_name, norm_name)
         return tok2id.get(_toks(nn))
 
+    # ESPN team crest URL + brand colors, keyed by ASA team_id (public CDN; <img> ref)
+    tmeta = {}
+    try:
+        tj = requests.get(f"{_ESPN}/teams", params={"limit": 50},
+                          headers=_HDR, verify=False, timeout=25).json()
+        for it in tj["sports"][0]["leagues"][0]["teams"]:
+            tm = it["team"]; tid = map_team(_norm(tm["displayName"]))
+            if not tid:
+                continue
+            tmeta[tid] = {"logo": (tm.get("logos") or [{}])[0].get("href"),
+                          "color": "#" + (tm.get("color") or "8a93a6"),
+                          "color2": "#" + (tm.get("alternateColor") or "44506a")}
+    except Exception as e:
+        print("team meta fetch failed:", e)
+
+    def meta(tid):
+        return tmeta.get(tid, {})
+
     feat = [c for c in feat_base if c in df.columns]
     played = df[(df["season"] == ts) & df["home_goals"].notna()].dropna(
         subset=["home_goals", "away_goals"]).copy()
@@ -163,7 +181,9 @@ def main():
             remaining.append((htid, atid))
             upcoming_cards.append({"date": date, "home": id2name.get(htid), "away": id2name.get(atid),
                                    "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
-                                   "hg": None, "ag": None, "result": None})
+                                   "hg": None, "ag": None, "result": None,
+                                   "hlogo": meta(htid).get("logo"), "alogo": meta(atid).get("logo"),
+                                   "hcolor": meta(htid).get("color"), "acolor": meta(atid).get("color")})
 
     # universe = all teams with a conference that appear in standings or schedule
     tids = {t for t in pts} | {t for fx in remaining for t in fx}
@@ -205,7 +225,8 @@ def main():
                           "playoff": round(playoff[i] / N * 100, 1),
                           "hfa": round(hfa[i] / N * 100, 1),
                           "shield": round(shield[i] / N * 100, 1),
-                          "spoon": round(spoon[i] / N * 100, 1)})
+                          "spoon": round(spoon[i] / N * 100, 1),
+                          "logo": meta(t).get("logo"), "color": meta(t).get("color")})
     standings.sort(key=lambda s: (-s["pts"], -s["proj_pts"]))
 
     # ── Game cards: played (ensemble) + upcoming (DC) ────────────────────────
@@ -218,7 +239,9 @@ def main():
         games.append({"date": r["date"].strftime("%Y-%m-%d"), "home": id2name.get(h), "away": id2name.get(a),
                       "pH": round(float(pe[i, 0]), 3), "pD": round(float(pe[i, 1]), 3),
                       "pA": round(float(pe[i, 2]), 3), "hg": int(r["home_goals"]),
-                      "ag": int(r["away_goals"]), "result": res})
+                      "ag": int(r["away_goals"]), "result": res,
+                      "hlogo": meta(h).get("logo"), "alogo": meta(a).get("logo"),
+                      "hcolor": meta(h).get("color"), "acolor": meta(a).get("color")})
     games += upcoming_cards
     games.sort(key=lambda g: g["date"])
 
