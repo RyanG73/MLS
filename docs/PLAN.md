@@ -117,7 +117,13 @@ python scripts/experiment.py compare
 
 **Name-join — VERIFIED (2026-05-31):** on a 25-match 2023 sample (452 ESPN active players), ESPN→ASA normalized name match = **91% exact / 97% with last-name fallback**. The 13 unmatched are backup/3rd-choice GKs + fringe players (near-zero g+) → effective quality-weighted coverage is higher. The join risk is resolved.
 
-**STATUS: both gates GREEN (data exists + names join). Remaining question is purely modeling — does availability improve Brier? Next: full 2022-2024 scrape + `+Availability` index + A/B (awaiting go-ahead for the ~1,530-call scrape).**
+**Build — COMPLETE (2026-05-31):** scraped 1,534 matches / 60.7k player-rows (`data/espn_rosters.py` → `data/espn_rosters.csv`, gitignored/regenerable); team-join 100% (suffix+alias map); player-name→ASA-quality join ~70% appearance-weighted; built `+Availability` = avail-weighted xG+xA share (prior-season quality, expanding-mean normalized, leakage-safe). Hardened `_cf` (tolerates ASA list-columns) + retry on quality fetch.
+
+**VERDICT: +Availability → DROP (Δ=−0.0001, seed=42, 73% test-season coverage).** Match-level availability does NOT measurably improve Brier on 2022-2024. Best model unchanged at **0.6363** (Base; +Availability registered, not promoted).
+
+**Why (likely):** recent form (rolling xG/xGA + ELO) already absorbs availability — a team missing key players has been producing worse recent results, which the rolling features encode. Availability is largely redundant with form. Caveats: only 3 seasons of roster data; prior-season quality weights miss ~30% of playing time (new signings); the 2022 test fold has no availability variation in its training window. Even granting these, the signal is absent (not even marginally positive).
+
+**STATUS: Phase 9 CLOSED — availability tested and DROPPED.** This was the last identified lever with plausible upside; the model is genuinely plateaued at 0.6363 (+0.67% vs naive). Durable assets banked: ESPN roster scraper, the availability feature (registered), `_cf` robustness fix. The improvement program has an earned conclusion.
 
 ---
 

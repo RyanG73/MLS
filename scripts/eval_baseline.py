@@ -120,8 +120,13 @@ def _cf(fn, *args, **kw):
     if _p.exists():
         return pd.read_parquet(_p)
     _result = fn(*args, **kw)
-    _p.parent.mkdir(parents=True, exist_ok=True)
-    _result.to_parquet(_p, index=False)
+    # Some ASA endpoints (e.g. get_players' season_name) return list-typed columns
+    # that pyarrow can't serialise. Cache opportunistically; fall back to uncached.
+    try:
+        _p.parent.mkdir(parents=True, exist_ok=True)
+        _result.to_parquet(_p, index=False)
+    except Exception:
+        pass
     return _result
 
 
@@ -1259,6 +1264,121 @@ _BASE_FORM = (
 # GK quality promoted to Base: passed A/B (Δ=+0.0034 in Phase 6b)
 _BASE_GK = ["home_gk_z", "away_gk_z", "gk_z_diff"] if "home_gk_z" in df.columns else []
 
+# ─── 5g. ESPN match-day availability (Phase 9): availability-weighted xG+xA ────
+# For each match, share of the team's recent available attacking quality that is
+# actually in the matchday squad. ESPN gives who was active per game (back to 2022);
+# ASA gives each player's PRIOR-season xG+xA (leakage-safe quality weight). Joined by
+# normalized player name (91% exact verified). Expanding-mean normalized per team-season.
+import csv as _csv
+import unicodedata as _ud
+
+_AVAIL_CSV = "data/espn_rosters.csv"
+_HAS_AVAIL = os.path.exists(_AVAIL_CSV)
+
+
+def _norm_nm(n) -> str:
+    n = _ud.normalize("NFKD", str(n)).encode("ascii", "ignore").decode()
+    return "".join(ch for ch in n.lower() if ch.isalpha() or ch == " ").strip()
+
+
+_FEAT_AVAIL: list = []
+if _HAS_AVAIL:
+    print("\n[5g/9] Building ESPN availability-weighted xG+xA features...")
+    _pl = _cf(asa.get_players, leagues="mls")
+    _id2name = {r.player_id: _norm_nm(r.player_name)
+                for r in _pl.dropna(subset=["player_id", "player_name"]).itertuples()}
+    _qual: dict[tuple, float] = {}      # (norm_name, season) -> xG+xA
+    for _s in _SQUAD_SEASONS:
+        _px = None
+        for _att in range(3):           # retry: ASA list-cols block caching, so fetched live
+            try:
+                _px = _cf(asa.get_player_xgoals, leagues="mls", season_name=str(_s))
+                break
+            except Exception:
+                _px = None
+        if _px is None or "xgoals_plus_xassists" not in _px.columns:
+            print(f"    [warn] player_xgoals {_s} unavailable — quality gap")
+            continue
+        for _r in _px.dropna(subset=["player_id"]).itertuples():
+            nm = _id2name.get(_r.player_id)
+            v = getattr(_r, "xgoals_plus_xassists", None)
+            if nm and pd.notna(v):
+                _qual[(nm, _s)] = _qual.get((nm, _s), 0.0) + float(v)
+    print(f"    Quality map: {len(_qual):,} (player,season) entries")
+    _tm = _cf(asa.get_teams, leagues="mls")
+    _SUFFIX = {"fc", "sc", "cf"}   # ESPN drops these; ASA keeps them
+
+    def _team_tok(n):
+        return tuple(t for t in _norm_nm(n).split() if t not in _SUFFIX)
+
+    _team_by_tok = {_team_tok(r.team_name): r.team_id
+                    for r in _tm.dropna(subset=["team_id", "team_name"]).itertuples()}
+    # ESPN naming variants that token-stripping can't reconcile (word order / abbrev)
+    _ESPN_ALIAS = {"lafc": "Los Angeles FC", "red bull new york": "New York Red Bulls"}
+
+    def _map_team(espn_name):
+        nm = _ESPN_ALIAS.get(_norm_nm(espn_name), espn_name)
+        return _team_by_tok.get(_team_tok(nm))
+
+    _avail_roster: dict[tuple, list] = {}
+    _unmapped: set = set()
+    with open(_AVAIL_CSV) as _fh:
+        for _row in _csv.DictReader(_fh):
+            tid = _map_team(_row["team_name"])
+            if not tid:
+                _unmapped.add(_row["team_name"]); continue
+            _avail_roster.setdefault((tid, _row["date"][:10]), []).append(
+                _norm_nm(_row["player_name"]))
+    if _unmapped:
+        print(f"    Unmapped ESPN teams (skipped): {sorted(_unmapped)[:6]}")
+    print(f"    Roster coverage: {len(_avail_roster):,} (team,date) entries")
+
+    import datetime as _dt2
+
+    def _avail_q(team_id, day, season):
+        names = _avail_roster.get((team_id, day))
+        if names is None:                     # tolerate UTC/local day-boundary offset
+            _b = _dt2.date.fromisoformat(day)
+            for _off in (-1, 1):
+                names = _avail_roster.get(
+                    (team_id, (_b + _dt2.timedelta(days=_off)).isoformat()))
+                if names:
+                    break
+        if not names:
+            return None
+        return sum(_qual.get((nm, season - 1), 0.0) for nm in names)
+
+    _rsum: dict[tuple, float] = {}
+    _rcnt: dict[tuple, int] = {}
+    _hsh, _ash = [], []
+    for _, _r in df.iterrows():
+        _day = _r["date"].strftime("%Y-%m-%d")
+        _sea = int(_r["season"])
+        vals = {}
+        for _tid, _k in [(_r["home_team"], "h"), (_r["away_team"], "a")]:
+            q = _avail_q(_tid, _day, _sea)
+            if q is None:
+                vals[_k] = 1.0                       # no roster data -> neutral
+            else:
+                key = (_tid, _sea)
+                pm = (_rsum[key] / _rcnt[key]) if _rcnt.get(key) else None
+                vals[_k] = (q / pm) if pm and pm > 0 else 1.0   # prior matches only
+                _rsum[key] = _rsum.get(key, 0.0) + q
+                _rcnt[key] = _rcnt.get(key, 0) + 1
+        _hsh.append(vals["h"]); _ash.append(vals["a"])
+    df["home_avail_share"] = _hsh
+    df["away_avail_share"] = _ash
+    df["avail_share_diff"] = df["home_avail_share"] - df["away_avail_share"]
+    _tw = df[df["season"].isin(TEST_SEASONS)]
+    _cov = float((_tw["home_avail_share"] != 1.0).mean()) if len(_tw) else 0.0
+    _glob = float((df["home_avail_share"] != 1.0).mean())
+    print(f"    Availability built. Coverage: test-seasons {_cov:.0%}, "
+          f"whole-history {_glob:.0%} (rosters only exist 2022-2024)")
+    _FEAT_AVAIL = ["home_avail_share", "away_avail_share", "avail_share_diff"]
+else:
+    print("\n[5g/9] ESPN availability: data/espn_rosters.csv not found — skipping.")
+
+
 _FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + ["is_playoff"]
 
 _SP_XG_FEATS   = ["home_xga_sp_roll_15", "away_xga_sp_roll_15"] if _HAS_SP_XG else []
@@ -1346,6 +1466,8 @@ _FEAT_TRAVEL = ["travel_km", "home_days_rest", "away_days_rest", "rest_advantage
 AB_SETS["+TravelRest"] = _FEAT_BASE + _FEAT_TRAVEL
 _FEAT_CONTEXT = ["is_dome", "is_high_alt"]   # match-context flags (already computed)
 AB_SETS["+Context"]    = _FEAT_BASE + _FEAT_CONTEXT
+if _FEAT_AVAIL:
+    AB_SETS["+Availability"] = _FEAT_BASE + _FEAT_AVAIL
 AB_SETS["+All"]        = _FEAT_ALL
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
