@@ -1130,24 +1130,25 @@ if FETCH_WEATHER:
 else:
     print("\n[6/9] Weather skipped (FETCH_WEATHER=False). Set True to enable.")
 
-# ─── 6b. Optional: Transfermarkt squad value (season-lagged) ─────────────────
+# ─── 6b. Optional: Transfermarkt squad value — PELE-style features ───────────
+# Features (all season-lagged 1-2 seasons to avoid leakage):
+#   squad_value_z     — total squad market value, z-scored within season
+#   att_value_pct     — FW/AM/W share of squad value (Tilt prior)
+#   def_value_pct     — CB/FB share of squad value
+#   tilt              — att_value_pct − def_value_pct (>0 = attacking style)
+#   value_wtd_age     — age weighted by market value (lower = young+valuable)
+#   dp_value_share    — top-3 players' value / total (star concentration)
+#
+# Requires: python scripts/import_transfermarkt.py --seasons 2017-2025
+#           (needs R + worldfootballR for the fetch; --skip-fetch to re-aggregate only)
 
 _HAS_TM = False
 if FETCH_TRANSFERMARKT:
     import glob as _glob
-    import yaml as _yaml
-    print("\n[6b/9] Loading Transfermarkt squad-value CSVs...")
-    _tm_map_path = os.path.join(os.path.dirname(__file__), "..", "config",
-                                 "team_name_to_asa_id.yaml")
-    _tm_name_to_asa: dict[str, str] = {}
-    try:
-        with open(_tm_map_path) as _fh:
-            _tm_map_yaml = _yaml.safe_load(_fh) or {}
-        _tm_name_to_asa = _tm_map_yaml.get("transfermarkt", {}) or {}
-    except Exception as _e:
-        print(f"    Warning: team-name map not loaded ({_e}).")
+    print("\n[6b/9] Loading Transfermarkt squad-value CSVs (PELE features)...")
 
-    _tm_raw: dict[tuple, dict] = {}      # (asa_team_id, season) → {squad_value_eur, avg_age, ...}
+    # (asa_team_id, season) → feature dict
+    _tm_raw: dict[tuple, dict] = {}
     _tm_csvs = sorted(_glob.glob(os.path.join(
         os.path.dirname(__file__), "..", "data",
         "transfermarkt_squad_values_*_mapped.csv")))
@@ -1158,10 +1159,10 @@ if FETCH_TRANSFERMARKT:
         except Exception:
             continue
         for _, _row in _tm_df.iterrows():
-            tm_name = _row.get("tm_team_name", "")
-            asa_id  = _row.get("asa_team_id", None)
+            asa_id = _row.get("asa_team_id", None)
             if (not isinstance(asa_id, str)) or not asa_id:
-                if isinstance(tm_name, str):
+                tm_name = _row.get("tm_team_name", "")
+                if isinstance(tm_name, str) and tm_name:
                     _tm_unmapped.add(tm_name)
                 continue
             try:
@@ -1169,14 +1170,19 @@ if FETCH_TRANSFERMARKT:
             except Exception:
                 continue
             _tm_raw[(asa_id, _season)] = {
-                "squad_value_eur": float(_row.get("squad_value_eur") or 0.0),
-                "avg_age":         float(_row.get("avg_age") or 0.0),
-                "n_internationals": float(_row.get("n_internationals") or 0.0),
+                "squad_value_eur":  float(_row.get("squad_value_eur")  or 0.0),
+                "att_value_pct":    float(_row.get("att_value_pct")    or 0.0),
+                "def_value_pct":    float(_row.get("def_value_pct")    or 0.0),
+                "tilt":             float(_row.get("tilt")             or 0.0),
+                "value_wtd_age":    float(_row.get("value_wtd_age")    or 0.0),
+                "dp_value_share":   float(_row.get("dp_value_share")   or 0.0),
+                "avg_age":          float(_row.get("avg_age")          or 0.0),
             }
     if _tm_unmapped:
         print(f"    Unmapped TM teams (skipped): {sorted(_tm_unmapped)[:8]}"
               f"{' ...' if len(_tm_unmapped) > 8 else ''}")
 
+    # Z-score squad_value_eur within season (so differential is scale-free)
     _tm_sv_z: dict[tuple, float] = {}
     if _tm_raw:
         for _s in sorted({ss for (_, ss) in _tm_raw}):
@@ -1193,7 +1199,8 @@ if FETCH_TRANSFERMARKT:
         for lag in (1, 2):
             entry = _tm_raw.get((team_id, season - lag))
             if entry is not None and field in entry:
-                return entry[field]
+                v = entry[field]
+                return v if np.isfinite(v) else None
         return None
 
     def _tm_sv_z_lookup(team_id: str, season: int) -> float | None:
@@ -1204,17 +1211,50 @@ if FETCH_TRANSFERMARKT:
         return None
 
     if _tm_sv_z:
-        df["home_squad_value_z"] = [_tm_sv_z_lookup(r.home_team, r.season) for _, r in df.iterrows()]
-        df["away_squad_value_z"] = [_tm_sv_z_lookup(r.away_team, r.season) for _, r in df.iterrows()]
+        # ── Total squad value (scale-free) ────────────────────────────────────
+        df["home_squad_value_z"] = [_tm_sv_z_lookup(r.home_team, r.season)
+                                     for _, r in df.iterrows()]
+        df["away_squad_value_z"] = [_tm_sv_z_lookup(r.away_team, r.season)
+                                     for _, r in df.iterrows()]
         df["squad_value_diff_z"] = (df["home_squad_value_z"].fillna(0)
                                      - df["away_squad_value_z"].fillna(0))
-        df["home_avg_age"] = [_tm_lookup(r.home_team, r.season, "avg_age")
-                              for _, r in df.iterrows()]
-        df["away_avg_age"] = [_tm_lookup(r.away_team, r.season, "avg_age")
-                              for _, r in df.iterrows()]
+
+        # ── Positional value split (Tilt) ─────────────────────────────────────
+        df["home_tilt"]     = [_tm_lookup(r.home_team, r.season, "tilt")
+                                for _, r in df.iterrows()]
+        df["away_tilt"]     = [_tm_lookup(r.away_team, r.season, "tilt")
+                                for _, r in df.iterrows()]
+        df["tilt_diff"]     = (df["home_tilt"].fillna(0) - df["away_tilt"].fillna(0))
+        df["home_att_pct"]  = [_tm_lookup(r.home_team, r.season, "att_value_pct")
+                                for _, r in df.iterrows()]
+        df["away_att_pct"]  = [_tm_lookup(r.away_team, r.season, "att_value_pct")
+                                for _, r in df.iterrows()]
+        df["home_def_pct"]  = [_tm_lookup(r.home_team, r.season, "def_value_pct")
+                                for _, r in df.iterrows()]
+        df["away_def_pct"]  = [_tm_lookup(r.away_team, r.season, "def_value_pct")
+                                for _, r in df.iterrows()]
+
+        # ── Value-weighted age (trajectory signal) ────────────────────────────
+        df["home_val_age"]  = [_tm_lookup(r.home_team, r.season, "value_wtd_age")
+                                for _, r in df.iterrows()]
+        df["away_val_age"]  = [_tm_lookup(r.away_team, r.season, "value_wtd_age")
+                                for _, r in df.iterrows()]
+        df["val_age_diff"]  = (df["home_val_age"].fillna(0) - df["away_val_age"].fillna(0))
+
+        # ── Star concentration (DP proxy) ─────────────────────────────────────
+        df["home_dp_share"] = [_tm_lookup(r.home_team, r.season, "dp_value_share")
+                                for _, r in df.iterrows()]
+        df["away_dp_share"] = [_tm_lookup(r.away_team, r.season, "dp_value_share")
+                                for _, r in df.iterrows()]
+        df["dp_share_diff"] = (df["home_dp_share"].fillna(0) - df["away_dp_share"].fillna(0))
+
         _HAS_TM = True
-        print(f"    Transfermarkt squad values loaded: {len(_tm_sv_z)} team-seasons "
-              f"({df['home_squad_value_z'].notna().mean():.0%} match coverage)")
+        cov = df["home_squad_value_z"].notna().mean()
+        print(f"    Transfermarkt loaded: {len(_tm_sv_z)} team-seasons  "
+              f"coverage={cov:.0%}")
+        tilt_cov = df["home_tilt"].notna().mean()
+        print(f"    Positional tilt coverage: {tilt_cov:.0%}  "
+              f"mean home tilt={df['home_tilt'].mean():.3f}")
     else:
         print("    Transfermarkt: no usable rows found.")
 else:
@@ -1896,10 +1936,21 @@ _FEAT_XG_SPLIT = (
     + (["home_xg_oe_z", "away_xg_oe_z", "xg_oe_diff"] if "home_xg_oe_z" in df.columns else [])
 )
 
-# Transfermarkt squad value (Phase 7 candidate — market-value strength signal)
-_TM_FEATS = ((["home_squad_value_z", "away_squad_value_z", "squad_value_diff_z",
-                "home_avg_age", "away_avg_age"])
+# Transfermarkt features — PELE-style decomposition (Phase 13)
+# Base squad value (scale-free total)
+_TM_FEATS = (["home_squad_value_z", "away_squad_value_z", "squad_value_diff_z"]
               if "home_squad_value_z" in df.columns else [])
+# Positional value split: Tilt = att_value_pct − def_value_pct (>0 = attacking)
+_TM_POSITIONAL = (["home_tilt", "away_tilt", "tilt_diff",
+                    "home_att_pct", "away_att_pct",
+                    "home_def_pct", "away_def_pct"]
+                   if "home_tilt" in df.columns else [])
+# Value-weighted age trajectory signal (lower = young expensive roster)
+_TM_AGE = (["home_val_age", "away_val_age", "val_age_diff"]
+            if "home_val_age" in df.columns else [])
+# Star concentration: top-3 players' share of squad value (DP proxy)
+_TM_DP = (["home_dp_share", "away_dp_share", "dp_share_diff"]
+           if "home_dp_share" in df.columns else [])
 
 # Minutes-weighted roster quality (section 5k)
 # _FEAT_ROSTER_XPA and _FEAT_POS_GA defined above in section 5k
@@ -1921,6 +1972,9 @@ _ALL_EXTRA = (
     + _FEAT_XPASS
     + _FEAT_XG_SPLIT
     + _TM_FEATS
+    + _TM_POSITIONAL
+    + _TM_AGE
+    + _TM_DP
     + _FEAT_TZ
     + _FEAT_ROSTER_XPA
     + _FEAT_POS_GA
@@ -1946,6 +2000,14 @@ if _FEAT_XG_SPLIT:
     AB_SETS["+ASA_xGSplit"]  = _FEAT_BASE + _FEAT_XG_SPLIT
 if _TM_FEATS:
     AB_SETS["+TM_SquadValue"] = _FEAT_BASE + _TM_FEATS
+if _TM_POSITIONAL:
+    AB_SETS["+TM_Positional"] = _FEAT_BASE + _TM_POSITIONAL  # Tilt + att/def pct
+if _TM_AGE:
+    AB_SETS["+TM_Age"]        = _FEAT_BASE + _TM_AGE         # value-weighted age trajectory
+if _TM_DP:
+    AB_SETS["+TM_Stars"]      = _FEAT_BASE + _TM_DP          # top-3 value concentration
+if _TM_FEATS and _TM_POSITIONAL and _TM_AGE:
+    AB_SETS["+TM_PELE"]       = _FEAT_BASE + _TM_FEATS + _TM_POSITIONAL + _TM_AGE + _TM_DP
 AB_SETS["+TZShift"]    = _FEAT_BASE + _FEAT_TZ
 AB_SETS["+PythagLuck"] = _FEAT_BASE + _FEAT_PYTHAG
 # Interaction probe: the two positive-marginal singles (+0.0008 each) combined —

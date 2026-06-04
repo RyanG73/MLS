@@ -68,6 +68,29 @@
 >   match level — season-lagged player metrics are redundant/noise on top of that.
 >   EXCEPT contextual/situational features: +TZ_Pythag KEEP (Δ=+0.0013); these carry
 >   information the match-level rolling features don't capture.
+>
+> **Phase 13 (2026-06-04): PELE-style Transfermarkt market-value features — implemented, NOT YET EVALUATED**
+> Inspired by Nate Silver's PELE model (2026 World Cup predictions). Key insight from PELE:
+>   - Squad strength = Transfermarkt market value, not just results/xG
+>   - Tilt = positional value allocation (ATT% vs DEF%) — orthogonal to total quality
+>   - Trajectory = age weighted by market value (young + expensive → improving team)
+>   - Star concentration = top-3 value share (DP proxy)
+>
+> Implemented four new feature bundles (all season-lagged 1-2 seasons):
+>   +TM_SquadValue  — squad_value_z (total market value, z-scored within season)
+>   +TM_Positional  — tilt, att_value_pct, def_value_pct (PELE "Tilt" analog)
+>   +TM_Age         — value_wtd_age (age weighted by market value; trajectory signal)
+>   +TM_Stars       — dp_value_share (top-3 player value / total; DP concentration)
+>   +TM_PELE        — all four combined
+>
+> Infrastructure fixes made:
+>   1. YAML bug fixed: team IDs were internal ASA hex IDs; corrected to short codes (ATL, ATX…)
+>   2. R script upgraded: now outputs per-player data (position, age, value) not aggregated
+>   3. Import script: aggregates with positional splits + value-weighted age (PELE logic)
+>
+> To evaluate: run `python scripts/import_transfermarkt.py --seasons 2017-2025`
+>   (requires R + worldfootballR; or use --skip-fetch to re-aggregate existing CSVs)
+>   then set FETCH_TRANSFERMARKT=True in eval_baseline.py and re-run the eval.
 
 ---
 
