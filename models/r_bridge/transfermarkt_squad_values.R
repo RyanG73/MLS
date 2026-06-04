@@ -48,7 +48,8 @@ if (length(team_urls) == 0) {
 
 rows <- lapply(team_urls, function(team_url) {
   tryCatch({
-    squad <- tm_squad_stats(team_url = team_url, time_pause = 3)
+    Sys.sleep(3)
+    squad <- tm_squad_stats(team_url = team_url)
     if (is.null(squad) || nrow(squad) == 0) return(NULL)
 
     # Normalise column names for robustness across worldfootballR versions
