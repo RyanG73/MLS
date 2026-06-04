@@ -34,7 +34,7 @@ empty_csv <- function() {
 }
 
 team_urls <- tryCatch(
-  tm_league_team_urls(country_name = "USA", start_year = season),
+  tm_league_team_urls(country_name = "United States", start_year = season),
   error = function(e) {
     message(sprintf("tm_league_team_urls failed: %s", conditionMessage(e)))
     character(0)
