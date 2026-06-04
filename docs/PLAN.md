@@ -54,16 +54,20 @@
 > Feature-hunt log: `docs/feature-hunt-log.md` (auto-populated every 30 min via /loop).
 > Multi-agent improvement workflow: see `docs/experiment-protocol.md` and `/improve-model`.
 >
-> **Phase 12 (2026-06-04): minutes-weighted full-roster metrics added (eval not yet run)**
-> Motivation: prior player signals (+Squad, +GoalsAdded, +ASA_TopN) all used raw sums biased
->   by squad depth. New approach: rate per 90 team-minutes (quality density, not total).
-> New sections in eval_baseline.py:
->   [5k] roster_xpa_rate = Σ(player_xpoints_added) / (total_team_min / 90), full squad ≥90 min.
->   [5k] att_ga_rate / def_ga_rate = g+above_avg rate by position group (ATT vs DEF separately).
->   [5l] FBref progressive actions + pressures via soccerdata (optional, requires pip install).
-> New A/B groups: +RosterXPA, +PosGA, +RosterAll, +FBref.
-> Hypothesis: position split may isolate offensive vs defensive quality missed by composite sum.
-> Run eval to populate results above.
+> **Phase 12 results (2026-06-04): minutes-weighted full-roster metrics — ALL DROP**
+> +RosterXPA: Δ=−0.0008 → DROP (roster xpoints_added per 90 team-min, full squad ≥90 min).
+> +PosGA:     Δ=−0.0032 → DROP (ATT g+ rate + DEF g+ rate per 90 team-min, separate groups).
+> +RosterAll: Δ=−0.0045 → DROP (worst combined — features compete and hurt each other).
+> soccerdata/FBref: not installed on this machine; +FBref not evaluated.
+> Base (3-season avg): 0.6363. Ensemble stacked avg: 0.6386 (+0.3% vs naive 0.6406).
+>
+> CONCLUSION: Season-lagged player-level ASA data consistently hurts regardless of aggregation method.
+>   All tested: raw sum (+Squad −0.0011), top player (+GoalsAdded −0.0013), top-N (+ASA_TopN −0.0029),
+>   minutes-weighted xpass (+ASA_xPass −0.0008), minutes-weighted rate (+RosterXPA −0.0008),
+>   position-group split (+PosGA −0.0032). ELO + rolling xG already encodes team quality at the
+>   match level — season-lagged player metrics are redundant/noise on top of that.
+>   EXCEPT contextual/situational features: +TZ_Pythag KEEP (Δ=+0.0013); these carry
+>   information the match-level rolling features don't capture.
 
 ---
 
