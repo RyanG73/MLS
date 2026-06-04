@@ -53,6 +53,17 @@
 > FotMob: deferred (see "Deferred features" section below).
 > Feature-hunt log: `docs/feature-hunt-log.md` (auto-populated every 30 min via /loop).
 > Multi-agent improvement workflow: see `docs/experiment-protocol.md` and `/improve-model`.
+>
+> **Phase 12 (2026-06-04): minutes-weighted full-roster metrics added (eval not yet run)**
+> Motivation: prior player signals (+Squad, +GoalsAdded, +ASA_TopN) all used raw sums biased
+>   by squad depth. New approach: rate per 90 team-minutes (quality density, not total).
+> New sections in eval_baseline.py:
+>   [5k] roster_xpa_rate = Σ(player_xpoints_added) / (total_team_min / 90), full squad ≥90 min.
+>   [5k] att_ga_rate / def_ga_rate = g+above_avg rate by position group (ATT vs DEF separately).
+>   [5l] FBref progressive actions + pressures via soccerdata (optional, requires pip install).
+> New A/B groups: +RosterXPA, +PosGA, +RosterAll, +FBref.
+> Hypothesis: position split may isolate offensive vs defensive quality missed by composite sum.
+> Run eval to populate results above.
 
 ---
 

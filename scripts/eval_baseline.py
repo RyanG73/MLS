@@ -21,6 +21,16 @@ Phase 6 changes:
   - Weather: Open-Meteo historical API (FETCH_WEATHER flag; dome stadiums get NULL)
   - Post-FIFA break flag: binary, 14-day window after FIFA windows
   - Kickoff time: cyclic hour encoding + weekday flag
+
+Phase 12 changes (minutes-weighted roster quality):
+  - [5k] Full-roster xpoints_added rate: Σ(player_xpa) / (total_team_min / 90)
+         Normalises for squad depth — prior raw-sum +Squad dropped (Δ=−0.0018).
+         New A/B group: +RosterXPA
+  - [5k] Positional g+ split: ATT and DEF position groups separately,
+         both as rate-per-90-team-minutes from get_player_goals_added().
+         New A/B group: +PosGA  (combined: +RosterAll)
+  - [5l] FBref progressive actions + pressing via soccerdata (optional).
+         Requires pip install soccerdata.  New A/B group: +FBref
 """
 
 import math
@@ -1564,6 +1574,276 @@ df["gk_dist_diff"] = df["home_gk_dist_z"] - df["away_gk_dist_z"]
 _FEAT_GKDIST = ["home_gk_dist_z", "away_gk_dist_z", "gk_dist_diff"]
 
 
+# ─── 5k. Minutes-weighted roster quality: full roster + positional g+ split ───
+# Prior signals (5, 5d, 5d2) use raw sums or top-N cuts — biased by squad depth.
+# Here we normalise by total team-minutes to get *density* (quality per minute).
+#   roster_xpa_rate  = Σ(player_xpoints_added) / (total_team_min / 90)
+#   att_ga_rate      = Σ(ATT-position g+above_avg) / (total_team_min / 90)
+#   def_ga_rate      = Σ(DEF-position g+above_avg) / (total_team_min / 90)
+# All z-scored within season, lagged 1-2 seasons. ≥90-min players included.
+
+print("\n[5k/9] Computing minutes-weighted roster quality (full roster + positional split)...")
+
+_ATT_POS_KWS = frozenset([
+    "fw", "forward", "winger", "attacking mid", "attacking midfielder",
+    "am", "st", "cf", "lw", "rw",
+])
+_DEF_POS_KWS = frozenset([
+    "cb", "fb", "defender", "centre back", "center back",
+    "left back", "right back", "full back", "lb", "rb", "cd",
+])
+
+
+def _pos_is_att(pos_val) -> bool:
+    p = str(pos_val).lower().strip()
+    return any(kw in p for kw in _ATT_POS_KWS)
+
+
+def _pos_is_def(pos_val) -> bool:
+    p = str(pos_val).lower().strip()
+    return any(kw in p for kw in _DEF_POS_KWS)
+
+
+def _zs_within_season(raw: dict) -> dict:
+    out: dict[tuple, float] = {}
+    for _s in sorted({ss for (_, ss) in raw}):
+        vals = [v for (t, ss), v in raw.items() if ss == _s]
+        if len(vals) < 3:
+            continue
+        mu, sd = float(np.mean(vals)), float(np.std(vals))
+        sd = max(sd, 1e-6)
+        for (t, ss), v in raw.items():
+            if ss == _s:
+                out[(t, ss)] = (v - mu) / sd
+    return out
+
+
+def _lagged_lookup(tbl: dict, team_id: str, season: int) -> "float | None":
+    for lag in (1, 2):
+        v = tbl.get((team_id, season - lag))
+        if v is not None:
+            return v
+    return None
+
+
+_roster_xpa_raw:  dict[tuple, float] = {}
+_att_ga_raw:      dict[tuple, float] = {}
+_def_ga_raw:      dict[tuple, float] = {}
+
+for _s in _SQUAD_SEASONS:
+    # roster xpoints_added rate (get_player_xgoals, all players ≥90 min)
+    try:
+        _pxg_s = _cf(asa.get_player_xgoals, leagues="mls", season_name=str(_s))
+        _px    = list(_pxg_s.columns)
+        _px_tid = "team_id" if "team_id" in _px else None
+        _px_min = next((c for c in ["minutes_played", "minutes"] if c in _px), None)
+        _px_xpa = next((c for c in ["xpoints_added", "x_points_added"] if c in _px), None)
+        if _px_tid and _px_min and _px_xpa:
+            _pxg_f = _pxg_s[
+                _pxg_s[_px_tid].apply(lambda x: isinstance(x, str))
+                & (_pxg_s[_px_min] >= 90)
+            ]
+            for _tid, _grp in _pxg_f.groupby(_px_tid):
+                tm = float(_grp[_px_min].sum())
+                if tm < 450:
+                    continue
+                _roster_xpa_raw[(_tid, _s)] = float(_grp[_px_xpa].sum() / (tm / 90.0))
+    except Exception:
+        pass
+
+    # positional g+ split (get_player_goals_added)
+    try:
+        _pga_s  = _cf(asa.get_player_goals_added, leagues="mls", season_name=str(_s))
+        _pg     = list(_pga_s.columns)
+        _pg_tid = "team_id" if "team_id" in _pg else None
+        _pg_min = next((c for c in ["minutes_played", "minutes"] if c in _pg), None)
+        _pg_pos = next((c for c in ["general_position", "position",
+                                     "primary_general_position"] if c in _pg), None)
+        _pg_ga  = next((c for c in ["goals_added_above_avg",
+                                     "goals_added_above_replacement",
+                                     "goals_added_raw"] if c in _pg), None)
+        if _pg_ga is None and "data" in _pg:
+            _pga_s = _pga_s.copy()
+            _pga_s["_ga_val"] = _pga_s["data"].apply(
+                lambda d: sum(
+                    float(x.get("goals_added_above_avg", 0) or 0)
+                    for x in (_json.loads(d) if isinstance(d, str) else d)
+                ) if d is not None else 0.0
+            )
+            _pg_ga = "_ga_val"
+        if _pg_tid and _pg_min and _pg_ga and _pg_pos:
+            _pga_f = _pga_s[
+                _pga_s[_pg_tid].apply(lambda x: isinstance(x, str))
+                & (_pga_s[_pg_min] >= 90)
+            ]
+            for _tid, _grp in _pga_f.groupby(_pg_tid):
+                tm = float(_grp[_pg_min].sum())
+                if tm < 450:
+                    continue
+                rate_90 = tm / 90.0
+                _att_grp = _grp[_grp[_pg_pos].apply(_pos_is_att)]
+                _def_grp = _grp[_grp[_pg_pos].apply(_pos_is_def)]
+                if len(_att_grp) >= 2:
+                    _att_ga_raw[(_tid, _s)] = float(_att_grp[_pg_ga].sum() / rate_90)
+                if len(_def_grp) >= 2:
+                    _def_ga_raw[(_tid, _s)] = float(_def_grp[_pg_ga].sum() / rate_90)
+    except Exception:
+        pass
+
+_roster_xpa_z = _zs_within_season(_roster_xpa_raw)
+_att_ga_z     = _zs_within_season(_att_ga_raw)
+_def_ga_z     = _zs_within_season(_def_ga_raw)
+
+print(f"    Roster xPA rate:  {len(_roster_xpa_z)} team-seasons")
+print(f"    ATT g+ rate:      {len(_att_ga_z)} team-seasons")
+print(f"    DEF g+ rate:      {len(_def_ga_z)} team-seasons")
+
+if _roster_xpa_z:
+    df["home_roster_xpa"] = [_lagged_lookup(_roster_xpa_z, r.home_team, int(r.season)) for r in df.itertuples()]
+    df["away_roster_xpa"] = [_lagged_lookup(_roster_xpa_z, r.away_team, int(r.season)) for r in df.itertuples()]
+    df["roster_xpa_diff"] = df["home_roster_xpa"].fillna(0) - df["away_roster_xpa"].fillna(0)
+
+if _att_ga_z:
+    df["home_att_ga"] = [_lagged_lookup(_att_ga_z, r.home_team, int(r.season)) for r in df.itertuples()]
+    df["away_att_ga"] = [_lagged_lookup(_att_ga_z, r.away_team, int(r.season)) for r in df.itertuples()]
+    df["att_ga_diff"] = df["home_att_ga"].fillna(0) - df["away_att_ga"].fillna(0)
+
+if _def_ga_z:
+    df["home_def_ga"] = [_lagged_lookup(_def_ga_z, r.home_team, int(r.season)) for r in df.itertuples()]
+    df["away_def_ga"] = [_lagged_lookup(_def_ga_z, r.away_team, int(r.season)) for r in df.itertuples()]
+    df["def_ga_diff"] = df["home_def_ga"].fillna(0) - df["away_def_ga"].fillna(0)
+
+_FEAT_ROSTER_XPA = (["home_roster_xpa", "away_roster_xpa", "roster_xpa_diff"]
+                    if "home_roster_xpa" in df.columns else [])
+_FEAT_POS_GA = (
+    (["home_att_ga", "away_att_ga", "att_ga_diff"] if "home_att_ga" in df.columns else [])
+    + (["home_def_ga", "away_def_ga", "def_ga_diff"] if "home_def_ga" in df.columns else [])
+)
+
+# ─── 5l. Optional: FBref player metrics via soccerdata ────────────────────────
+# Pulls progressive actions (passes + carries) and pressing intensity per team-
+# season from FBref.  Complements ASA with spatial/style metrics (not in ASA).
+# Requires: pip install soccerdata   Falls back silently if unavailable.
+# FBref team names differ from ASA IDs — bridge built via asa.get_players().
+
+print("\n[5l/9] Optional: FBref player metrics via soccerdata...")
+
+_fbref_prog_raw:  dict[tuple, str] = {}   # keyed by (FBref_squad_name, season)
+_fbref_press_raw: dict[tuple, str] = {}
+_fbref_name_to_asa: dict[str, str] = {}
+_HAS_FBREF = False
+
+try:
+    import soccerdata as sd  # pip install soccerdata
+
+    # Build FBref squad-name → ASA team_id map from ASA player records
+    try:
+        _all_players = _cf(asa.get_players, leagues="mls")
+        _ap_cols = list(_all_players.columns)
+        _ap_tid  = "team_id" if "team_id" in _ap_cols else None
+        _ap_nm   = next((c for c in ["team_name", "club_name", "team"] if c in _ap_cols), None)
+        if _ap_tid and _ap_nm:
+            for _, row in _all_players.iterrows():
+                tid = str(row.get(_ap_tid, "")).strip()
+                nm  = str(row.get(_ap_nm, "")).strip()
+                if tid and nm:
+                    _fbref_name_to_asa[nm] = tid
+    except Exception:
+        pass
+
+    def _safe_num(v) -> float:
+        try:
+            return float(v) if v is not None and str(v) not in ("", "nan") else 0.0
+        except Exception:
+            return 0.0
+
+    for _s in [s for s in _SQUAD_SEASONS if s >= 2018]:
+        try:
+            _fb = sd.FBref(leagues="USA-MLS", seasons=[_s])
+
+            # Standard stats: progressive passes + carries
+            _std = _fb.read_player_season_stats("standard")
+            _std.columns = [
+                ("_".join(map(str, c)).lower() if isinstance(c, tuple) else str(c).lower())
+                for c in _std.columns
+            ]
+            _min_c  = next((c for c in _std.columns if c in ("playing_time_min", "min", "minutes")), None)
+            _team_c = next((c for c in _std.columns if c in ("squad", "team")), None)
+            _prog_p = next((c for c in _std.columns if "prg_p" in c or "progressive_passes" in c), None)
+            _prog_c = next((c for c in _std.columns if "prg_c" in c or "progressive_carries" in c), None)
+            if _team_c and _min_c and (_prog_p or _prog_c):
+                _std["_min_f"] = _std[_min_c].apply(_safe_num)
+                for _team, _grp in _std[_std["_min_f"] >= 90].groupby(_team_c):
+                    tm = _grp["_min_f"].sum()
+                    if tm < 450:
+                        continue
+                    prog = ((_grp[_prog_p].apply(_safe_num).sum() if _prog_p else 0)
+                            + (_grp[_prog_c].apply(_safe_num).sum() if _prog_c else 0))
+                    if prog > 0:
+                        _fbref_prog_raw[(_team, _s)] = prog / (tm / 90.0)
+
+            # Defensive stats: pressures per 90
+            _def = _fb.read_player_season_stats("defense")
+            _def.columns = [
+                ("_".join(map(str, c)).lower() if isinstance(c, tuple) else str(c).lower())
+                for c in _def.columns
+            ]
+            _d_min_c  = next((c for c in _def.columns if c in ("playing_time_min", "min", "minutes")), None)
+            _d_team_c = next((c for c in _def.columns if c in ("squad", "team")), None)
+            _press_c  = next((c for c in _def.columns
+                               if "press" in c and "%" not in c and "succ" not in c), None)
+            if _d_team_c and _d_min_c and _press_c:
+                _def["_min_f"] = _def[_d_min_c].apply(_safe_num)
+                for _team, _grp in _def[_def["_min_f"] >= 90].groupby(_d_team_c):
+                    tm = _grp["_min_f"].sum()
+                    if tm < 450:
+                        continue
+                    press = _grp[_press_c].apply(_safe_num).sum()
+                    if press > 0:
+                        _fbref_press_raw[(_team, _s)] = press / (tm / 90.0)
+        except Exception:
+            pass
+
+    if _fbref_prog_raw or _fbref_press_raw:
+        _HAS_FBREF = True
+        print(f"    FBref progressive:  {len(_fbref_prog_raw)} team-seasons (FBref names)")
+        print(f"    FBref pressing:     {len(_fbref_press_raw)} team-seasons (FBref names)")
+        print(f"    FBref name→ID map:  {len(_fbref_name_to_asa)} entries")
+
+        def _rekey_fbref(raw: dict) -> dict:
+            out: dict[tuple, float] = {}
+            for (nm, s), v in raw.items():
+                tid = _fbref_name_to_asa.get(nm)
+                if tid:
+                    out[(tid, s)] = float(v)
+            return out
+
+        _fbref_prog_asa  = _zs_within_season(_rekey_fbref(_fbref_prog_raw))
+        _fbref_press_asa = _zs_within_season(_rekey_fbref(_fbref_press_raw))
+
+        if _fbref_prog_asa:
+            df["home_fbref_prog"]  = [_lagged_lookup(_fbref_prog_asa, r.home_team, int(r.season)) for r in df.itertuples()]
+            df["away_fbref_prog"]  = [_lagged_lookup(_fbref_prog_asa, r.away_team, int(r.season)) for r in df.itertuples()]
+            df["fbref_prog_diff"]  = df["home_fbref_prog"].fillna(0) - df["away_fbref_prog"].fillna(0)
+        if _fbref_press_asa:
+            df["home_fbref_press"] = [_lagged_lookup(_fbref_press_asa, r.home_team, int(r.season)) for r in df.itertuples()]
+            df["away_fbref_press"] = [_lagged_lookup(_fbref_press_asa, r.away_team, int(r.season)) for r in df.itertuples()]
+            df["fbref_press_diff"] = df["home_fbref_press"].fillna(0) - df["away_fbref_press"].fillna(0)
+    else:
+        print("    No FBref data retrieved.")
+
+except ImportError:
+    print("    soccerdata not installed — skipping FBref metrics.")
+    print("    Install with: pip install soccerdata")
+except Exception as e:
+    print(f"    soccerdata error: {e}")
+
+_FEAT_FBREF = list(dict.fromkeys(
+    (["home_fbref_prog", "away_fbref_prog", "fbref_prog_diff"] if "home_fbref_prog" in df.columns else [])
+    + (["home_fbref_press", "away_fbref_press", "fbref_press_diff"] if "home_fbref_press" in df.columns else [])
+))
+
+
 # _FEAT_AVAIL (ESPN roster availability) promoted to Base 2026-05-31 — KEEP Δ=+0.0011
 # with full 2017-2024 roster history. Empty list (graceful) when rosters absent.
 _FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + ["is_playoff"] + _FEAT_AVAIL
@@ -1621,6 +1901,12 @@ _TM_FEATS = ((["home_squad_value_z", "away_squad_value_z", "squad_value_diff_z",
                 "home_avg_age", "away_avg_age"])
               if "home_squad_value_z" in df.columns else [])
 
+# Minutes-weighted roster quality (section 5k)
+# _FEAT_ROSTER_XPA and _FEAT_POS_GA defined above in section 5k
+
+# FBref progressive actions + pressing (section 5l) — populated only if soccerdata installed
+# _FEAT_FBREF defined above in section 5l
+
 # +All combines everything available (form_10 already in Base)
 _ALL_EXTRA = (
     _GK_FEATS
@@ -1636,6 +1922,9 @@ _ALL_EXTRA = (
     + _FEAT_XG_SPLIT
     + _TM_FEATS
     + _FEAT_TZ
+    + _FEAT_ROSTER_XPA
+    + _FEAT_POS_GA
+    + _FEAT_FBREF
 )
 _FEAT_ALL = list(dict.fromkeys(_FEAT_BASE + _ALL_EXTRA))
 
@@ -1678,6 +1967,16 @@ if _FEAT_AVAIL_ST:
     AB_SETS["+AvailStarters"] = _FEAT_BASE + _FEAT_AVAIL_ST
 if _FEAT_AVAIL and _FEAT_SALARY:
     AB_SETS["+RosterState"] = _FEAT_BASE + _FEAT_AVAIL + _FEAT_SALARY
+# Minutes-weighted roster metrics (section 5k)
+if _FEAT_ROSTER_XPA:
+    AB_SETS["+RosterXPA"]   = _FEAT_BASE + _FEAT_ROSTER_XPA
+if _FEAT_POS_GA:
+    AB_SETS["+PosGA"]       = _FEAT_BASE + _FEAT_POS_GA
+if _FEAT_ROSTER_XPA and _FEAT_POS_GA:
+    AB_SETS["+RosterAll"]   = _FEAT_BASE + _FEAT_ROSTER_XPA + _FEAT_POS_GA
+# FBref features (section 5l) — only present if soccerdata installed + data retrieved
+if _FEAT_FBREF:
+    AB_SETS["+FBref"]       = _FEAT_BASE + _FEAT_FBREF
 AB_SETS["+All"]        = _FEAT_ALL
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
