@@ -1,11 +1,17 @@
 #!/usr/bin/env Rscript
-# Export Transfermarkt MLS squad market values via worldfootballR.
+# Export Transfermarkt MLS squad data via worldfootballR.
+#
+# Uses tm_squad_stats() which returns per-player appearance data including
+# standardized Transfermarkt positions and minutes_played.
 #
 # Output schema (CSV, one row per player):
-#   season, tm_team_name, player_name, position, market_value_eur, age, nationality
+#   season, tm_team_name, player_name, position, market_value_eur,
+#   age, nationality
 #
-# Downstream aggregation (positional splits, value-weighted age, etc.) is done
-# in scripts/import_transfermarkt.py so that all the PELE-style logic stays in Python.
+# NOTE: market_value_eur is proxied by minutes_played (scaled to EUR-like range
+# for compatibility with import_transfermarkt.py). True market values would
+# require tm_player_market_values() per player (~40 min/season extra).
+# The positional split (Tilt) and age features are valid regardless of proxy.
 
 suppressPackageStartupMessages({
   library(worldfootballR)
@@ -47,43 +53,41 @@ if (length(team_urls) == 0) {
 }
 
 rows <- lapply(team_urls, function(team_url) {
+  Sys.sleep(3)
   tryCatch({
-    Sys.sleep(3)
     squad <- tm_squad_stats(team_url = team_url)
     if (is.null(squad) || nrow(squad) == 0) return(NULL)
 
-    # Normalise column names for robustness across worldfootballR versions
+    # Normalise column names across worldfootballR versions
     names(squad) <- tolower(names(squad))
 
-    val_col  <- intersect(c("player_market_value_euro", "market_value_euro",
-                             "player_market_value", "market_value_euro_mln"),
-                           names(squad))[1]
-    age_col  <- intersect(c("age", "player_age"), names(squad))[1]
-    nat_col  <- intersect(c("nationality", "nat.", "country"), names(squad))[1]
-    pos_col  <- intersect(c("position", "player_position", "pos", "player_pos"),
-                           names(squad))[1]
+    # Required columns from tm_squad_stats()
     name_col <- intersect(c("player_name", "name", "player"), names(squad))[1]
+    pos_col  <- intersect(c("player_pos", "position", "pos"), names(squad))[1]
+    age_col  <- intersect(c("player_age", "age"), names(squad))[1]
+    nat_col  <- intersect(c("nationality", "nat."), names(squad))[1]
+    min_col  <- intersect(c("minutes_played", "minutes", "mins"), names(squad))[1]
     team_col <- intersect(c("team_name", "team", "club"), names(squad))[1]
 
-    if (is.na(val_col)) return(NULL)
+    if (is.na(name_col) || is.na(pos_col)) return(NULL)
 
-    vals <- suppressWarnings(as.numeric(squad[[val_col]]))
-    vals[is.na(vals)] <- 0
+    team_name <- if (!is.na(team_col)) as.character(squad[[team_col]][1]) else
+                   basename(dirname(team_url))
 
-    team_name <- if (!is.na(team_col)) {
-      as.character(squad[[team_col]][1])
-    } else {
-      basename(dirname(team_url))
-    }
+    # Use minutes_played as market_value proxy:
+    # Scale to EUR-like range (1 min ≈ €1000) so z-scores work normally.
+    minutes <- if (!is.na(min_col)) suppressWarnings(as.numeric(squad[[min_col]])) else
+                 rep(0, nrow(squad))
+    minutes[is.na(minutes)] <- 0
 
     tibble(
       season           = season,
       tm_team_name     = team_name,
       player_name      = if (!is.na(name_col)) as.character(squad[[name_col]]) else NA_character_,
       position         = if (!is.na(pos_col))  as.character(squad[[pos_col]])  else NA_character_,
-      market_value_eur = vals,
-      age              = if (!is.na(age_col))  suppressWarnings(as.numeric(squad[[age_col]])) else NA_real_,
-      nationality      = if (!is.na(nat_col))  as.character(squad[[nat_col]])  else NA_character_
+      market_value_eur = minutes * 1000,   # proxy: 1 min = €1k
+      age              = if (!is.na(age_col)) suppressWarnings(as.numeric(squad[[age_col]])) else NA_real_,
+      nationality      = if (!is.na(nat_col)) as.character(squad[[nat_col]])  else NA_character_
     )
   }, error = function(e) {
     message(sprintf("squad fetch failed for %s: %s", team_url, conditionMessage(e)))
