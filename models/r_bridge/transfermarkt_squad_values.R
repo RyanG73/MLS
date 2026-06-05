@@ -149,7 +149,7 @@ rows <- lapply(seq_along(team_urls), function(i) {
     result <- stats_tbl %>%
       left_join(vals_tbl, by = "player_name") %>%
       mutate(
-        market_value_eur = replace_na(market_value_eur, 0),
+        market_value_eur = ifelse(is.na(market_value_eur), 0, market_value_eur),
         season           = season,
         tm_team_name     = team_name
       ) %>%
