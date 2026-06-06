@@ -93,6 +93,7 @@ transfermarkt:
 
   # Real Salt Lake
   "Real Salt Lake": "RSL"
+  "Real Salt Lake City": "RSL"
 
   # San Diego FC (2025+)
   "San Diego FC": "SD"
@@ -111,6 +112,7 @@ transfermarkt:
   # St. Louis City SC (2023+)
   "St. Louis City SC": "STL"
   "St. Louis City": "STL"
+  "St. Louis CITY SC": "STL"
 
   # Toronto FC
   "Toronto FC": "TOR"
