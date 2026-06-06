@@ -296,3 +296,37 @@ Focus: test whether XGBoost is diluted by DROP-scoring features in `+All`. Const
 New registered A/B candidates (available for future loops): `+VenueGoalDiff` (Δ=+0.0013), `+VenueForm`, `+GoalDiffForm`, `+MargCoreVG`, `+CuratedAll`, `+MargCore`.
 
 Structural insight from the loop: both confirmed KEEP feature sets (+TZ_Pythag, +VenueGoalDiff) score +0.0013 in A/B but never unseat `+All` in BestAB selection. XGB's internal noise-handling means a large feature set is self-curating. Future gains likely require new *independent* signal sources (e.g. injury reports, real-time lineup data, betting market odds) or a fundamentally different architecture rather than more feature engineering on the existing data.
+
+---
+
+## Feature-gap session (2026-06-06) — closing the "ideal feature list" gaps
+
+User provided a 5-tier ideal feature list and asked: what do we have / not have, and for gaps, where's the data / best proxy. Plan: enable already-built production features in the harness, sweep untested AB sets, derive new ones, and decide on market odds.
+
+### Market odds decision: OUT of the model (confirmed with user)
+Training on closing lines would teach the model to replicate Pinnacle, shrinking `model_prob − market_prob` toward zero by construction — it would improve Brier but destroy the edge signal the model exists to produce. Odds stay as betting-CLV measurement only. Architecture: build the best **market-blind** predictor, then compare to market at decision time (8% edge threshold).
+
+### Results
+
+| Candidate | Δ vs Base | Verdict | Note |
+|-----------|-----------|---------|------|
+| +ASA_TopN | −0.0029 | DROP | star-player g+ concentration |
+| +TM_SquadValue | −0.0022 | DROP | Transfermarkt total squad value |
+| +TM_Positional | −0.0021 | DROP | attacking/defensive value tilt |
+| +TM_Stars | −0.0010 | DROP | top-3 value concentration |
+| +ASA_xPass | −0.0008 | DROP | player passing over-expected |
+| +Weather | −0.0013 | DROP | Open-Meteo temp/wind/precip; only 45% archive coverage |
+| **+HomeAdv** | **+0.0006** | **REGISTERED** | per-team home pts-rate − away pts-rate (20-game window) |
+
+**Untestable (no source data):** `+SeasonPPDA` (ASA `get_game_xpass` method removed), `+SalaryRoster` / `+AvailCongestion` (`data/espn_rosters.csv` absent).
+
+**Blocked:** Referee stats — ASA match data carries no referee_id, no referee CSV present, and the R bridge (`models/r_bridge/referee_stats_worldfootballR.R`) needs worldfootballR FBref scraping + a Postgres DB and returns NA tendencies even then. Not feasible without a dedicated data-acquisition build.
+
+**Deprioritised:** Standings leverage (`features/match_importance.py`) — replicable in-harness via Monte Carlo over the frame, but it's a weak outcome predictor (late-season motivation, mostly already-decided games) for a medium build. Pending user go/no-go.
+
+### +HomeAdv detail
+New harness feature: each team's `home pts-rate − away pts-rate` over a trailing 20-game window (`home_ha_tilt`, `away_ha_tilt`, `ha_tilt_sum`), isolating the venue effect from overall quality — ELO uses a single global HOME_ADV=80 for every team. Added as a standalone AB set (NOT in `_ALL_EXTRA`).
+- Standalone A/B: **Δ=+0.0006**, BestAB in all 3 folds of the (Base, +HomeAdv) pool (2022 fold ensemble 0.6312).
+- Full competition: **not** selected over `+All` in any fold → ensemble flat **0.6375**, 2024 gate holds (0.6389). Same pattern as +TZ_Pythag / +VenueGoalDiff: real signal, not ensemble-capturing.
+
+**Net:** no headline change (0.6375). Ruled out 6 candidate groups, banked one positive-signal feature (+HomeAdv), documented the referee data gap. Weather is now opt-in via `--weather`.

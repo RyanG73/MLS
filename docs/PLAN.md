@@ -1,5 +1,22 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Feature-gap session (2026-06-06) — close the "ideal feature list" gaps · ensemble flat at 0.6375**
+> Decision: **market odds stay OUT of the model** — training on closing lines would teach the model to
+> echo Pinnacle, collapsing the `model_prob − market_prob` edge we exist to find. Odds remain betting-CLV only.
+> Results (all standalone AB sets, NOT added to `_ALL_EXTRA`, so `+All` and the 2024 gate are untouched):
+>   - **Untested AB sweep** (`+ASA_TopN`, `+ASA_xPass`, `+TM_SquadValue`, `+TM_Positional`, `+TM_Stars`): **all DROP**
+>     (Δ −0.0008…−0.0029). `+SeasonPPDA`/`+SalaryRoster`/`+AvailCongestion` untestable — source data absent
+>     (ASA `get_game_xpass` gone; `data/espn_rosters.csv` missing).
+>   - **+Weather** (Open-Meteo, `--weather` flag): **DROP** (Δ −0.0013, only 45% archive coverage). Standalone set added.
+>   - **+HomeAdv** (per-team home pts-rate − away pts-rate over 20-game window): **marginal +0.0006**, wins BestAB
+>     in its own pool (2022 fold 0.6312) but **not selected over `+All`** in full competition → ensemble flat 0.6375,
+>     2024 gate holds (0.6389). Registered alongside +TZ_Pythag/+VenueGoalDiff as a real-but-not-ensemble-capturing signal.
+>   - **Referee stats: BLOCKED** — no referee_id in ASA match data, no CSV present; the R bridge needs worldfootballR
+>     FBref scraping + a Postgres DB and even then returns NA tendencies. Not feasible without a new data-acquisition build.
+>   - **Standings leverage**: buildable in-harness (Monte Carlo from the frame) but deprioritised — weak outcome predictor
+>     (late-season motivation) for a medium build; pending user go/no-go.
+> Net: no headline change (0.6375); ruled out 6 candidate groups, banked one positive-signal feature, documented referee gap.
+>
 > **Overnight improvement loop (started 2026-06-06) — goal: lower Brier · KEEP bar +0.0005 · 5 hourly iterations**
 > Iteration log lives in `docs/improvement-progress.md`; architecture detail in `docs/architecture-log.md`.
 > Projections republished to `webapp/data.js` each iteration (pushed to GitHub Pages).
@@ -16,7 +33,7 @@
 > Best model: **Ensemble stacked** (DC + XGBoost capped convex blend, DC≤30%) + Base + `+MargCore` candidate + temperature cal.
 > best_brier **0.6375** (naive 0.6406; ~+0.5% over naive).
 > Net loop gain: 0.6381 → 0.6375 (+0.0006), sole source: iter 3 `+MargCore` BestAB selection for 2023 fold.
-> Confirmed KEEP A/B sets: +TZ_Pythag (Δ=+0.0013), +VenueGoalDiff (Δ=+0.0013) — real signals, not yet ensemble-capturing.
+> Confirmed KEEP A/B sets: +TZ_Pythag (Δ=+0.0013), +VenueGoalDiff (Δ=+0.0013), +HomeAdv (Δ=+0.0006) — real signals, not yet ensemble-capturing.
 > Structural finding: XGB's internal feature selection handles noise effectively — +All consistently wins BestAB.
 > Further gains require either new independent signal sources or architecture changes (e.g. DC-free 2024, adaptive cap).
 > (Calibration default is `temperature`; `temp_then_platt` exists but is a no-op on the blend — corrected cycle #3. Knob-tuning has plateaued; next gains need new signal.)
