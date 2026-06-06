@@ -126,7 +126,7 @@ def _build_player_db(raw_dir: Path) -> dict[str, dict]:
     We always prefer the most recent season's valuation.
     """
     player_db: dict[str, dict] = {}
-    for csv_file in sorted(raw_dir.glob("transfermarkt_squad_values_????[!_]*.csv")):
+    for csv_file in sorted(raw_dir.glob("transfermarkt_squad_values_*.csv")):
         if "mapped" in csv_file.name:
             continue
         try:
@@ -225,7 +225,10 @@ def _aggregate_team(players: pd.DataFrame,
 
 def _map_one(season: int, name_map: dict[str, str],
              player_db: dict | None = None) -> tuple[int, int]:
+    # Accept both naming conventions: YEAR.csv (from _run_r) and YEAR_raw.csv (manual runs)
     raw = DATA_DIR / f"transfermarkt_squad_values_{season}.csv"
+    if not raw.exists() or raw.stat().st_size == 0:
+        raw = DATA_DIR / f"transfermarkt_squad_values_{season}_raw.csv"
     if not raw.exists() or raw.stat().st_size == 0:
         print(f"  ! no raw CSV for {season}, skipping")
         return (0, 0)
