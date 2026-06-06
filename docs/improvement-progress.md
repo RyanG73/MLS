@@ -200,3 +200,16 @@ Dispatched all four component agents in parallel git worktrees against the froze
 | 5 | +AvailCongestion | +0.0005 | marginal |
 
 **Final best_brier 0.6344 (+0.97% over naive), up from 0.6363 (+0.67%) at loop start.** Goal 0.6086 (+5%) NOT reached. The one real new signal was roster **availability** (+0.3%); all talent-investment proxies (salary, payroll) and GK-detail signals were redundant with ELO/xG/GK-quality. This matches the benchmark literature: market-blind MLS 1X2 tops out ~+1-3% over naive (the bookmaker market itself scores ~0.59 in an easier league). +5% is below the market's own Brier and beyond a market-blind model's reach. Cron `a9fd1c3f` deleted.
+
+---
+
+## Overnight loop (2026-06-06) — goal: lower Brier · KEEP threshold loosened to +0.0005
+
+Branch: `claude/mls-prediction-dashboard-C2mQM`. Eval-harness reference: ensemble stacked **0.6381** (naive 0.6406), per-season 2022=0.6382 / 2023=0.6371 / 2024=0.6389. (Note: the production/published `webapp/data.js` figure is 0.6344 from `models/research_model.py`, a separate pipeline — not directly comparable to the research harness.)
+
+### Iteration 1 — ensemble blend-cap sweep — **DROP (within noise)**
+Focus: ensemble blend weights. Tested an env-configurable capped-DC convex blend (`MLS_ENS_MODE`/`MLS_DC_CAP`/`MLS_ENS_SWEEP`) over DC caps {0.0, 0.10, 0.20, 0.30, 0.40}.
+
+The branch **already** runs a 30%-cap convex blend (`arch-capped-dc`, KEPT 2026-05-30 — it is the current default, not the LR meta-learner). Re-measured on the **final calibrated ensemble output**, cap=0.20 gives per-season 2022=0.6384 / 2023=0.6371 / 2024=0.6385 → **0.6380**, vs the existing 30%-cap **0.6381** → Δ=**+0.0001**, below the +0.0005 bar → **DROP**. Cap is insensitive between 0.20–0.30; the existing blend is already near-optimal on this axis.
+
+**Methodology correction:** the subagent first reported "+0.0020 KEEP," but that (a) benchmarked cap=0.20 against an `MLS_ENS_MODE=lr` baseline that has not been the branch default since 2026-05-30, and (b) scored **raw blended probabilities** (its in-run sweep accumulator) rather than the calibrated ensemble the harness actually reports. On the real metric the gain evaporates. Change reverted; default unchanged. **Lesson logged:** verify subagent KEEPs against the *current branch default* and the *reported* metric, not a stale baseline or an intermediate quantity.

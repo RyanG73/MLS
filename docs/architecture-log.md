@@ -64,3 +64,10 @@
 | **avg**| **0.6392**      | **0.6372**  | —           | **-0.0019** |
 **Notes:** The 2024 catastrophe (DC inflating Brier by +0.013 vs XGB) is fixed: capped blend now matches XGB-alone quality in 2024. Trade-off: 2022 and 2023 regress ~+0.004 each because DC's positive contribution is limited. The net average is still a clear win (-0.0019). The fitted w_xgb hits the lower bound (0.70) in both 2022 and 2024, suggesting the optimizer finds DC helpful only when the constraint allows it (2023: w=0.76 uses 24% DC). Cal error also improves: 0.1411 vs baseline 0.1459. This is the best architecture found to date.
 
+## 2026-06-06 — DC-cap fine-tune (overnight loop iter 1, arch-blend-cap-sweep) — DROP
+**Hypothesis:** Tuning the DC weight cap below the current 30% default further lowers Brier.
+**Result:** On the final calibrated ensemble output, cap=0.20 → 0.6380 vs the existing 30%-cap 0.6381, Δ=**+0.0001** → **DROP** (below +0.0005 bar). The cap is insensitive between 0.20–0.30; the `arch-capped-dc` 30% blend is already near-optimal.
+**Per-season (cap=0.20):** 2022=0.6384, 2023=0.6371, 2024=0.6385.
+**experiment_id:** arch-blend-cap-sweep-20260606T033647
+**Notes:** A subagent initially reported +0.0020 KEEP, but it benchmarked against an `MLS_ENS_MODE=lr` baseline (not the branch default — LR was replaced by the capped blend on 2026-05-30) and scored raw blended probabilities rather than the calibrated ensemble the harness reports. On the correct metric vs the correct baseline, no gain. The env-configurable refactor (`MLS_ENS_MODE`/`MLS_DC_CAP`/`MLS_ENS_SWEEP`) was NOT adopted — it also dropped the `temp_then_*` two-stage calibration path for zero Brier benefit. Default unchanged.
+

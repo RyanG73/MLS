@@ -1,7 +1,14 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Overnight improvement loop (started 2026-06-06) — goal: lower Brier · KEEP bar +0.0005 · 5 hourly iterations**
+> Iteration log lives in `docs/improvement-progress.md`; architecture detail in `docs/architecture-log.md`.
+> Projections republished to `webapp/data.js` each iteration (pushed to GitHub Pages).
+>   - Iter 1 (ensemble blend cap sweep): **DROP** — cap=0.20 vs existing 30%-cap = Δ+0.0001 (within noise).
+>     The 30%-cap convex blend (`arch-capped-dc`) is already near-optimal; cap value isn't a lever.
+>     A subagent's "+0.0020 KEEP" was a mis-measurement (LR baseline + raw-prob metric); reverted.
+>
 > **Live eval results (updated 2026-06-06, Phase 13 final: PELE/TM features, player-level lookup)**
-> Best model: **Ensemble stacked** (DC + XGBoost meta-learner) + Base features + temperature calibration.
+> Best model: **Ensemble stacked** (DC + XGBoost capped convex blend, DC≤30%) + Base features + temperature calibration.
 > best_brier **0.6381** (naive 0.6406; ~+0.4% over naive) · max decile cal_err 0.1631 (target <0.05 unmet).
 > Only confirmed KEEP since Phase 6: +TZ_Pythag (Δ=+0.0013). All TM/PELE/roster/player features DROP or marginal.
 > (Calibration default is `temperature`; `temp_then_platt` exists but is a no-op on the blend — corrected cycle #3. Knob-tuning has plateaued; next gains need new signal.)

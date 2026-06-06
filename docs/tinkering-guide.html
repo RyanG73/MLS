@@ -225,7 +225,7 @@
   <h1>🔬 MLS Model Tinkering Guide</h1>
   <p>Everything you need to run experiments, adjust hyperparameters, test new features, and interpret results — no deployment required.</p>
   <span class="badge">Branch: claude/mls-prediction-dashboard-C2mQM</span>
-  <span class="badge" style="margin-left:.5rem">Last updated: 2026-05-10</span>
+  <span class="badge" style="margin-left:.5rem">Last updated: 2026-06-06</span>
 </header>
 
 <div class="wrapper">
@@ -557,6 +557,11 @@ meta_ok = <span class="kw">False</span>
 <span class="cm"># if dc_ok and xgb_ok:</span>
 <span class="cm">#     ... (comment out the meta-learner block)</span><span class="label">python</span></pre>
 
+    <h3>The ensemble blend (capped-DC convex blend)</h3>
+    <p>The final model is <strong>not</strong> a plain average or a logistic-regression meta-learner anymore. It's a scalar convex blend <code>w·XGB + (1−w)·DC</code>, where <code>w</code> is fitted on the calibration fold by minimising Brier, <strong>constrained so Dixon-Coles contributes at most 30%</strong> (<code>w ≥ 0.70</code>). This was adopted on 2026-05-30 (<code>arch-capped-dc</code>) because an unconstrained meta-learner let DC blow up the 2024 season (Brier 0.6523) — capping it fixes 2024 while keeping DC's 2022–23 synergy.</p>
+    <p>Look for the block that fits <code>_blend_brier</code> / <code>minimize(...)</code> in the meta-learner section (search <code>def _blend_brier</code>). To experiment with the cap, change the lower bound on <code>w</code> (e.g. <code>bounds=[(0.60, 1.0)]</code> = 40% DC cap, <code>(1.0, 1.0)</code> = pure XGB). <em>Note from the 2026-06-06 loop:</em> the cap is insensitive between 20–30% on the final output (Δ ≈ +0.0001), so don't expect Brier movement from small cap changes — the bigger lever is the features and the raw models, not the blend weight.</p>
+    <p class="warn"><strong>Watch the metric.</strong> When you tweak the blend, judge it by the <code>Ensemble stacked</code> row and the per-season <code>ens_stacked_brier</code> table at the bottom of the run — those are the calibrated final outputs. Don't judge by the raw blended probabilities before calibration; they can look better while the reported number doesn't move.</p>
+
     <h3>Calibration: Temperature Scaling</h3>
     <p>The script uses <strong>temperature scaling</strong> — a single scalar T that sharpens or softens all probabilities. T &gt; 1 makes predictions more uncertain; T &lt; 1 makes them more confident. The optimal T is found by minimising negative log-likelihood on the cal set.</p>
     <pre><span class="cm"># calibrate_multiclass() — around line 899</span>
@@ -664,6 +669,17 @@ streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
         <tr><td>5 Betting Tracker</td><td>Edge threshold filter; 25% vs 50% Kelly P&amp;L; CLV distribution</td></tr>
       </tbody>
     </table>
+
+    <h3>Standalone projections page (webapp/) — what gets published</h3>
+    <p>Separate from the Streamlit app, <code>webapp/index.html</code> + <code>webapp/data.js</code> are a single-file projections viewer (standings, playoff / Supporters'-Shield odds, model headline Brier). It opens straight from disk (no server) and is what gets pushed to GitHub for at-a-glance viewing. Regenerate it in two steps:</p>
+    <pre><span class="cm"># 1. Dump the assembled feature frame the projections build reads</span>
+<span class="cm">#    (writes data/parity_frame.pkl + .meta.json — pickle fallback when no parquet engine)</span>
+python scripts/eval_baseline.py --dump-frame data/parity_frame.parquet
+
+<span class="cm"># 2. Fit DC on played games, Monte-Carlo the remaining ESPN fixtures, write webapp/data.js</span>
+python scripts/build_dashboard_data.py --season 2026 --sims 20000
+<span class="cm"># Then just open webapp/index.html, or git push to update the published page.</span><span class="label">bash</span></pre>
+    <p>Note the projections come from the <strong>production</strong> Dixon-Coles pipeline (<code>models/research_model.py</code>), which is a different model from the research harness — its headline Brier (~0.634) is not directly comparable to <code>eval_baseline.py</code>'s number (~0.638). Improving the harness does <em>not</em> change projections until a win is ported to production.</p>
   </section>
 
 
