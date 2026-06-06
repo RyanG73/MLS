@@ -18,6 +18,12 @@
 > 0.6347→0.6379). Confirms the diagnosis — extra calibration DOF overfit the cal-fold class
 > priors and amplify the regime shift; scalar temperature stays canonical. Structural finding:
 > no cal-fold-fit calibrator can anticipate a same-year HFA collapse.
+> **Shorter DC recent-seasons window tested → KEEP window=4** (`scripts/probe_dc_window.py`):
+> 2024 Brier identical (0.6354) across windows 2/3/4/5 — DC home_adv barely moves and the blend
+> already floors DC at w_xgb=0.70. No leverage. **Phase 4d model thread closed: no easy 2024 win
+> from calibration or DC re-fitting; 2024 is a structurally unforecastable regime shift and the
+> capped-DC blend is the optimal response (contains DC-raw 0.649 → ensemble 0.6354).** Remaining
+> lever (ELO HOME_ADV re-sweep on 2024–25, owned by hyperparameter-optimizer) deferred — low EV.
 >
 > **Phase 1 execution (2026-06-06) — metric standardization + canonical path + calibration fix**
 > External codebase review (docs/codebase-deep-dive-review.md) commissioned and executed.
