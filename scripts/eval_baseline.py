@@ -1147,7 +1147,21 @@ if FETCH_TRANSFERMARKT:
     import glob as _glob
     print("\n[6b/9] Loading Transfermarkt squad-value CSVs (PELE features)...")
 
-    # (asa_team_id, season) → feature dict
+    # Build hex team_id → short code mapping so TM lookups work with the match df's hex IDs.
+    # ASA match data uses internal hex IDs; TM CSVs use short codes from config YAML.
+    # Four ASA abbreviations differ from our YAML short codes:
+    _ASA_ABBREV_OVERRIDES = {"DCU": "DC", "FCD": "DAL", "NER": "NE", "SJE": "SJ"}
+    try:
+        _asa_teams_df = asa.get_teams(leagues="mls")
+        _hex_to_short: dict[str, str] = {
+            row["team_id"]: _ASA_ABBREV_OVERRIDES.get(row["team_abbreviation"],
+                                                        row["team_abbreviation"])
+            for _, row in _asa_teams_df.iterrows()
+        }
+    except Exception:
+        _hex_to_short = {}
+
+    # (short_code, season) → feature dict
     _tm_raw: dict[tuple, dict] = {}
     _tm_csvs = sorted(_glob.glob(os.path.join(
         os.path.dirname(__file__), "..", "data",
@@ -1195,17 +1209,21 @@ if FETCH_TRANSFERMARKT:
                 if ss == _s:
                     _tm_sv_z[(t, ss)] = (d["squad_value_eur"] - _mu) / _sd
 
-    def _tm_lookup(team_id: str, season: int, field: str) -> float | None:
+    def _tm_lookup(team_id: str, season, field: str) -> float | None:
+        short = _hex_to_short.get(team_id, team_id)
+        s = int(season)
         for lag in (1, 2):
-            entry = _tm_raw.get((team_id, season - lag))
+            entry = _tm_raw.get((short, s - lag))
             if entry is not None and field in entry:
                 v = entry[field]
                 return v if np.isfinite(v) else None
         return None
 
-    def _tm_sv_z_lookup(team_id: str, season: int) -> float | None:
+    def _tm_sv_z_lookup(team_id: str, season) -> float | None:
+        short = _hex_to_short.get(team_id, team_id)
+        s = int(season)
         for lag in (1, 2):
-            val = _tm_sv_z.get((team_id, season - lag))
+            val = _tm_sv_z.get((short, s - lag))
             if val is not None:
                 return val
         return None
