@@ -117,12 +117,66 @@ def _pos_group(raw_pos: str) -> str:
     return _POS_GROUP.get(raw_pos.strip().lower(), "UNK")
 
 
-def _aggregate_team(players: pd.DataFrame) -> dict:
-    """Compute PELE-style team-level features from per-player rows."""
+def _build_player_db(raw_dir: Path) -> dict[str, dict]:
+    """
+    Build a cross-season player valuation index: player_name → most-recent known value.
+
+    Used to fill in players whose current-season TM value is 0 or missing — e.g.
+    a new signing whose value hasn't been published yet for the current season.
+    We always prefer the most recent season's valuation.
+    """
+    player_db: dict[str, dict] = {}
+    for csv_file in sorted(raw_dir.glob("transfermarkt_squad_values_????[!_]*.csv")):
+        if "mapped" in csv_file.name:
+            continue
+        try:
+            season = int(csv_file.stem.rsplit("_", 1)[-1])
+        except ValueError:
+            continue
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception:
+            continue
+        df["market_value_eur"] = pd.to_numeric(
+            df.get("market_value_eur", 0), errors="coerce").fillna(0)
+        df["age"] = pd.to_numeric(df.get("age", np.nan), errors="coerce")
+        for _, row in df.iterrows():
+            name = str(row.get("player_name", "") or "").strip()
+            value = float(row.get("market_value_eur", 0) or 0)
+            if not name or value <= 0:
+                continue
+            existing = player_db.get(name)
+            if existing is None or season > existing["season"]:
+                player_db[name] = {
+                    "value":    value,
+                    "season":   season,
+                    "position": str(row.get("position", "") or ""),
+                }
+    return player_db
+
+
+def _aggregate_team(players: pd.DataFrame,
+                    player_db: dict | None = None) -> dict:
+    """Compute PELE-style team-level features from per-player rows.
+
+    For players with value=0, look up their most recent individual valuation
+    from the cross-season player database (handles mid-season signings and
+    seasons where TM hasn't published updated values yet).
+    """
     if players.empty:
         return {}
 
     vals = players["market_value_eur"].fillna(0).clip(lower=0).to_numpy(dtype=float)
+
+    # Fill zeros from cross-season player lookup
+    if player_db:
+        for i, (_, row) in enumerate(players.iterrows()):
+            if vals[i] == 0:
+                name = str(row.get("player_name", "") or "").strip()
+                entry = player_db.get(name)
+                if entry:
+                    vals[i] = entry["value"]
+
     ages = players["age"].to_numpy(dtype=float)
     pos_groups = players["position"].apply(_pos_group).to_numpy()
 
@@ -169,7 +223,8 @@ def _aggregate_team(players: pd.DataFrame) -> dict:
     }
 
 
-def _map_one(season: int, name_map: dict[str, str]) -> tuple[int, int]:
+def _map_one(season: int, name_map: dict[str, str],
+             player_db: dict | None = None) -> tuple[int, int]:
     raw = DATA_DIR / f"transfermarkt_squad_values_{season}.csv"
     if not raw.exists() or raw.stat().st_size == 0:
         print(f"  ! no raw CSV for {season}, skipping")
@@ -189,11 +244,13 @@ def _map_one(season: int, name_map: dict[str, str]) -> tuple[int, int]:
                                                     errors="coerce").fillna(0.0)
     players_df["age"]              = pd.to_numeric(players_df["age"], errors="coerce")
 
+    n_zero_before = int((players_df["market_value_eur"] == 0).sum())
+
     # Group by team, aggregate to PELE features
     team_rows = []
     for tm_name, grp in players_df.groupby("tm_team_name"):
         asa_id = name_map.get(str(tm_name), "")
-        feats = _aggregate_team(grp)
+        feats = _aggregate_team(grp, player_db=player_db)
         if not feats:
             continue
         row = {
@@ -217,6 +274,11 @@ def _map_one(season: int, name_map: dict[str, str]) -> tuple[int, int]:
     out = DATA_DIR / f"transfermarkt_squad_values_{season}_mapped.csv"
     out_df.to_csv(out, index=False)
     mapped_n = int((out_df["asa_team_id"] != "").sum())
+    n_total = int(players_df["market_value_eur"].count())
+    n_filled = n_zero_before - int((players_df["market_value_eur"] == 0).sum())
+    if n_zero_before > 0:
+        print(f"  Player lookup filled {n_filled}/{n_zero_before} zero-value players "
+              f"({n_zero_before/n_total:.0%} of roster had no same-season value)")
     print(f"  → {out.name} ({len(out_df)} teams, {mapped_n} mapped to ASA id)")
     return (len(out_df), mapped_n)
 
@@ -240,6 +302,7 @@ def main() -> int:
     if not name_map:
         print(f"WARN: no transfermarkt entries in {MAP_PATH}", file=sys.stderr)
 
+    # Fetch requested seasons first, then build cross-season player lookup
     total, mapped = 0, 0
     for s in seasons:
         print(f"\n=== Season {s} ===")
@@ -249,7 +312,15 @@ def main() -> int:
             except Exception as e:
                 print(f"  ! R fetch failed: {e}", file=sys.stderr)
                 continue
-        t, m = _map_one(s, name_map)
+
+    # Build player DB from all raw CSVs (includes seasons just fetched above)
+    print("\nBuilding cross-season player valuation index...")
+    player_db = _build_player_db(DATA_DIR)
+    print(f"  {len(player_db):,} unique players indexed across all seasons")
+
+    for s in seasons:
+        print(f"\n=== Aggregating season {s} ===")
+        t, m = _map_one(s, name_map, player_db=player_db)
         total += t
         mapped += m
 
