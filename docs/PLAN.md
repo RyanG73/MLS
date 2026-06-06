@@ -6,6 +6,9 @@
 >   - Iter 1 (ensemble blend cap sweep): **DROP** — cap=0.20 vs existing 30%-cap = Δ+0.0001 (within noise).
 >     The 30%-cap convex blend (`arch-capped-dc`) is already near-optimal; cap value isn't a lever.
 >     A subagent's "+0.0020 KEEP" was a mis-measurement (LR baseline + raw-prob metric); reverted.
+>   - Iter 2 (hyperparameter sweep: REGRESS, DC-decay): **DROP** — no config clears +0.0005, and every
+>     average gain comes from regressing the 2024 shift season. REGRESS=0.5 + DC-decay=120 confirmed
+>     as the 2024-robust optimum (matches CLAUDE.md). ELO/XGB grid already auto-searched per fold.
 >
 > **Live eval results (updated 2026-06-06, Phase 13 final: PELE/TM features, player-level lookup)**
 > Best model: **Ensemble stacked** (DC + XGBoost capped convex blend, DC≤30%) + Base features + temperature calibration.

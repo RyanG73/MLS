@@ -161,3 +161,13 @@ Per-season Brier (ens_stacked):
 
 weight_hl 4→6→8 trades Brier for calibration monotonically; 6 is the knee. Keep weight_hl=6.
 **experiment_id:** c3-whl8-20260530T221843
+
+## 2026-06-06 — Overnight loop iter 2: REGRESS / DC-decay sweep — DROP (defaults confirmed)
+Direct CLI sweep (delegated agent malfunctioned). Baseline = ensemble stacked 0.6381 (2022=0.6382/2023=0.6371/2024=0.6389). ELO K/HOME_ADV and XGB grid are auto-searched per fold, so REGRESS and DC-decay were the open knobs.
+| Config | Ensemble | 2022 | 2023 | 2024 |
+|--------|----------|------|------|------|
+| default (REGRESS=0.5, decay=120) | 0.6381 | 0.6382 | 0.6371 | 0.6389 |
+| REGRESS=0.4 | 0.6382 | 0.6382 | 0.6362 | 0.6400 |
+| DC decay=90 | 0.6381 | 0.6365 | 0.6371 | 0.6406 |
+| DC decay=150 | 0.6379 | 0.6358 | 0.6371 | 0.6408 |
+**Verdict:** No config clears +0.0005; every average gain comes from regressing 2024 (robustness gate fails). DC-decay=150 is textbook distribution shift (helps stable 2022 −0.0024, hurts shift-season 2024 +0.0019). REGRESS=0.5 + decay=120 confirmed as the 2024-robust optimum. Defaults unchanged.

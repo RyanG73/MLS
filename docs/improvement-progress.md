@@ -213,3 +213,15 @@ Focus: ensemble blend weights. Tested an env-configurable capped-DC convex blend
 The branch **already** runs a 30%-cap convex blend (`arch-capped-dc`, KEPT 2026-05-30 — it is the current default, not the LR meta-learner). Re-measured on the **final calibrated ensemble output**, cap=0.20 gives per-season 2022=0.6384 / 2023=0.6371 / 2024=0.6385 → **0.6380**, vs the existing 30%-cap **0.6381** → Δ=**+0.0001**, below the +0.0005 bar → **DROP**. Cap is insensitive between 0.20–0.30; the existing blend is already near-optimal on this axis.
 
 **Methodology correction:** the subagent first reported "+0.0020 KEEP," but that (a) benchmarked cap=0.20 against an `MLS_ENS_MODE=lr` baseline that has not been the branch default since 2026-05-30, and (b) scored **raw blended probabilities** (its in-run sweep accumulator) rather than the calibrated ensemble the harness actually reports. On the real metric the gain evaporates. Change reverted; default unchanged. **Lesson logged:** verify subagent KEEPs against the *current branch default* and the *reported* metric, not a stale baseline or an intermediate quantity.
+
+### Iteration 2 — hyperparameter sweep (REGRESS / DC decay) — **DROP (defaults confirmed robust)**
+Focus: hyperparameters. The delegated agent malfunctioned (returned no usable result), so the sweep was run **directly** via the harness CLI for reliability. ELO K/HOME_ADV and the XGB grid are already auto-searched per fold internally, leaving REGRESS and DC-decay-half-life as the open knobs.
+
+| Config | Ensemble | 2022 | 2023 | 2024 | Verdict |
+|--------|----------|------|------|------|---------|
+| **default** (REGRESS=0.5, decay=120) | **0.6381** | 0.6382 | 0.6371 | **0.6389** | reference |
+| REGRESS=0.4 | 0.6382 | 0.6382 | 0.6362 | 0.6400 | DROP (worse, 2024↓) |
+| DC decay=90 | 0.6381 | 0.6365 | 0.6371 | 0.6406 | DROP (2024↓) |
+| DC decay=150 | 0.6379 | 0.6358 | 0.6371 | 0.6408 | DROP (Δ+0.0002 but 2024↓0.0019) |
+
+No config clears +0.0005, and every one that lowers the average does so by regressing 2024 — failing the robustness gate. DC-decay=150 is textbook distribution shift: longer memory helps stable seasons (2022 −0.0024) but hurts the shift season (2024 +0.0019). **Confirms REGRESS=0.5 and DC-decay=120 as the 2024-robust optimum** (matches CLAUDE.md). Defaults unchanged; best_brier stays 0.6381.
