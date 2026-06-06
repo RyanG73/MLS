@@ -1212,7 +1212,7 @@ if FETCH_TRANSFERMARKT:
     def _tm_lookup(team_id: str, season, field: str) -> float | None:
         short = _hex_to_short.get(team_id, team_id)
         s = int(season)
-        for lag in (1, 2):
+        for lag in (0, 1):
             entry = _tm_raw.get((short, s - lag))
             if entry is not None and field in entry:
                 v = entry[field]
@@ -1222,7 +1222,7 @@ if FETCH_TRANSFERMARKT:
     def _tm_sv_z_lookup(team_id: str, season) -> float | None:
         short = _hex_to_short.get(team_id, team_id)
         s = int(season)
-        for lag in (1, 2):
+        for lag in (0, 1):
             val = _tm_sv_z.get((short, s - lag))
             if val is not None:
                 return val
