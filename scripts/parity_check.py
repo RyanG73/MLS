@@ -20,25 +20,34 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-TARGET_BRIER = 0.6363   # research-harness headline (capped-DC blend + weight_hl=6, Base)
+# Research-harness headline after the 2026-06-06 calibration fix (second-pass
+# temperature on the blend output). Pre-fix target was 0.6363; the calibrated
+# pipeline that walk_forward / predict_upcoming / eval_baseline now share is 0.6347.
+TARGET_BRIER = 0.6347
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--frame", default="data/parity_frame.parquet")
     ap.add_argument("--tol", type=float, default=0.0015,
-                    help="Allowed |avg_brier - 0.6363| for parity PASS")
+                    help="Allowed |avg_brier - TARGET_BRIER| for parity PASS")
     args = ap.parse_args()
 
     frame = Path(args.frame)
     meta_path = frame.with_suffix(".meta.json")
+    # Frame may be parquet (if a parquet engine is installed) or pickle (fallback).
+    if not frame.exists() and frame.with_suffix(".pkl").exists():
+        frame = frame.with_suffix(".pkl")
     if not frame.exists() or not meta_path.exists():
         print(f"[parity] missing {frame} or {meta_path}\n"
               f"  build: python scripts/eval_baseline.py --cache --seed 42 "
               f"--dump-frame {frame}", file=sys.stderr)
         return 1
 
-    df = pd.read_parquet(frame)
+    try:
+        df = pd.read_parquet(frame)
+    except Exception:
+        df = pd.read_pickle(frame)
     meta = json.loads(meta_path.read_text())
     feat_base = meta["feat_base"]
     test_seasons = meta["test_seasons"]

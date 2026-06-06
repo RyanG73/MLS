@@ -212,7 +212,12 @@ def walk_forward(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
         xgb_te = calibrate_temperature(xgb_cal_raw, y_cal, xgb_te_raw)
 
         w = fit_capped_blend(xgb_cal, dc_cal, y_cal_oh)
-        ens_te = blend(xgb_te, dc_te, w)
+        # Second-pass temperature calibration on the BLEND output. The per-component
+        # temperature scaling above leaves the convex blend itself uncalibrated
+        # (root cause of cal_err 0.1326); calibrating the blend recovers it.
+        cal_blend = blend(xgb_cal, dc_cal, w)
+        te_blend = blend(xgb_te, dc_te, w)
+        ens_te = calibrate_temperature(cal_blend, y_cal, te_blend)
         per_season[str(ts)] = round(multiclass_brier(y_te_oh, ens_te), 6)
         w_used[str(ts)] = round(w, 3)
 
@@ -315,24 +320,11 @@ def predict_upcoming(
 
     # Capped-DC blend weight (fitted on cal fold)
     w = fit_capped_blend(xgb_cal_t, dc_cal_t, y_cal_oh)
-    ens_blend = blend(xgb_up_t, dc_up_t, w)
 
-    # Temperature calibration on the blend output (the second-pass fix)
-    cal_blend_raw = blend(xgb_cal_t, dc_cal_t, w)
-
-    def _blend_nll(T: float) -> float:
-        log_p = np.log(np.clip(cal_blend_raw, 1e-9, 1.0)) / max(T, 0.1)
-        log_p -= log_p.max(axis=1, keepdims=True)
-        ep = np.exp(log_p)
-        p = ep / ep.sum(axis=1, keepdims=True)
-        return float(log_loss(y_cal, p))
-
-    from scipy.optimize import minimize_scalar as _ms
-    T_blend = _ms(_blend_nll, bounds=(0.3, 5.0), method="bounded").x
-    log_p = np.log(np.clip(ens_blend, 1e-9, 1.0)) / T_blend
-    log_p -= log_p.max(axis=1, keepdims=True)
-    ep = np.exp(log_p)
-    ens_final = ep / ep.sum(axis=1, keepdims=True)
+    # Second-pass temperature calibration on the BLEND output (matches walk_forward).
+    cal_blend = blend(xgb_cal_t, dc_cal_t, w)
+    up_blend = blend(xgb_up_t, dc_up_t, w)
+    ens_final = calibrate_temperature(cal_blend, y_cal, up_blend)
 
     results = []
     for i, row in upcoming_df.iterrows():
