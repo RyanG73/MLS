@@ -562,6 +562,20 @@ meta_ok = <span class="kw">False</span>
     <p>Look for the block that fits <code>_blend_brier</code> / <code>minimize(...)</code> in the meta-learner section (search <code>def _blend_brier</code>). To experiment with the cap, change the lower bound on <code>w</code> (e.g. <code>bounds=[(0.60, 1.0)]</code> = 40% DC cap, <code>(1.0, 1.0)</code> = pure XGB). <em>Note from the 2026-06-06 loop:</em> the cap is insensitive between 20–30% on the final output (Δ ≈ +0.0001), so don't expect Brier movement from small cap changes — the bigger lever is the features and the raw models, not the blend weight.</p>
     <p class="warn"><strong>Watch the metric.</strong> When you tweak the blend, judge it by the <code>Ensemble stacked</code> row and the per-season <code>ens_stacked_brier</code> table at the bottom of the run — those are the calibrated final outputs. Don't judge by the raw blended probabilities before calibration; they can look better while the reported number doesn't move.</p>
 
+    <h3>Overnight loop results — 2026-06-06 (iters 1–4)</h3>
+    <p>Five hourly iterations ran against the branch. Summary of what did and didn't move the Brier:</p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.9em">
+      <thead><tr style="background:#f0f0f0"><th style="padding:4px 8px;text-align:left">Iter</th><th style="padding:4px 8px;text-align:left">Focus</th><th style="padding:4px 8px;text-align:left">Result</th><th style="padding:4px 8px;text-align:left">Ensemble</th></tr></thead>
+      <tbody>
+        <tr><td style="padding:4px 8px">1</td><td style="padding:4px 8px">Blend cap sweep (20–40%)</td><td style="padding:4px 8px">DROP — cap insensitive between 20–30%</td><td style="padding:4px 8px">0.6381</td></tr>
+        <tr style="background:#f9f9f9"><td style="padding:4px 8px">2</td><td style="padding:4px 8px">REGRESS / DC decay</td><td style="padding:4px 8px">DROP — REGRESS=0.5 + decay=120 are 2024-robust optimum</td><td style="padding:4px 8px">0.6381</td></tr>
+        <tr><td style="padding:4px 8px">3</td><td style="padding:4px 8px">Stack marginal keepers (+MargCore)</td><td style="padding:4px 8px"><strong>SOFT KEEP</strong> — +MargCore (TZ+Pythag+TM_Age) added; BestAB selects it for 2023</td><td style="padding:4px 8px"><strong>0.6375</strong></td></tr>
+        <tr style="background:#f9f9f9"><td style="padding:4px 8px">4</td><td style="padding:4px 8px">Venue-split form + goal-diff form</td><td style="padding:4px 8px">REGISTERED — +VenueGoalDiff Δ=+0.0013 in A/B; BestAB never selects it over +All</td><td style="padding:4px 8px">0.6375</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Pattern:</strong> two confirmed A/B KEEPs (+TZ_Pythag and +VenueGoalDiff, both Δ=+0.0013) but neither beats <code>+All</code> in the per-fold cal-fold BestAB contest. The +All set, despite including many DROP features, wins because XGBoost's built-in feature selection (colsample, tree structure) handles the noise internally. Combining KEEPs into new sets (+MargCore, +MargCoreVG) causes interference rather than stacking.</p>
+    <p><strong>The 2024 robustness gate:</strong> any feature added to <code>_ALL_EXTRA</code> (and therefore into <code>+All</code>) risks regressing 2024 if XGBoost uses those extra features in the 2024 BestAB fold. +VenueGoalDiff added to +All caused 0.0005 regression in 2024. Keep new features as standalone AB sets until proven to not harm 2024 when included in +All.</p>
+
     <h3>Calibration: Temperature Scaling</h3>
     <p>The script uses <strong>temperature scaling</strong> — a single scalar T that sharpens or softens all probabilities. T &gt; 1 makes predictions more uncertain; T &lt; 1 makes them more confident. The optimal T is found by minimising negative log-likelihood on the cal set.</p>
     <pre><span class="cm"># calibrate_multiclass() — around line 899</span>

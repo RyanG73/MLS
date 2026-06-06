@@ -4,19 +4,19 @@
 > Iteration log lives in `docs/improvement-progress.md`; architecture detail in `docs/architecture-log.md`.
 > Projections republished to `webapp/data.js` each iteration (pushed to GitHub Pages).
 >   - Iter 1 (ensemble blend cap sweep): **DROP** — cap=0.20 vs existing 30%-cap = Δ+0.0001 (within noise).
->     The 30%-cap convex blend (`arch-capped-dc`) is already near-optimal; cap value isn't a lever.
->     A subagent's "+0.0020 KEEP" was a mis-measurement (LR baseline + raw-prob metric); reverted.
->   - Iter 2 (hyperparameter sweep: REGRESS, DC-decay): **DROP** — no config clears +0.0005, and every
->     average gain comes from regressing the 2024 shift season. REGRESS=0.5 + DC-decay=120 confirmed
->     as the 2024-robust optimum (matches CLAUDE.md). ELO/XGB grid already auto-searched per fold.
->   - Iter 3 (stack marginal keepers): **SOFT KEEP** — `+MargCore` (TZShift+PythagLuck+TM_Age) added as a
->     candidate set. Ensemble 0.6381 → **0.6375** (+0.0006, reproducible, no season regresses; all from 2023
->     via cal-fold selection). Feature-level the marginals interfere (don't stack); flagged fragile, low-risk.
+>   - Iter 2 (hyperparameter sweep: REGRESS, DC-decay): **DROP** — REGRESS=0.5 + DC-decay=120 confirmed 2024-robust.
+>   - Iter 3 (stack marginal keepers): **SOFT KEEP** — `+MargCore` added; ensemble 0.6381 → **0.6375** (+0.0006).
+>   - Iter 4 (new features: venue-split form + goal-diff form): **REGISTERED, no ensemble gain** —
+>     `+VenueGoalDiff` (Δ=+0.0013 KEEP in A/B; venue-specific record × goal-diff form combined) registered but
+>     BestAB never selects it over `+All`; `+MargCoreVG` (combined) → DROP (interference). Ensemble flat 0.6375.
+>     Key finding: +VenueGoalDiff cannot be added to +All without regressing 2024 (feature dilutes 2024 XGB).
+>     Features kept as standalone AB candidates for future interaction discovery.
 >
-> **Live eval results (updated 2026-06-06, overnight loop iter 3)**
+> **Live eval results (updated 2026-06-06, overnight loop iter 4)**
 > Best model: **Ensemble stacked** (DC + XGBoost capped convex blend, DC≤30%) + Base + `+MargCore` candidate + temperature cal.
-> best_brier **0.6375** (naive 0.6406; ~+0.5% over naive) · soft KEEP (+0.0006, single-season/selection-driven, fragile).
-> Confirmed KEEPs: +TZ_Pythag (Δ=+0.0013, feature-level best); +MargCore as a selectable set (ensemble +0.0006).
+> best_brier **0.6375** (naive 0.6406; ~+0.5% over naive) — unchanged from iter 3.
+> Confirmed KEEP A/B sets: +TZ_Pythag (Δ=+0.0013), +VenueGoalDiff (Δ=+0.0013) — both real signals, neither ensemble-capturing.
+> Ensemble-level KEEP: +MargCore selectable set (2023 fold, ensemble +0.0006 from iter 3).
 > All TM/PELE/roster/player features individually DROP or marginal; stacking marginals interferes (doesn't sum).
 > (Calibration default is `temperature`; `temp_then_platt` exists but is a no-op on the blend — corrected cycle #3. Knob-tuning has plateaued; next gains need new signal.)
 > KEPT: (1) capped-DC blend replaces unconstrained LR meta-learner — fixes 2024 (DC stacked 0.6523→0.6378); (2) weight_hl 4→6,

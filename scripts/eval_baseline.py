@@ -2145,6 +2145,17 @@ if _margcore:
 _vg_extras = [f for f in _FEAT_VENUE_FORM + _FEAT_GOAL_DIFF_FORM if f not in _FEAT_BASE]
 if _margcore and _vg_extras:
     AB_SETS["+MargCoreVG"] = _FEAT_BASE + _margcore + _vg_extras
+# +CuratedAll (iter 5): only features with non-negative A/B delta (no DROP sets).
+# Tests whether XGBoost is diluted by the many DROP features packed into +All.
+# Includes: TZ, Pythag, VenueGoalDiff, ASA_xGSplit, TM_Age, TravelRest, GKDistribution.
+_curated_extras: list = []
+for _ck in ("+TZShift", "+PythagLuck", "+VenueGoalDiff", "+ASA_xGSplit",
+            "+TM_Age", "+TravelRest", "+GKDistribution"):
+    for _cf in AB_SETS.get(_ck, _FEAT_BASE):
+        if _cf not in _FEAT_BASE and _cf not in _curated_extras:
+            _curated_extras.append(_cf)
+if _curated_extras:
+    AB_SETS["+CuratedAll"] = _FEAT_BASE + _curated_extras
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
 

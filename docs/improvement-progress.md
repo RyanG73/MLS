@@ -239,3 +239,26 @@ Focus: features. Added two combined A/B sets: `+Marginals` (TZShift+PythagLuck+T
 **Ensemble-level: +0.0006 (reproducible, deterministic across 2 runs).** Ensemble stacked 0.6381 → **0.6375**; per-season 2022=0.6382 (=), 2023=**0.6352** (was 0.6371), 2024=0.6389 (=). No season regresses. The gain is entirely 2023, because the per-season BestAB selector picks `+MargCore` on the 2022 cal fold and it generalizes to 2023 test (proper walk-forward, no leakage).
 
 **Verdict: SOFT KEEP.** Meets the loop's bar (+0.0006 > +0.0005, no 2024/2022 regression, reproducible) so `+MargCore` is retained as a selectable candidate set. But flagged **fragile**: the win is single-season and rides on the cal-fold BestAB selection the architecture-log distrusts for inter-year shift — not a robust feature discovery (the A/B average says the marginals don't truly stack). Low risk to keep: if it stops generalizing, the selector simply won't pick it. `+Marginals` is a confirmed DROP (kept only as a diagnostic). **New best_brier 0.6375.**
+
+### Iteration 4 — new features (venue-split form + goal-diff form) — **REGISTERED, no ensemble gain**
+Focus: two new feature groups computed inside `add_rolling_features()`:
+- **VenueForm**: home team's pts specifically in last 5/10 home games; away team's in last 5/10 away games. ELO uses a fixed HOME_ADV for all teams; this captures per-team venue tendencies.
+- **GoalDiffForm**: rolling avg of (goals_scored − goals_against) per game in last 5/10 matches — captures finishing quality beyond pts (1-0 vs 3-0 are the same pts, very different xG/goal story).
+
+| AB Set | Δ vs Base | note |
+|--------|-----------|------|
+| +VenueForm | +0.0000 | marginal alone |
+| +GoalDiffForm | +0.0001 | marginal alone |
+| **+VenueGoalDiff** | **+0.0013** | **KEEP — genuine interaction** |
+| +MargCore | +0.0007 | same as iter 3 |
+| +MargCoreVG | −0.0003 | DROP — too many features, interference |
+
+**Ensemble: 0.6375 (unchanged).** BestAB selections: 2022=+All, 2023=+MargCore, 2024=+All — same as iter 3. `+VenueGoalDiff` never beats `+All` in the per-fold cal-fold BestAB contest.
+
+**Key findings:**
+- VenueGoalDiff is a real A/B signal (+0.0013 = same as +TZ_Pythag) but can't unseat +All in BestAB selection.
+- Adding VenueGoalDiff features to +All regresses 2024 by 0.0005 (violates robustness gate) — so NOT added to `_ALL_EXTRA`; kept as standalone AB candidate only.
+- Combining with MargCore (→ +MargCoreVG) causes interference (DROP −0.0003). Two confirmed-KEEP sets don't stack.
+- The interaction between venue-specific record and goal-differential form is genuine (0+0 → +0.0013 combined) but the XGB cannot exploit it further when competing against +All's rich feature landscape.
+
+**Verdict: SOFT KEEP (registered).** `+VenueGoalDiff`, `+VenueForm`, `+GoalDiffForm` retained in AB_SETS as diagnostic candidates. **best_brier unchanged at 0.6375.**
