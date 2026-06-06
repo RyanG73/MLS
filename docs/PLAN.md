@@ -9,11 +9,15 @@
 >   - Iter 2 (hyperparameter sweep: REGRESS, DC-decay): **DROP** — no config clears +0.0005, and every
 >     average gain comes from regressing the 2024 shift season. REGRESS=0.5 + DC-decay=120 confirmed
 >     as the 2024-robust optimum (matches CLAUDE.md). ELO/XGB grid already auto-searched per fold.
+>   - Iter 3 (stack marginal keepers): **SOFT KEEP** — `+MargCore` (TZShift+PythagLuck+TM_Age) added as a
+>     candidate set. Ensemble 0.6381 → **0.6375** (+0.0006, reproducible, no season regresses; all from 2023
+>     via cal-fold selection). Feature-level the marginals interfere (don't stack); flagged fragile, low-risk.
 >
-> **Live eval results (updated 2026-06-06, Phase 13 final: PELE/TM features, player-level lookup)**
-> Best model: **Ensemble stacked** (DC + XGBoost capped convex blend, DC≤30%) + Base features + temperature calibration.
-> best_brier **0.6381** (naive 0.6406; ~+0.4% over naive) · max decile cal_err 0.1631 (target <0.05 unmet).
-> Only confirmed KEEP since Phase 6: +TZ_Pythag (Δ=+0.0013). All TM/PELE/roster/player features DROP or marginal.
+> **Live eval results (updated 2026-06-06, overnight loop iter 3)**
+> Best model: **Ensemble stacked** (DC + XGBoost capped convex blend, DC≤30%) + Base + `+MargCore` candidate + temperature cal.
+> best_brier **0.6375** (naive 0.6406; ~+0.5% over naive) · soft KEEP (+0.0006, single-season/selection-driven, fragile).
+> Confirmed KEEPs: +TZ_Pythag (Δ=+0.0013, feature-level best); +MargCore as a selectable set (ensemble +0.0006).
+> All TM/PELE/roster/player features individually DROP or marginal; stacking marginals interferes (doesn't sum).
 > (Calibration default is `temperature`; `temp_then_platt` exists but is a no-op on the blend — corrected cycle #3. Knob-tuning has plateaued; next gains need new signal.)
 > KEPT: (1) capped-DC blend replaces unconstrained LR meta-learner — fixes 2024 (DC stacked 0.6523→0.6378); (2) weight_hl 4→6,
 >   a DROP in isolation but unlocked once capped-DC removed the DC drag (greedy re-eval surfaced the interaction). best_brier 0.6388→0.6372→0.6363.

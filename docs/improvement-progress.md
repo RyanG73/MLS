@@ -225,3 +225,17 @@ Focus: hyperparameters. The delegated agent malfunctioned (returned no usable re
 | DC decay=150 | 0.6379 | 0.6358 | 0.6371 | 0.6408 | DROP (Δ+0.0002 but 2024↓0.0019) |
 
 No config clears +0.0005, and every one that lowers the average does so by regressing 2024 — failing the robustness gate. DC-decay=150 is textbook distribution shift: longer memory helps stable seasons (2022 −0.0024) but hurts the shift season (2024 +0.0019). **Confirms REGRESS=0.5 and DC-decay=120 as the 2024-robust optimum** (matches CLAUDE.md). Defaults unchanged; best_brier stays 0.6381.
+
+### Iteration 3 — stack the marginal keepers — **SOFT KEEP, best_brier 0.6381 → 0.6375 (+0.0006)**
+Focus: features. Added two combined A/B sets: `+Marginals` (TZShift+PythagLuck+TM_Age+ASA_xGSplit+GKDistribution) and `+MargCore` (TZShift+PythagLuck+TM_Age).
+
+**Feature-level (XGB A/B, 3-season avg): stacking interferes, it does NOT sum.**
+| Set | Δ vs Base | note |
+|-----|-----------|------|
+| +TZ_Pythag (existing) | +0.0013 | still the best single set |
+| +MargCore | +0.0007 | worse than TZ_Pythag — TM_Age dilutes |
+| +Marginals (all 5) | −0.0003 | xGSplit+GKDist make it negative |
+
+**Ensemble-level: +0.0006 (reproducible, deterministic across 2 runs).** Ensemble stacked 0.6381 → **0.6375**; per-season 2022=0.6382 (=), 2023=**0.6352** (was 0.6371), 2024=0.6389 (=). No season regresses. The gain is entirely 2023, because the per-season BestAB selector picks `+MargCore` on the 2022 cal fold and it generalizes to 2023 test (proper walk-forward, no leakage).
+
+**Verdict: SOFT KEEP.** Meets the loop's bar (+0.0006 > +0.0005, no 2024/2022 regression, reproducible) so `+MargCore` is retained as a selectable candidate set. But flagged **fragile**: the win is single-season and rides on the cal-fold BestAB selection the architecture-log distrusts for inter-year shift — not a robust feature discovery (the A/B average says the marginals don't truly stack). Low risk to keep: if it stops generalizing, the selector simply won't pick it. `+Marginals` is a confirmed DROP (kept only as a diagnostic). **New best_brier 0.6375.**

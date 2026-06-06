@@ -2059,6 +2059,28 @@ if _FEAT_FBREF:
     AB_SETS["+FBref"]       = _FEAT_BASE + _FEAT_FBREF
 AB_SETS["+All"]        = _FEAT_ALL
 
+# ── Combined marginal keepers (overnight loop iter 3) ──────────────────────────
+# Stack the small-but-positive A/B signals (each individually below the KEEP bar)
+# to test whether their orthogonal information sums past +0.0005 on the ensemble.
+# Pulled defensively from whichever sets were actually defined; deduped; Base excluded.
+def _ab_extra(_key):
+    return [f for f in AB_SETS.get(_key, _FEAT_BASE) if f not in _FEAT_BASE]
+_marg_feats: list = []
+for _k in ("+TZShift", "+PythagLuck", "+TM_Age", "+ASA_xGSplit", "+GKDistribution"):
+    for _f in _ab_extra(_k):
+        if _f not in _marg_feats:
+            _marg_feats.append(_f)
+if _marg_feats:
+    AB_SETS["+Marginals"] = _FEAT_BASE + _marg_feats
+# Leaner core: the existing +TZ_Pythag KEEP plus value-weighted age only.
+_margcore: list = []
+for _k in ("+TZShift", "+PythagLuck", "+TM_Age"):
+    for _f in _ab_extra(_k):
+        if _f not in _margcore:
+            _margcore.append(_f)
+if _margcore:
+    AB_SETS["+MargCore"] = _FEAT_BASE + _margcore
+
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
 
 # --ab-only: restrict evaluation to a named subset (agents pass e.g. "Base,+TZShift")
