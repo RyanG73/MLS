@@ -98,6 +98,8 @@ def _parse_args() -> "_ap.Namespace":
                         "stacked ensemble output.")
     p.add_argument("--ab-only",      type=str,   default=None,
                    help="Comma-separated AB_SETS keys to evaluate, e.g. 'Base,+TZShift'")
+    p.add_argument("--weather",      action="store_true",
+                   help="Enable Open-Meteo historical weather fetch (~5 min) and +Weather AB set")
     p.add_argument("--cache",        action="store_true",
                    help="Cache ASA API responses to data/eval_cache/ (parquet)")
     p.add_argument("--seed",         type=int,   default=None,
@@ -155,7 +157,7 @@ _COVID       = {2020}
 WEIGHT_HL    = _ARGS.weight_hl  if _ARGS.weight_hl  is not None else 6
 GAMES_14D    = _ARGS.games_14d  if _ARGS.games_14d  is not None else 16
 
-FETCH_WEATHER       = False  # set True to enable Open-Meteo API calls (~5 min extra)
+FETCH_WEATHER       = bool(_ARGS.weather)  # --weather enables Open-Meteo API calls (~5 min extra)
 FETCH_TRANSFERMARKT = True   # Transfermarkt CSVs present: data/transfermarkt_squad_values_*_mapped.csv (2017-2024)
 
 # XGBoost per-process thread cap. Default 2 so that even several evals running
@@ -487,6 +489,7 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     team_dates_d: dict[str, list] = {}  # dates for games_in_14d
 
     _VENUE_WINDOWS = (5, 10)
+    _HA_WINDOW = 20  # long window for stable per-team home/away split estimate
 
     # Initialise result columns
     res: dict[str, list] = {}
@@ -505,12 +508,14 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     for fw in _VENUE_WINDOWS:
         res[f"home_goal_diff_roll_{fw}"] = []
         res[f"away_goal_diff_roll_{fw}"] = []
-        if _HAS_PPDA:
-            res[f"{r}_ppda_roll_10"] = []
-        if _HAS_POSS:
-            res[f"{r}_poss_roll_10"] = []
-        if _HAS_SP_XG:
-            res[f"{r}_xga_sp_roll_15"] = []
+    res["home_ha_tilt"] = []
+    res["away_ha_tilt"] = []
+    if _HAS_PPDA:
+        res[f"{r}_ppda_roll_10"] = []
+    if _HAS_POSS:
+        res[f"{r}_poss_roll_10"] = []
+    if _HAS_SP_XG:
+        res[f"{r}_xga_sp_roll_15"] = []
 
     for _, row in df.iterrows():
         ht, at = row["home_team"], row["away_team"]
@@ -597,6 +602,18 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
             seg_ag = a_gdiff_hist[-fw:]
             res[f"away_goal_diff_roll_{fw}"].append(np.mean(seg_ag) if seg_ag else 0.0)
 
+        # Per-team home-advantage tilt: a team's home pts-rate − its away pts-rate
+        # over a long window. Isolates the *venue* effect from overall quality:
+        # positive home_ha_tilt → home team is disproportionately strong at home;
+        # positive away_ha_tilt → away team is disproportionately weak on the road.
+        # Both favour the home side, so ha_tilt_sum aggregates the venue edge.
+        h_away_hist = team_away_pts.get(ht, [])
+        a_home_hist = team_home_pts.get(at, [])
+        hh, hawy = h_home_hist[-_HA_WINDOW:], h_away_hist[-_HA_WINDOW:]
+        res["home_ha_tilt"].append(float(np.mean(hh) - np.mean(hawy)) if hh and hawy else 0.0)
+        ahm, aa2 = a_home_hist[-_HA_WINDOW:], a_away_hist[-_HA_WINDOW:]
+        res["away_ha_tilt"].append(float(np.mean(ahm) - np.mean(aa2)) if ahm and aa2 else 0.0)
+
         # Update histories (after reading to avoid leakage)
         h_pts = 3 if hg > ag else (1 if hg == ag else 0)
         a_pts = 3 if ag > hg else (1 if hg == ag else 0)
@@ -631,6 +648,7 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     out["venue_form_diff_10"] = out["home_home_form_10"] - out["away_away_form_10"]
     out["goal_diff_diff_5"]   = out["home_goal_diff_roll_5"]  - out["away_goal_diff_roll_5"]
     out["goal_diff_diff_10"]  = out["home_goal_diff_roll_10"] - out["away_goal_diff_roll_10"]
+    out["ha_tilt_sum"]        = out["home_ha_tilt"] + out["away_ha_tilt"]
     out["travel_km"] = [
         _haversine_km(_TEAM_COORDS.get(h), _TEAM_COORDS.get(a))
         for h, a in zip(out["home_team"], out["away_team"])
@@ -1370,6 +1388,11 @@ _FEAT_GOAL_DIFF_FORM = (
     + [f"goal_diff_diff_{fw}" for fw in _VENUE_WINDOWS_FEAT]
 )
 
+# ─── Per-team home-advantage tilt features ───────────────────────────────────
+# ELO uses a single global HOME_ADV=80 for every team; this captures that some
+# venues (altitude, atmosphere) confer a much larger home edge than others.
+_FEAT_HOME_ADV = ["home_ha_tilt", "away_ha_tilt", "ha_tilt_sum"]
+
 # ─── Feature sets ─────────────────────────────────────────────────────────────
 
 _BASE_ELO  = ["elo_diff", "home_elo", "away_elo"]
@@ -2038,7 +2061,6 @@ _ALL_EXTRA = (
     + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
     + ["dc_lam", "dc_mu"]
     + _SP_XG_FEATS
-    + _WEATHER_FEATS
     + _FEAT_TOPN
     + _FEAT_XPASS
     + _FEAT_XG_SPLIT
@@ -2052,6 +2074,8 @@ _ALL_EXTRA = (
     + _FEAT_FBREF
     # +VenueGoalDiff and +VenueForm NOT added here: kept as standalone AB sets only.
     # Adding to _ALL_EXTRA caused +All to change and regressed 2024 by 0.0005.
+    # _WEATHER_FEATS NOT added here either: kept as a standalone +Weather AB set so
+    # enabling --weather never perturbs +All (which is BestAB for 2022/2024).
 )
 _FEAT_ALL = list(dict.fromkeys(_FEAT_BASE + _ALL_EXTRA))
 
@@ -2096,6 +2120,8 @@ if _FEAT_SALARY:
     AB_SETS["+SalaryRoster"] = _FEAT_BASE + _FEAT_SALARY
 AB_SETS["+TeamSalary"] = _FEAT_BASE + _FEAT_TEAMSAL
 AB_SETS["+GKDistribution"] = _FEAT_BASE + _FEAT_GKDIST
+if _WEATHER_FEATS:
+    AB_SETS["+Weather"] = _FEAT_BASE + _WEATHER_FEATS
 if _FEAT_AVAILCONG:
     AB_SETS["+AvailCongestion"] = _FEAT_BASE + _FEAT_AVAILCONG
 if _FEAT_AVAIL_ST:
@@ -2119,6 +2145,7 @@ AB_SETS["+VenueForm"]    = _FEAT_BASE + _FEAT_VENUE_FORM
 AB_SETS["+GoalDiffForm"] = _FEAT_BASE + _FEAT_GOAL_DIFF_FORM
 # Combined: both venue and goal-diff form together
 AB_SETS["+VenueGoalDiff"] = _FEAT_BASE + _FEAT_VENUE_FORM + _FEAT_GOAL_DIFF_FORM
+AB_SETS["+HomeAdv"]       = _FEAT_BASE + _FEAT_HOME_ADV
 
 # ── Combined marginal keepers (overnight loop iter 3) ──────────────────────────
 # Stack the small-but-positive A/B signals (each individually below the KEEP bar)
