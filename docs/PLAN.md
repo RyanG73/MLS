@@ -7,17 +7,18 @@
 >   - Iter 2 (hyperparameter sweep: REGRESS, DC-decay): **DROP** — REGRESS=0.5 + DC-decay=120 confirmed 2024-robust.
 >   - Iter 3 (stack marginal keepers): **SOFT KEEP** — `+MargCore` added; ensemble 0.6381 → **0.6375** (+0.0006).
 >   - Iter 4 (new features: venue-split form + goal-diff form): **REGISTERED, no ensemble gain** —
->     `+VenueGoalDiff` (Δ=+0.0013 KEEP in A/B; venue-specific record × goal-diff form combined) registered but
->     BestAB never selects it over `+All`; `+MargCoreVG` (combined) → DROP (interference). Ensemble flat 0.6375.
->     Key finding: +VenueGoalDiff cannot be added to +All without regressing 2024 (feature dilutes 2024 XGB).
->     Features kept as standalone AB candidates for future interaction discovery.
+>     `+VenueGoalDiff` (Δ=+0.0013 KEEP in A/B) registered but never selected over `+All`; ensemble flat 0.6375.
+>   - Iter 5 (CuratedAll — positive-only features): **DROP** — +CuratedAll Δ=+0.0007 marginal; XGB handles DROP
+>     features internally; removing them doesn't help. BestAB unchanged. Ensemble flat 0.6375.
+>   **Loop complete (5/5). Net gain: 0.6381 → 0.6375 (+0.0006, iter 3 only).**
 >
-> **Live eval results (updated 2026-06-06, overnight loop iter 4)**
+> **Live eval results (updated 2026-06-06, overnight loop COMPLETE — 5/5 iterations)**
 > Best model: **Ensemble stacked** (DC + XGBoost capped convex blend, DC≤30%) + Base + `+MargCore` candidate + temperature cal.
-> best_brier **0.6375** (naive 0.6406; ~+0.5% over naive) — unchanged from iter 3.
-> Confirmed KEEP A/B sets: +TZ_Pythag (Δ=+0.0013), +VenueGoalDiff (Δ=+0.0013) — both real signals, neither ensemble-capturing.
-> Ensemble-level KEEP: +MargCore selectable set (2023 fold, ensemble +0.0006 from iter 3).
-> All TM/PELE/roster/player features individually DROP or marginal; stacking marginals interferes (doesn't sum).
+> best_brier **0.6375** (naive 0.6406; ~+0.5% over naive).
+> Net loop gain: 0.6381 → 0.6375 (+0.0006), sole source: iter 3 `+MargCore` BestAB selection for 2023 fold.
+> Confirmed KEEP A/B sets: +TZ_Pythag (Δ=+0.0013), +VenueGoalDiff (Δ=+0.0013) — real signals, not yet ensemble-capturing.
+> Structural finding: XGB's internal feature selection handles noise effectively — +All consistently wins BestAB.
+> Further gains require either new independent signal sources or architecture changes (e.g. DC-free 2024, adaptive cap).
 > (Calibration default is `temperature`; `temp_then_platt` exists but is a no-op on the blend — corrected cycle #3. Knob-tuning has plateaued; next gains need new signal.)
 > KEPT: (1) capped-DC blend replaces unconstrained LR meta-learner — fixes 2024 (DC stacked 0.6523→0.6378); (2) weight_hl 4→6,
 >   a DROP in isolation but unlocked once capped-DC removed the DC drag (greedy re-eval surfaced the interaction). best_brier 0.6388→0.6372→0.6363.

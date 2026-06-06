@@ -262,3 +262,37 @@ Focus: two new feature groups computed inside `add_rolling_features()`:
 - The interaction between venue-specific record and goal-differential form is genuine (0+0 → +0.0013 combined) but the XGB cannot exploit it further when competing against +All's rich feature landscape.
 
 **Verdict: SOFT KEEP (registered).** `+VenueGoalDiff`, `+VenueForm`, `+GoalDiffForm` retained in AB_SETS as diagnostic candidates. **best_brier unchanged at 0.6375.**
+
+### Iteration 5 — CuratedAll (positive-signal features only) — **DROP**
+Focus: test whether XGBoost is diluted by DROP-scoring features in `+All`. Constructed `+CuratedAll` = Base + only features with non-negative A/B delta: TZ, Pythag, VenueGoalDiff, ASA_xGSplit, TM_Age, TravelRest, GKDistribution (~20 features vs +All's 60+).
+
+| AB Set | Δ vs Base | note |
+|--------|-----------|------|
+| +TZ_Pythag | +0.0013 | KEEP (consistent across all evals) |
+| +VenueGoalDiff | +0.0013 | KEEP (consistent) |
+| +CuratedAll | +0.0007 | marginal — worse than either individual KEEP |
+| +MargCore | +0.0007 | same as before |
+
+**Ensemble: 0.6375 (unchanged).** BestAB selections: 2022=+All, 2023=+MargCore, 2024=+All. `+CuratedAll` is marginal (+0.0007) and does not beat `+All` in BestAB selection.
+
+**Key finding:** XGB's internal feature selection (colsample, tree pruning) handles DROP features effectively — they add no signal and are simply not split on. Removing them from the feature set makes `+CuratedAll` score *worse* than the individual best sets (+TZ_Pythag, +VenueGoalDiff), suggesting those sets succeed not because they exclude DROP features but because they have the right combination of positive features in the right proportions for XGB.
+
+**Verdict: DROP.** best_brier unchanged at **0.6375**.
+
+---
+
+## Overnight loop — final scorecard (2026-06-06, 5/5 iterations complete)
+
+| Iter | Focus | Verdict | Ensemble |
+|------|-------|---------|----------|
+| 1 | Blend cap sweep (20–40%) | DROP | 0.6381 |
+| 2 | REGRESS / DC decay | DROP | 0.6381 |
+| 3 | Stack marginals (+MargCore) | **SOFT KEEP** | **0.6375** |
+| 4 | Venue-split form + goal-diff (+VenueGoalDiff) | REGISTERED | 0.6375 |
+| 5 | Curated positive features (+CuratedAll) | DROP | 0.6375 |
+
+**Net gain: 0.6381 → 0.6375 (+0.0006). Single source: iter 3 MargCore selection for 2023 fold.**
+
+New registered A/B candidates (available for future loops): `+VenueGoalDiff` (Δ=+0.0013), `+VenueForm`, `+GoalDiffForm`, `+MargCoreVG`, `+CuratedAll`, `+MargCore`.
+
+Structural insight from the loop: both confirmed KEEP feature sets (+TZ_Pythag, +VenueGoalDiff) score +0.0013 in A/B but never unseat `+All` in BestAB selection. XGB's internal noise-handling means a large feature set is self-curating. Future gains likely require new *independent* signal sources (e.g. injury reports, real-time lineup data, betting market odds) or a fundamentally different architecture rather than more feature engineering on the existing data.
