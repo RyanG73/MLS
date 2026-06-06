@@ -1,5 +1,19 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase 4d (2026-06-06) — 2024 distribution-shift diagnosis + calibration unification**
+> Built `scripts/diagnose_2024.py`; full writeup in `docs/2024-diagnosis.md`.
+> **Finding: 2024 is an OUTCOME regime shift, not a feature shift.** Home-win rate collapsed
+> 0.51 (2017–2023 avg) → 0.45 (2024); away-win rose 0.24 → 0.30; goals +0.167/game; draw rate
+> stable (+0.001). Feature JS-divergence in 2024 (0.0198) is *lower* than the stable 2023
+> transition (0.0308) — inputs on-distribution, home-field advantage eroded. Persists in 2025
+> (home 0.443) → new regime, not a one-off. DC bakes static historical HFA into its Poisson
+> means and cannot track the drop (root cause of its 2024 catastrophe); the cal-fold-fit capped
+> blend correctly down-weights DC to w_xgb=0.70. **Conclusion: capped-DC blend is the right
+> structural response, keep it.** Next experiments (run through the gate): shorter DC recent-
+> seasons window, ELO HOME_ADV re-sweep on 2024–25, per-class (vector) calibration on the blend.
+> Also unified the second-pass blend calibration across walk_forward / predict_upcoming /
+> eval_baseline; parity re-confirmed PASS at 0.6353 (target 0.6347, |Δ|=0.0006).
+>
 > **Phase 1 execution (2026-06-06) — metric standardization + canonical path + calibration fix**
 > External codebase review (docs/codebase-deep-dive-review.md) commissioned and executed.
 > Key findings: two competing production paths (research_model vs old stack), Brier computed
