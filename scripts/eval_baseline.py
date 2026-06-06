@@ -480,8 +480,13 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     team_ppda: dict[str, list] = {}     # PPDA per game (float | None)
     team_poss: dict[str, list] = {}     # possession per game (float | None)
     team_dates: dict[str, list] = []    # type: ignore
+    team_home_pts: dict[str, list] = {} # pts earned specifically as HOME team
+    team_away_pts: dict[str, list] = {} # pts earned specifically as AWAY team
+    team_goal_diff: dict[str, list] = {} # goal_diff per game (gf - ga)
 
     team_dates_d: dict[str, list] = {}  # dates for games_in_14d
+
+    _VENUE_WINDOWS = (5, 10)
 
     # Initialise result columns
     res: dict[str, list] = {}
@@ -494,6 +499,12 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         res[f"{r}_games_in_14d"] = []
         res[f"{r}_days_rest"] = []
         res[f"{r}_pythag_luck_{_PYTHAG_WIN}"] = []
+    for fw in _VENUE_WINDOWS:
+        res[f"home_home_form_{fw}"] = []
+        res[f"away_away_form_{fw}"] = []
+    for fw in _VENUE_WINDOWS:
+        res[f"home_goal_diff_roll_{fw}"] = []
+        res[f"away_goal_diff_roll_{fw}"] = []
         if _HAS_PPDA:
             res[f"{r}_ppda_roll_10"] = []
         if _HAS_POSS:
@@ -571,6 +582,21 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
                 seg_sp = [x["opp_xg_sp"] for x in xg_hist[-15:] if x.get("opp_xg_sp") is not None]
                 res[f"{role}_xga_sp_roll_15"].append(np.mean(seg_sp) if seg_sp else 0.4)
 
+        # Venue-split form and goal-diff form (read before updating histories)
+        h_home_hist = team_home_pts.get(ht, [])
+        a_away_hist = team_away_pts.get(at, [])
+        h_gdiff_hist = team_goal_diff.get(ht, [])
+        a_gdiff_hist = team_goal_diff.get(at, [])
+        for fw in _VENUE_WINDOWS:
+            seg_h = h_home_hist[-fw:]
+            res[f"home_home_form_{fw}"].append(np.mean(seg_h) if seg_h else 1.0)
+            seg_a = a_away_hist[-fw:]
+            res[f"away_away_form_{fw}"].append(np.mean(seg_a) if seg_a else 1.0)
+            seg_hg = h_gdiff_hist[-fw:]
+            res[f"home_goal_diff_roll_{fw}"].append(np.mean(seg_hg) if seg_hg else 0.0)
+            seg_ag = a_gdiff_hist[-fw:]
+            res[f"away_goal_diff_roll_{fw}"].append(np.mean(seg_ag) if seg_ag else 0.0)
+
         # Update histories (after reading to avoid leakage)
         h_pts = 3 if hg > ag else (1 if hg == ag else 0)
         a_pts = 3 if ag > hg else (1 if hg == ag else 0)
@@ -586,6 +612,10 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
         team_poss.setdefault(at, []).append(a_poss_v)
         team_dates_d.setdefault(ht, []).append(dt)
         team_dates_d.setdefault(at, []).append(dt)
+        team_home_pts.setdefault(ht, []).append(h_pts)
+        team_away_pts.setdefault(at, []).append(a_pts)
+        team_goal_diff.setdefault(ht, []).append(float(hg) - float(ag))
+        team_goal_diff.setdefault(at, []).append(float(ag) - float(hg))
 
     out = df.copy()
     for col, vals in res.items():
@@ -597,6 +627,10 @@ def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
     out["home_xg_sum"]  = out[f"home_xg_roll_{w0}"] + out[f"away_xg_roll_{w0}"]
     out["games14d_diff"] = out["home_games_in_14d"] - out["away_games_in_14d"]
     out["rest_advantage"] = out["home_days_rest"] - out["away_days_rest"]
+    out["venue_form_diff_5"]  = out["home_home_form_5"]  - out["away_away_form_5"]
+    out["venue_form_diff_10"] = out["home_home_form_10"] - out["away_away_form_10"]
+    out["goal_diff_diff_5"]   = out["home_goal_diff_roll_5"]  - out["away_goal_diff_roll_5"]
+    out["goal_diff_diff_10"]  = out["home_goal_diff_roll_10"] - out["away_goal_diff_roll_10"]
     out["travel_km"] = [
         _haversine_km(_TEAM_COORDS.get(h), _TEAM_COORDS.get(a))
         for h, a in zip(out["home_team"], out["away_team"])
@@ -1317,6 +1351,25 @@ _FEAT_PYTHAG = [
 print(f"    PythagLuck computed: home mean={df[_FEAT_PYTHAG[0]].mean():.3f} "
       f"std={df[_FEAT_PYTHAG[0]].std():.3f}")
 
+# ─── Venue-split form features ────────────────────────────────────────────────
+# Home team's pts in last N home games; away team's pts in last N away games.
+# Captures per-team venue tendencies; ELO uses a fixed HOME_ADV for all teams.
+_VENUE_WINDOWS_FEAT = (5, 10)
+_FEAT_VENUE_FORM = (
+    [f"home_home_form_{fw}" for fw in _VENUE_WINDOWS_FEAT]
+    + [f"away_away_form_{fw}" for fw in _VENUE_WINDOWS_FEAT]
+    + [f"venue_form_diff_{fw}" for fw in _VENUE_WINDOWS_FEAT]
+)
+
+# ─── Goal-differential form features ─────────────────────────────────────────
+# Rolling avg of (goals_scored - goals_against) per game — captures finishing
+# form independently of pts (e.g., 1-0 wins vs. 3-2 wins both yield 3 pts).
+_FEAT_GOAL_DIFF_FORM = (
+    [f"home_goal_diff_roll_{fw}" for fw in _VENUE_WINDOWS_FEAT]
+    + [f"away_goal_diff_roll_{fw}" for fw in _VENUE_WINDOWS_FEAT]
+    + [f"goal_diff_diff_{fw}" for fw in _VENUE_WINDOWS_FEAT]
+)
+
 # ─── Feature sets ─────────────────────────────────────────────────────────────
 
 _BASE_ELO  = ["elo_diff", "home_elo", "away_elo"]
@@ -1997,6 +2050,8 @@ _ALL_EXTRA = (
     + _FEAT_ROSTER_XPA
     + _FEAT_POS_GA
     + _FEAT_FBREF
+    + _FEAT_VENUE_FORM
+    + _FEAT_GOAL_DIFF_FORM
 )
 _FEAT_ALL = list(dict.fromkeys(_FEAT_BASE + _ALL_EXTRA))
 
@@ -2058,6 +2113,12 @@ if _FEAT_ROSTER_XPA and _FEAT_POS_GA:
 if _FEAT_FBREF:
     AB_SETS["+FBref"]       = _FEAT_BASE + _FEAT_FBREF
 AB_SETS["+All"]        = _FEAT_ALL
+# Venue-split form: home team's last-N home record; away team's last-N away record
+AB_SETS["+VenueForm"]    = _FEAT_BASE + _FEAT_VENUE_FORM
+# Goal-diff form: rolling avg (goals_scored - goals_against); captures finishing form
+AB_SETS["+GoalDiffForm"] = _FEAT_BASE + _FEAT_GOAL_DIFF_FORM
+# Combined: both venue and goal-diff form together
+AB_SETS["+VenueGoalDiff"] = _FEAT_BASE + _FEAT_VENUE_FORM + _FEAT_GOAL_DIFF_FORM
 
 # ── Combined marginal keepers (overnight loop iter 3) ──────────────────────────
 # Stack the small-but-positive A/B signals (each individually below the KEEP bar)
