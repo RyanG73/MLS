@@ -156,7 +156,7 @@ WEIGHT_HL    = _ARGS.weight_hl  if _ARGS.weight_hl  is not None else 6
 GAMES_14D    = _ARGS.games_14d  if _ARGS.games_14d  is not None else 16
 
 FETCH_WEATHER       = False  # set True to enable Open-Meteo API calls (~5 min extra)
-FETCH_TRANSFERMARKT = False  # set True to load Transfermarkt squad-value CSVs (data/transfermarkt_squad_values_*_mapped.csv)
+FETCH_TRANSFERMARKT = True   # Transfermarkt CSVs present: data/transfermarkt_squad_values_*_mapped.csv (2017-2024)
 
 # XGBoost per-process thread cap. Default 2 so that even several evals running
 # concurrently (e.g. parallel /improve-model agents) cannot saturate the machine
