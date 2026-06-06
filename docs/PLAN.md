@@ -13,6 +13,11 @@
 > seasons window, ELO HOME_ADV re-sweep on 2024–25, per-class (vector) calibration on the blend.
 > Also unified the second-pass blend calibration across walk_forward / predict_upcoming /
 > eval_baseline; parity re-confirmed PASS at 0.6353 (target 0.6347, |Δ|=0.0006).
+> **Per-class (vector) calibration tested → DROP** (`scripts/probe_vector_calibration.py`,
+> `docs/calibration-log.md`): helps 2023 (+0.0045) but regresses 2024 by −0.0135 (avg
+> 0.6347→0.6379). Confirms the diagnosis — extra calibration DOF overfit the cal-fold class
+> priors and amplify the regime shift; scalar temperature stays canonical. Structural finding:
+> no cal-fold-fit calibrator can anticipate a same-year HFA collapse.
 >
 > **Phase 1 execution (2026-06-06) — metric standardization + canonical path + calibration fix**
 > External codebase review (docs/codebase-deep-dive-review.md) commissioned and executed.

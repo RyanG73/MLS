@@ -10,6 +10,37 @@
 
 <!-- calibration-tuner agent appends entries here -->
 
+## 2026-06-06 — Per-class (vector) calibration on the blend output (Phase 4d)
+
+Motivated by `docs/2024-diagnosis.md`: 2024 is a directional home→away outcome shift
+that a scalar temperature cannot correct. Tested whether per-class **vector scaling**
+on the blend output (`z'_c = w_c·log(p_c) + b_c`, 6 params fit on the cal fold by NLL)
+beats the canonical scalar temperature. Probe: `scripts/probe_vector_calibration.py`
+on `data/parity_frame` (walk-forward folds identical to production).
+
+| Season | scalar Brier | vector Brier | Δ (scalar−vector) |
+|--------|-------------|--------------|-------------------|
+| 2022   | 0.6317      | 0.6325       | −0.0008           |
+| 2023   | 0.6369      | **0.6324**   | **+0.0045**       |
+| 2024   | 0.6354      | **0.6489**   | **−0.0135**       |
+| **avg**| **0.6347**  | 0.6379       | **−0.0033**       |
+
+**Verdict: DROP — KEEP SCALAR.** Vector calibration helps 2023 (+0.0045, cal fold 2022
+matches the test regime) but catastrophically regresses 2024 (−0.0135) and fails the
+2024 robustness gate.
+
+**Key finding (confirms the 2024 diagnosis):** the 2024 shift is *unforecastable from
+the prior-season cal fold*. Extra calibration degrees of freedom overfit the cal-fold
+class priors (2023 home-rate 0.48) and *amplify* miscalibration when the regime flips
+(2024 home-rate 0.45). Scalar temperature is robust precisely because its single degree
+of freedom cannot overfit the cal-fold outcome distribution. This is structural, not
+tunable: no cal-fold-fit calibrator can anticipate a same-year regime change.
+
+**Action:** Default remains scalar `temperature` on the blend output. Reproduce:
+`python scripts/probe_vector_calibration.py --frame data/parity_frame.parquet`
+
+---
+
 ## 2026-05-30 — Full calibration sweep (Iteration 1)
 
 All experiments run on branch `claude/mls-prediction-dashboard-C2mQM` (commit ae152d30),
