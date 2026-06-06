@@ -158,28 +158,12 @@ def _build_player_db(raw_dir: Path) -> dict[str, dict]:
     return player_db
 
 
-def _aggregate_team(players: pd.DataFrame,
-                    player_db: dict | None = None) -> dict:
-    """Compute PELE-style team-level features from per-player rows.
-
-    For players with value=0, look up their most recent individual valuation
-    from the cross-season player database (handles mid-season signings and
-    seasons where TM hasn't published updated values yet).
-    """
+def _aggregate_team(players: pd.DataFrame) -> dict:
+    """Compute PELE-style team-level features from per-player rows."""
     if players.empty:
         return {}
 
     vals = players["market_value_eur"].fillna(0).clip(lower=0).to_numpy(dtype=float)
-
-    # Fill zeros from cross-season player lookup
-    if player_db:
-        for i, (_, row) in enumerate(players.iterrows()):
-            if vals[i] == 0:
-                name = str(row.get("player_name", "") or "").strip()
-                entry = player_db.get(name)
-                if entry:
-                    vals[i] = entry["value"]
-
     ages = players["age"].to_numpy(dtype=float)
     pos_groups = players["position"].apply(_pos_group).to_numpy()
 
@@ -226,19 +210,31 @@ def _aggregate_team(players: pd.DataFrame,
     }
 
 
+def _load_raw_csv(season: int) -> pd.DataFrame | None:
+    """Find and load a raw player CSV for this season.
+
+    Tries _raw.csv first (written by manual R runs that succeeded) then
+    the plain .csv (written by _run_r). Skips files that exist but contain
+    only headers (headers-only from a previously failed fetch).
+    """
+    for suffix in ("_raw", ""):
+        path = DATA_DIR / f"transfermarkt_squad_values_{season}{suffix}.csv"
+        if not path.exists() or path.stat().st_size == 0:
+            continue
+        try:
+            df = pd.read_csv(path)
+            if not df.empty:
+                return df
+        except Exception:
+            continue
+    return None
+
+
 def _map_one(season: int, name_map: dict[str, str],
              player_db: dict | None = None) -> tuple[int, int]:
-    # Accept both naming conventions: YEAR.csv (from _run_r) and YEAR_raw.csv (manual runs)
-    raw = DATA_DIR / f"transfermarkt_squad_values_{season}.csv"
-    if not raw.exists() or raw.stat().st_size == 0:
-        raw = DATA_DIR / f"transfermarkt_squad_values_{season}_raw.csv"
-    if not raw.exists() or raw.stat().st_size == 0:
+    players_df = _load_raw_csv(season)
+    if players_df is None:
         print(f"  ! no raw CSV for {season}, skipping")
-        return (0, 0)
-
-    players_df = pd.read_csv(raw)
-    if players_df.empty:
-        print(f"  ! empty raw CSV for {season}, skipping")
         return (0, 0)
 
     # Ensure required columns exist with sensible defaults
@@ -250,13 +246,28 @@ def _map_one(season: int, name_map: dict[str, str],
                                                     errors="coerce").fillna(0.0)
     players_df["age"]              = pd.to_numeric(players_df["age"], errors="coerce")
 
+    # Fill zero-value players from cross-season player lookup directly on the DataFrame
+    # so that the fill is reflected in the aggregation and in the coverage report.
     n_zero_before = int((players_df["market_value_eur"] == 0).sum())
+    if player_db and n_zero_before > 0:
+        zero_mask = players_df["market_value_eur"] == 0
+        for idx in players_df.index[zero_mask]:
+            name = str(players_df.at[idx, "player_name"] or "").strip()
+            entry = player_db.get(name)
+            if entry:
+                players_df.at[idx, "market_value_eur"] = entry["value"]
+
+    n_filled = n_zero_before - int((players_df["market_value_eur"] == 0).sum())
+    n_total  = len(players_df)
+    if n_zero_before > 0:
+        print(f"  Player lookup filled {n_filled}/{n_zero_before} zero-value players "
+              f"({n_zero_before/n_total:.0%} of roster had no same-season value)")
 
     # Group by team, aggregate to PELE features
     team_rows = []
     for tm_name, grp in players_df.groupby("tm_team_name"):
         asa_id = name_map.get(str(tm_name), "")
-        feats = _aggregate_team(grp, player_db=player_db)
+        feats = _aggregate_team(grp)
         if not feats:
             continue
         row = {
@@ -280,11 +291,6 @@ def _map_one(season: int, name_map: dict[str, str],
     out = DATA_DIR / f"transfermarkt_squad_values_{season}_mapped.csv"
     out_df.to_csv(out, index=False)
     mapped_n = int((out_df["asa_team_id"] != "").sum())
-    n_total = int(players_df["market_value_eur"].count())
-    n_filled = n_zero_before - int((players_df["market_value_eur"] == 0).sum())
-    if n_zero_before > 0:
-        print(f"  Player lookup filled {n_filled}/{n_zero_before} zero-value players "
-              f"({n_zero_before/n_total:.0%} of roster had no same-season value)")
     print(f"  → {out.name} ({len(out_df)} teams, {mapped_n} mapped to ASA id)")
     return (len(out_df), mapped_n)
 
