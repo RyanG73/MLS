@@ -1,8 +1,9 @@
 # MLS Prediction Dashboard — Implementation Plan
 
-> **Live eval results (updated 2026-05-30, parallel /improve-model cycle #2 — structural leads)**
-> Best model: **capped-DC convex blend** (DC ≤30%) + Base features + weight_hl=6 + **temperature** calibration.
-> best_brier **0.6363** (naive 0.6406; ~+0.67% over naive, best across all cycles) · max decile cal_err 0.1326 (target <0.05 unmet).
+> **Live eval results (updated 2026-06-06, Phase 13: PELE/TM features)**
+> Best model: **Ensemble stacked** (DC + XGBoost meta-learner) + Base features + temperature calibration.
+> best_brier **0.6370** (naive 0.6406; ~+0.6% over naive) · max decile cal_err 0.1416 (target <0.05 unmet).
+> Only confirmed KEEP since Phase 6: +TZ_Pythag (Δ=+0.0013). All TM/PELE/roster/player features DROP.
 > (Calibration default is `temperature`; `temp_then_platt` exists but is a no-op on the blend — corrected cycle #3. Knob-tuning has plateaued; next gains need new signal.)
 > KEPT: (1) capped-DC blend replaces unconstrained LR meta-learner — fixes 2024 (DC stacked 0.6523→0.6378); (2) weight_hl 4→6,
 >   a DROP in isolation but unlocked once capped-DC removed the DC drag (greedy re-eval surfaced the interaction). best_brier 0.6388→0.6372→0.6363.
@@ -69,28 +70,35 @@
 >   EXCEPT contextual/situational features: +TZ_Pythag KEEP (Δ=+0.0013); these carry
 >   information the match-level rolling features don't capture.
 >
-> **Phase 13 (2026-06-04): PELE-style Transfermarkt market-value features — implemented, NOT YET EVALUATED**
+> **Phase 13 (2026-06-06): PELE-style Transfermarkt market-value features — ALL DROP**
 > Inspired by Nate Silver's PELE model (2026 World Cup predictions). Key insight from PELE:
 >   - Squad strength = Transfermarkt market value, not just results/xG
 >   - Tilt = positional value allocation (ATT% vs DEF%) — orthogonal to total quality
 >   - Trajectory = age weighted by market value (young + expensive → improving team)
 >   - Star concentration = top-3 value share (DP proxy)
 >
-> Implemented four new feature bundles (all season-lagged 1-2 seasons):
->   +TM_SquadValue  — squad_value_z (total market value, z-scored within season)
->   +TM_Positional  — tilt, att_value_pct, def_value_pct (PELE "Tilt" analog)
->   +TM_Age         — value_wtd_age (age weighted by market value; trajectory signal)
->   +TM_Stars       — dp_value_share (top-3 player value / total; DP concentration)
->   +TM_PELE        — all four combined
+> Four feature bundles tested (all season-lagged 1-2 seasons, 90% coverage):
+>   +TM_SquadValue:  Δ=−0.0014 → DROP (total market value, z-scored within season)
+>   +TM_Positional:  Δ=−0.0038 → DROP (tilt, att_value_pct, def_value_pct)
+>   +TM_Age:         Δ=−0.0008 → DROP (value-weighted age; trajectory signal)
+>   +TM_Stars:       Δ=−0.0020 → DROP (top-3 player value share; DP concentration)
+>   +TM_PELE:        Δ=−0.0033 → DROP (all four combined — even worse)
 >
-> Infrastructure fixes made:
->   1. YAML bug fixed: team IDs were internal ASA hex IDs; corrected to short codes (ATL, ATX…)
->   2. R script upgraded: now outputs per-player data (position, age, value) not aggregated
+> Best model (this run): Ensemble stacked Brier=0.6370 (+0.6% vs naive 0.6406).
+> Only confirmed KEEP since Phase 12: +TZ_Pythag (Δ=+0.0013).
+>
+> Infrastructure fixes that were required before results were valid:
+>   1. YAML bug fixed: team IDs were internal ASA hex IDs → corrected to short codes (ATL, ATX…)
+>   2. R script upgraded: outputs per-player data (position, age, EUR value) via kader page scraping
 >   3. Import script: aggregates with positional splits + value-weighted age (PELE logic)
+>   4. Eval bug fixed: ASA match data uses hex team IDs; TM CSVs use short codes →
+>      added hex→short mapping via asa.get_teams() with 4 overrides (DCU→DC, FCD→DAL, NER→NE, SJE→SJ)
+>      Coverage: 0% (broken) → 90% (correct; 10% gap = expansion teams, expected)
 >
-> To evaluate: run `python scripts/import_transfermarkt.py --seasons 2017-2025`
->   (requires R + worldfootballR; or use --skip-fetch to re-aggregate existing CSVs)
->   then set FETCH_TRANSFERMARKT=True in eval_baseline.py and re-run the eval.
+> CONCLUSION: Transfermarkt market values do not improve over ELO + rolling xG.
+>   The 1-2 season lag may be too stale for MLS (high squad turnover vs European leagues).
+>   PELE works for international soccer where squad stability is higher.
+>   ELO already captures quality signal; market values are collinear + noisier at 1-season lag.
 
 ---
 
