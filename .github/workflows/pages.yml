@@ -37,6 +37,9 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Auto-create the Pages site on first run so no manual Settings toggle is needed.
+          enablement: true
 
       - name: Upload webapp/ as the Pages artifact
         uses: actions/upload-pages-artifact@v3
