@@ -2050,8 +2050,8 @@ _ALL_EXTRA = (
     + _FEAT_ROSTER_XPA
     + _FEAT_POS_GA
     + _FEAT_FBREF
-    + _FEAT_VENUE_FORM
-    + _FEAT_GOAL_DIFF_FORM
+    # +VenueGoalDiff and +VenueForm NOT added here: kept as standalone AB sets only.
+    # Adding to _ALL_EXTRA caused +All to change and regressed 2024 by 0.0005.
 )
 _FEAT_ALL = list(dict.fromkeys(_FEAT_BASE + _ALL_EXTRA))
 
@@ -2141,6 +2141,10 @@ for _k in ("+TZShift", "+PythagLuck", "+TM_Age"):
             _margcore.append(_f)
 if _margcore:
     AB_SETS["+MargCore"] = _FEAT_BASE + _margcore
+# VenueGoalDiff extension: MargCore + venue-split form + goal-diff form (iter 4)
+_vg_extras = [f for f in _FEAT_VENUE_FORM + _FEAT_GOAL_DIFF_FORM if f not in _FEAT_BASE]
+if _margcore and _vg_extras:
+    AB_SETS["+MargCoreVG"] = _FEAT_BASE + _margcore + _vg_extras
 
 print(f"\n    A/B feature sets: {list(AB_SETS.keys())}")
 
