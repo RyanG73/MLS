@@ -4,19 +4,33 @@
 # Double-click this file to start the Streamlit dashboard and open it in your
 # browser. Close the Terminal window it opens to stop the server.
 #
-# If your MLS repo is NOT at ~/MLS, edit REPO_DIR on the next line once.
+# The repo location is auto-detected. To pin it explicitly, set REPO_DIR below.
 # ─────────────────────────────────────────────────────────────────────────────
 
-REPO_DIR="$HOME/MLS"
+REPO_DIR=""          # leave empty to auto-detect; or hardcode e.g. "$HOME/code/MLS"
 PORT=8501
 
+# Auto-detect the repo (the folder containing dashboard/app.py) if not pinned.
+if [ -z "$REPO_DIR" ] || [ ! -f "$REPO_DIR/dashboard/app.py" ]; then
+  for d in "$HOME/MLS" "$HOME/Desktop/MLS" "$HOME/Documents/MLS" \
+           "$HOME/Projects/MLS" "$HOME/projects/MLS" "$HOME/code/MLS" "$HOME/repos/MLS"; do
+    if [ -f "$d/dashboard/app.py" ]; then REPO_DIR="$d"; break; fi
+  done
+fi
+# Fallback: search under $HOME (one-time, may take a few seconds).
+if [ -z "$REPO_DIR" ] || [ ! -f "$REPO_DIR/dashboard/app.py" ]; then
+  REPO_DIR="$(find "$HOME" -maxdepth 6 -type f -path '*/dashboard/app.py' 2>/dev/null \
+              | head -1 | sed 's|/dashboard/app.py$||')"
+fi
+
 cd "$REPO_DIR" 2>/dev/null || {
-  echo "❌ Could not find the MLS repo at: $REPO_DIR"
+  echo "❌ Could not locate the MLS repo (looked for a folder containing dashboard/app.py)."
   echo "   Open this file in a text editor and set REPO_DIR to your repo path."
   echo "   (Press any key to close.)"
   read -n 1 -s
   exit 1
 }
+echo "Using repo: $REPO_DIR"
 
 # Activate the virtualenv if it exists.
 if [ -f "venv/bin/activate" ]; then
