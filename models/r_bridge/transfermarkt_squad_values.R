@@ -99,24 +99,25 @@ team_urls <- tryCatch(
   tm_league_team_urls(country_name = "United States", start_year = season),
   error = function(e) {
     message("tm_league_team_urls failed: ", conditionMessage(e))
-    # worldfootballR index may not include the current season yet.
-    # Fall back: fetch prior year's URLs and substitute the season number.
-    prior <- tryCatch(
-      tm_league_team_urls(country_name = "United States", start_year = season - 1),
-      error = function(e2) character(0)
-    )
-    if (length(prior) > 0) {
-      swapped <- gsub(
-        paste0("saison_id/", season - 1),
-        paste0("saison_id/", season),
-        prior, fixed = TRUE
+    # worldfootballR index may lag the current season.
+    # Try up to 2 prior years to get the team URL list, then substitute the target season.
+    for (fallback_year in c(season - 1, season - 2)) {
+      prior <- tryCatch(
+        tm_league_team_urls(country_name = "United States", start_year = fallback_year),
+        error = function(e2) character(0)
       )
-      message(sprintf("  Falling back to %d URL list with season substituted to %d (%d teams)",
-                      season - 1, season, length(swapped)))
-      swapped
-    } else {
-      character(0)
+      if (length(prior) > 0) {
+        swapped <- gsub(
+          paste0("saison_id/", fallback_year),
+          paste0("saison_id/", season),
+          prior, fixed = TRUE
+        )
+        message(sprintf("  Falling back to %d URL list with season substituted to %d (%d teams)",
+                        fallback_year, season, length(swapped)))
+        return(swapped)
+      }
     }
+    character(0)
   }
 )
 
