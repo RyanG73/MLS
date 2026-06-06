@@ -1,0 +1,6 @@
+{
+  "report": "experiments/champion.report.json",
+  "run_id": "champion-6824be37-20260606T204937",
+  "avg_brier": 0.63465,
+  "promoted_at": "2026-06-06T20:49:37Z"
+}

@@ -201,8 +201,8 @@ def main() -> int:
         "market_slices": "deferred (no odds in frame; run against odds DB for edge/CLV slices)",
     }
 
-    out_path = Path(args.out) if args.out else \
-        REPO_ROOT / "experiments" / f"{run_id}.report.json"
+    out_path = (Path(args.out) if args.out else
+                REPO_ROOT / "experiments" / f"{run_id}.report.json").resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(report, indent=2))
 
@@ -226,7 +226,11 @@ def main() -> int:
     teams = [(k, m) for k, m in slices["by_home_team"].items() if m.get("n", 0) >= 10]
     for k, m in sorted(teams, key=lambda kv: -kv[1]["brier_sum"])[:5]:
         print(f"  {k:<24} n={m['n']:>3}  brier={m['brier_sum']:.4f}")
-    print(f"\nReport written → {out_path.relative_to(REPO_ROOT)}")
+    try:
+        shown = out_path.relative_to(REPO_ROOT)
+    except ValueError:
+        shown = out_path
+    print(f"\nReport written → {shown}")
     return 0
 
 

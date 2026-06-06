@@ -12,6 +12,9 @@ logs/
 # Keep the registry index (experiment history) but ignore large per-run JSON blobs
 experiments/*.json
 !experiments/registry.jsonl
+# Track the blessed champion pointer + its report (the promotion-gate reference)
+!experiments/champion.json
+!experiments/champion.report.json
 
 # Environment and secrets
 .env
