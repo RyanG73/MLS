@@ -137,9 +137,12 @@ def _build_player_db(raw_dir: Path) -> dict[str, dict]:
             df = pd.read_csv(csv_file)
         except Exception:
             continue
-        df["market_value_eur"] = pd.to_numeric(
-            df.get("market_value_eur", 0), errors="coerce").fillna(0)
-        df["age"] = pd.to_numeric(df.get("age", np.nan), errors="coerce")
+        if "market_value_eur" not in df.columns:
+            df["market_value_eur"] = 0.0
+        df["market_value_eur"] = pd.to_numeric(df["market_value_eur"], errors="coerce").fillna(0)
+        if "age" not in df.columns:
+            df["age"] = np.nan
+        df["age"] = pd.to_numeric(df["age"], errors="coerce")
         for _, row in df.iterrows():
             name = str(row.get("player_name", "") or "").strip()
             value = float(row.get("market_value_eur", 0) or 0)
