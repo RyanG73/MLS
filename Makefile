@@ -2,7 +2,8 @@ PYTHON := python3
 VENV   := venv
 PY     := $(if $(wildcard $(VENV)/bin/python),$(VENV)/bin/python,$(PYTHON))
 
-.PHONY: test parity-check daily-update build-dashboard-data backfill performance-report help
+.PHONY: test parity-check daily-update build-dashboard-data backfill performance-report \
+        model-report gate-self-test diagnose-2024 help
 
 help:
 	@echo "MLS prediction system targets:"
@@ -12,9 +13,13 @@ help:
 	@echo "  make build-dashboard-data Rebuild webapp/data.js from the canonical research model"
 	@echo "  make backfill             Backfill historical match data"
 	@echo "  make performance-report   Print prediction + betting performance metrics"
+	@echo "  make model-report         Standardized canonical-model report (metrics + slices)"
+	@echo "  make gate-self-test       Verify the promotion gate rejects worse challengers"
+	@echo "  make diagnose-2024        Run the 2024 distribution-shift diagnosis"
 
 test:
 	$(PY) -m pytest tests/ -v
+	$(PY) scripts/promotion_gate.py self-test
 
 parity-check:
 	$(PY) scripts/parity_check.py
@@ -30,3 +35,12 @@ backfill:
 
 performance-report:
 	$(PY) scripts/performance_report.py
+
+model-report:
+	$(PY) scripts/model_report.py --label challenger
+
+gate-self-test:
+	$(PY) scripts/promotion_gate.py self-test
+
+diagnose-2024:
+	$(PY) scripts/diagnose_2024.py

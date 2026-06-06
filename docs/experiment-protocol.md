@@ -129,3 +129,44 @@ VERDICT: KEEP / marginal / DROP
 Δ max_cal_error: <value> (lower = better; target < 0.05)
 ONE-LINE SUMMARY: <what changed and why it worked/didn't>
 ```
+
+---
+
+## 10. Canonical-model promotion gate (Phase 4c)
+
+The KEEP/DROP rule above governs **feature-level A/B experiments on the eval harness**.
+A separate, stricter gate governs **promotion of the whole canonical model**
+(`models/research_model.py`), which is what actually drives the dashboard and the
+production DB. A KEEP'd feature is only a *candidate*; it becomes champion only after
+the full model clears the promotion gate.
+
+This operationalizes the codebase-review's "circular review loop": every promotion must
+pass a multi-criterion gate, not a single aggregate score.
+
+```bash
+# 1. Produce a standardized report for the candidate model (per-match + slices)
+python scripts/model_report.py --label challenger --out experiments/<id>.report.json
+
+# 2. Run the gate against the current champion (experiments/champion.json)
+python scripts/promotion_gate.py evaluate --challenger experiments/<id>.report.json
+
+# 3. If it PASSES, promote it (updates the champion pointer)
+python scripts/promotion_gate.py promote --challenger experiments/<id>.report.json
+```
+
+**Gate criteria (all must hold):**
+
+| Class | Criterion | Rule |
+|-------|-----------|------|
+| Guardrail | coverage | challenger n per season ≥ champion (data not shrunk) |
+| Guardrail | robustness_2024 | challenger 2024 Brier ≤ champion + 0.0005 *(CLAUDE.md hard gate)* |
+| Guardrail | calibration | challenger cal_err ≤ champion + 0.005 |
+| Guardrail | slices | no season/confidence slice regresses by > 0.02 |
+| Improvement | core_metric | challenger avg Brier improves by ≥ 0.0005 |
+
+The gate is self-tested (`python scripts/promotion_gate.py self-test`) to confirm it
+rejects identical, 2024-regressing, and calibration-blowup challengers while promoting a
+genuine improvement. `build_dashboard_data.py` should generate only from the champion.
+
+Market/edge slices (model-vs-market disagreement, edge distribution, CLV) require the
+odds DB and are reported as deferred when run on the odds-free parity frame.

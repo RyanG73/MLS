@@ -181,13 +181,20 @@ def blend(xg, dc, w):
 
 # ─── End-to-end walk-forward (the validated 0.6363 pipeline) ──────────────────
 
-def walk_forward(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
-                 dc_decay_hl=DEFAULT_DC_DECAY_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42):
-    """Returns {'per_season': {yr: brier}, 'avg_brier': float, 'w_xgb': {yr: w}}."""
+def walk_forward_predictions(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
+                             dc_decay_hl=DEFAULT_DC_DECAY_HL, n_jobs=DEFAULT_XGB_NJOBS,
+                             seed=42):
+    """
+    Run the validated walk-forward pipeline and return PER-MATCH predictions for the
+    test seasons (for slicing / reporting). Same computation as walk_forward — the
+    latter aggregates this. Returns (preds_df, w_used) where preds_df has columns:
+    match_id, season, date, home_team, away_team, label_result,
+    prob_home, prob_draw, prob_away, w_xgb.
+    """
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"])
     feat = [c for c in feat_base if c in df.columns]
-    per_season, w_used = {}, {}
+    chunks, w_used = [], {}
     for ts in test_seasons:
         cal_s = ts - 1
         train = df[df["season"] < cal_s].dropna(subset=["home_goals", "away_goals"])
@@ -196,8 +203,7 @@ def walk_forward(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
         if len(train) < 200 or len(cal) < 50 or len(test) < 50:
             continue
         y_cal = cal["label_result"].values.astype(int)
-        y_te = test["label_result"].values.astype(int)
-        y_cal_oh, y_te_oh = np.eye(3)[y_cal], np.eye(3)[y_te]
+        y_cal_oh = np.eye(3)[y_cal]
 
         atk, dfd, ha, rho = fit_dc(train, decay_hl=dc_decay_hl)
         dc_cal = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
@@ -218,9 +224,32 @@ def walk_forward(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
         cal_blend = blend(xgb_cal, dc_cal, w)
         te_blend = blend(xgb_te, dc_te, w)
         ens_te = calibrate_temperature(cal_blend, y_cal, te_blend)
-        per_season[str(ts)] = round(multiclass_brier(y_te_oh, ens_te), 6)
+
+        chunk = test[["match_id", "season", "date", "home_team", "away_team",
+                      "label_result"]].copy().reset_index(drop=True)
+        chunk["prob_home"] = ens_te[:, 0]
+        chunk["prob_draw"] = ens_te[:, 1]
+        chunk["prob_away"] = ens_te[:, 2]
+        chunk["w_xgb"] = round(w, 3)
+        chunks.append(chunk)
         w_used[str(ts)] = round(w, 3)
 
+    preds = pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
+    return preds, w_used
+
+
+def walk_forward(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
+                 dc_decay_hl=DEFAULT_DC_DECAY_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42):
+    """Returns {'per_season': {yr: brier}, 'avg_brier': float, 'w_xgb': {yr: w}}."""
+    preds, w_used = walk_forward_predictions(
+        df, feat_base, test_seasons, weight_hl=weight_hl,
+        dc_decay_hl=dc_decay_hl, n_jobs=n_jobs, seed=seed)
+    per_season = {}
+    if not preds.empty:
+        for ts, g in preds.groupby("season"):
+            y_oh = np.eye(3)[g["label_result"].values.astype(int)]
+            p = g[["prob_home", "prob_draw", "prob_away"]].values
+            per_season[str(int(ts))] = round(multiclass_brier(y_oh, p), 6)
     avg = round(float(np.mean(list(per_season.values()))), 6) if per_season else float("nan")
     return {"per_season": per_season, "avg_brier": avg, "w_xgb": w_used}
 
