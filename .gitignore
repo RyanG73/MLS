@@ -2,6 +2,7 @@
 data/*.duckdb
 data/*.pkl
 data/*.csv
+!data/transfermarkt_squad_values_*_mapped.csv
 data/*.rds
 data/raw/
 data/eval_cache/
