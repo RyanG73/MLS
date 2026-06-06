@@ -2287,7 +2287,12 @@ if _ARGS.dump_frame:
     import sys as _sys
     _dp = _Path(_ARGS.dump_frame)
     _dp.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(_dp, index=False)
+    try:
+        df.to_parquet(_dp, index=False)
+    except Exception:
+        # No parquet engine (pyarrow/fastparquet) available — fall back to pickle.
+        _dp = _dp.with_suffix(".pkl")
+        df.to_pickle(_dp)
     # sidecar: feature list + validated config, so the parity harness is self-contained
     _sidecar = _dp.with_suffix(".meta.json")
     with open(_sidecar, "w") as _sf:

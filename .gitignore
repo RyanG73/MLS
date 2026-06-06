@@ -36,6 +36,7 @@ venv/
 
 # Claude Code (machine-local permissions/overrides)
 .claude/settings.local.json
+.claude/worktrees/
 
 # OS
 .DS_Store

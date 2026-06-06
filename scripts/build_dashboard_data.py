@@ -90,7 +90,14 @@ def main():
 
     meta = json.loads(Path(args.frame).with_suffix(".meta.json").read_text())
     feat_base = meta["feat_base"]
-    df = pd.read_parquet(args.frame)
+    # Frame may be parquet (if a parquet engine is installed) or pickle (fallback).
+    _frame = Path(args.frame)
+    if not _frame.exists() and _frame.with_suffix(".pkl").exists():
+        _frame = _frame.with_suffix(".pkl")
+    try:
+        df = pd.read_parquet(_frame)
+    except Exception:
+        df = pd.read_pickle(_frame)
     df["date"] = pd.to_datetime(df["date"])
 
     from models.research_model import (fit_dc, dc_predict_batch, fit_xgb,
