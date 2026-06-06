@@ -7,7 +7,7 @@
 # The repo location is auto-detected. To pin it explicitly, set REPO_DIR below.
 # ─────────────────────────────────────────────────────────────────────────────
 
-REPO_DIR=""          # leave empty to auto-detect; or hardcode e.g. "$HOME/code/MLS"
+REPO_DIR="$HOME/development/mls"   # pinned to Ryan's Mac; auto-detect kicks in if wrong/moved
 PORT=8501
 
 # Auto-detect the repo (the folder containing dashboard/app.py) if not pinned.
