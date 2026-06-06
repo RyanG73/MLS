@@ -84,6 +84,7 @@ def _prediction_metrics(df: pd.DataFrame) -> pd.DataFrame:
         )
         y = np.eye(3)[actual]
 
+        # brier_half = sum_form / 2 (display convention; canonical is sum-form ~0.6375)
         brier = np.sum((probs - y) ** 2, axis=1) / 2.0
         logloss = -np.log(probs[np.arange(len(group)), actual])
         accuracy = np.argmax(probs, axis=1) == actual

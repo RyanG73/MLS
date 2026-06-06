@@ -49,6 +49,7 @@ def main():
     df["actual_home"] = (df["home_goals"] > df["away_goals"]).astype(int)
     df["actual_draw"] = (df["home_goals"] == df["away_goals"]).astype(int)
     df["actual_away"] = (df["home_goals"] < df["away_goals"]).astype(int)
+    # brier_half (÷2) used here for drift-delta ratio; canonical sum-form is ~2× larger (~0.6375)
     df["brier"] = (
         (df["prob_home"] - df["actual_home"]) ** 2 +
         (df["prob_draw"] - df["actual_draw"]) ** 2 +

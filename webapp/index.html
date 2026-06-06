@@ -252,8 +252,11 @@ $('#sub').textContent = D.in_season?`${D.season} season · live · ${D.played} p
        </div></div>
      <div class="delta">+${D.model.improve_pct}%<small>Brier vs naive</small></div>`;
 })();
-$('#foot').innerHTML=`Capped Dixon-Coles + XGBoost ensemble, availability-weighted · Brier ${D.model.best_brier} vs naive ${D.model.naive} (lower is better → ${D.model.improve_pct}% better) · `+
-  `odds from ${D.n_sims.toLocaleString()} Monte-Carlo simulations of the remaining schedule · crests & colors © their clubs (via ESPN) · generated ${D.generated}.`;
+const prov=D.provenance||{};
+const staleDays=Math.floor((Date.now()-new Date(D.generated).getTime())/86400000);
+const staleWarn=staleDays>2?` <b style="color:var(--warn)">⚠ data ${staleDays}d old</b>`:'';
+$('#foot').innerHTML=`Capped DC+XGB ensemble (${prov.model_file||'research_model'}) · Brier ${D.model.best_brier} sum-form vs naive ${D.model.naive} · `+
+  `${D.n_sims.toLocaleString()} Monte-Carlo sims · git ${prov.git_commit||'—'} · generated ${D.generated}${staleWarn}.`;
 
 /* favorites — four title races: Shield · Eastern Conf · Western Conf · Spoon */
 const sBy=k=>[...D.standings].sort((a,b)=>b[k]-a[k])[0];

@@ -64,6 +64,7 @@ def compute_outcomes(df: pd.DataFrame) -> pd.DataFrame:
     df["actual_draw"] = (df["home_goals"] == df["away_goals"]).astype(int)
     df["actual_away"] = (df["home_goals"] < df["away_goals"]).astype(int)
     df["actual_over"] = ((df["home_goals"] + df["away_goals"]) > 2.5).astype(int)
+    # brier_half (÷2) for display — ~0.25 random baseline; canonical sum-form (÷1) is ~0.6375
     df["brier_result"] = (
         (df["prob_home"] - df["actual_home"]) ** 2 +
         (df["prob_draw"] - df["actual_draw"]) ** 2 +
@@ -95,7 +96,7 @@ try:
 except Exception:
     avg_logloss = float("nan")
 
-col1.metric("Avg Brier Score", f"{avg_brier:.4f}", help="Lower is better; random baseline ~0.250")
+col1.metric("Avg Brier Score", f"{avg_brier:.4f}", help="Lower is better; random baseline ~0.250 (half-form ÷2; research reports use sum-form ~0.6375)")
 col2.metric("Avg Log-Loss", f"{avg_logloss:.4f}", help="Lower is better")
 col3.metric("Predictions", f"{len(perf_df):,}")
 col4.metric("Date Range",

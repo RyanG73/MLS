@@ -2,19 +2,25 @@
 """
 Daily update pipeline. Runs every morning via cron.
 
-Orchestration order (mirrors plan):
+Canonical model: models/research_model.py (DC + XGB + temp calibration + capped blend).
+Legacy stack (dixon_coles.py, gradient_boost.py, stacking_ensemble.py) is kept for
+component predictions and comparison but is no longer the 'ensemble' source.
+
+Orchestration order:
 1.  Fetch yesterday's results + upcoming fixtures (ESPN)
 2.  Pull latest xG data (ASA)
 3.  Refresh injury/suspension flags (ESPN injuries)
 4.  Recalculate ELO ratings
 5.  Rebuild feature snapshots for upcoming matches
-6.  Refit Dixon-Coles → predict upcoming
-7.  Refit gradient boost → predict upcoming
-8.  Run R/brms Bayesian model → predict upcoming
-9.  Refit stacking ensemble → generate ensemble predictions
-10. Fetch latest Pinnacle odds
-11. Compute edges + update simulated bet outcomes
-12. Write all predictions and odds to PostgreSQL
+6.  Refit legacy Dixon-Coles → component predictions (legacy)
+7.  Refit legacy gradient boost → component predictions (legacy)
+8.  Run R/brms Bayesian model → predict upcoming (disabled by default)
+9.  Fetch latest Pinnacle opening odds
+10. Generate ensemble predictions via research_model (canonical)
+11. Update simulated bet outcomes for recently completed matches
+12. Check drawdown stop-loss
+13. Snapshot model version
+14. Season Monte Carlo simulation
 """
 
 import json
@@ -171,10 +177,10 @@ def main():
     if odds_rows is not None:
         stats["opening_odds_rows"] = int(odds_rows)
 
-    # ── 10. Stacking ensemble + predictions ───────────────────────────────────
-    pred_rows = run_step("Generate ensemble predictions",
-             _generate_and_store_predictions,
-             dc_model, penaltyblog_model, gb_models, bayes_preds, upcoming_df, train_df, run_id=run_id, stats=stats)
+    # ── 10. Research-model ensemble predictions (canonical path) ─────────────
+    pred_rows = run_step("Generate ensemble predictions (research model)",
+             _generate_and_store_research_predictions,
+             train_df, upcoming_df, current_season, run_id=run_id, stats=stats)
     if pred_rows is not None:
         stats["predicted_matches"] = int(pred_rows)
 
@@ -343,6 +349,69 @@ def _generate_and_store_predictions(dc_model, penaltyblog_model, gb_models, baye
     if all_bets:
         store_bets(all_bets)
     logger.info("Generated predictions for %d upcoming matches.", predicted)
+    return predicted
+
+
+def _generate_and_store_research_predictions(train_df, upcoming_df, current_season):
+    """
+    Canonical ensemble prediction path using models/research_model.py.
+    Replaces the legacy StackingEnsemble path for the 'ensemble' model in Postgres.
+    The old _generate_and_store_predictions is kept as dead code for reference.
+    """
+    import hashlib
+    from data_pipeline import db_utils
+    from models.research_model import predict_upcoming
+    from market.clv_tracker import evaluate_match, store_bets
+    from data_pipeline.odds_client import get_pinnacle_odds
+
+    if upcoming_df is None or upcoming_df.empty:
+        logger.info("No upcoming matches to predict (research model).")
+        return 0
+
+    preds_df = predict_upcoming(train_df, upcoming_df, current_season)
+    if preds_df.empty:
+        logger.warning("research_model.predict_upcoming returned empty DataFrame.")
+        return 0
+
+    all_bets = []
+    predicted = 0
+
+    for _, pred_row in preds_df.iterrows():
+        match_id = pred_row["match_id"]
+        probs = {
+            "prob_home": float(pred_row["prob_home"]),
+            "prob_draw": float(pred_row["prob_draw"]),
+            "prob_away": float(pred_row["prob_away"]),
+        }
+
+        pred_id = hashlib.md5(f"{match_id}_ensemble".encode()).hexdigest()[:20]
+        db_utils.execute(
+            """
+            INSERT INTO predictions
+                (prediction_id, match_id, model, model_version, prob_home, prob_draw, prob_away,
+                 prob_over, prob_under, features_hash, claude_rationale)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (prediction_id) DO UPDATE SET
+                prob_home = EXCLUDED.prob_home,
+                prob_draw = EXCLUDED.prob_draw,
+                prob_away = EXCLUDED.prob_away,
+                predicted_at = NOW()
+            """,
+            [pred_id, match_id, "ensemble", "research_model_v1",
+             probs["prob_home"], probs["prob_draw"], probs["prob_away"],
+             None, None, None, None],
+        )
+
+        opening_odds = get_pinnacle_odds(match_id, snapshot_type="open")
+        if opening_odds:
+            bets = evaluate_match(match_id, probs, opening_odds)
+            all_bets.extend(bets)
+
+        predicted += 1
+
+    if all_bets:
+        store_bets(all_bets)
+    logger.info("Research model: generated predictions for %d upcoming matches.", predicted)
     return predicted
 
 

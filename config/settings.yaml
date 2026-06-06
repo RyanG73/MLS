@@ -27,7 +27,7 @@ elo:
 # ─── Feature Engineering ─────────────────────────────────────────────────────
 features:
   xg_half_life_days: 60                # Exponential decay half-life for xG rolling averages
-  xg_windows: [5, 10, 20]             # Match-count rolling windows for xG stats
+  xg_windows: [5, 15]                 # Match-count rolling windows for xG stats — validated 2026 (CLAUDE.md)
   form_window: 5                        # Matches for form (W/D/L points rolling)
   expansion_team_seasons: 2            # Treat team as "expansion" for first N seasons
   min_matches_for_features: 3          # Min matches before team gets non-prior features
@@ -69,7 +69,7 @@ market:
   regions: "us"
   markets: "h2h"                        # 1X2 head-to-head
   odds_format: "decimal"
-  default_edge_threshold_pct: 5.0     # Default value-bet cutoff in dashboard
+  default_edge_threshold_pct: 8.0     # Default value-bet cutoff — validated 2026 (CLAUDE.md: 8%)
   kelly_fractions: [0.25, 0.50]
   starting_bankroll: 10000             # Simulated bankroll in units
 

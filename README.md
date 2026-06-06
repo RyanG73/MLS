@@ -99,7 +99,21 @@ source venv/bin/activate
 python scripts/performance_report.py
 ```
 
-## Streamlit Dashboard
+## Web Dashboard
+
+The primary dashboard is a static web app served from `webapp/`. Build it with:
+
+```bash
+source venv/bin/activate
+python scripts/build_dashboard_data.py
+```
+
+This generates `webapp/data.js` (predictions, standings, simulation results) using
+the canonical `models/research_model.py` pipeline (DC + XGB + temperature calibration
++ capped-DC blend, validated Brier 0.6347 sum-form). Open `webapp/index.html` in a
+browser or serve it with any static file server.
+
+## Streamlit Dashboard (operational monitoring)
 
 ```bash
 source venv/bin/activate
@@ -109,7 +123,7 @@ streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
 Pages:
 
 - Predictions: upcoming match probabilities and value-bet flags.
-- Performance: Brier/log-loss, CLV, ROI, and team breakdowns.
+- Performance: Brier/log-loss, CLV, ROI, and team breakdowns (Brier displayed as half-form ÷2; research reports use sum-form ~0.6375).
 - Calibration: reliability and sharpness views.
 - News & Overrides: reviewed Claude/RSS news and manual strength adjustments.
 - Betting Tracker: simulated fractional-Kelly P&L and CLV.

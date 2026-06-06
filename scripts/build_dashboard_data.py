@@ -15,6 +15,7 @@ Usage: python scripts/build_dashboard_data.py [--season 2026] [--sims 20000]
 
 import argparse
 import json
+import subprocess
 import sys
 import unicodedata
 from pathlib import Path
@@ -261,12 +262,23 @@ def main():
     games += upcoming_cards
     games.sort(key=lambda g: g["date"])
 
+    try:
+        git_commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        git_commit = "unknown"
+
     data = {"season": ts, "in_season": True,
             "played": len(games) - len(upcoming_cards), "upcoming": len(upcoming_cards),
-            "model": {"best_brier": 0.6344, "naive": 0.6406, "improve_pct": 0.97},
+            "model": {"best_brier": 0.6347, "naive": 0.6406, "improve_pct": 0.92,
+                      "name": "research_model", "metric": "brier_sum_form"},
             "n_sims": N, "playoff_slots": _PLAYOFF_SLOTS, "hfa_slots": _HFA_SLOTS,
             "standings": standings, "games": games,
-            "generated": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC")}
+            "generated": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC"),
+            "provenance": {"git_commit": git_commit,
+                           "model_file": "models/research_model.py",
+                           "metric_convention": "brier_sum_form (range 0-2; random ~0.6406)"}}
     out = Path("webapp/data.js")
     out.write_text("window.MLS_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
     print(f"Wrote {out} · {data['played']} played + {data['upcoming']} upcoming · {len(standings)} teams")

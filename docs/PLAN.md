@@ -1,5 +1,25 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase 1 execution (2026-06-06) — metric standardization + canonical path + calibration fix**
+> External codebase review (docs/codebase-deep-dive-review.md) commissioned and executed.
+> Key findings: two competing production paths (research_model vs old stack), Brier computed
+> two incompatible ways (sum-form vs half-form), eval_baseline monolith, config/docs inconsistencies.
+> **Phase 1 work completed:**
+>   - Created `models/metrics.py` with single authoritative Brier/log-loss functions (10 tests green).
+>   - Wired `research_model.py` and `eval_baseline.py` to delegate to `models/metrics.py`.
+>   - Labeled all half-form display usage in dashboard/check_drift/performance_report.
+>   - **Calibration fix:** temperature was fit on XGB output *before* blending with DC — the blend
+>     output was never calibrated (root cause of cal_err 0.1326). Fixed: second-pass temperature on
+>     blend output. Result: Brier 0.6381→**0.6347** (+0.0034), cal_err 0.1567→**0.1490**.
+>     Per-season: 2022=0.6317, 2023=0.6369, 2024=0.6354 (all improved; 2024 gate holds).
+>   - Wired `daily_update.py` step 10 to `research_model.predict_upcoming` (canonical path).
+>     Legacy StackingEnsemble kept as dead code; not deleted.
+>   - Fixed `config/settings.yaml`: xg_windows [5,15] (was [5,10,20]), edge_threshold 8% (was 5%).
+>   - Created `docs/CURRENT_STATE.md` (single source of truth), `Makefile`, updated README.
+>   - Added provenance stamp (git commit, model file, metric convention, build time) to `webapp/data.js`.
+> **New canonical metric: sum-form Brier 0.6347** (vs naive 0.6406; ~+0.9% over naive).
+> All half-form display values (~0.25) now explicitly labeled as ÷2 convention.
+>
 > **Feature-gap session (2026-06-06) — close the "ideal feature list" gaps · ensemble flat at 0.6375**
 > Decision: **market odds stay OUT of the model** — training on closing lines would teach the model to
 > echo Pinnacle, collapsing the `model_prob − market_prob` edge we exist to find. Odds remain betting-CLV only.

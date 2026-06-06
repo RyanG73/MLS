@@ -47,6 +47,14 @@ from sklearn.metrics import log_loss
 from sklearn.linear_model import LogisticRegression
 import xgboost as xgb
 import urllib3
+import sys as _sys
+import pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).parent.parent))
+from models.metrics import (
+    brier_multiclass_sum as _brier_sum,
+    per_class_brier as _per_class_brier,
+    log_loss_multiclass as _ll_multiclass,
+)
 
 warnings.filterwarnings("ignore")
 urllib3.disable_warnings()
@@ -2353,37 +2361,79 @@ def calibrate_multiclass(raw_cal: np.ndarray, y_cal: np.ndarray,
 def _calibrate_stacked_second_pass(
     stacked_cal: np.ndarray, y_cal: np.ndarray, stacked_te: np.ndarray
 ) -> np.ndarray:
-    """Apply second-pass calibration to stacked ensemble output.
+    """Apply calibration to the final blend output (second pass).
 
-    stacked_cal : shape (n_cal, 3) — meta-learner predictions on the cal fold
-                  (in-sample; acceptable here as the meta was NOT fitted on these
-                  directly — it was fitted on calibrated XGB/DC features, not on
-                  its own output)
+    stacked_cal : shape (n_cal, 3) — blended probs on the cal fold
     y_cal       : integer labels (0/1/2) on the cal fold
-    stacked_te  : shape (n_te, 3) — meta-learner predictions on the test fold
+    stacked_te  : shape (n_te, 3) — blended probs on the test fold
 
-    Returns calibrated test probabilities.
+    For the default "temperature" method this IS the primary calibration —
+    temperature is fit on the blend output, not on XGB alone.  This addresses
+    the root cause of the 0.1326 cal_err: the per-model calibration step ensures
+    each component is individually calibrated, but the blend of two calibrated
+    distributions is not itself guaranteed to be calibrated.
     """
     _method = _ARGS.calibration
+    if _method in ("temperature", "temp_then_isotonic", "temp_then_platt"):
+        # Temperature scaling on the blend output (fit T on blend cal, apply to blend test)
+        def _nll(T: float) -> float:
+            log_p = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / max(T, 0.1)
+            log_p -= log_p.max(axis=1, keepdims=True)
+            exp_p = np.exp(log_p)
+            probs = exp_p / exp_p.sum(axis=1, keepdims=True)
+            return float(log_loss(y_cal, probs))
+        T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
+        log_p = np.log(np.clip(stacked_te, 1e-9, 1.0)) / T
+        log_p -= log_p.max(axis=1, keepdims=True)
+        exp_p = np.exp(log_p)
+        cal = exp_p / exp_p.sum(axis=1, keepdims=True)
+        if _method == "temperature":
+            return cal
+        stacked_te = cal  # use temperature-scaled output as input for the second pass
+
     if _method == "temp_then_isotonic":
         from sklearn.isotonic import IsotonicRegression as _IR2
+        # Recompute stacked_cal in temperature-scaled form for isotonic fitting
+        def _nll_c(T: float) -> float:
+            log_p = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / max(T, 0.1)
+            log_p -= log_p.max(axis=1, keepdims=True)
+            exp_p = np.exp(log_p)
+            probs = exp_p / exp_p.sum(axis=1, keepdims=True)
+            return float(log_loss(y_cal, probs))
+        T_c = minimize_scalar(_nll_c, bounds=(0.3, 5.0), method="bounded").x
+        log_pc = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / T_c
+        log_pc -= log_pc.max(axis=1, keepdims=True)
+        exp_pc = np.exp(log_pc)
+        stacked_cal_t = exp_pc / exp_pc.sum(axis=1, keepdims=True)
         out = np.zeros_like(stacked_te)
         for c in range(3):
             ir = _IR2(out_of_bounds="clip")
-            ir.fit(stacked_cal[:, c], (y_cal == c).astype(float))
+            ir.fit(stacked_cal_t[:, c], (y_cal == c).astype(float))
             out[:, c] = ir.predict(stacked_te[:, c])
         return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
 
     elif _method == "temp_then_platt":
         from sklearn.linear_model import LogisticRegression as _PlattLR3
+        # stacked_te is already temperature-scaled from the block above
+        def _nll_c2(T: float) -> float:
+            log_p = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / max(T, 0.1)
+            log_p -= log_p.max(axis=1, keepdims=True)
+            exp_p = np.exp(log_p)
+            probs = exp_p / exp_p.sum(axis=1, keepdims=True)
+            return float(log_loss(y_cal, probs))
+        T_c2 = minimize_scalar(_nll_c2, bounds=(0.3, 5.0), method="bounded").x
+        log_pc2 = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / T_c2
+        log_pc2 -= log_pc2.max(axis=1, keepdims=True)
+        exp_pc2 = np.exp(log_pc2)
+        stacked_cal_t2 = exp_pc2 / exp_pc2.sum(axis=1, keepdims=True)
         out = np.zeros_like(stacked_te)
         for c in range(3):
             platt = _PlattLR3(C=1.0, max_iter=300, solver="lbfgs")
-            platt.fit(stacked_cal[:, c].reshape(-1, 1), (y_cal == c).astype(int))
+            platt.fit(stacked_cal_t2[:, c].reshape(-1, 1), (y_cal == c).astype(int))
             out[:, c] = platt.predict_proba(stacked_te[:, c].reshape(-1, 1))[:, 1]
         return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
 
-    # Should not be called for single-stage methods
+    # Fallback: return unchanged
     return stacked_te
 
 
@@ -2400,11 +2450,12 @@ def decile_cal_error(probs: np.ndarray, actuals: np.ndarray) -> tuple:
 
 
 def multiclass_brier(y_oh: np.ndarray, probs: np.ndarray) -> float:
-    return float(np.mean(np.sum((probs - y_oh) ** 2, axis=1)))
+    """Sum-form multiclass Brier (canonical — delegates to models/metrics.py)."""
+    return _brier_sum(probs, y_oh)
 
 
 def per_class_brier(y_oh: np.ndarray, probs: np.ndarray) -> tuple:
-    return tuple(float(np.mean((probs[:, c] - y_oh[:, c]) ** 2)) for c in range(3))
+    return _per_class_brier(probs, y_oh)
 
 
 # ─── Optional: dump the assembled feature frame and exit (parity harness) ─────
@@ -2578,7 +2629,10 @@ for test_season in TEST_SEASONS:
     # ── Stacking meta-learner ─────────────────────────────────────────────────
     meta_ok = False
     ens_stacked = None
-    _two_stage = _ARGS.calibration in ("temp_then_isotonic", "temp_then_platt")
+    # Always apply calibration to the blend output (not just XGB pre-blend).
+    # For "temperature" this is the primary fix: temperature was previously fit on
+    # XGB alone; fitting it on the blend output is the correct target.
+    _two_stage = _ARGS.calibration in ("temperature", "temp_then_isotonic", "temp_then_platt")
     if dc_ok and xgb_ok:
         try:
             xgb_cal_cal3 = calibrate_multiclass(xgb_cal_probs_best, y_cal_r,
@@ -2612,7 +2666,7 @@ for test_season in TEST_SEASONS:
                 print(f" | Blend✓(w_xgb={_w:.2f})+2ndPass", end="", flush=True)
             else:
                 ens_stacked = ens_stacked_raw
-                print(f" | Blend✓(w_xgb={_w:.2f})", end="", flush=True)
+                print(f" | Blend✓(w_xgb={_w:.2f})", end="", flush=True)  # no _two_stage implies neither temp nor temp_then_*
             meta_ok = True
         except Exception as e:
             print(f" | Meta✗({e})", end="", flush=True)

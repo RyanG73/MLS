@@ -13,6 +13,7 @@ temperature calibration, capped-DC blend with DC contribution <= 30% (w_xgb in [
 """
 
 import itertools
+import logging
 import math
 
 import numpy as np
@@ -20,7 +21,10 @@ import pandas as pd
 from scipy.optimize import minimize, minimize_scalar
 from scipy.stats import poisson
 from sklearn.metrics import log_loss
+from models.metrics import brier_multiclass_sum, per_class_brier, log_loss_multiclass
 import xgboost as xgb
+
+_logger = logging.getLogger(__name__)
 
 DEFAULT_DC_DECAY_HL = 120
 DEFAULT_WEIGHT_HL = 6
@@ -117,7 +121,8 @@ def calibrate_temperature(raw_cal, y_cal, raw_test):
 
 
 def multiclass_brier(y_oh, probs):
-    return float(np.mean(np.sum((probs - y_oh) ** 2, axis=1)))
+    """Alias for brier_multiclass_sum (sum-form, canonical for this project)."""
+    return brier_multiclass_sum(probs, y_oh)
 
 
 # ─── XGBoost (season-weighted, inner grid) ────────────────────────────────────
@@ -213,3 +218,129 @@ def walk_forward(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
 
     avg = round(float(np.mean(list(per_season.values()))), 6) if per_season else float("nan")
     return {"per_season": per_season, "avg_brier": avg, "w_xgb": w_used}
+
+
+# ─── Production inference ─────────────────────────────────────────────────────
+
+# Feature columns to exclude when selecting numeric predictors
+_FEAT_EXCLUDE = frozenset({
+    "match_id", "date", "home_team", "away_team", "home_goals", "away_goals",
+    "total_goals", "label_result", "label_over25", "season",
+    "conference_h", "conference_a", "ref_is_known",
+})
+
+
+def predict_upcoming(
+    train_df: pd.DataFrame,
+    upcoming_df: pd.DataFrame,
+    current_season: int,
+    weight_hl: int = DEFAULT_WEIGHT_HL,
+    dc_decay_hl: int = DEFAULT_DC_DECAY_HL,
+    n_jobs: int = DEFAULT_XGB_NJOBS,
+    seed: int = 42,
+) -> pd.DataFrame:
+    """
+    Fit the validated research pipeline on train_df and predict upcoming matches.
+
+    Pipeline mirrors the walk-forward logic validated at Brier 0.6347:
+    train < cal_season < current_season; DC decay 120d; XGB season-weighted;
+    temperature calibration on blend output; capped-DC blend (w_xgb in [0.7,1.0]).
+
+    Args:
+        train_df:       Historical feature matrix (build_training_dataset output).
+                        Must have season, date, home_team, away_team, home_goals,
+                        away_goals, label_result.
+        upcoming_df:    Feature rows for upcoming matches (build_upcoming_features
+                        output). Must have match_id, home_team, away_team and the
+                        same feature columns as train_df.
+        current_season: The in-progress season. Cal fold = current_season - 1.
+
+    Returns:
+        DataFrame with columns: match_id, prob_home, prob_draw, prob_away, w_xgb.
+        Returns empty DataFrame if upcoming_df is None or empty.
+    """
+    _empty = pd.DataFrame(columns=["match_id", "prob_home", "prob_draw", "prob_away", "w_xgb"])
+
+    if upcoming_df is None or upcoming_df.empty:
+        return _empty
+
+    train_df = train_df.copy()
+    train_df["date"] = pd.to_datetime(train_df["date"])
+    upcoming_df = upcoming_df.reset_index(drop=True)
+
+    cal_season = current_season - 1
+    hist = train_df[train_df["season"] < current_season].dropna(
+        subset=["home_goals", "away_goals"]
+    )
+    train = hist[hist["season"] < cal_season]
+    cal = hist[hist["season"] == cal_season]
+
+    # DC-only fallback when there is not enough data for the full pipeline
+    if len(train) < 200 or len(cal) < 50:
+        _logger.warning(
+            "predict_upcoming: insufficient train (%d) or cal (%d) rows; using DC-only.",
+            len(train), len(cal),
+        )
+        fit_data = hist if len(hist) >= 100 else train_df.dropna(subset=["home_goals", "away_goals"])
+        atk, dfd, ha, rho = fit_dc(fit_data, decay_hl=dc_decay_hl)
+        rows = []
+        for _, r in upcoming_df.iterrows():
+            ph, pd_, pa = _dc_predict(r["home_team"], r["away_team"], atk, dfd, ha, rho)
+            rows.append({"match_id": r["match_id"], "prob_home": ph, "prob_draw": pd_,
+                         "prob_away": pa, "w_xgb": 1.0})
+        return pd.DataFrame(rows)
+
+    # Feature columns: intersection of train and upcoming, excluding metadata
+    feat = [
+        c for c in train.columns
+        if c not in _FEAT_EXCLUDE and not c.startswith("_") and c in upcoming_df.columns
+    ]
+
+    y_cal = cal["label_result"].values.astype(int)
+    y_cal_oh = np.eye(3)[y_cal]
+
+    # Dixon-Coles on pre-cal training data
+    atk, dfd, ha, rho = fit_dc(train, decay_hl=dc_decay_hl)
+    dc_cal_raw = dc_predict_batch(cal, atk, dfd, ha, rho)
+    dc_up_raw = dc_predict_batch(upcoming_df, atk, dfd, ha, rho)
+    dc_cal_t = calibrate_temperature(dc_cal_raw, y_cal, dc_cal_raw)
+    dc_up_t = calibrate_temperature(dc_cal_raw, y_cal, dc_up_raw)
+
+    # XGBoost on pre-cal training data
+    clf, _ = fit_xgb(train, feat, weight_hl=weight_hl, n_jobs=n_jobs, seed=seed)
+    xgb_cal_raw = clf.predict_proba(cal[feat].fillna(0).values)
+    xgb_up_raw = clf.predict_proba(upcoming_df[feat].fillna(0).values)
+    xgb_cal_t = calibrate_temperature(xgb_cal_raw, y_cal, xgb_cal_raw)
+    xgb_up_t = calibrate_temperature(xgb_cal_raw, y_cal, xgb_up_raw)
+
+    # Capped-DC blend weight (fitted on cal fold)
+    w = fit_capped_blend(xgb_cal_t, dc_cal_t, y_cal_oh)
+    ens_blend = blend(xgb_up_t, dc_up_t, w)
+
+    # Temperature calibration on the blend output (the second-pass fix)
+    cal_blend_raw = blend(xgb_cal_t, dc_cal_t, w)
+
+    def _blend_nll(T: float) -> float:
+        log_p = np.log(np.clip(cal_blend_raw, 1e-9, 1.0)) / max(T, 0.1)
+        log_p -= log_p.max(axis=1, keepdims=True)
+        ep = np.exp(log_p)
+        p = ep / ep.sum(axis=1, keepdims=True)
+        return float(log_loss(y_cal, p))
+
+    from scipy.optimize import minimize_scalar as _ms
+    T_blend = _ms(_blend_nll, bounds=(0.3, 5.0), method="bounded").x
+    log_p = np.log(np.clip(ens_blend, 1e-9, 1.0)) / T_blend
+    log_p -= log_p.max(axis=1, keepdims=True)
+    ep = np.exp(log_p)
+    ens_final = ep / ep.sum(axis=1, keepdims=True)
+
+    results = []
+    for i, row in upcoming_df.iterrows():
+        results.append({
+            "match_id": row["match_id"],
+            "prob_home": float(ens_final[i, 0]),
+            "prob_draw": float(ens_final[i, 1]),
+            "prob_away": float(ens_final[i, 2]),
+            "w_xgb": round(float(w), 3),
+        })
+    return pd.DataFrame(results)
