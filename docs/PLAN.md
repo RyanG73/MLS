@@ -158,6 +158,37 @@
 > - Full 3a split (eval/{data_builder,feature_registry,...}) deferred — still high-risk without
 >   more test coverage; smoke-test gate is now the prerequisite blocker.
 
+> **Standings leverage investigation + F4 feature_registry extraction (2026-06-07)**
+>
+> **Standings leverage (section 5n) — INVESTIGATED, DROP.**
+> Added `_add_standings_features()` to eval_baseline (section 5n): cumulative season pts,
+> games played, ppg, pts-vs-median for each team before each match. New AB sets:
+>   - `+Standings` (11 features): Δ=-0.0015 → DROP
+>   - `+StandingsCore` (3 features: pts_vs_median_diff, season_pts_diff, season_ppg_diff): Δ=-0.0004 → DROP
+> Root cause: ELO already captures cumulative season strength; season pts are a noisy
+> collinear proxy. The "bubble motivation" asymmetry is structurally present but too
+> small/noisy to extract over ELO + form. Standings features remain in parity_frame for
+> future exploration but are NOT promoted to Base or champion config.
+>
+> **F4 feature_registry extraction — COMPLETE (2026-06-07).**
+> Created `scripts/eval/feature_registry.py` — pure constants and helper functions
+> extracted from eval_baseline.py (behavior-preserving, verified by smoke-test):
+>   - Constants: `FIFA_BREAKS`, `HIGH_ALT_IDS`, `PYTHAG_EXP`, `PYTHAG_WIN`
+>   - Geometry: `haversine_km`
+>   - Feature helpers: `pythag_expected_pts`, `is_post_fifa`, `tz_band`,
+>     `away_tz_shift_abs`, `away_tz_shift_signed`
+>   - Generic helpers: `zs_within_season`, `lagged_lookup`, `pos_is_att`, `pos_is_def`
+> 31 new unit tests in `tests/test_feature_registry.py`. eval_baseline.py now imports
+> these from the registry (removes ~75 lines of inline definitions). Smoke-test fixed to
+> force `--ab-only Base` when in smoke-test mode (prevents new AB additions from shifting
+> the reference). `make smoke-test` PASS (0.6354). Total non-DB tests: 64 pass.
+>
+> **Next open avenues:**
+> - Standings proved closed; ELO/form absorption is definitive.
+> - `add_rolling_features()` is the next extraction target: needs refactoring to accept
+>   `xpass_by_game` + `HAS_*` flags as parameters rather than globals.
+> - Pi E2E validation: docs/PI_VALIDATION.md runbook; still the highest-priority prod gap.
+
 > **Phase 4d (2026-06-06) — 2024 distribution-shift diagnosis + calibration unification**
 > Built `scripts/diagnose_2024.py`; full writeup in `docs/2024-diagnosis.md`.
 > **Finding: 2024 is an OUTCOME regime shift, not a feature shift.** Home-win rate collapsed

@@ -163,9 +163,14 @@ FORM_WINDOWS = tuple(_ARGS.form_windows) if _ARGS.form_windows else (3, 5, 10, 1
 REGRESS      = _ARGS.regress     if _ARGS.regress   is not None else 0.50
 INITIAL_ELO  = 1500.0
 DC_DECAY_HL  = _ARGS.dc_decay_hl if _ARGS.dc_decay_hl is not None else 120
-# Smoke-test override: single 2024-only run for fast regression check
-if _ARGS.smoke_test and _ARGS.test_seasons is None:
-    _ARGS.test_seasons = [2024]
+# Smoke-test override: single 2024-only Base-only run for fast regression check.
+# Forcing Base-only ensures the gate is stable regardless of which AB sets are
+# registered (new AB additions must not shift the smoke-test reference).
+if _ARGS.smoke_test:
+    if _ARGS.test_seasons is None:
+        _ARGS.test_seasons = [2024]
+    if _ARGS.ab_only is None:
+        _ARGS.ab_only = "Base"
 TEST_SEASONS = list(_ARGS.test_seasons) if _ARGS.test_seasons else [2021, 2022, 2023, 2024]
 _COVID       = {2020}
 WEIGHT_HL    = _ARGS.weight_hl  if _ARGS.weight_hl  is not None else 6
@@ -181,40 +186,23 @@ FETCH_TRANSFERMARKT = True   # Transfermarkt CSVs present: data/transfermarkt_sq
 # EVAL_XGB_NJOBS for a single fast run on a quiet machine.
 _XGB_NJOBS = int(os.environ.get("EVAL_XGB_NJOBS", "2"))
 
-# FIFA international window end dates; match within 14 days after → is_post_fifa_break=1
-_FIFA_BREAKS = [pd.Timestamp(d) for d in [
-    # 2017
-    "2017-03-28",  # March window end
-    "2017-06-13",
-    "2017-09-05",
-    "2017-10-10",
-    # 2018
-    "2018-03-27",
-    "2018-06-12",
-    "2018-09-11",
-    "2018-10-16",
-    # 2019
-    "2019-03-26",
-    "2019-06-11",
-    "2019-09-10",
-    "2019-10-15",
-    # 2020, 2021 excluded (COVID)
-    # 2022
-    "2022-03-29",
-    "2022-06-14",
-    "2022-09-27",
-    "2022-11-15",  # World Cup year — November window displaces Oct
-    # 2023
-    "2023-03-28",
-    "2023-06-20",
-    "2023-09-12",
-    "2023-10-17",
-    # 2024
-    "2024-03-26",
-    "2024-06-11",
-    "2024-09-10",
-    "2024-10-15",
-]]
+# Constants and pure helpers imported from the decomposed feature registry (F4 extraction)
+from scripts.eval.feature_registry import (
+    FIFA_BREAKS as _FIFA_BREAKS,
+    HIGH_ALT_IDS as _HIGH_ALT_IDS_REG,
+    PYTHAG_EXP as _PYTHAG_EXP_REG,
+    PYTHAG_WIN as _PYTHAG_WIN_REG,
+    haversine_km as _haversine_km,
+    pythag_expected_pts as _pythag_expected_pts,
+    is_post_fifa as _is_post_fifa_fn,
+    tz_band as _tz_band,
+    away_tz_shift_abs as _away_tz_shift_abs,
+    away_tz_shift_signed as _away_tz_shift_signed,
+    zs_within_season as _zs_within_season,
+    lagged_lookup as _lagged_lookup,
+    pos_is_att as _pos_is_att,
+    pos_is_def as _pos_is_def,
+)
 
 # Stadium coordinates and dome flags — canonical source is data_pipeline/team_metadata.py
 from data_pipeline.team_metadata import TEAM_COORDS as _TEAM_COORDS, DOME_TEAM_IDS as _DOME_TEAM_IDS
@@ -299,14 +287,8 @@ df["kickoff_sin"] = np.sin(2 * np.pi * df["kickoff_hour_utc"] / 24)
 df["kickoff_cos"] = np.cos(2 * np.pi * df["kickoff_hour_utc"] / 24)
 df["is_weekday_game"] = df["date"].dt.dayofweek.isin([1, 2]).astype(int)
 
-# Post-FIFA break flag
-def _is_post_fifa(date: pd.Timestamp) -> int:
-    for wb in _FIFA_BREAKS:
-        if timedelta(0) < (date - wb) <= timedelta(days=14):
-            return 1
-    return 0
-
-df["is_post_fifa_break"] = df["date"].apply(_is_post_fifa)
+# Post-FIFA break flag (function imported from scripts.eval.feature_registry)
+df["is_post_fifa_break"] = df["date"].apply(_is_post_fifa_fn)
 
 # Dome flag (structural NULL for weather)
 df["is_dome"] = df["home_team"].isin(_DOME_TEAM_IDS).astype(int)
@@ -428,30 +410,10 @@ print(f"\n[4/9] Rolling features "
       f"PPDA={'yes' if _HAS_PPDA else 'no'})...")
 
 
-_PYTHAG_EXP = 1.83  # soccer Pythagorean exponent (Hamilton 2011)
-_PYTHAG_WIN = 10    # rolling window for Pythagorean luck
-
-
-def _pythag_expected_pts(gf: float, ga: float, n: int) -> float:
-    """Pythagorean expected points over n matches (soccer exponent ≈ 1.83).
-
-    Returns n * 3 * win_rate, using 3*W approximation (draws ≈ partial wins).
-    Falls back to league-average rate (1.35 pts/match) when totals are zero.
-    """
-    if gf + ga == 0 or n == 0:
-        return 1.35 * n
-    win_rate = gf ** _PYTHAG_EXP / (gf ** _PYTHAG_EXP + ga ** _PYTHAG_EXP)
-    return 3.0 * win_rate * n
-
-
-def _haversine_km(a: "tuple | None", b: "tuple | None") -> float:
-    """Great-circle distance (km) between two (lat, lon) points. 0 if either missing."""
-    if not a or not b:
-        return 0.0
-    lat1, lon1, lat2, lon2 = map(math.radians, [a[0], a[1], b[0], b[1]])
-    dlat, dlon = lat2 - lat1, lon2 - lon1
-    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-    return 2 * 6371.0 * math.asin(math.sqrt(h))
+# Pythagorean constants and geometry imported from scripts.eval.feature_registry
+_PYTHAG_EXP = _PYTHAG_EXP_REG
+_PYTHAG_WIN = _PYTHAG_WIN_REG
+# _pythag_expected_pts, _haversine_km, _HIGH_ALT_IDS → imported above
 
 
 def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -646,7 +608,7 @@ print(f"    Rolling features complete. Columns added: {[c for c in df.columns if
 
 # ─── 5. Altitude flag ─────────────────────────────────────────────────────────
 
-_HIGH_ALT_IDS = {"pzeQZ6xQKw", "a2lqR4JMr0"}   # Colorado, Real Salt Lake
+_HIGH_ALT_IDS = _HIGH_ALT_IDS_REG   # Colorado, RSL (imported from feature_registry)
 df["is_high_alt"] = df["home_team"].isin(_HIGH_ALT_IDS).astype(int)
 
 # ─── 6. Squad quality from player xpoints_added ───────────────────────────────
@@ -1310,24 +1272,7 @@ else:
     print("\n[6b/9] Transfermarkt skipped (FETCH_TRANSFERMARKT=False). Set True to enable.")
 
 # ─── TZ shift feature ─────────────────────────────────────────────────────────
-
-def _tz_band(lon: float) -> int:
-    return round(lon / 15)
-
-def _away_tz_shift_abs(home_team: str, away_team: str) -> float:
-    hc = _TEAM_COORDS.get(home_team)
-    ac = _TEAM_COORDS.get(away_team)
-    if not (hc and ac):
-        return 0.0
-    return float(abs(_tz_band(hc[1]) - _tz_band(ac[1])))
-
-def _away_tz_shift_signed(home_team: str, away_team: str) -> float:
-    """Positive = away travels east (harder per chronobiology lit); negative = westward."""
-    hc = _TEAM_COORDS.get(home_team)
-    ac = _TEAM_COORDS.get(away_team)
-    if not (hc and ac):
-        return 0.0
-    return float(_tz_band(hc[1]) - _tz_band(ac[1]))
+# _tz_band, _away_tz_shift_abs, _away_tz_shift_signed imported from feature_registry
 
 df["away_tz_shift"]        = [_away_tz_shift_abs(r.home_team, r.away_team)
                                for _, r in df.iterrows()]
@@ -1697,46 +1642,8 @@ _FEAT_GKDIST = ["home_gk_dist_z", "away_gk_dist_z", "gk_dist_diff"]
 
 print("\n[5k/9] Computing minutes-weighted roster quality (full roster + positional split)...")
 
-_ATT_POS_KWS = frozenset([
-    "fw", "forward", "winger", "attacking mid", "attacking midfielder",
-    "am", "st", "cf", "lw", "rw",
-])
-_DEF_POS_KWS = frozenset([
-    "cb", "fb", "defender", "centre back", "center back",
-    "left back", "right back", "full back", "lb", "rb", "cd",
-])
-
-
-def _pos_is_att(pos_val) -> bool:
-    p = str(pos_val).lower().strip()
-    return any(kw in p for kw in _ATT_POS_KWS)
-
-
-def _pos_is_def(pos_val) -> bool:
-    p = str(pos_val).lower().strip()
-    return any(kw in p for kw in _DEF_POS_KWS)
-
-
-def _zs_within_season(raw: dict) -> dict:
-    out: dict[tuple, float] = {}
-    for _s in sorted({ss for (_, ss) in raw}):
-        vals = [v for (t, ss), v in raw.items() if ss == _s]
-        if len(vals) < 3:
-            continue
-        mu, sd = float(np.mean(vals)), float(np.std(vals))
-        sd = max(sd, 1e-6)
-        for (t, ss), v in raw.items():
-            if ss == _s:
-                out[(t, ss)] = (v - mu) / sd
-    return out
-
-
-def _lagged_lookup(tbl: dict, team_id: str, season: int) -> "float | None":
-    for lag in (1, 2):
-        v = tbl.get((team_id, season - lag))
-        if v is not None:
-            return v
-    return None
+# _ATT_POS_KWS, _DEF_POS_KWS, _pos_is_att, _pos_is_def imported from scripts.eval.feature_registry
+# _zs_within_season, _lagged_lookup imported from scripts.eval.feature_registry
 
 
 _roster_xpa_raw:  dict[tuple, float] = {}
@@ -2053,6 +1960,95 @@ else:
     _FEAT_REFEREE_REL = []
 
 
+# ─── 5n. Standings leverage features ─────────────────────────────────────────
+# Cumulative season points and games played for each team before each match.
+# Captures playoff motivation asymmetry: teams near the bubble fight harder.
+# Walk-forward safe: only uses results of completed matches prior to each game.
+# pts_vs_median = team's pts minus median pts of teams with ≥5 games played that
+# season, providing a regime-robust relative standing signal.
+print("\n[5n/9] Computing standings leverage features...")
+_STAND_MIN_GP = 5   # min games played before median reference is meaningful
+
+def _add_standings_features(df: pd.DataFrame) -> pd.DataFrame:
+    season_pts: dict[str, int]   = {}
+    season_gp:  dict[str, int]   = {}
+    cur_season: int | None       = None
+
+    h_pts_col, h_gp_col, h_ppg_col, h_med_col = [], [], [], []
+    a_pts_col, a_gp_col, a_ppg_col, a_med_col = [], [], [], []
+
+    for _, row in df.iterrows():
+        s = int(row["season"])
+        if s != cur_season:
+            season_pts.clear()
+            season_gp.clear()
+            cur_season = s
+
+        ht, at = row["home_team"], row["away_team"]
+        hg, ag = int(row["home_goals"]), int(row["away_goals"])
+
+        h_p = season_pts.get(ht, 0)
+        a_p = season_pts.get(at, 0)
+        h_g = season_gp.get(ht, 0)
+        a_g = season_gp.get(at, 0)
+
+        # season-to-date pts for teams with enough games (median reference)
+        mature = [v for t, v in season_pts.items()
+                  if season_gp.get(t, 0) >= _STAND_MIN_GP
+                  and t not in (ht, at)]
+        if len(mature) >= 4:
+            med = float(np.median(mature))
+        else:
+            med = 0.0
+
+        h_pts_col.append(float(h_p))
+        a_pts_col.append(float(a_p))
+        h_gp_col.append(float(h_g))
+        a_gp_col.append(float(a_g))
+        h_ppg_col.append(h_p / h_g if h_g >= 1 else 1.35)
+        a_ppg_col.append(a_p / a_g if a_g >= 1 else 1.35)
+        h_med_col.append(float(h_p) - med)
+        a_med_col.append(float(a_p) - med)
+
+        # update standings with this game's result
+        if hg > ag:
+            h_pts_new, a_pts_new = h_p + 3, a_p
+        elif hg == ag:
+            h_pts_new, a_pts_new = h_p + 1, a_p + 1
+        else:
+            h_pts_new, a_pts_new = h_p, a_p + 3
+        season_pts[ht] = h_pts_new
+        season_pts[at] = a_pts_new
+        season_gp[ht]  = h_g + 1
+        season_gp[at]  = a_g + 1
+
+    df = df.copy()
+    df["home_season_pts"]     = h_pts_col
+    df["away_season_pts"]     = a_pts_col
+    df["home_season_gp"]      = h_gp_col
+    df["away_season_gp"]      = a_gp_col
+    df["home_season_ppg"]     = h_ppg_col
+    df["away_season_ppg"]     = a_ppg_col
+    df["home_pts_vs_median"]  = h_med_col
+    df["away_pts_vs_median"]  = a_med_col
+    df["season_pts_diff"]     = df["home_season_pts"] - df["away_season_pts"]
+    df["season_ppg_diff"]     = df["home_season_ppg"] - df["away_season_ppg"]
+    df["pts_vs_median_diff"]  = df["home_pts_vs_median"] - df["away_pts_vs_median"]
+    return df
+
+df = _add_standings_features(df)
+_FEAT_STANDINGS = [
+    "home_season_pts", "away_season_pts",
+    "home_season_gp",  "away_season_gp",
+    "home_season_ppg", "away_season_ppg",
+    "home_pts_vs_median", "away_pts_vs_median",
+    "season_pts_diff", "season_ppg_diff", "pts_vs_median_diff",
+]
+print(f"    Standings features: {len(_FEAT_STANDINGS)} cols | "
+      f"home_pts mean={df['home_season_pts'].mean():.1f} "
+      f"ppg mean={df['home_season_ppg'].mean():.2f}")
+
+
 # _FEAT_AVAIL (ESPN roster availability) promoted to Base 2026-05-31 — KEEP Δ=+0.0011
 # with full 2017-2024 roster history. Empty list (graceful) when rosters absent.
 _FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + ["is_playoff"] + _FEAT_AVAIL
@@ -2151,6 +2147,7 @@ _ALL_EXTRA = (
     + _FEAT_POS_GA
     + _FEAT_FBREF
     + _FEAT_REFEREE
+    + _FEAT_STANDINGS
     # +VenueGoalDiff and +VenueForm NOT added here: kept as standalone AB sets only.
     # Adding to _ALL_EXTRA caused +All to change and regressed 2024 by 0.0005.
     # _WEATHER_FEATS NOT added here either: kept as a standalone +Weather AB set so
@@ -2223,6 +2220,10 @@ if _FEAT_REFEREE:
 # Regime-robust (season-detrended) referee — deviation from league prior-season rate
 if _FEAT_REFEREE_REL:
     AB_SETS["+RefereeRel"]  = _FEAT_BASE + _FEAT_REFEREE_REL
+# Standings leverage (section 5n) — cumulative season pts, ppg, pts vs median
+AB_SETS["+Standings"]     = _FEAT_BASE + _FEAT_STANDINGS
+# Core leverage only: relative standing signals without raw pts (less ELO collinearity)
+AB_SETS["+StandingsCore"] = _FEAT_BASE + ["pts_vs_median_diff", "season_pts_diff", "season_ppg_diff"]
 AB_SETS["+All"]        = _FEAT_ALL
 # Venue-split form: home team's last-N home record; away team's last-N away record
 AB_SETS["+VenueForm"]    = _FEAT_BASE + _FEAT_VENUE_FORM
