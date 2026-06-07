@@ -223,11 +223,34 @@
 > - `feature_builders.py` — add_rolling_features + add_h2h_draw_features (NEW)
 > Total non-DB tests: 98 pass.
 >
+> **dc_p_draw feature + docs (2026-06-07)**
+>
+> **+DCDrawProb AB test — DROP.**
+> `dc_draw_prob_batch()` added to `scripts/eval/dixon_coles.py`: computes the DC analytical
+> draw probability (diagonal-only sum, O(max_g) per row, unnormalised) as a new XGB feature.
+> Three AB sets tested:
+>   - `+DCDrawProb` (dc_p_draw only): Δ=-0.0005 → DROP
+>   - `+DCParams`   (dc_lam + dc_mu): Δ=-0.0016 → DROP
+>   - `+DCAll`      (all three):      Δ=-0.0026 → DROP
+> Root cause: dc_p_draw = f(λ, μ) is a deterministic function of the Poisson parameters,
+> which themselves are deterministic functions of team attack/defense strength — already
+> captured by rolling xG features in Base. No new signal. Function kept in module for
+> reference; dc_p_draw column computed each fold (zero cost) but NOT in Base or _FEAT_ALL.
+>
+> **Code walkthrough + handoff documents — COMPLETE.**
+> - `docs/CODE_WALKTHROUGH.md` (574 lines): guided inspection map — repo orientation,
+>   step-by-step prediction trace with file:line refs, eval harness section tour, gate
+>   criteria, parity frame columns, sanity check commands, "what looks wrong" table.
+> - `docs/HANDOFF.md` (409 lines): standalone technical handoff — champion metrics,
+>   architecture rationale, 9 key design decisions, failed feature log with root causes,
+>   2024 HFA regime shift explanation, open questions, known limitations, next steps.
+>
 > **Remaining review items:**
 > - Legacy model deletion (F1): stacking_ensemble.py, gradient_boost.py,
 >   models/dixon_coles.py carry banners; deletion deferred to Pi E2E validation.
 > - F4 section 5a–5n builders: inline but rely on live ASA fetches; lower priority now
 >   that the two largest functions (ELO, rolling) are extracted and tested.
+> - Hyperparameter sweep (HOME_ADV × WEIGHT_HL × REGRESS): not yet run; next Brier-hunt step.
 > - Phase 5 (better data sources): not started; long-horizon exploratory.
 
 > **Phase 4d (2026-06-06) — 2024 distribution-shift diagnosis + calibration unification**

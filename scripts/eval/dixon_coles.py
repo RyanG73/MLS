@@ -108,3 +108,22 @@ def dc_lam_mu_batch(split_df, atk, dfd, ha):
         mu  = math.exp(atk.get(r["away_team"], 0) + dfd.get(r["home_team"], 0))
         lams.append(lam); mus.append(mu)
     return np.array(lams), np.array(mus)
+
+
+def dc_draw_prob_batch(split_df, atk, dfd, ha, rho, max_g: int = 8) -> np.ndarray:
+    """DC-predicted draw probability for each fixture (unnormalised diagonal sum).
+
+    Computes sum_{k=0}^{max_g} tau(k,k,lam,mu,rho) * P(k|lam) * P(k|mu).
+    This is faster than the full dc_predict (O(max_g) per row vs O(max_g²)) and
+    returns the draw component before normalisation — suitable as an XGB feature.
+    """
+    result = []
+    for _, r in split_df.iterrows():
+        lam = math.exp(atk.get(r["home_team"], 0) + dfd.get(r["away_team"], 0) + ha)
+        mu  = math.exp(atk.get(r["away_team"], 0) + dfd.get(r["home_team"], 0))
+        p_draw = sum(
+            dc_tau(k, k, lam, mu, rho) * poisson.pmf(k, lam) * poisson.pmf(k, mu)
+            for k in range(max_g + 1)
+        )
+        result.append(float(p_draw))
+    return np.array(result)

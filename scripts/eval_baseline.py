@@ -1940,7 +1940,7 @@ _ALL_EXTRA = (
     + _GOALS_ADDED_FEATS
     + _SQUAD_FEATS
     + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
-    + ["dc_lam", "dc_mu"]
+    + ["dc_lam", "dc_mu", "dc_p_draw"]
     + _SP_XG_FEATS
     + _FEAT_TOPN
     + _FEAT_XPASS
@@ -1971,7 +1971,9 @@ if _PPDA_SEASON_FEATS:
 if _GOALS_ADDED_FEATS:
     AB_SETS["+GoalsAdded"] = _FEAT_BASE + _GOALS_ADDED_FEATS
 AB_SETS["+Squad"]    = _FEAT_BASE + _SQUAD_FEATS
-AB_SETS["+DCParams"] = _FEAT_BASE + ["dc_lam", "dc_mu"]
+AB_SETS["+DCParams"]   = _FEAT_BASE + ["dc_lam", "dc_mu"]
+AB_SETS["+DCDrawProb"] = _FEAT_BASE + ["dc_p_draw"]
+AB_SETS["+DCAll"]      = _FEAT_BASE + ["dc_lam", "dc_mu", "dc_p_draw"]
 AB_SETS["+Games14d"] = _FEAT_BASE + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
 if _FEAT_TOPN:
     AB_SETS["+ASA_TopN"]     = _FEAT_BASE + _FEAT_TOPN
@@ -2092,6 +2094,7 @@ if _ARGS.ab_only:
 # Engine extracted to scripts/eval/dixon_coles.py (F4 monolith split).
 from scripts.eval.dixon_coles import (        # noqa: E402
     dc_tau, dc_nll, fit_dc, dc_predict, dc_predict_batch, dc_lam_mu_batch,
+    dc_draw_prob_batch,
 )
 
 
@@ -2190,12 +2193,15 @@ for test_season in TEST_SEASONS:
         dc_pred_cal = dc_pred_te = dc_cal_te3 = dc_cal_cal3 = None
         print(f" | DC✗({e})", end="", flush=True)
 
-    # Add DC λ/μ features to train/cal/test splits
+    # Add DC λ/μ and draw probability features to train/cal/test splits
     if dc_ok:
         train = train_raw.copy(); cal = cal_raw.copy(); test = test_raw.copy()
         train["dc_lam"], train["dc_mu"] = dc_lam_mu_batch(train, atk, dfd, ha)
         cal["dc_lam"],   cal["dc_mu"]   = dc_lam_mu_batch(cal,   atk, dfd, ha)
         test["dc_lam"],  test["dc_mu"]  = dc_lam_mu_batch(test,  atk, dfd, ha)
+        train["dc_p_draw"] = dc_draw_prob_batch(train, atk, dfd, ha, rho)
+        cal["dc_p_draw"]   = dc_draw_prob_batch(cal,   atk, dfd, ha, rho)
+        test["dc_p_draw"]  = dc_draw_prob_batch(test,  atk, dfd, ha, rho)
     else:
         train, cal, test = train_raw, cal_raw, test_raw
 
