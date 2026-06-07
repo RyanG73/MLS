@@ -59,11 +59,9 @@ from models.metrics import (
 warnings.filterwarnings("ignore")
 urllib3.disable_warnings()
 
-# Suppress SSL errors broadly — system clock (2026-05-10) is past the ASA cert
-# validity window causing CERTIFICATE_VERIFY_FAILED on standard SSL handshake.
-os.environ.setdefault("PYTHONHTTPSVERIFY", "0")
-os.environ.setdefault("CURL_CA_BUNDLE", "")
-os.environ.setdefault("REQUESTS_CA_BUNDLE", "")
+# SSL note: asa.session.verify = False is set below (line ~233) to scope the
+# bypass to ASA requests only.  Global env-var SSL disablement is intentionally
+# NOT set here — it would affect every outbound request in the process.
 
 # ─── CLI overrides (multi-agent experiment harness) ───────────────────────────
 # Agents invoke this script via scripts/experiment.py, passing flags to configure
