@@ -1,5 +1,42 @@
 # MLS Feature Hunt Log
 
+## 2026-06-07 — +Referee (season-lagged referee bias) — **KEEP, first Brier win since plateau**
+
+Section 5m in `eval_baseline.py`: season-lagged per-referee home-win rate and draw rate,
+derived from `games_raw` (no new API call). 86.0% of matches have prior-season ref stats.
+
+| AB set | XGB Brier (3-season avg) | Δ vs Base | Keep? |
+|--------|--------------------------|-----------|-------|
+| **+Referee** | **0.6353** | **+0.0010** | **YES** |
+
+Ensemble per-season (BestAB=+Referee won **all three** seasons):
+
+| season | naive | ens_stacked (+Referee) |
+|--------|-------|------------------------|
+| 2022 | 0.6330 | **0.6286** |
+| 2023 | 0.6364 | 0.6376 |
+| 2024 | 0.6523 | **0.6357** |
+| **avg** | | **0.6340** |
+
+**Why it matters:**
+- First feature to clear the KEEP bar since the model plateaued (~0.6347/0.6375) across the
+  entire overnight loop + feature-gap session. Free source (already-fetched ASA `get_games`).
+- **2024 robustness gate HOLDS** — +Referee *beat* Base on the 2024 fold (0.6357), it does not
+  regress the hard season.
+- `ref_draw_rate` ranks in the top-20 XGB importances (2.8%) — a **draw-specific** signal, which
+  directly addresses **F9 (draw class weakness)**: the first independent draw signal found.
+- Earlier (2026-05-31) referee was logged as BLOCKED ("no referee_id in ASA match data"). That was
+  the DB `matches.referee_id` column; the ASA `get_games()` API DOES return a referee column in the
+  raw frame. Section 5m reads it directly from `games_raw`. Gap closed.
+
+**Validation:** `python scripts/eval_baseline.py --ab-only "Base,+Referee" --seed 42` (in-repo, live ASA).
+**Next:** port to `models/research_model.py` so the production champion captures it; bless via
+`scripts/promotion_gate.py` (run is config-different from champion.report.json, so the port + a clean
+champion-config A/B is the gate-ready step).
+
+---
+
+
 > Iterative log of candidate features for the eval harness, populated every 30 min
 > while `/loop` is active. One feature per entry. Research only — implementation
 > happens separately after review.
