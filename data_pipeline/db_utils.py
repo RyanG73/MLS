@@ -306,6 +306,22 @@ def initialize_schema() -> None:
             stats           TEXT
         )
         """,
+        """
+        CREATE TABLE IF NOT EXISTS source_runs (
+            source_run_id   VARCHAR(36)  PRIMARY KEY,
+            source_name     VARCHAR(30)  NOT NULL,
+            endpoint        VARCHAR(120),
+            fetched_at      TIMESTAMP    NOT NULL,
+            raw_count       INTEGER      DEFAULT 0,
+            parsed_count    INTEGER      DEFAULT 0,
+            matched_count   INTEGER      DEFAULT 0,
+            unmatched_count INTEGER      DEFAULT 0,
+            schema_hash     VARCHAR(16),
+            null_rate_json  TEXT,
+            success         BOOLEAN      DEFAULT TRUE,
+            error_message   TEXT
+        )
+        """,
         "ALTER TABLE odds ADD COLUMN IF NOT EXISTS snapshot_type VARCHAR(10) DEFAULT 'open'",
         # Indexes for common query patterns
         "CREATE INDEX IF NOT EXISTS idx_matches_date ON matches (date)",
@@ -318,6 +334,7 @@ def initialize_schema() -> None:
         "CREATE INDEX IF NOT EXISTS idx_bets_match ON simulated_bets (match_id)",
         "CREATE INDEX IF NOT EXISTS idx_news_confirmed ON news_items (confirmed_by_user)",
         "CREATE INDEX IF NOT EXISTS idx_pipeline_runs_started ON pipeline_runs (started_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_source_runs_latest ON source_runs (source_name, fetched_at DESC)",
     ]
 
     with get_connection() as conn:

@@ -117,6 +117,9 @@ def _parse_args() -> "_ap.Namespace":
     p.add_argument("--dump-frame",   type=str,   default=None,
                    help="Export the fully-assembled feature DataFrame to this parquet "
                         "path and exit (for the production parity harness)")
+    p.add_argument("--smoke-test",   action="store_true",
+                   help="Run 2024-only eval and assert Brier within 0.001 of pinned "
+                        "reference (0.6354). Gate before refactoring eval_baseline.py.")
     return p.parse_args()
 
 
@@ -160,6 +163,9 @@ FORM_WINDOWS = tuple(_ARGS.form_windows) if _ARGS.form_windows else (3, 5, 10, 1
 REGRESS      = _ARGS.regress     if _ARGS.regress   is not None else 0.50
 INITIAL_ELO  = 1500.0
 DC_DECAY_HL  = _ARGS.dc_decay_hl if _ARGS.dc_decay_hl is not None else 120
+# Smoke-test override: single 2024-only run for fast regression check
+if _ARGS.smoke_test and _ARGS.test_seasons is None:
+    _ARGS.test_seasons = [2024]
 TEST_SEASONS = list(_ARGS.test_seasons) if _ARGS.test_seasons else [2021, 2022, 2023, 2024]
 _COVID       = {2020}
 WEIGHT_HL    = _ARGS.weight_hl  if _ARGS.weight_hl  is not None else 6
@@ -210,43 +216,8 @@ _FIFA_BREAKS = [pd.Timestamp(d) for d in [
     "2024-10-15",
 ]]
 
-# Dome stadiums: weather is irrelevant (retractable roof / climate-controlled)
-_DOME_TEAM_IDS = {"KAqBN0Vqbg", "lgpMOvnQzy"}  # Atlanta United, Vancouver Whitecaps
-
-# Stadium coordinates (lat, lon) keyed by ASA team_id
-_TEAM_COORDS: dict[str, tuple[float, float]] = {
-    "0KPqjA456v": (37.351, -121.925),
-    "19vQ2095K6": (42.091,  -71.264),
-    "4wM42l4qjB": (33.864, -118.261),
-    "9z5k7Yg5A3": (39.834,  -75.380),
-    "APk5LGOMOW": (45.564,  -73.551),
-    "EKXMeX3Q64": (38.868,  -77.013),
-    "KAqBN0Vqbg": (33.755,  -84.401),
-    "NPqxKXZ59d": (35.226,  -80.853),
-    "NWMWlBK5lz": (39.109,  -84.521),
-    "Vj58weDM8n": (40.829,  -73.926),
-    "WBLMvYAQxe": (45.521, -122.692),
-    "X0Oq66zq6D": (41.862,  -87.617),
-    "YgOMngl5zy": (29.753,  -95.351),
-    "Z2vQ1xlqrA": (39.123,  -94.824),
-    "a2lqR4JMr0": (40.583, -111.893),
-    "a2lqRX2Mr0": (40.737,  -74.150),
-    "eVq3ya6MWO": (34.013, -118.285),
-    "gpMOLwl5zy": (30.387,  -97.719),
-    "jYQJ19EqGR": (47.595, -122.332),
-    "jYQJ8EW5GR": (28.541,  -81.389),
-    "kRQabn8MKZ": (43.633,  -79.419),
-    "kRQand1MKZ": (44.953,  -93.165),
-    "kaDQ0wRqEv": (33.864, -118.261),
-    "lgpMOvnQzy": (49.277, -123.112),
-    "mKAqBBmqbg": (33.155,  -97.116),
-    "mvzqoLZQap": (39.968,  -83.018),
-    "pzeQZ6xQKw": (39.805, -104.892),
-    "vzqoOgNqap": (36.130,  -86.766),
-    "wvq9B9wQWn": (38.633,  -90.212),
-    "zeQZBOzQKw": (32.707, -117.120),
-    "zeQZkL1MKw": (26.170,  -80.188),
-}
+# Stadium coordinates and dome flags — canonical source is data_pipeline/team_metadata.py
+from data_pipeline.team_metadata import TEAM_COORDS as _TEAM_COORDS, DOME_TEAM_IDS as _DOME_TEAM_IDS
 
 # ─── 1. Fetch base match data ─────────────────────────────────────────────────
 
@@ -2892,6 +2863,33 @@ if ab_records:
 
 print()
 print("Evaluation complete.")
+
+# ─── Smoke-test gate (--smoke-test flag) ─────────────────────────────────────
+if _ARGS.smoke_test:
+    # Pinned reference from champion.report.json (2026-06-06 champion)
+    _SMOKE_REF_2024 = 0.6354
+    _SMOKE_TOL = 0.001
+    _rd_2024 = rd[rd["season"] == 2024]
+    if _rd_2024.empty:
+        raise SystemExit("[smoke-test] FAIL: 2024 season not in results")
+    _col = next(
+        (c for c in ["ens_stacked_brier", "ens_avg_brier", "xgb_brier_cal"]
+         if c in _rd_2024.columns),
+        None,
+    )
+    if _col is None:
+        raise SystemExit("[smoke-test] FAIL: no ensemble Brier column in results")
+    _actual = float(_rd_2024[_col].values[0])
+    _delta = abs(_actual - _SMOKE_REF_2024)
+    if _delta > _SMOKE_TOL:
+        raise SystemExit(
+            f"[smoke-test] FAIL: 2024 {_col}={_actual:.4f} "
+            f"(ref={_SMOKE_REF_2024:.4f}, |Δ|={_delta:.4f} > tol={_SMOKE_TOL})"
+        )
+    print(
+        f"\n[smoke-test] PASS: 2024 {_col}={_actual:.4f} "
+        f"within {_SMOKE_TOL} of ref={_SMOKE_REF_2024:.4f}"
+    )
 
 # ─── JSON output (for experiment runner / agent comparisons) ──────────────────
 if _ARGS.out:

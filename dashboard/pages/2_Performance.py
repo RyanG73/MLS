@@ -22,6 +22,8 @@ st.set_page_config(page_title="Performance — MLS Dashboard", layout="wide")
 st.title("📊 Model Performance Tracker")
 
 # ── Sidebar filters ────────────────────────────────────────────────────────────
+_MKT_CFG = SETTINGS["market"]
+
 with st.sidebar:
     st.markdown("### Filters")
     seasons = db_utils.query("SELECT DISTINCT season FROM matches ORDER BY season DESC")
@@ -29,7 +31,10 @@ with st.sidebar:
     selected_season = st.selectbox("Season", season_list)
     selected_model = st.selectbox("Model", ["ensemble", "dixon_coles", "penaltyblog_dc", "xgboost", "bayesian"])
     home_away = st.radio("Home/Away filter", ["All", "Home only", "Away only"])
-    edge_threshold = st.slider("Min edge threshold (%)", 0.0, 15.0, 0.0, 0.5)
+    edge_threshold = st.slider(
+        "Min edge threshold (%)",
+        0.0, _MKT_CFG.get("max_edge_threshold_pct", 20.0), 0.0, 0.5,
+    )
 
 
 @st.cache_data(ttl=300)

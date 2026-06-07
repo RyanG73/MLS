@@ -8,42 +8,16 @@ from typing import Optional
 
 from config import SETTINGS
 from data_pipeline import db_utils
+from data_pipeline.team_metadata import (
+    TEAM_NAME_MAP as _TEAM_NAME_MAP,
+    CONFERENCE_MAP as _CONFERENCE_MAP,
+    FIRST_SEASON as _FIRST_SEASON,
+    get_conference,
+    is_expansion,
+)
 
 logger = logging.getLogger(__name__)
-
-# MLS team name normalization — ASA uses full names
-_TEAM_NAME_MAP: dict[str, str] = {
-    "Atlanta United": "ATL",
-    "Austin FC": "ATX",
-    "Charlotte FC": "CLT",
-    "Chicago Fire": "CHI",
-    "FC Cincinnati": "CIN",
-    "Colorado Rapids": "COL",
-    "Columbus Crew": "CLB",
-    "D.C. United": "DC",
-    "FC Dallas": "DAL",
-    "Houston Dynamo": "HOU",
-    "Inter Miami CF": "MIA",
-    "LA Galaxy": "LAG",
-    "Los Angeles FC": "LAFC",
-    "Minnesota United": "MIN",
-    "CF Montréal": "MTL",
-    "Nashville SC": "NSH",
-    "New England Revolution": "NE",
-    "New York City FC": "NYC",
-    "New York Red Bulls": "NYRB",
-    "Orlando City": "ORL",
-    "Philadelphia Union": "PHI",
-    "Portland Timbers": "POR",
-    "Real Salt Lake": "RSL",
-    "San Jose Earthquakes": "SJ",
-    "Seattle Sounders": "SEA",
-    "Sporting Kansas City": "SKC",
-    "St. Louis City SC": "STL",
-    "Toronto FC": "TOR",
-    "Vancouver Whitecaps": "VAN",
-    "San Diego FC": "SD",
-}
+# _TEAM_NAME_MAP is imported above; schedule_client can still import it from here
 
 
 def _match_id(home: str, away: str, match_date: str) -> str:
@@ -151,43 +125,39 @@ def fetch_team_xg_stats(season: Optional[int] = None) -> pd.DataFrame:
 
 def sync_to_db(start_season: Optional[int] = None) -> int:
     """Fetch matches from ASA and upsert into the PostgreSQL matches table."""
+    from data_pipeline.source_health import record_source_run
+
     cfg = SETTINGS["data"]
     start = start_season or cfg["backfill_start_season"]
-    df = fetch_matches(start_season=start)
+    error_msg = None
+    df = pd.DataFrame()
+    try:
+        df = fetch_matches(start_season=start)
+    except Exception as exc:
+        error_msg = str(exc)
+        logger.error("ASA fetch failed: %s", exc)
+
+    n = 0
     if not df.empty:
         n = db_utils.upsert_dataframe(df, "matches", ["match_id"])
         logger.info("Synced %d match rows to PostgreSQL.", n)
-        return n
-    return 0
 
+    record_source_run(
+        source_name="asa",
+        endpoint="get_games",
+        raw_count=len(df),
+        parsed_count=len(df),
+        matched_count=n,
+        error_message=error_msg,
+    )
+    return n
 
-# ─── Conference assignments ───────────────────────────────────────────────────
-_CONFERENCE_MAP: dict[str, str] = {
-    "ATL": "E", "CLT": "E", "CHI": "E", "CIN": "E", "CLB": "E",
-    "DC": "E", "MIA": "E", "MTL": "E", "NSH": "E", "NE": "E",
-    "NYC": "E", "NYRB": "E", "ORL": "E", "PHI": "E", "TOR": "E",
-    "ATX": "W", "COL": "W", "DAL": "W", "HOU": "W", "LAG": "W",
-    "LAFC": "W", "MIN": "W", "POR": "W", "RSL": "W", "SJ": "W",
-    "SEA": "W", "SKC": "W", "STL": "W", "VAN": "W", "SD": "W",
-}
-
-
-def get_conference(team_id: str) -> str:
-    return _CONFERENCE_MAP.get(team_id, "E")
-
-
-# ─── Expansion team registry ─────────────────────────────────────────────────
-_FIRST_SEASON: dict[str, int] = {
-    "ATL": 2017, "ATX": 2021, "CLT": 2022, "CIN": 2019, "MIA": 2020,
-    "NSH": 2020, "STL": 2023, "SD": 2025,
-}
 
 _EXPANSION_YEARS = SETTINGS["features"]["expansion_team_seasons"]
 
 
 def is_expansion_team(team_id: str, season: int) -> bool:
-    first = _FIRST_SEASON.get(team_id, 1996)
-    return (season - first) < _EXPANSION_YEARS
+    return is_expansion(team_id, season, _EXPANSION_YEARS)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────

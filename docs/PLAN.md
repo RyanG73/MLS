@@ -1,5 +1,43 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase 2 + Phase 3 execution (2026-06-07) — data quality accounting + code simplification**
+>
+> **Phase 2 — Data quality accounting (COMPLETE)**
+> - Created `data_pipeline/source_health.py`: `record_source_run()` (writes to source_runs table),
+>   `get_source_health_report()` (latest per-source stats), `feature_null_report()` (null rates for
+>   key team_features columns). All internal errors swallowed — never crashes a caller.
+> - Added `source_runs` table DDL to `db_utils.initialize_schema()` with index on (source_name, fetched_at).
+> - Integrated `record_source_run()` into all three primary data clients:
+>   `asa_client.sync_to_db()`, `schedule_client.sync_to_db()`, `odds_client.sync_to_db()`.
+>   Each records raw_count, parsed_count, matched_count, and error_message.
+> - Added `odds_client.odds_matching_report()`: checks upcoming 14-day matches for complete 1X2
+>   coverage (home+draw+away). Reports upcoming/matched_all_3/missing_draw/unmatched/coverage_pct.
+>   Missing draw odds logged as WARNING — callers must NOT infer draw_prob=0 from absence.
+>
+> **Phase 3b — Team metadata consolidation (COMPLETE)**
+> - Created `data_pipeline/team_metadata.py` as single source of truth:
+>   `TEAM_NAME_MAP` (ASA names), `ESPN_TO_TEAM` (ESPN names), `CONFERENCE_MAP`,
+>   `FIRST_SEASON`, `TEAM_COORDS` (ASA team_id → lat/lon), `DOME_TEAM_IDS`.
+>   Public functions: `resolve_team_id`, `get_conference`, `is_expansion`, `is_dome`, `get_coords`.
+> - `asa_client.py` now imports from team_metadata (removed 30-line inline map + conference/expansion defs).
+> - `schedule_client.py` now imports from team_metadata (removed 30-line inline ESPN map).
+> - `eval_baseline.py` now imports `_TEAM_COORDS` and `_DOME_TEAM_IDS` from team_metadata
+>   (removed ~37-line inline definitions).
+>
+> **Phase 3c — Dashboard config consolidation (COMPLETE)**
+> - Added `market.max_edge_threshold_pct: 20.0` to `config/settings.yaml`.
+> - Pages 2 and 6 now use `_MKT_CFG["max_edge_threshold_pct"]` instead of hardcoded `15.0`.
+> - Page 6 (Backtest) also uses `_MKT_CFG["default_edge_threshold_pct"]` for slider default (was hardcoded 5.0).
+> - Pages 6/7/8 beta gate already wired via `dashboard.beta_pages_enabled` in settings.yaml.
+>
+> **Phase 3a — eval_baseline.py smoke-test gate (COMPLETE)**
+> - Added `--smoke-test` CLI flag to `eval_baseline.py`.
+> - When set: forces 2024-only test season, then asserts `ens_stacked_brier` ≤ 0.6354 ± 0.001.
+>   Pinned reference: champion.report.json (2026-06-06). Exits 0 on PASS, non-zero on FAIL.
+> - This is the prerequisite gate before doing the full eval_baseline.py split (Phase 3a main).
+> - Full 3a split (eval/{data_builder,feature_registry,...}) deferred — still high-risk without
+>   more test coverage; smoke-test gate is now the prerequisite blocker.
+
 > **Phase 4d (2026-06-06) — 2024 distribution-shift diagnosis + calibration unification**
 > Built `scripts/diagnose_2024.py`; full writeup in `docs/2024-diagnosis.md`.
 > **Finding: 2024 is an OUTCOME regime shift, not a feature shift.** Home-win rate collapsed

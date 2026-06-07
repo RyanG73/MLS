@@ -13,7 +13,8 @@ import pandas as pd
 
 from config import SETTINGS
 from data_pipeline import db_utils
-from data_pipeline.asa_client import _TEAM_NAME_MAP, _safe_int, get_conference
+from data_pipeline.asa_client import _safe_int
+from data_pipeline.team_metadata import TEAM_NAME_MAP as _TEAM_NAME_MAP, ESPN_TO_TEAM as _ESPN_TO_TEAM, get_conference
 
 logger = logging.getLogger(__name__)
 
@@ -23,40 +24,6 @@ _ESPN_SCOREBOARD_URL = (
 _ESPN_SCHEDULE_URL = (
     "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/schedule"
 )
-
-# ESPN → internal team ID mapping (supplement _TEAM_NAME_MAP with ESPN display names)
-_ESPN_TO_TEAM: dict[str, str] = {
-    "Atlanta United FC": "ATL",
-    "Austin FC": "ATX",
-    "Charlotte FC": "CLT",
-    "Chicago Fire FC": "CHI",
-    "FC Cincinnati": "CIN",
-    "Colorado Rapids": "COL",
-    "Columbus Crew": "CLB",
-    "D.C. United": "DC",
-    "FC Dallas": "DAL",
-    "Houston Dynamo FC": "HOU",
-    "Inter Miami CF": "MIA",
-    "LA Galaxy": "LAG",
-    "Los Angeles FC": "LAFC",
-    "Minnesota United FC": "MIN",
-    "CF Montréal": "MTL",
-    "Nashville SC": "NSH",
-    "New England Revolution": "NE",
-    "New York City FC": "NYC",
-    "New York Red Bulls": "NYRB",
-    "Orlando City SC": "ORL",
-    "Philadelphia Union": "PHI",
-    "Portland Timbers": "POR",
-    "Real Salt Lake": "RSL",
-    "San Jose Earthquakes": "SJ",
-    "Seattle Sounders FC": "SEA",
-    "Sporting Kansas City": "SKC",
-    "St. Louis City SC": "STL",
-    "Toronto FC": "TOR",
-    "Vancouver Whitecaps FC": "VAN",
-    "San Diego FC": "SD",
-}
 
 
 def _match_id(home: str, away: str, match_date: str) -> str:
@@ -149,11 +116,29 @@ def fetch_recent_results(days_back: int = 7) -> pd.DataFrame:
 
 def sync_to_db(days_ahead: int = 14, days_back: int = 7) -> int:
     """Sync upcoming fixtures and recent results to PostgreSQL."""
-    upcoming = fetch_upcoming_fixtures(days_ahead)
-    recent = fetch_recent_results(days_back)
-    combined = pd.concat([upcoming, recent], ignore_index=True).drop_duplicates("match_id")
+    from data_pipeline.source_health import record_source_run
+
+    error_msg = None
+    combined = pd.DataFrame()
+    try:
+        upcoming = fetch_upcoming_fixtures(days_ahead)
+        recent = fetch_recent_results(days_back)
+        combined = pd.concat([upcoming, recent], ignore_index=True).drop_duplicates("match_id")
+    except Exception as exc:
+        error_msg = str(exc)
+        logger.error("ESPN schedule fetch failed: %s", exc)
+
+    n = 0
     if not combined.empty:
         n = db_utils.upsert_dataframe(combined, "matches", ["match_id"])
         logger.info("Synced %d fixture/result rows to PostgreSQL.", n)
-        return n
-    return 0
+
+    record_source_run(
+        source_name="espn",
+        endpoint="scoreboard",
+        raw_count=len(combined),
+        parsed_count=len(combined),
+        matched_count=n,
+        error_message=error_msg,
+    )
+    return n

@@ -70,6 +70,7 @@ market:
   markets: "h2h"                        # 1X2 head-to-head
   odds_format: "decimal"
   default_edge_threshold_pct: 8.0     # Default value-bet cutoff — validated 2026 (CLAUDE.md: 8%)
+  max_edge_threshold_pct: 20.0        # Upper bound for slider controls in dashboard
   kelly_fractions: [0.25, 0.50]
   starting_bankroll: 10000             # Simulated bankroll in units
 

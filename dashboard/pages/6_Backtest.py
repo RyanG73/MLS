@@ -25,8 +25,11 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+from config import SETTINGS
 from data_pipeline import db_utils
 from models.backtest import run_walk_forward, get_recent_runs
+
+_MKT_CFG = SETTINGS["market"]
 
 st.set_page_config(page_title="Backtest — MLS Dashboard", layout="wide")
 st.title("🔬 Walk-Forward Backtest")
@@ -45,7 +48,11 @@ with st.sidebar:
     start_season = st.selectbox("Start season", season_choices, index=min(2, len(season_choices)-1))
     end_season   = st.selectbox("End season",   season_choices, index=0)
 
-    edge_threshold = st.slider("Edge threshold (%)", 0.0, 15.0, 5.0, 0.5)
+    edge_threshold = st.slider(
+        "Edge threshold (%)",
+        0.0, _MKT_CFG.get("max_edge_threshold_pct", 20.0),
+        _MKT_CFG.get("default_edge_threshold_pct", 8.0), 0.5,
+    )
     half_life      = st.slider("xG decay half-life (days)", 30, 180, 60, 15)
     kelly_frac     = st.select_slider("Kelly fraction", options=[0.10, 0.25, 0.50, 1.0], value=0.25)
     models_subset  = st.multiselect(

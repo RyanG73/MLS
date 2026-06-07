@@ -187,9 +187,107 @@ def _resolve_match_id(event: dict) -> Optional[str]:
 
 
 def sync_to_db(snapshot_type: str = "open") -> int:
-    df = fetch_current_odds(snapshot_type=snapshot_type)
+    from data_pipeline.source_health import record_source_run
+
+    error_msg = None
+    df = pd.DataFrame()
+    try:
+        df = fetch_current_odds(snapshot_type=snapshot_type)
+    except Exception as exc:
+        error_msg = str(exc)
+        logger.error("Pinnacle odds fetch failed: %s", exc)
+
+    n = 0
     if not df.empty:
         n = db_utils.upsert_dataframe(df, "odds", ["odds_id"])
         logger.info("Synced %d %s odds rows to PostgreSQL.", n, snapshot_type)
-        return n
-    return 0
+
+    record_source_run(
+        source_name="pinnacle",
+        endpoint=f"odds/{snapshot_type}",
+        raw_count=len(df),
+        parsed_count=len(df),
+        matched_count=n,
+        error_message=error_msg,
+    )
+    return n
+
+
+def odds_matching_report() -> dict:
+    """
+    Check upcoming matches (next 14 days) for complete 1X2 odds coverage.
+
+    Returns a dict with:
+      upcoming          — total upcoming match count
+      matched_all_3     — matches that have home + draw + away odds
+      missing_draw      — matches with home+away but no draw (invalid 1X2)
+      unmatched         — matches with no Pinnacle odds at all
+      coverage_pct      — percentage of upcoming matches fully covered
+      missing_draw_list — list of "{home} vs {away} ({date})" strings
+
+    Missing draw odds make a 1X2 market incomplete: callers must NOT infer
+    draw probability = 0 from the absence of a draw line.
+    """
+    upcoming_df = db_utils.query("""
+        SELECT match_id, home_team, away_team, date
+        FROM matches
+        WHERE status = 'scheduled'
+          AND date >= CURRENT_DATE
+          AND date <= CURRENT_DATE + INTERVAL '14 days'
+        ORDER BY date
+    """)
+
+    if upcoming_df.empty:
+        return {
+            "upcoming": 0, "matched_all_3": 0,
+            "missing_draw": 0, "unmatched": 0,
+            "coverage_pct": 0.0, "missing_draw_list": [],
+        }
+
+    odds_df = db_utils.query("""
+        SELECT DISTINCT ON (match_id, outcome) match_id, outcome
+        FROM odds
+        WHERE bookmaker = 'pinnacle'
+          AND market = 'h2h'
+          AND snapshot_type = 'open'
+          AND open_odds IS NOT NULL
+        ORDER BY match_id, outcome, fetched_at DESC
+    """)
+
+    odds_by_match: dict[str, set] = {}
+    if not odds_df.empty:
+        for mid, grp in odds_df.groupby("match_id"):
+            odds_by_match[mid] = set(grp["outcome"].tolist())
+
+    n_matched = n_missing_draw = n_unmatched = 0
+    missing_draw_list = []
+
+    for _, row in upcoming_df.iterrows():
+        mid = row["match_id"]
+        outcomes = odds_by_match.get(mid, set())
+        if {"home", "draw", "away"}.issubset(outcomes):
+            n_matched += 1
+        elif {"home", "away"}.issubset(outcomes):
+            n_missing_draw += 1
+            missing_draw_list.append(
+                f"{row['home_team']} vs {row['away_team']} ({row['date']})"
+            )
+        else:
+            n_unmatched += 1
+
+    total = len(upcoming_df)
+    if n_missing_draw:
+        logger.warning(
+            "odds_matching: %d match(es) have home+away odds but NO draw line "
+            "(incomplete 1X2 — do not infer draw=0): %s",
+            n_missing_draw, "; ".join(missing_draw_list),
+        )
+
+    return {
+        "upcoming": total,
+        "matched_all_3": n_matched,
+        "missing_draw": n_missing_draw,
+        "unmatched": n_unmatched,
+        "coverage_pct": round(100.0 * n_matched / total, 1) if total else 0.0,
+        "missing_draw_list": missing_draw_list,
+    }
