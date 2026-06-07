@@ -98,6 +98,37 @@ def _check_coverage_floor(
         )
 
 
+def coverage_gate_status(floors: Optional[dict] = None) -> dict:
+    """
+    Structured pass/fail of the latest run per source against coverage floors.
+
+    Returns {source_name: {"parsed": int, "floor": int, "ok": bool,
+                           "success": bool, "error": str|None}}.
+    Consumed by the promotion gate (Phase E) so a model is never promoted on
+    top of a silently-degraded data feed.  Returns {} if the table is empty
+    or unreachable (caller decides whether absence is a hard fail).
+    """
+    floors = floors or _COVERAGE_FLOORS
+    report = get_source_health_report()
+    if report is None or report.empty:
+        return {}
+
+    status: dict = {}
+    for _, r in report.iterrows():
+        name = r.get("source_name")
+        floor = floors.get(name, 0)
+        parsed = int(r.get("parsed_count") or 0)
+        success = bool(r.get("success"))
+        status[name] = {
+            "parsed":  parsed,
+            "floor":   floor,
+            "ok":      success and parsed >= floor,
+            "success": success,
+            "error":   r.get("error_message"),
+        }
+    return status
+
+
 def get_source_health_report() -> pd.DataFrame:
     """Return the most recent run stats for each source."""
     from data_pipeline import db_utils

@@ -177,6 +177,9 @@ def main():
     if odds_rows is not None:
         stats["opening_odds_rows"] = int(odds_rows)
 
+    # ── 9b. Data-quality accounting (F5): odds coverage + feature null report ──
+    run_step("Data-quality report", _data_quality_report, run_id=run_id, stats=stats)
+
     # ── 10. Research-model ensemble predictions (canonical path) ─────────────
     pred_rows = run_step("Generate ensemble predictions (research model)",
              _generate_and_store_research_predictions,
@@ -453,6 +456,72 @@ def _generate_dc_oof(dc_model, train_df, n_folds: int = 5):
                 "dc_prob_over": preds["prob_over"],
             })
     return pd.DataFrame(rows)
+
+
+def _data_quality_report():
+    """
+    F5 — surface data-quality accounting at the end of the fetch phase.
+
+    Logs (1) per-source fetch health from the source_runs table, (2) odds 1X2
+    coverage for upcoming matches, and (3) feature null rates.  Purely
+    observational: never aborts the pipeline.  Missing draw odds are logged as
+    WARNING — downstream must NOT infer draw probability = 0 from their absence.
+
+    Returns a dict summary (also persisted into the run stats via run_step).
+    """
+    from data_pipeline.source_health import get_source_health_report, feature_null_report
+    from data_pipeline.odds_client import odds_matching_report
+
+    summary: dict = {}
+
+    # (1) Source fetch health (most recent run per source)
+    try:
+        health = get_source_health_report()
+        if health is not None and not health.empty:
+            for _, r in health.iterrows():
+                logger.info(
+                    "  source=%s endpoint=%s raw=%s parsed=%s matched=%s%s",
+                    r.get("source_name"), r.get("endpoint"),
+                    r.get("raw_count"), r.get("parsed_count"), r.get("matched_count"),
+                    f" ERROR={r.get('error_message')}" if r.get("error_message") else "",
+                )
+            summary["sources_reporting"] = int(len(health))
+    except Exception as exc:
+        logger.warning("Source health report unavailable: %s", exc)
+
+    # (2) Odds 1X2 coverage for upcoming matches
+    try:
+        odds = odds_matching_report()
+        summary["odds_coverage_pct"] = odds.get("coverage_pct", 0.0)
+        logger.info(
+            "  odds 1X2 coverage: %.1f%% (%d/%d upcoming fully covered, "
+            "%d missing-draw, %d unmatched)",
+            odds.get("coverage_pct", 0.0), odds.get("matched_all_3", 0),
+            odds.get("upcoming", 0), odds.get("missing_draw", 0), odds.get("unmatched", 0),
+        )
+        if odds.get("missing_draw", 0) > 0:
+            logger.warning(
+                "  %d upcoming match(es) have home+away but NO draw line — these are "
+                "INVALID 1X2 markets; do NOT infer draw_prob=0: %s",
+                odds.get("missing_draw", 0), odds.get("missing_draw_list", []),
+            )
+    except Exception as exc:
+        logger.warning("Odds matching report unavailable: %s", exc)
+
+    # (3) Feature null rates (silent-fallback detector)
+    try:
+        nulls = feature_null_report()
+        if nulls:
+            flagged = {c: round(f, 4) for c, f in nulls.items() if f and f > 0.10}
+            if flagged:
+                logger.warning("  feature columns >10%% null: %s", flagged)
+            else:
+                logger.info("  feature null rates all within 10%% threshold")
+            summary["feature_nulls_over_10pct"] = len(flagged)
+    except Exception as exc:
+        logger.warning("Feature null report unavailable: %s", exc)
+
+    return summary
 
 
 def _update_recent_bets():
