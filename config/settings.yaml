@@ -27,8 +27,8 @@ elo:
 # ─── Feature Engineering ─────────────────────────────────────────────────────
 features:
   xg_half_life_days: 60                # Exponential decay half-life for xG rolling averages
-  xg_windows: [5, 15]                 # Match-count rolling windows for xG stats — validated 2026 (CLAUDE.md)
-  form_window: 5                        # Matches for form (W/D/L points rolling)
+  xg_windows: [3, 5, 10, 15]          # Match-count rolling windows for xG stats — champion parity_frame uses all 4
+  form_windows: [3, 5, 10, 15]         # Rolling windows for form (pts per game) — must match eval harness default
   expansion_team_seasons: 2            # Treat team as "expansion" for first N seasons
   min_matches_for_features: 3          # Min matches before team gets non-prior features
 

@@ -187,6 +187,8 @@ FETCH_TRANSFERMARKT = True   # Transfermarkt CSVs present: data/transfermarkt_sq
 _XGB_NJOBS = int(os.environ.get("EVAL_XGB_NJOBS", "2"))
 
 # Constants and pure helpers imported from the decomposed feature registry (F4 extraction)
+from scripts.eval.elo import compute_elo
+from scripts.eval.feature_builders import add_rolling_features as _add_rolling_features_fb, add_h2h_draw_features
 from scripts.eval.feature_registry import (
     FIFA_BREAKS as _FIFA_BREAKS,
     HIGH_ALT_IDS as _HIGH_ALT_IDS_REG,
@@ -344,39 +346,7 @@ except Exception as e:
 print("\n[3/9] ELO hyperparameter grid search (val: 2019)...")
 
 
-def compute_elo(
-    df: pd.DataFrame,
-    K: float,
-    HOME_ADV: float,
-    regress: float = 0.40,
-    initial: float = 1500.0,
-    return_expected: bool = False,
-) -> pd.DataFrame:
-    elo: dict[str, float] = {}
-    h_elo, a_elo, h_exp = [], [], []
-    seen: set = set()
-    for _, row in df.iterrows():
-        s = row["season"]
-        if s not in seen:
-            seen.add(s)
-            elo = {t: initial + (r - initial) * (1 - regress) for t, r in elo.items()}
-        ht, at = row["home_team"], row["away_team"]
-        rh = elo.get(ht, initial)
-        ra = elo.get(at, initial)
-        e_h = 1 / (1 + 10 ** ((ra - (rh + HOME_ADV)) / 400))
-        hg, ag = row["home_goals"], row["away_goals"]
-        s_h = 1.0 if hg > ag else (0.5 if hg == ag else 0.0)
-        mov = 1 + math.log(abs(hg - ag) + 1) * 0.1
-        h_elo.append(rh); a_elo.append(ra); h_exp.append(e_h)
-        elo[ht] = rh + K * mov * (s_h - e_h)
-        elo[at] = ra + K * mov * ((1 - s_h) - (1 - e_h))
-    out = df.copy()
-    out["home_elo"] = h_elo
-    out["away_elo"] = a_elo
-    out["elo_diff"] = np.array(h_elo) - np.array(a_elo)
-    if return_expected:
-        out["elo_p_home"] = h_exp
-    return out
+# compute_elo imported from scripts.eval.elo
 
 
 _VAL_S = {2019}
@@ -416,194 +386,18 @@ _PYTHAG_WIN = _PYTHAG_WIN_REG
 # _pythag_expected_pts, _haversine_km, _HIGH_ALT_IDS → imported above
 
 
-def add_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
-    team_xg: dict[str, list] = {}       # per-game xg/xga records
-    team_pts: dict[str, list] = {}      # points earned per game
-    team_goals: dict[str, list] = {}    # per-game (gf, ga) tuples for Pythagorean
-    team_ppda: dict[str, list] = {}     # PPDA per game (float | None)
-    team_poss: dict[str, list] = {}     # possession per game (float | None)
-    team_dates: dict[str, list] = []    # type: ignore
-    team_home_pts: dict[str, list] = {} # pts earned specifically as HOME team
-    team_away_pts: dict[str, list] = {} # pts earned specifically as AWAY team
-    team_goal_diff: dict[str, list] = {} # goal_diff per game (gf - ga)
-
-    team_dates_d: dict[str, list] = {}  # dates for games_in_14d
-
-    _VENUE_WINDOWS = (5, 10)
-    _HA_WINDOW = 20  # long window for stable per-team home/away split estimate
-
-    # Initialise result columns
-    res: dict[str, list] = {}
-    for r in ("home", "away"):
-        for w in XG_WINDOWS:
-            res[f"{r}_xg_roll_{w}"] = []
-            res[f"{r}_xga_roll_{w}"] = []
-        for fw in FORM_WINDOWS:
-            res[f"{r}_form_{fw}"] = []
-        res[f"{r}_games_in_14d"] = []
-        res[f"{r}_days_rest"] = []
-        res[f"{r}_pythag_luck_{_PYTHAG_WIN}"] = []
-    for fw in _VENUE_WINDOWS:
-        res[f"home_home_form_{fw}"] = []
-        res[f"away_away_form_{fw}"] = []
-    for fw in _VENUE_WINDOWS:
-        res[f"home_goal_diff_roll_{fw}"] = []
-        res[f"away_goal_diff_roll_{fw}"] = []
-    res["home_ha_tilt"] = []
-    res["away_ha_tilt"] = []
-    if _HAS_PPDA:
-        res[f"{r}_ppda_roll_10"] = []
-    if _HAS_POSS:
-        res[f"{r}_poss_roll_10"] = []
-    if _HAS_SP_XG:
-        res[f"{r}_xga_sp_roll_15"] = []
-
-    for _, row in df.iterrows():
-        ht, at = row["home_team"], row["away_team"]
-        hg, ag = row["home_goals"], row["away_goals"]
-        mid = str(row.get("match_id", ""))
-        dt  = row["date"]
-
-        h_xg = float(row["home_xg"]) if pd.notna(row.get("home_xg")) else float(hg)
-        a_xg = float(row["away_xg"]) if pd.notna(row.get("away_xg")) else float(ag)
-        h_xg_sp = float(row["home_xg_sp"]) if _HAS_SP_XG and pd.notna(row.get("home_xg_sp")) else None
-        a_xg_sp = float(row["away_xg_sp"]) if _HAS_SP_XG and pd.notna(row.get("away_xg_sp")) else None
-
-        xp = _xpass_by_game.get(mid, (None, None, None, None))
-        h_ppda_v, a_ppda_v, h_poss_v, a_poss_v = xp
-
-        for team, role, my_xg, opp_xg, my_xg_sp, opp_xg_sp, my_ppda, my_poss in [
-            (ht, "home", h_xg, a_xg, h_xg_sp, a_xg_sp, h_ppda_v, h_poss_v),
-            (at, "away", a_xg, h_xg, a_xg_sp, h_xg_sp, a_ppda_v, a_poss_v),
-        ]:
-            xg_hist    = team_xg.get(team, [])
-            pts_hist   = team_pts.get(team, [])
-            goals_hist = team_goals.get(team, [])
-            ppda_hist  = team_ppda.get(team, [])
-            poss_hist  = team_poss.get(team, [])
-            date_hist  = team_dates_d.get(team, [])
-
-            for w in XG_WINDOWS:
-                seg = xg_hist[-w:]
-                res[f"{role}_xg_roll_{w}"].append(
-                    np.mean([x["xg"] for x in seg]) if seg else 1.3)
-                res[f"{role}_xga_roll_{w}"].append(
-                    np.mean([x["xga"] for x in seg]) if seg else 1.3)
-
-            for fw in FORM_WINDOWS:
-                seg_pts = pts_hist[-fw:]
-                res[f"{role}_form_{fw}"].append(np.mean(seg_pts) if seg_pts else 1.0)
-
-            cutoff = dt - timedelta(days=GAMES_14D)
-            res[f"{role}_games_in_14d"].append(sum(1 for d in date_hist if d > cutoff))
-
-            # Days rest since most recent prior match (date_hist excludes current → leakage-safe).
-            # Cap at 21d so cross-season offseason gaps don't dominate; default 7 if no history.
-            res[f"{role}_days_rest"].append(
-                min((dt - date_hist[-1]).days, 21) if date_hist else 7)
-
-            # Pythagorean luck: actual pts - expected pts over last N matches
-            seg_goals = goals_hist[-_PYTHAG_WIN:]
-            seg_pts_w = pts_hist[-_PYTHAG_WIN:]
-            if seg_goals:
-                n = len(seg_goals)
-                gf_sum = sum(g[0] for g in seg_goals)
-                ga_sum = sum(g[1] for g in seg_goals)
-                pts_actual = sum(seg_pts_w)
-                pts_pythag = _pythag_expected_pts(gf_sum, ga_sum, n)
-                res[f"{role}_pythag_luck_{_PYTHAG_WIN}"].append(pts_actual - pts_pythag)
-            else:
-                res[f"{role}_pythag_luck_{_PYTHAG_WIN}"].append(0.0)
-
-            if _HAS_PPDA:
-                seg_ppda = [v for v in ppda_hist[-10:] if v is not None]
-                res[f"{role}_ppda_roll_10"].append(np.mean(seg_ppda) if seg_ppda else 10.0)
-
-            if _HAS_POSS:
-                seg_poss = [v for v in poss_hist[-10:] if v is not None]
-                res[f"{role}_poss_roll_10"].append(np.mean(seg_poss) if seg_poss else 50.0)
-
-            if _HAS_SP_XG:
-                # opp_xg_sp stored in history; it is the xG-against-via-set-piece
-                seg_sp = [x["opp_xg_sp"] for x in xg_hist[-15:] if x.get("opp_xg_sp") is not None]
-                res[f"{role}_xga_sp_roll_15"].append(np.mean(seg_sp) if seg_sp else 0.4)
-
-        # Venue-split form and goal-diff form (read before updating histories)
-        h_home_hist = team_home_pts.get(ht, [])
-        a_away_hist = team_away_pts.get(at, [])
-        h_gdiff_hist = team_goal_diff.get(ht, [])
-        a_gdiff_hist = team_goal_diff.get(at, [])
-        for fw in _VENUE_WINDOWS:
-            seg_h = h_home_hist[-fw:]
-            res[f"home_home_form_{fw}"].append(np.mean(seg_h) if seg_h else 1.0)
-            seg_a = a_away_hist[-fw:]
-            res[f"away_away_form_{fw}"].append(np.mean(seg_a) if seg_a else 1.0)
-            seg_hg = h_gdiff_hist[-fw:]
-            res[f"home_goal_diff_roll_{fw}"].append(np.mean(seg_hg) if seg_hg else 0.0)
-            seg_ag = a_gdiff_hist[-fw:]
-            res[f"away_goal_diff_roll_{fw}"].append(np.mean(seg_ag) if seg_ag else 0.0)
-
-        # Per-team home-advantage tilt: a team's home pts-rate − its away pts-rate
-        # over a long window. Isolates the *venue* effect from overall quality:
-        # positive home_ha_tilt → home team is disproportionately strong at home;
-        # positive away_ha_tilt → away team is disproportionately weak on the road.
-        # Both favour the home side, so ha_tilt_sum aggregates the venue edge.
-        h_away_hist = team_away_pts.get(ht, [])
-        a_home_hist = team_home_pts.get(at, [])
-        hh, hawy = h_home_hist[-_HA_WINDOW:], h_away_hist[-_HA_WINDOW:]
-        res["home_ha_tilt"].append(float(np.mean(hh) - np.mean(hawy)) if hh and hawy else 0.0)
-        ahm, aa2 = a_home_hist[-_HA_WINDOW:], a_away_hist[-_HA_WINDOW:]
-        res["away_ha_tilt"].append(float(np.mean(ahm) - np.mean(aa2)) if ahm and aa2 else 0.0)
-
-        # Update histories (after reading to avoid leakage)
-        h_pts = 3 if hg > ag else (1 if hg == ag else 0)
-        a_pts = 3 if ag > hg else (1 if hg == ag else 0)
-        team_xg.setdefault(ht, []).append({"xg": h_xg, "xga": a_xg, "opp_xg_sp": a_xg_sp})
-        team_xg.setdefault(at, []).append({"xg": a_xg, "xga": h_xg, "opp_xg_sp": h_xg_sp})
-        team_pts.setdefault(ht, []).append(h_pts)
-        team_pts.setdefault(at, []).append(a_pts)
-        team_goals.setdefault(ht, []).append((float(hg), float(ag)))
-        team_goals.setdefault(at, []).append((float(ag), float(hg)))
-        team_ppda.setdefault(ht, []).append(h_ppda_v)
-        team_ppda.setdefault(at, []).append(a_ppda_v)
-        team_poss.setdefault(ht, []).append(h_poss_v)
-        team_poss.setdefault(at, []).append(a_poss_v)
-        team_dates_d.setdefault(ht, []).append(dt)
-        team_dates_d.setdefault(at, []).append(dt)
-        team_home_pts.setdefault(ht, []).append(h_pts)
-        team_away_pts.setdefault(at, []).append(a_pts)
-        team_goal_diff.setdefault(ht, []).append(float(hg) - float(ag))
-        team_goal_diff.setdefault(at, []).append(float(ag) - float(hg))
-
-    out = df.copy()
-    for col, vals in res.items():
-        out[col] = vals
-
-    w0 = XG_WINDOWS[0]
-    out["xg_diff"]      = out[f"home_xg_roll_{w0}"] - out[f"away_xg_roll_{w0}"]
-    out["form_diff"]    = out[f"home_form_{FORM_WINDOWS[0]}"] - out[f"away_form_{FORM_WINDOWS[0]}"]
-    out["home_xg_sum"]  = out[f"home_xg_roll_{w0}"] + out[f"away_xg_roll_{w0}"]
-    out["games14d_diff"] = out["home_games_in_14d"] - out["away_games_in_14d"]
-    out["rest_advantage"] = out["home_days_rest"] - out["away_days_rest"]
-    out["venue_form_diff_5"]  = out["home_home_form_5"]  - out["away_away_form_5"]
-    out["venue_form_diff_10"] = out["home_home_form_10"] - out["away_away_form_10"]
-    out["goal_diff_diff_5"]   = out["home_goal_diff_roll_5"]  - out["away_goal_diff_roll_5"]
-    out["goal_diff_diff_10"]  = out["home_goal_diff_roll_10"] - out["away_goal_diff_roll_10"]
-    out["ha_tilt_sum"]        = out["home_ha_tilt"] + out["away_ha_tilt"]
-    out["travel_km"] = [
-        _haversine_km(_TEAM_COORDS.get(h), _TEAM_COORDS.get(a))
-        for h, a in zip(out["home_team"], out["away_team"])
-    ]
-    out["pythag_luck_diff"] = (out[f"home_pythag_luck_{_PYTHAG_WIN}"]
-                               - out[f"away_pythag_luck_{_PYTHAG_WIN}"])
-    if _HAS_PPDA:
-        out["ppda_diff"] = out["home_ppda_roll_10"] - out["away_ppda_roll_10"]
-    if _HAS_POSS:
-        out["poss_diff"] = out["home_poss_roll_10"] - out["away_poss_roll_10"]
-    return out
-
-
-df = add_rolling_features(df)
+# add_rolling_features imported from scripts.eval.feature_builders
+# Call passes formerly-global flags as explicit keyword arguments
+df = _add_rolling_features_fb(
+    df,
+    xg_windows=XG_WINDOWS,
+    form_windows=FORM_WINDOWS,
+    games_14d_days=GAMES_14D,
+    xpass_by_game=_xpass_by_game,
+    has_ppda=_HAS_PPDA,
+    has_poss=_HAS_POSS,
+    has_sp_xg=_HAS_SP_XG,
+)
 print(f"    Rolling features complete. Columns added: {[c for c in df.columns if 'roll' in c or 'form_' in c or '14d' in c][:8]}...")
 
 # ─── 5. Altitude flag ─────────────────────────────────────────────────────────
@@ -2049,6 +1843,19 @@ print(f"    Standings features: {len(_FEAT_STANDINGS)} cols | "
       f"ppg mean={df['home_season_ppg'].mean():.2f}")
 
 
+# ─── 5o. Head-to-head draw rate (F9 draw-signal attempt) ─────────────────────
+# For each matchup, fraction of prior meetings between the same two teams that
+# ended in a draw. Walk-forward safe (only uses results BEFORE this match).
+# Falls back to 0.0 when fewer than min_games=3 prior meetings exist.
+# Imported from scripts.eval.feature_builders.
+print("\n[5o/9] Computing head-to-head draw rate features...")
+df = add_h2h_draw_features(df, min_games=3)
+_cov_h2h = (df["h2h_n_games"] >= 3).mean()
+print(f"    H2H coverage (≥3 prior meetings): {_cov_h2h:.1%}  "
+      f"mean_draw_rate={df.loc[df['h2h_n_games']>=3,'h2h_draw_rate'].mean():.3f}")
+_FEAT_H2H = ["h2h_draw_rate", "h2h_n_games"]
+
+
 # _FEAT_AVAIL (ESPN roster availability) promoted to Base 2026-05-31 — KEEP Δ=+0.0011
 # with full 2017-2024 roster history. Empty list (graceful) when rosters absent.
 _FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + ["is_playoff"] + _FEAT_AVAIL
@@ -2148,6 +1955,7 @@ _ALL_EXTRA = (
     + _FEAT_FBREF
     + _FEAT_REFEREE
     + _FEAT_STANDINGS
+    + _FEAT_H2H
     # +VenueGoalDiff and +VenueForm NOT added here: kept as standalone AB sets only.
     # Adding to _ALL_EXTRA caused +All to change and regressed 2024 by 0.0005.
     # _WEATHER_FEATS NOT added here either: kept as a standalone +Weather AB set so
@@ -2224,6 +2032,8 @@ if _FEAT_REFEREE_REL:
 AB_SETS["+Standings"]     = _FEAT_BASE + _FEAT_STANDINGS
 # Core leverage only: relative standing signals without raw pts (less ELO collinearity)
 AB_SETS["+StandingsCore"] = _FEAT_BASE + ["pts_vs_median_diff", "season_pts_diff", "season_ppg_diff"]
+# H2H draw rate (section 5o, F9 draw-signal) — prior-meeting draw fraction
+AB_SETS["+H2HDrawRate"]   = _FEAT_BASE + _FEAT_H2H
 AB_SETS["+All"]        = _FEAT_ALL
 # Venue-split form: home team's last-N home record; away team's last-N away record
 AB_SETS["+VenueForm"]    = _FEAT_BASE + _FEAT_VENUE_FORM

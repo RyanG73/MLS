@@ -183,11 +183,52 @@
 > force `--ab-only Base` when in smoke-test mode (prevents new AB additions from shifting
 > the reference). `make smoke-test` PASS (0.6354). Total non-DB tests: 64 pass.
 >
-> **Next open avenues:**
-> - Standings proved closed; ELO/form absorption is definitive.
-> - `add_rolling_features()` is the next extraction target: needs refactoring to accept
->   `xpass_by_game` + `HAS_*` flags as parameters rather than globals.
-> - Pi E2E validation: docs/PI_VALIDATION.md runbook; still the highest-priority prod gap.
+> **F3 config alignment + F4 ELO/rolling extraction + F9 H2H draw signal (2026-06-07)**
+>
+> **F3 — Critical config discrepancy fixed.**
+> The champion feat_base (parity_frame.meta.json) uses ALL FOUR xG windows (3, 5, 10, 15)
+> and form windows (3, 5, 10, 15). CLAUDE.md said "5 and 15"; config/settings.yaml said
+> "[5, 15]"; CURRENT_STATE.md had "[5, 15]". Production feature_builder was therefore
+> generating only 2 xG windows while the champion model expects 4. All fixed:
+> - CLAUDE.md: "xG windows: (3, 5, 10, 15) matches"
+> - config/settings.yaml: `xg_windows: [3, 5, 10, 15]`, `form_windows: [3, 5, 10, 15]`
+> - CURRENT_STATE.md: both window lists updated
+> - PLAN.md: archived original DuckDB design section with migration note
+>
+> **F4 — compute_elo() extracted → scripts/eval/elo.py.**
+> 14 new unit tests in `tests/test_elo.py` (update direction, season regression, MoV
+> multiplier, home advantage, expected probability). eval_baseline.py imports `compute_elo`
+> from the module; inline definition removed. Smoke-test PASS.
+>
+> **F4 — add_rolling_features() extracted → scripts/eval/feature_builders.py (MAJOR).**
+> 176 inline lines removed from eval_baseline.py. Function refactored to accept explicit
+> parameters (`xg_windows`, `form_windows`, `games_14d_days`, `xpass_by_game`, `has_ppda`,
+> `has_poss`, `has_sp_xg`) instead of script-level globals. eval_baseline.py passes those
+> explicitly. 34 new unit tests in `tests/test_feature_builders.py` covering output schema,
+> walk-forward leakage safety, window correctness, congestion. Smoke-test PASS (0.6354).
+>
+> **F9 — H2H draw rate (section 5o) — INVESTIGATED, DROP.**
+> `add_h2h_draw_features()` added to feature_builders (also section 5o in eval_baseline):
+> prior-meeting draw fraction for each team pair (min 3 meetings, direction-agnostic,
+> walk-forward safe). AB result: `+H2HDrawRate` Δ=-0.0027 → DROP. Draw class remains at
+> 0.1940 Brier. **F9 is now CLOSED**: referee draw signal (gated on calibration), vector
+> calibration (gated on 2024), H2H draw rate (DROP) — no free-source draw signal found
+> that clears the promotion gate. The draw class weakness is structural.
+>
+> **Summary of scripts/eval/ package after this session:**
+> - `dixon_coles.py` — DC engine (extracted earlier)
+> - `calibration.py` — calibration + cal-error metrics (extracted earlier)
+> - `elo.py` — ELO model (NEW)
+> - `feature_registry.py` — pure constants + helpers (extracted earlier)
+> - `feature_builders.py` — add_rolling_features + add_h2h_draw_features (NEW)
+> Total non-DB tests: 98 pass.
+>
+> **Remaining review items:**
+> - Legacy model deletion (F1): stacking_ensemble.py, gradient_boost.py,
+>   models/dixon_coles.py carry banners; deletion deferred to Pi E2E validation.
+> - F4 section 5a–5n builders: inline but rely on live ASA fetches; lower priority now
+>   that the two largest functions (ELO, rolling) are extracted and tested.
+> - Phase 5 (better data sources): not started; long-horizon exploratory.
 
 > **Phase 4d (2026-06-06) — 2024 distribution-shift diagnosis + calibration unification**
 > Built `scripts/diagnose_2024.py`; full writeup in `docs/2024-diagnosis.md`.
@@ -544,6 +585,10 @@ python scripts/experiment.py compare
 ---
 
 ## Context
+
+> **NOTE (2026-06-07): The sections below this line are the ORIGINAL DESIGN DOCUMENT**
+> **(DuckDB era). The production stack migrated to PostgreSQL; daily_update.py and**
+> **db_utils.py use Postgres exclusively. DuckDB references below are historical only.**
 
 Build a production-grade MLS score prediction and betting-market tracking system from scratch. The system must predict Win/Draw/Loss and Over/Under outcomes for all MLS regular season and playoff matches using an ensemble of statistical and ML models, compare model probabilities to Pinnacle odds for edge detection, and present all of this through a Streamlit dashboard with live news integration. Everything runs on a Raspberry Pi (DuckDB storage + daily cron + Streamlit), exposed publicly via a free Cloudflare Tunnel.
 

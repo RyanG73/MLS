@@ -9,13 +9,13 @@ reused. Extraction is behavior-preserving — verified by `eval_baseline.py
 Modules:
   dixon_coles      — Dixon-Coles Poisson goal model (fit + predict, pure functions)
   calibration      — probability calibration + calibration-error metrics
-  feature_registry — pure constants and helper functions used by the feature
-                     building pipeline (FIFA breaks, Pythagorean, haversine,
-                     TZ shift, z-score helpers, position predicates)
+  elo              — ELO rating model (walk-forward, margin-of-victory, regression)
+  feature_registry — pure constants and helpers (FIFA breaks, Pythagorean,
+                     haversine, TZ shift, z-score, position predicates)
+  feature_builders — rolling feature computation (add_rolling_features,
+                     add_h2h_draw_features) with explicit parameter signatures
 
-The large feature-building section of eval_baseline.py is intentionally NOT
-fully extracted yet: it is tightly coupled to a module-level `df` and live ASA
-fetches, and splitting it is the high-risk part to be done incrementally.
-Pure helpers have been extracted; add_rolling_features and section 5* builders
-remain inline pending more test coverage.
+The section 5a–5n builders in eval_baseline.py that depend on live ASA fetches
+or complex multi-season lookups remain inline; these are extracted incrementally
+as test coverage grows.
 """

@@ -24,7 +24,7 @@ definitions, data sources, and run commands. Update it when any of these change.
 - 2025 in-progress: used for training only, never in test window
 - ELO: K=25, HOME_ADV=80, REGRESS=50%
 - DC decay: 120-day half-life
-- XGB feature windows: xG over 5 and 15 matches
+- XGB feature windows: xG and form over (3, 5, 10, 15) matches (all four; eval harness default)
 - Edge threshold: 8% before live betting
 
 **Validated metrics (2026-06-06, seed=42):**
@@ -98,7 +98,8 @@ Validated values that must match CLAUDE.md:
 | `elo.home_advantage_elo` | 80 | Grid winner 2026 |
 | `elo.season_regression_pct` | 0.50 | Validated 2026-05-30 |
 | `dixon_coles.time_decay_half_life_days` | 120 | Grid winner 2026 |
-| `features.xg_windows` | [5, 15] | Validated 2026 (CLAUDE.md) |
+| `features.xg_windows` | [3, 5, 10, 15] | All four in champion feat_base (parity_frame.meta.json) |
+| `features.form_windows` | [3, 5, 10, 15] | All four in champion feat_base |
 | `market.default_edge_threshold_pct` | 8.0 | CLAUDE.md: 8% before live betting |
 
 ---
