@@ -34,6 +34,19 @@
 > land the Brier gain without the calibration cost. Runbook: docs/PI_VALIDATION.md;
 > `make validate` is the DB-free CI gate. (f1c6490)
 >
+> **Brier-hunt conclusion (referee).** Follow-up `ref_hw_rate`-only challenger:
+> avg 0.634537 (gain +0.0001, FAILS core_metric), 2024 0.63812 (Δ+0.0028, FAILS
+> robustness), cal 0.0454. So the Brier value lives in **`ref_draw_rate`** (the
+> draw signal, F9) — but that is precisely what regresses calibration; the two are
+> coupled and inseparable via feature pruning. Per-class/vector calibration (the
+> natural fix for a draw-distribution shift) was already tested → DROP (regressed
+> 2024). **Net: referee is a genuine Brier signal that is correctly GATED OUT of
+> production today** — it needs a calibration method that absorbs the draw shift
+> without the vector-cal 2024 penalty (open research item). The signal stays
+> available as the eval_baseline `+Referee` AB set + in `+All`; NOT promoted to
+> the champion. The headline harness number (0.6327 in champion-config eval) is a
+> harness-only figure; the production-faithful number is the gated 0.63397.
+>
 > **8-hour phase loop (2026-06-07) — review findings F1–F9 + Brier hunt**
 > Continuous mode, one phase per checkpoint, full eval runs in-repo (live ASA).
 >
