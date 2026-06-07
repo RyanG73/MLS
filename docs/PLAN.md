@@ -1,5 +1,33 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **8-hour phase loop (2026-06-07) — review findings F1–F9 + Brier hunt**
+> Continuous mode, one phase per checkpoint, full eval runs in-repo (live ASA).
+>
+> **Phase A (F5 data-quality wiring) — COMPLETE.** `daily_update.py` step 9b
+> `_data_quality_report()` logs source fetch health + odds 1X2 coverage (WARNING on
+> missing-draw, never infer draw_prob=0) + feature null rates. `source_health.py`
+> gains `coverage_gate_status()` for the Phase E promotion gate. (commit df6e299)
+>
+> **Phase B (F7 lockfile/deps) — COMPLETE.** `requirements.txt` upper-bound caps on
+> every dep (stops silent major-version drift); `make lock`/`make smoke-test`;
+> CURRENT_STATE.md documents Python-3.11 pin + target-side lockfile generation. (a20d076)
+>
+> **Phase C (referee signal / Brier hunt) — COMPLETE, FIRST BRIER WIN SINCE PLATEAU.**
+> `+Referee` (section 5m, season-lagged referee home-win + draw rate from games_raw,
+> 86% coverage, zero new API calls) validated as a robust KEEP across two configs:
+>   | config | +Referee Δ vs Base | ens avg | 2022 | 2023 | 2024 |
+>   |--------|-------------------|---------|------|------|------|
+>   | default (xg 3,5,10,15) | **+0.0010** | 0.6340 | 0.6286 | 0.6376 | 0.6357 |
+>   | champion (xg 5,15; form 5,10) | **+0.0022** | **0.6327** | 0.6259 | 0.6349 | 0.6374 |
+> BestAB=+Referee on ALL three seasons in both runs → improves 2024 vs Base (does not
+> regress the hard season). `ref_draw_rate` ranks top-20 XGB importance (2.8%) — the
+> **first independent draw signal**, also addressing **F9**. Draw Brier 0.1943→0.1936.
+> The 2026-05-31 "referee BLOCKED" note referred to the empty DB `matches.referee_id`;
+> the ASA `get_games()` API returns a referee column in the raw frame — gap now closed.
+> **Production promotion (port to `models/research_model.py` + parity frame + promotion
+> gate) is the Pi step** — eval_baseline↔research_model parity gap (~0.002) means the
+> gate-quality 2024 number must come from research_model, not the harness. (commits 38d1560, d8bc06f)
+>
 > **Phase 5 free-source work + leakage tests (2026-06-07)**
 >
 > **F6/F7 — Security + dependency hygiene (COMPLETE)**
