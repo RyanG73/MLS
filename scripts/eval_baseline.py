@@ -31,6 +31,8 @@ Phase 12 changes (minutes-weighted roster quality):
          New A/B group: +PosGA  (combined: +RosterAll)
   - [5l] FBref progressive actions + pressing via soccerdata (optional).
          Requires pip install soccerdata.  New A/B group: +FBref
+  - [5m] Referee bias features: season-lagged per-referee home-win and draw rate.
+         Derived from games_raw (no new API call). New A/B group: +Referee
 """
 
 import math
@@ -1955,6 +1957,72 @@ _FEAT_FBREF = list(dict.fromkeys(
 ))
 
 
+# ─── 5m. Referee bias features ───────────────────────────────────────────────
+# Season-lagged per-referee home-win rate and draw rate derived from games_raw.
+# Captures systematic officiating bias without leaking future match outcomes:
+# each match uses only the referee's prior-season stats (season − 1).
+# Requires a 'referee' (or 'referee_id') column in games_raw; gracefully skipped.
+
+print("\n[5m/9] Computing referee bias features from games_raw...")
+
+_FEAT_REFEREE: list[str] = []
+
+_ref_col = next((c for c in ["referee", "referee_id", "official"] if c in _avail), None)
+
+if _ref_col:
+    _ref_raw = games_raw[
+        [_ref_col, "game_id", "season_name", "home_score", "away_score"]
+    ].copy()
+    _ref_raw.columns = ["referee", "match_id", "season", "home_goals", "away_goals"]
+    _ref_raw["season"] = _ref_raw["season"].astype(int)
+    _ref_raw["home_goals"] = pd.to_numeric(_ref_raw["home_goals"], errors="coerce")
+    _ref_raw["away_goals"] = pd.to_numeric(_ref_raw["away_goals"], errors="coerce")
+    _ref_raw = _ref_raw.dropna(subset=["home_goals", "away_goals"])
+    _ref_raw["home_win"] = (_ref_raw["home_goals"] > _ref_raw["away_goals"]).astype(float)
+    _ref_raw["is_draw"]  = (_ref_raw["home_goals"] == _ref_raw["away_goals"]).astype(float)
+
+    # Per-referee per-season stats (prior season only — no leakage)
+    _ref_season = (
+        _ref_raw.groupby(["referee", "season"])
+        .agg(ref_hw_rate=("home_win", "mean"), ref_draw_rate=("is_draw", "mean"),
+             ref_n=("home_win", "count"))
+        .reset_index()
+    )
+    _ref_season = _ref_season[_ref_season["ref_n"] >= 5]   # min games for stability
+    # Build lookup: (referee, season) → stats from season−1
+    _ref_lookup: dict[tuple, tuple] = {}
+    for _, _rr in _ref_season.iterrows():
+        _ref_lookup[(_rr["referee"], int(_rr["season"]) + 1)] = (
+            float(_rr["ref_hw_rate"]), float(_rr["ref_draw_rate"])
+        )
+
+    # League-wide fallback rates (across all seasons)
+    _ref_fallback_hw   = float(_ref_raw["home_win"].mean())
+    _ref_fallback_draw = float(_ref_raw["is_draw"].mean())
+
+    # Merge referee column back into df (games_raw.game_id aligns with df.match_id)
+    _ref_id_map = games_raw.set_index("game_id")[_ref_col].to_dict()
+    df["_referee"] = df["match_id"].map(_ref_id_map)
+
+    def _ref_hw(row):
+        return _ref_lookup.get((row["_referee"], row["season"]),
+                               (_ref_fallback_hw, _ref_fallback_draw))[0]
+
+    def _ref_draw(row):
+        return _ref_lookup.get((row["_referee"], row["season"]),
+                               (_ref_fallback_hw, _ref_fallback_draw))[1]
+
+    df["ref_hw_rate"]   = [_ref_hw(r)   for _, r in df.iterrows()]
+    df["ref_draw_rate"] = [_ref_draw(r) for _, r in df.iterrows()]
+    df.drop(columns=["_referee"], inplace=True)
+
+    _cov_pct = (df["ref_hw_rate"] != _ref_fallback_hw).mean()
+    print(f"    Referee coverage: {_cov_pct:.1%} of matches have prior-season ref stats")
+    _FEAT_REFEREE = ["ref_hw_rate", "ref_draw_rate"]
+else:
+    print("    No referee column in games_raw — skipping referee features.")
+
+
 # _FEAT_AVAIL (ESPN roster availability) promoted to Base 2026-05-31 — KEEP Δ=+0.0011
 # with full 2017-2024 roster history. Empty list (graceful) when rosters absent.
 _FEAT_BASE = _BASE_ELO + _BASE_XG + _BASE_FORM + _BASE_GK + ["is_playoff"] + _FEAT_AVAIL
@@ -2029,6 +2097,9 @@ _TM_DP = (["home_dp_share", "away_dp_share", "dp_share_diff"]
 # FBref progressive actions + pressing (section 5l) — populated only if soccerdata installed
 # _FEAT_FBREF defined above in section 5l
 
+# Referee bias (section 5m) — populated only if referee column present in games_raw
+# _FEAT_REFEREE defined above in section 5m
+
 # +All combines everything available (form_10 already in Base)
 _ALL_EXTRA = (
     _GK_FEATS
@@ -2049,6 +2120,7 @@ _ALL_EXTRA = (
     + _FEAT_ROSTER_XPA
     + _FEAT_POS_GA
     + _FEAT_FBREF
+    + _FEAT_REFEREE
     # +VenueGoalDiff and +VenueForm NOT added here: kept as standalone AB sets only.
     # Adding to _ALL_EXTRA caused +All to change and regressed 2024 by 0.0005.
     # _WEATHER_FEATS NOT added here either: kept as a standalone +Weather AB set so
@@ -2115,6 +2187,9 @@ if _FEAT_ROSTER_XPA and _FEAT_POS_GA:
 # FBref features (section 5l) — only present if soccerdata installed + data retrieved
 if _FEAT_FBREF:
     AB_SETS["+FBref"]       = _FEAT_BASE + _FEAT_FBREF
+# Referee bias (section 5m) — only present if referee column in games_raw
+if _FEAT_REFEREE:
+    AB_SETS["+Referee"]     = _FEAT_BASE + _FEAT_REFEREE
 AB_SETS["+All"]        = _FEAT_ALL
 # Venue-split form: home team's last-N home record; away team's last-N away record
 AB_SETS["+VenueForm"]    = _FEAT_BASE + _FEAT_VENUE_FORM
