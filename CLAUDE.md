@@ -20,7 +20,7 @@ All development goes on `claude/mls-prediction-dashboard-C2mQM`. Never push to m
 - 2025 in-progress data: used for training, never in eval test window
 - Test seasons: 2022–2024 walk-forward (2022 skips due to COVID cal fold)
 - Calibration: temperature scaling (single T parameter, minimise NLL on cal fold)
-- ELO: K=25, HOME_ADV=80, REGRESS=50% (empirically confirmed 2026-05-30: 0.40 regresses 2024; prior "40%" was wrong)
+- ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07: whl=6 + regress=0.40 synergistic; avg Brier 0.6337, cal_err 0.0195; prior "50% wins" was measured at whl=4)
 - DC time-decay: 120-day half-life
 - xG windows: (3, 5, 10, 15) matches — eval harness default; champion feat_base includes all four
 - Edge threshold: 8% before live betting

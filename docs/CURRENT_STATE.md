@@ -1,6 +1,6 @@
 # MLS Prediction System — Current State
 
-Last updated: 2026-06-06
+Last updated: 2026-06-07
 
 This document is the single source of truth for the canonical model, metric
 definitions, data sources, and run commands. Update it when any of these change.
@@ -22,22 +22,23 @@ definitions, data sources, and run commands. Update it when any of these change.
 - Train data: 2017+, 2020 and 2021 excluded (COVID)
 - Test seasons: 2022–2024 (2022 skips COVID cal fold)
 - 2025 in-progress: used for training only, never in test window
-- ELO: K=25, HOME_ADV=80, REGRESS=50%
+- ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07; synergistic with whl=6)
 - DC decay: 120-day half-life
 - XGB feature windows: xG and form over (3, 5, 10, 15) matches (all four; eval harness default)
 - Edge threshold: 8% before live betting
 
-**Validated metrics (2026-06-06, seed=42):**
+**Validated metrics (2026-06-07, seed=42, regress=0.40):**
 
 | Season | Brier (sum-form) |
 |--------|-----------------|
-| 2022   | 0.6317          |
-| 2023   | 0.6369          |
-| 2024   | 0.6354          |
-| **Avg**| **0.6347**      |
+| 2022   | 0.6305          |
+| 2023   | 0.6359          |
+| 2024   | 0.6346          |
+| **Avg**| **0.6337**      |
 
-Cal error (blend output): 0.1490
+Cal error (model_report, post-2nd-pass): 0.0195
 
+Previous champion (regress=0.50): avg 0.6347, cal_err 0.0306.
 Previous baseline before calibration fix: avg 0.6381, cal_err 0.1567.
 
 ---

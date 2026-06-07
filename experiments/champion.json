@@ -1,6 +1,6 @@
 {
   "report": "experiments/champion.report.json",
-  "run_id": "champion-6824be37-20260606T204937",
-  "avg_brier": 0.63465,
-  "promoted_at": "2026-06-06T20:49:37Z"
+  "run_id": "challenger-regress-0.40-4aa51334-20260607T171337",
+  "avg_brier": 0.63369,
+  "promoted_at": "2026-06-07T17:13:37Z"
 }

@@ -206,4 +206,6 @@ Champion baseline confirmed: whl=6, regress=0.50, seed=42 → avg=0.63467 (2022=
 **Cal_err caveat:** The harness reports stacked max-decile cal_err values (0.14–0.16 range) that differ from the production gate metric (0.0306). These are not directly comparable. The regress=0.40 stacked cal_err (0.1596) is slightly worse than champion (0.1490), while regress=0.30 (0.1465) is better. The production cal_err gate cannot be confirmed from this harness alone.
 
 **Best config from sweep:** regress=0.40, whl=6 → avg=0.63367, Δ=−0.00100, 2024=0.6346
-**Verdict:** CONDITIONAL KEEP pending production cal_err validation. Passes both Brier gates; cal_err gate indeterminate from this harness.
+**Verdict:** PROMOTED ✓ — Production validation via model_report.py confirmed:
+  avg_brier=0.6337, cal_err=0.0195 (was 0.0306), 2024=0.6346
+  All 6 promotion_gate criteria PASS. Champion pointer updated. CLAUDE.md REGRESS=40%.

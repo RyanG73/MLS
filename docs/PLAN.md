@@ -245,12 +245,23 @@
 >   architecture rationale, 9 key design decisions, failed feature log with root causes,
 >   2024 HFA regime shift explanation, open questions, known limitations, next steps.
 >
+> **REGRESS=0.40 PROMOTED to champion (2026-06-07)**
+> Hyperparameter sweep found that `regress=0.40` with `whl=6` (current default) produces
+> a genuine improvement over `regress=0.50`, contradicting the 2026-05-30 finding (which
+> used whl=4). Interaction: longer season-weight memory + lower ELO regression is synergistic.
+> Harness: avg_brier=0.63367 (Δ=-0.00100 vs champion), 2024=0.6346 (PASS), all three
+> test seasons improve. Production validation via `model_report.py`:
+>   - avg_brier: **0.6337** (Δ=-0.00095 vs prior champion 0.63465)
+>   - cal_err: **0.0195** (was 0.0306 — dramatic improvement, well under gate 0.0356)
+>   - 2024: **0.6346** (PASS, tol 0.0005)
+> Gate: all 6 criteria PASS → `promotion_gate.py promote` run, champion pointer updated.
+> Parity frame rebuilt with regress=0.40 ELO features. CLAUDE.md updated: REGRESS=40%.
+>
 > **Remaining review items:**
 > - Legacy model deletion (F1): stacking_ensemble.py, gradient_boost.py,
 >   models/dixon_coles.py carry banners; deletion deferred to Pi E2E validation.
 > - F4 section 5a–5n builders: inline but rely on live ASA fetches; lower priority now
 >   that the two largest functions (ELO, rolling) are extracted and tested.
-> - Hyperparameter sweep (HOME_ADV × WEIGHT_HL × REGRESS): not yet run; next Brier-hunt step.
 > - Phase 5 (better data sources): not started; long-horizon exploratory.
 
 > **Phase 4d (2026-06-06) — 2024 distribution-shift diagnosis + calibration unification**
