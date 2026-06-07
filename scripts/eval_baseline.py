@@ -2245,261 +2245,35 @@ if _ARGS.ab_only:
     print(f"    (--ab-only filter: {list(AB_SETS.keys())})")
 
 # ─── Dixon-Coles ──────────────────────────────────────────────────────────────
-
-
-def dc_tau(x, y, lam, mu, rho):
-    if x == 0 and y == 0: return 1 - lam * mu * rho
-    if x == 0 and y == 1: return 1 + lam * rho
-    if x == 1 and y == 0: return 1 + mu * rho
-    if x == 1 and y == 1: return 1 - rho
-    return 1.0
-
-
-def dc_nll(params, teams, arr, decay_hl):
-    n = len(teams)
-    atk, dfd = params[:n], params[n:2*n]
-    ha, rho = params[2*n], params[2*n + 1]
-    lam_d = math.log(2) / decay_hl
-    ll = 0.0
-    for row in arr:
-        days_ago = int(row[0])
-        hi, ai, hg, ag = int(row[1]), int(row[2]), int(row[3]), int(row[4])
-        w = math.exp(-lam_d * days_ago)
-        lam = math.exp(atk[hi] + dfd[ai] + ha)
-        mu  = math.exp(atk[ai] + dfd[hi])
-        tau = dc_tau(hg, ag, lam, mu, rho)
-        if tau <= 1e-10:
-            continue
-        ll += w * (math.log(tau) + poisson.logpmf(hg, lam) + poisson.logpmf(ag, mu))
-    return -ll
-
-
-def fit_dc(matches: pd.DataFrame, decay_hl: int = DC_DECAY_HL, recent_seasons: int = 4):
-    max_s = matches["season"].max()
-    recent = matches[matches["season"] >= max_s - recent_seasons + 1].copy()
-    teams = sorted(set(recent["home_team"]) | set(recent["away_team"]))
-    tidx = {t: i for i, t in enumerate(teams)}
-    n = len(teams)
-    ref = recent["date"].max()
-    arr = np.array([
-        [(ref - r["date"]).days, tidx.get(r["home_team"], 0),
-         tidx.get(r["away_team"], 0), r["home_goals"], r["away_goals"]]
-        for _, r in recent.iterrows()
-    ], dtype=float)
-    x0 = np.zeros(2 * n + 2)
-    x0[2*n], x0[2*n+1] = 0.25, -0.05
-    bounds = [(-3, 3)] * (2*n) + [(0.0, 1.0)] + [(-0.5, 0.0)]
-    res = minimize(dc_nll, x0, args=(teams, arr, decay_hl),
-                   method="L-BFGS-B", bounds=bounds,
-                   options={"maxiter": 300, "ftol": 1e-7})
-    atk = dict(zip(teams, res.x[:n]))
-    dfd = dict(zip(teams, res.x[n:2*n]))
-    return atk, dfd, res.x[2*n], res.x[2*n+1]
-
-
-def dc_predict(ht, at, atk, dfd, ha, rho, max_g=8):
-    lam = math.exp(atk.get(ht, 0) + dfd.get(at, 0) + ha)
-    mu  = math.exp(atk.get(at, 0) + dfd.get(ht, 0))
-    M = np.zeros((max_g + 1, max_g + 1))
-    for i in range(max_g + 1):
-        for j in range(max_g + 1):
-            tau = dc_tau(i, j, lam, mu, rho)
-            M[i, j] = max(tau, 1e-10) * poisson.pmf(i, lam) * poisson.pmf(j, mu)
-    M = np.clip(M, 1e-15, None)
-    M /= M.sum()
-    ph = float(np.tril(M, -1).sum())
-    pd_ = float(np.diag(M).sum())
-    pa = float(np.triu(M, 1).sum())
-    t = ph + pd_ + pa
-    return ph / t, pd_ / t, pa / t
-
-
-def dc_predict_batch(split_df, atk, dfd, ha, rho):
-    return np.array([dc_predict(r.home_team, r.away_team, atk, dfd, ha, rho)
-                     for _, r in split_df.iterrows()])
-
-
-def dc_lam_mu_batch(split_df, atk, dfd, ha):
-    lams, mus = [], []
-    for _, r in split_df.iterrows():
-        lam = math.exp(atk.get(r["home_team"], 0) + dfd.get(r["away_team"], 0) + ha)
-        mu  = math.exp(atk.get(r["away_team"], 0) + dfd.get(r["home_team"], 0))
-        lams.append(lam); mus.append(mu)
-    return np.array(lams), np.array(mus)
+# Engine extracted to scripts/eval/dixon_coles.py (F4 monolith split).
+from scripts.eval.dixon_coles import (        # noqa: E402
+    dc_tau, dc_nll, fit_dc, dc_predict, dc_predict_batch, dc_lam_mu_batch,
+)
 
 
 # ─── Calibration — Temperature scaling ───────────────────────────────────────
+# Engine extracted to scripts/eval/calibration.py (F4 monolith split). The thin
+# wrappers below thread the --calibration method (a module global) into the pure
+# functions, so every existing call site keeps its original signature.
+from scripts.eval.calibration import (        # noqa: E402
+    calibrate_multiclass as _calibrate_multiclass_impl,
+    calibrate_stacked_second_pass as _calibrate_stacked_second_pass_impl,
+    decile_cal_error, multiclass_brier, per_class_brier,
+)
 
 
 def calibrate_multiclass(raw_cal: np.ndarray, y_cal: np.ndarray,
                           raw_test: np.ndarray) -> np.ndarray:
-    """Calibrate multiclass probabilities.  Method selected by --calibration flag.
-
-    For two-stage methods (temp_then_isotonic, temp_then_platt) this function
-    performs only the first-stage temperature scaling; the second pass on the
-    stacked ensemble output is handled separately by _calibrate_stacked_second_pass.
-    """
-    _method = _ARGS.calibration  # "temperature" | "platt" | "isotonic" | "beta"
-                                  # | "temp_then_isotonic" | "temp_then_platt"
-
-    # Two-stage variants use temperature scaling for the per-model first pass
-    if _method in ("temperature", "temp_then_isotonic", "temp_then_platt"):
-        # Original temperature-scaling implementation (default)
-        def _nll(T: float) -> float:
-            log_p = np.log(np.clip(raw_cal, 1e-9, 1.0)) / max(T, 0.1)
-            log_p -= log_p.max(axis=1, keepdims=True)
-            exp_p = np.exp(log_p)
-            probs = exp_p / exp_p.sum(axis=1, keepdims=True)
-            return float(log_loss(y_cal, probs))
-        T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
-        log_p = np.log(np.clip(raw_test, 1e-9, 1.0)) / T
-        log_p -= log_p.max(axis=1, keepdims=True)
-        exp_p = np.exp(log_p)
-        return exp_p / exp_p.sum(axis=1, keepdims=True)
-
-    elif _method == "platt":
-        # Per-class Platt scaling (logistic regression on scalar confidence)
-        # Well-calibrated on ~500 samples; better than isotonic at small cal-fold sizes
-        from sklearn.linear_model import LogisticRegression as _PlattLR
-        out = np.zeros_like(raw_test)
-        for c in range(3):
-            platt = _PlattLR(C=1.0, max_iter=300, solver="lbfgs")
-            platt.fit(raw_cal[:, c].reshape(-1, 1), (y_cal == c).astype(int))
-            out[:, c] = platt.predict_proba(raw_test[:, c].reshape(-1, 1))[:, 1]
-        return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
-
-    elif _method == "isotonic":
-        # Per-class isotonic regression (requires ~1000+ cal samples for stability)
-        from sklearn.isotonic import IsotonicRegression as _IR
-        out = np.zeros_like(raw_test)
-        for c in range(3):
-            ir = _IR(out_of_bounds="clip")
-            ir.fit(raw_cal[:, c], (y_cal == c).astype(float))
-            out[:, c] = ir.predict(raw_test[:, c])
-        return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
-
-    elif _method == "beta":
-        # Beta calibration (Kull et al. 2017); falls back to Platt if betacal absent
-        try:
-            from betacal import BetaCalibration as _BC
-            out = np.zeros_like(raw_test)
-            for c in range(3):
-                bc = _BC(parameters="abm")
-                bc.fit(raw_cal[:, c], (y_cal == c).astype(int))
-                out[:, c] = bc.predict(raw_test[:, c])
-            return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
-        except ImportError:
-            print("    [warn] betacal not installed — falling back to Platt scaling")
-            from sklearn.linear_model import LogisticRegression as _PlattLR2
-            out = np.zeros_like(raw_test)
-            for c in range(3):
-                platt = _PlattLR2(C=1.0, max_iter=300, solver="lbfgs")
-                platt.fit(raw_cal[:, c].reshape(-1, 1), (y_cal == c).astype(int))
-                out[:, c] = platt.predict_proba(raw_test[:, c].reshape(-1, 1))[:, 1]
-            return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
-
-    else:
-        raise ValueError(f"Unknown calibration method: {_method!r}")
+    """Calibrate multiclass probs by the --calibration method (see scripts/eval/calibration.py)."""
+    return _calibrate_multiclass_impl(raw_cal, y_cal, raw_test, method=_ARGS.calibration)
 
 
 def _calibrate_stacked_second_pass(
     stacked_cal: np.ndarray, y_cal: np.ndarray, stacked_te: np.ndarray
 ) -> np.ndarray:
-    """Apply calibration to the final blend output (second pass).
-
-    stacked_cal : shape (n_cal, 3) — blended probs on the cal fold
-    y_cal       : integer labels (0/1/2) on the cal fold
-    stacked_te  : shape (n_te, 3) — blended probs on the test fold
-
-    For the default "temperature" method this IS the primary calibration —
-    temperature is fit on the blend output, not on XGB alone.  This addresses
-    the root cause of the 0.1326 cal_err: the per-model calibration step ensures
-    each component is individually calibrated, but the blend of two calibrated
-    distributions is not itself guaranteed to be calibrated.
-    """
-    _method = _ARGS.calibration
-    if _method in ("temperature", "temp_then_isotonic", "temp_then_platt"):
-        # Temperature scaling on the blend output (fit T on blend cal, apply to blend test)
-        def _nll(T: float) -> float:
-            log_p = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / max(T, 0.1)
-            log_p -= log_p.max(axis=1, keepdims=True)
-            exp_p = np.exp(log_p)
-            probs = exp_p / exp_p.sum(axis=1, keepdims=True)
-            return float(log_loss(y_cal, probs))
-        T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
-        log_p = np.log(np.clip(stacked_te, 1e-9, 1.0)) / T
-        log_p -= log_p.max(axis=1, keepdims=True)
-        exp_p = np.exp(log_p)
-        cal = exp_p / exp_p.sum(axis=1, keepdims=True)
-        if _method == "temperature":
-            return cal
-        stacked_te = cal  # use temperature-scaled output as input for the second pass
-
-    if _method == "temp_then_isotonic":
-        from sklearn.isotonic import IsotonicRegression as _IR2
-        # Recompute stacked_cal in temperature-scaled form for isotonic fitting
-        def _nll_c(T: float) -> float:
-            log_p = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / max(T, 0.1)
-            log_p -= log_p.max(axis=1, keepdims=True)
-            exp_p = np.exp(log_p)
-            probs = exp_p / exp_p.sum(axis=1, keepdims=True)
-            return float(log_loss(y_cal, probs))
-        T_c = minimize_scalar(_nll_c, bounds=(0.3, 5.0), method="bounded").x
-        log_pc = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / T_c
-        log_pc -= log_pc.max(axis=1, keepdims=True)
-        exp_pc = np.exp(log_pc)
-        stacked_cal_t = exp_pc / exp_pc.sum(axis=1, keepdims=True)
-        out = np.zeros_like(stacked_te)
-        for c in range(3):
-            ir = _IR2(out_of_bounds="clip")
-            ir.fit(stacked_cal_t[:, c], (y_cal == c).astype(float))
-            out[:, c] = ir.predict(stacked_te[:, c])
-        return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
-
-    elif _method == "temp_then_platt":
-        from sklearn.linear_model import LogisticRegression as _PlattLR3
-        # stacked_te is already temperature-scaled from the block above
-        def _nll_c2(T: float) -> float:
-            log_p = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / max(T, 0.1)
-            log_p -= log_p.max(axis=1, keepdims=True)
-            exp_p = np.exp(log_p)
-            probs = exp_p / exp_p.sum(axis=1, keepdims=True)
-            return float(log_loss(y_cal, probs))
-        T_c2 = minimize_scalar(_nll_c2, bounds=(0.3, 5.0), method="bounded").x
-        log_pc2 = np.log(np.clip(stacked_cal, 1e-9, 1.0)) / T_c2
-        log_pc2 -= log_pc2.max(axis=1, keepdims=True)
-        exp_pc2 = np.exp(log_pc2)
-        stacked_cal_t2 = exp_pc2 / exp_pc2.sum(axis=1, keepdims=True)
-        out = np.zeros_like(stacked_te)
-        for c in range(3):
-            platt = _PlattLR3(C=1.0, max_iter=300, solver="lbfgs")
-            platt.fit(stacked_cal_t2[:, c].reshape(-1, 1), (y_cal == c).astype(int))
-            out[:, c] = platt.predict_proba(stacked_te[:, c].reshape(-1, 1))[:, 1]
-        return out / out.sum(axis=1, keepdims=True).clip(1e-9, None)
-
-    # Fallback: return unchanged
-    return stacked_te
-
-
-def decile_cal_error(probs: np.ndarray, actuals: np.ndarray) -> tuple:
-    try:
-        dec = pd.qcut(probs, 10, duplicates="drop")
-        cal = (pd.DataFrame({"p": probs, "a": actuals.astype(float), "d": dec})
-               .groupby("d", observed=True)
-               .agg(mp=("p", "mean"), ma=("a", "mean")))
-        errs = (cal["mp"] - cal["ma"]).abs()
-        return float(errs.max()), float(errs.mean())
-    except Exception:
-        return float("nan"), float("nan")
-
-
-def multiclass_brier(y_oh: np.ndarray, probs: np.ndarray) -> float:
-    """Sum-form multiclass Brier (canonical — delegates to models/metrics.py)."""
-    return _brier_sum(probs, y_oh)
-
-
-def per_class_brier(y_oh: np.ndarray, probs: np.ndarray) -> tuple:
-    return _per_class_brier(probs, y_oh)
+    """Second-pass calibration on the blend output (see scripts/eval/calibration.py)."""
+    return _calibrate_stacked_second_pass_impl(
+        stacked_cal, y_cal, stacked_te, method=_ARGS.calibration)
 
 
 # ─── Optional: dump the assembled feature frame and exit (parity harness) ─────
