@@ -47,6 +47,21 @@
 > the champion. The headline harness number (0.6327 in champion-config eval) is a
 > harness-only figure; the production-faithful number is the gated 0.63397.
 >
+> **Calibration deep-dive + referee resolution (2026-06-07) — question CLOSED.**
+> Built `scripts/probe_referee_calibration.py` (runs research_model walk-forward
+> once, caches blends, sweeps 14 calibration variants instantly). Proved a hard
+> **trilemma**: across the full scalar↔vector spectrum (tempbias λ / vshrink λ),
+> every gain in draw-calibration monotonically worsens 2024 — no cal-fold-fit
+> calibration clears gain+2024+cal. Root cause = 2024 HFA regime shift (draw
+> correction fit on 2023 misfires on 2024). Then attacked the root cause at the
+> FEATURE: season-detrended referee (`+RefereeRel`, ref deviation from league
+> prior-season rate). Result via research_model gate: detrended **fixes
+> calibration (0.0394→0.0332 PASS) and 2024 (PASS) but the Brier edge vanishes**
+> (−0.0003 vs champion → REJECT on core_metric). **Definitive finding: the referee
+> edge and its calibration/2024 fragility are the same regime-coupled component;
+> there is no robust, promotable referee Brier win.** Champion stays 0.63465.
+> Detail: docs/calibration-log.md. (commits 7b9c616 + this)
+>
 > **8-hour phase loop (2026-06-07) — review findings F1–F9 + Brier hunt**
 > Continuous mode, one phase per checkpoint, full eval runs in-repo (live ASA).
 >

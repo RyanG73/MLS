@@ -51,10 +51,31 @@ DROP: it is not a tuning problem, it is structural.
      vs an unusually-good champion (0.0306). Widening the relative tol is a
      policy decision for the owner, not a calibration fix — flagged, not taken.
 
-Referee stays an eval_baseline `+Referee` AB set; NOT promoted. Reproduce:
-`python scripts/probe_referee_calibration.py` (cached after first build).
+**RESOLUTION (same day) — the trilemma is dissolved by a regime-robust feature,
+which also dissolves the gain.** Since no post-hoc calibration works, the root
+cause was attacked at the feature: season-detrended referee rates
+(`ref_hw_rate_rel`, `ref_draw_rate_rel` = ref prior-season rate − league
+prior-season rate; eval_baseline `+RefereeRel`). Re-dumped the parity frame and
+gated via research_model:
 
-**experiment_id:** probe-referee-cal-20260607
+| variant | avg (gain vs champ) | 2024 | cal_err | gate verdict |
+|---------|---------------------|------|---------|--------------|
+| raw referee | 0.63397 (+0.00068) | 0.63566 | 0.03945 | REJECT — **calibration** |
+| detrended referee | 0.63499 (−0.00034) | 0.63551 | **0.03320** | REJECT — **core (no gain)** |
+
+Detrending **fixed both calibration (0.0394→0.0332, PASS) and 2024 (PASS)** — but
+the Brier edge vanished (now −0.0003 vs champion). **Conclusion: the referee
+"edge" and its calibration/2024 fragility were the SAME thing** — both lived in
+the regime-sensitive season-draw-rate component. The pure ref-deviation signal is
+calibration-clean but not predictive of individual matches. **There is no robust,
+promotable referee Brier improvement; the question is now definitively closed.**
+Both `+Referee` and `+RefereeRel` remain eval_baseline AB sets (DROP); neither
+promoted. The earlier "first Brier win" (harness 0.6327) was a non-robust artifact.
+
+Reproduce: `python scripts/probe_referee_calibration.py`;
+`python scripts/model_report.py --extra-feats ref_hw_rate_rel,ref_draw_rate_rel ...`
+
+**experiment_id:** probe-referee-cal-20260607, chal-referel-20260607
 
 ---
 

@@ -2014,13 +2014,43 @@ if _ref_col:
 
     df["ref_hw_rate"]   = [_ref_hw(r)   for _, r in df.iterrows()]
     df["ref_draw_rate"] = [_ref_draw(r) for _, r in df.iterrows()]
+
+    # Regime-robust (season-detrended) variants: the referee's deviation from the
+    # LEAGUE rate of the same prior season. The raw rate conflates "this ref is
+    # draw-prone" with "that season had many draws"; the season-level component is
+    # exactly what shifts (2024 HFA collapse) and breaks calibration/2024. The
+    # relative signal is invariant to that regime shift. Fallback (unknown ref) = 0
+    # (no deviation from league). Lookup keyed by season (= prior season + 1).
+    _league_season = (
+        _ref_raw.groupby("season")
+        .agg(lg_hw=("home_win", "mean"), lg_draw=("is_draw", "mean"))
+    )
+    _lg_hw_lag   = {int(s) + 1: float(r.lg_hw)   for s, r in _league_season.iterrows()}
+    _lg_draw_lag = {int(s) + 1: float(r.lg_draw) for s, r in _league_season.iterrows()}
+
+    def _ref_hw_rel(row):
+        if (row["_referee"], row["season"]) not in _ref_lookup:
+            return 0.0
+        return _ref_hw(row) - _lg_hw_lag.get(row["season"], _ref_fallback_hw)
+
+    def _ref_draw_rel(row):
+        if (row["_referee"], row["season"]) not in _ref_lookup:
+            return 0.0
+        return _ref_draw(row) - _lg_draw_lag.get(row["season"], _ref_fallback_draw)
+
+    df["ref_hw_rate_rel"]   = [_ref_hw_rel(r)   for _, r in df.iterrows()]
+    df["ref_draw_rate_rel"] = [_ref_draw_rel(r) for _, r in df.iterrows()]
     df.drop(columns=["_referee"], inplace=True)
 
     _cov_pct = (df["ref_hw_rate"] != _ref_fallback_hw).mean()
     print(f"    Referee coverage: {_cov_pct:.1%} of matches have prior-season ref stats")
+    print(f"    ref_draw_rate_rel: mean={df['ref_draw_rate_rel'].mean():+.4f} "
+          f"std={df['ref_draw_rate_rel'].std():.4f} (detrended; regime-robust)")
     _FEAT_REFEREE = ["ref_hw_rate", "ref_draw_rate"]
+    _FEAT_REFEREE_REL = ["ref_hw_rate_rel", "ref_draw_rate_rel"]
 else:
     print("    No referee column in games_raw — skipping referee features.")
+    _FEAT_REFEREE_REL = []
 
 
 # _FEAT_AVAIL (ESPN roster availability) promoted to Base 2026-05-31 — KEEP Δ=+0.0011
@@ -2190,6 +2220,9 @@ if _FEAT_FBREF:
 # Referee bias (section 5m) — only present if referee column in games_raw
 if _FEAT_REFEREE:
     AB_SETS["+Referee"]     = _FEAT_BASE + _FEAT_REFEREE
+# Regime-robust (season-detrended) referee — deviation from league prior-season rate
+if _FEAT_REFEREE_REL:
+    AB_SETS["+RefereeRel"]  = _FEAT_BASE + _FEAT_REFEREE_REL
 AB_SETS["+All"]        = _FEAT_ALL
 # Venue-split form: home team's last-N home record; away team's last-N away record
 AB_SETS["+VenueForm"]    = _FEAT_BASE + _FEAT_VENUE_FORM
