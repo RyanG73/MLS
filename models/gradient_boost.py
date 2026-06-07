@@ -1,4 +1,9 @@
 """
+[LEGACY — not the canonical model] DEPRECATED (F1, 2026-06-07): the canonical
+model is models/research_model.py. Retained for legacy component predictions
+only; removal deferred until the daily_update path is migrated + validated on
+the Pi. See docs/CURRENT_STATE.md.
+
 Gradient boosting models for MLS match prediction.
 - XGBoost multiclass for 1X2 (home win / draw / away win)
 - LightGBM binary for Over/Under 2.5 goals

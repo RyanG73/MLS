@@ -1,4 +1,10 @@
 """
+[LEGACY — not the canonical model] DEPRECATED (F1, 2026-06-07): the canonical
+DC lives in models/research_model.py (production) and scripts/eval/dixon_coles.py
+(research harness). This wrapper is retained for legacy component predictions in
+daily_update.py only; removal deferred until that path is migrated + validated on
+the Pi. See docs/CURRENT_STATE.md.
+
 Dixon-Coles Poisson model for MLS match outcome prediction.
 
 Key features:

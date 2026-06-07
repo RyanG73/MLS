@@ -46,6 +46,19 @@ def _git_sha() -> str:
         return "unknown"
 
 
+def _source_health_snapshot() -> dict:
+    """Best-effort per-source coverage gate status (Phase A → promotion gate).
+
+    Returns {source: {parsed, floor, ok, success, error}} when the source_runs
+    table is reachable; {} otherwise (no DB at report time → gate skips the check).
+    """
+    try:
+        from data_pipeline.source_health import coverage_gate_status
+        return coverage_gate_status()
+    except Exception:
+        return {}
+
+
 def _load_frame(frame_arg: str):
     frame = Path(frame_arg)
     meta_path = frame.with_suffix(".meta.json")
@@ -198,6 +211,7 @@ def main() -> int:
         "per_season": per_season,
         "coverage_by_season": coverage,
         "slices": slices,
+        "source_health": _source_health_snapshot(),
         "market_slices": "deferred (no odds in frame; run against odds DB for edge/CLV slices)",
     }
 

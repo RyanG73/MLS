@@ -122,6 +122,23 @@ def evaluate_gate(champion: dict | None, challenger: dict) -> tuple[bool, list]:
     checks.append(("slices", slice_ok,
                    "ok" if slice_ok else "regressed: " + ", ".join(slice_detail)))
 
+    # ── data-source health (Phase A → gate; review's "coverage not worse") ────
+    # Challenger report may embed a source_health snapshot from
+    # data_pipeline.source_health.coverage_gate_status(). If present, every
+    # source must be ok=True. Absent/empty (e.g. no DB at report time) → skip.
+    sh = challenger.get("source_health")
+    if sh:
+        bad = [f"{name}({d.get('parsed')}/{d.get('floor')}"
+               + (f", err={d.get('error')}" if d.get("error") else "") + ")"
+               for name, d in sh.items() if not d.get("ok", True)]
+        sh_ok = not bad
+        checks.append(("data_source_health", sh_ok,
+                       "ok (" + ", ".join(sh) + ")" if sh_ok
+                       else "degraded: " + ", ".join(bad)))
+    else:
+        checks.append(("data_source_health", True,
+                       "no source_health snapshot in report — skipped"))
+
     # ── core metric (improvement) ────────────────────────────────────────────
     champ_b = champion.get("avg_brier")
     chal_b = challenger.get("avg_brier")
@@ -240,14 +257,30 @@ def cmd_self_test(args) -> int:
     if not p:
         failures.append("bootstrap (no champion) was REJECTED (should pass)")
 
+    # Case 6: degraded data source → should FAIL data_source_health
+    badsrc = copy.deepcopy(base); badsrc["run_id"] = "synthetic-badsrc"
+    badsrc["avg_brier"] = 0.6320
+    badsrc["per_season"] = {"2022": 0.6300, "2023": 0.6350, "2024": 0.6310}
+    for s, b in badsrc["per_season"].items():
+        badsrc["slices"]["by_season"][s]["brier_sum"] = b
+    badsrc["source_health"] = {  # ASA feed silently shrank below its floor
+        "asa": {"parsed": 12, "floor": 200, "ok": False, "success": True, "error": None},
+    }
+    p, checks = evaluate_gate(base, badsrc)
+    if p:
+        failures.append("degraded-source challenger was PROMOTED (should fail data_source_health)")
+    if not any(name == "data_source_health" and not ok for name, ok, _ in checks):
+        failures.append("data_source_health check did not fire on a degraded feed")
+
     print("\n=== promotion_gate self-test ===")
     if failures:
         for f in failures:
             print(f"  FAIL: {f}")
         print(f"\n{len(failures)} self-test failure(s).")
         return 1
-    print("  All 5 cases passed: identical→reject, 2024-regress→reject, "
-          "cal-blowup→reject, improvement→promote, bootstrap→promote.")
+    print("  All 6 cases passed: identical→reject, 2024-regress→reject, "
+          "cal-blowup→reject, improvement→promote, bootstrap→promote, "
+          "degraded-source→reject.")
     return 0
 
 

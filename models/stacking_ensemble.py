@@ -1,5 +1,13 @@
 """
-Stacking ensemble meta-learner.
+[LEGACY — not the canonical model] Stacking ensemble meta-learner.
+
+DEPRECATED (F1, 2026-06-07): the canonical model is models/research_model.py
+(DC + XGB + temperature + capped blend), which drives BOTH the operational
+Postgres predictions (daily_update.py step 10) and the public dashboard. This
+StackingEnsemble is retained only for legacy component predictions / model-version
+snapshots; it is NOT the source of the 'ensemble' prediction. Do not extend it.
+Removal is deferred until the daily_update component path is migrated + validated
+on the Pi. See docs/CURRENT_STATE.md.
 
 Level 0: Dixon-Coles, XGBoost/LightGBM, Bayesian model probabilities
 Level 1: Isotonic-calibrated logistic regression trained on OOF predictions
