@@ -161,11 +161,21 @@ def main() -> int:
     ap.add_argument("--label", default="run", help="champion / challenger / run label")
     ap.add_argument("--test-seasons", default=None,
                     help="Comma-separated override; default = meta test_seasons")
+    ap.add_argument("--extra-feats", default=None,
+                    help="Comma-separated feature columns to append to meta feat_base "
+                         "(e.g. ref_hw_rate,ref_draw_rate) — for challenger A/B reports")
     args = ap.parse_args()
 
     df, meta, snapshot_hash = _load_frame(args.frame)
     df["date"] = pd.to_datetime(df["date"])
-    feat_base = meta["feat_base"]
+    feat_base = list(meta["feat_base"])
+    if args.extra_feats:
+        for _c in [c.strip() for c in args.extra_feats.split(",") if c.strip()]:
+            if _c not in df.columns:
+                raise SystemExit(f"[report] --extra-feats column not in frame: {_c}")
+            if _c not in feat_base:
+                feat_base.append(_c)
+        print(f"[report] feat_base extended with: {args.extra_feats}")
     if args.test_seasons:
         test_seasons = [int(s) for s in args.test_seasons.split(",")]
     else:
