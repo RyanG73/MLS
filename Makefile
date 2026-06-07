@@ -3,7 +3,7 @@ VENV   := venv
 PY     := $(if $(wildcard $(VENV)/bin/python),$(VENV)/bin/python,$(PYTHON))
 
 .PHONY: test parity-check daily-update build-dashboard-data backfill performance-report \
-        model-report gate-self-test diagnose-2024 help
+        model-report gate-self-test diagnose-2024 lock smoke-test help
 
 help:
 	@echo "MLS prediction system targets:"
@@ -16,10 +16,20 @@ help:
 	@echo "  make model-report         Standardized canonical-model report (metrics + slices)"
 	@echo "  make gate-self-test       Verify the promotion gate rejects worse challengers"
 	@echo "  make diagnose-2024        Run the 2024 distribution-shift diagnosis"
+	@echo "  make lock                 Freeze exact deps to requirements.lock (run on deploy target)"
+	@echo "  make smoke-test           Eval 2024-only; assert Brier within 0.001 of pinned reference"
 
 test:
 	$(PY) -m pytest tests/ -v
 	$(PY) scripts/promotion_gate.py self-test
+
+lock:
+	@echo "Freezing exact dependency versions to requirements.lock ..."
+	$(PY) -m pip freeze > requirements.lock
+	@echo "Wrote requirements.lock (regenerate whenever requirements.txt changes)."
+
+smoke-test:
+	$(PY) scripts/eval_baseline.py --smoke-test
 
 parity-check:
 	$(PY) scripts/parity_check.py

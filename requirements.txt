@@ -1,43 +1,61 @@
-# Core data
-itscalledsoccer>=0.2.0
-psycopg2-binary>=2.9.9
-pandas>=2.0.0
-numpy>=1.26.0
-scipy>=1.12.0
+# MLS Dashboard — dependency spec (F7)
+#
+# Lower bounds = minimum tested version. Upper bounds = next major, to stop a
+# silent breaking upgrade (the review's F7 risk). This file is the human-readable
+# SPEC; the exact-pin LOCKFILE (requirements.lock) is environment-specific and
+# must be generated ON the deploy target — see `make lock` / the note at bottom.
+#
+# Python: 3.11 (see .python-version)
 
-# Machine Learning
-xgboost>=2.0.0
-lightgbm>=4.3.0
-scikit-learn>=1.4.0
-optuna>=3.6.0
-shap>=0.45.0
+# ── Core data ────────────────────────────────────────────────────────────────
+itscalledsoccer>=0.2.0,<2.0.0
+psycopg2-binary>=2.9.9,<3.0.0
+pandas>=2.0.0,<3.1.0
+numpy>=1.26.0,<3.0.0
+scipy>=1.12.0,<2.0.0
 
-# R integration (optional — only needed when bayesian.enabled: true in settings.yaml)
-# rpy2>=3.5.0
+# ── Machine Learning ─────────────────────────────────────────────────────────
+xgboost>=2.0.0,<4.0.0
+lightgbm>=4.3.0,<5.0.0
+scikit-learn>=1.4.0,<2.0.0
+optuna>=3.6.0,<5.0.0
+shap>=0.45.0,<0.50.0
 
-# Market / statistics
-pyaml>=23.12.0
-penaltyblog>=1.6.2
+# ── R integration (optional — only when bayesian.enabled: true) ───────────────
+# rpy2>=3.5.0,<4.0.0
 
-# Dashboard
-streamlit>=1.35.0
-plotly>=5.20.0
+# ── Market / statistics ──────────────────────────────────────────────────────
+pyaml>=23.12.0,<26.0.0
+penaltyblog>=1.6.2,<2.0.0
 
-# News / scraping
-anthropic>=0.28.0
-feedparser>=6.0.11
-requests>=2.31.0
-beautifulsoup4>=4.12.0
-lxml>=5.2.0
+# ── Dashboard ────────────────────────────────────────────────────────────────
+streamlit>=1.35.0,<2.0.0
+plotly>=5.20.0,<7.0.0
 
-# Open-Meteo weather (no API key required, uses requests)
-# Listed for documentation; no extra dep beyond requests
+# ── News / scraping ──────────────────────────────────────────────────────────
+anthropic>=0.28.0,<1.0.0
+feedparser>=6.0.11,<7.0.0
+requests>=2.31.0,<3.0.0
+beautifulsoup4>=4.12.0,<5.0.0
+lxml>=5.2.0,<7.0.0
 
-# Utilities
-haversine>=2.8.0
-python-dotenv>=1.0.0
-APScheduler>=3.10.4
-pyyaml>=6.0.1
-tqdm>=4.66.0
-tenacity>=8.3.0
-pytest>=8.0.0
+# Open-Meteo weather: no extra dep beyond requests (documentation only)
+
+# ── Utilities ────────────────────────────────────────────────────────────────
+haversine>=2.8.0,<3.0.0
+python-dotenv>=1.0.0,<2.0.0
+APScheduler>=3.10.4,<4.0.0
+pyyaml>=6.0.1,<7.0.0
+tqdm>=4.66.0,<5.0.0
+tenacity>=8.3.0,<10.0.0
+pytest>=8.0.0,<10.0.0
+
+# ──────────────────────────────────────────────────────────────────────────────
+# LOCKFILE GENERATION (run on the deploy target, e.g. the Raspberry Pi):
+#
+#   make lock            # → writes requirements.lock via `pip freeze`
+#   pip install -r requirements.lock   # reproducible install
+#
+# The lockfile is intentionally NOT committed from a dev machine: the canonical
+# environment is the Pi, and freezing a divergent dev env would pin wrong
+# versions. Regenerate requirements.lock whenever requirements.txt changes.

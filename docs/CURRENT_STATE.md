@@ -76,7 +76,7 @@ predictions only and is not the source of the `ensemble` model in Postgres.
 
 | Source | What it provides | Notes |
 |--------|-----------------|-------|
-| ASA API (`itscalledsoccer`) | xG, possession, pass stats | Primary features; SSL verify off (workaround, see F6) |
+| ASA API (`itscalledsoccer`) | xG, possession, pass stats, referee | Primary features; SSL verify scoped to ASA client only (F6 fixed) |
 | ESPN scoreboard | Results, fixtures, injuries | Schedule sync |
 | The Odds API (Pinnacle) | Opening + closing lines | CLV only — model stays market-blind |
 | FBref / worldfootballR | Referee statistics | Optional refresh |
@@ -100,6 +100,22 @@ Validated values that must match CLAUDE.md:
 | `dixon_coles.time_decay_half_life_days` | 120 | Grid winner 2026 |
 | `features.xg_windows` | [5, 15] | Validated 2026 (CLAUDE.md) |
 | `market.default_edge_threshold_pct` | 8.0 | CLAUDE.md: 8% before live betting |
+
+---
+
+## Dependencies & Reproducibility (F7)
+
+- **Python:** 3.11 (pinned in `.python-version`).
+- **Spec:** `requirements.txt` — lower bounds (minimum tested) + upper bounds
+  (next major) to stop a silent breaking upgrade.
+- **Lockfile:** `requirements.lock` is environment-specific and generated on the
+  deploy target (the Pi), not committed from a dev machine:
+  ```bash
+  make lock                          # pip freeze > requirements.lock (on the Pi)
+  pip install -r requirements.lock   # reproducible install
+  ```
+  The dev research-harness env runs newer scientific libs than the Pi, so
+  freezing it would pin wrong versions — hence target-side generation.
 
 ---
 
