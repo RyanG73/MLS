@@ -171,3 +171,39 @@ Direct CLI sweep (delegated agent malfunctioned). Baseline = ensemble stacked 0.
 | DC decay=90 | 0.6381 | 0.6365 | 0.6371 | 0.6406 |
 | DC decay=150 | 0.6379 | 0.6358 | 0.6371 | 0.6408 |
 **Verdict:** No config clears +0.0005; every average gain comes from regressing 2024 (robustness gate fails). DC-decay=150 is textbook distribution shift (helps stable 2022 −0.0024, hurts shift-season 2024 +0.0019). REGRESS=0.5 + decay=120 confirmed as the 2024-robust optimum. Defaults unchanged.
+
+---
+
+## 2026-06-07 — WEIGHT_HL + REGRESS sweep (champion=whl=6, regress=0.50, avg=0.63467)
+
+Harness: `python3 scripts/eval_baseline.py --ab-only Base --seed 42`. All runs parallel.
+Champion baseline confirmed: whl=6, regress=0.50, seed=42 → avg=0.63467 (2022=0.6317, 2023=0.6369, 2024=0.6354).
+
+### Sweep 1 — WEIGHT_HL (regress=0.50 fixed)
+
+| weight_hl | 2022 | 2023 | 2024 | avg_brier | Δ vs champ | 2024 gate (≤0.6359) | core gate (≥−0.0005) | Verdict |
+|-----------|------|------|------|-----------|------------|---------------------|----------------------|---------|
+| 3 | 0.6320 | 0.6369 | 0.6359 | 0.63493 | +0.00026 | PASS | FAIL | DROP |
+| 4 | 0.6319 | 0.6370 | 0.6364 | 0.63510 | +0.00043 | FAIL | FAIL | DROP |
+| 5 | 0.6319 | 0.6375 | 0.6353 | 0.63490 | +0.00023 | PASS | FAIL | DROP |
+| **6 (champ)** | **0.6317** | **0.6369** | **0.6354** | **0.63467** | ref | ref | ref | ref |
+| 7 | 0.6321 | 0.6387 | 0.6357 | 0.63550 | +0.00083 | PASS | FAIL | DROP |
+| 8 | 0.6301 | 0.6384 | 0.6357 | 0.63473 | +0.00006 | PASS | FAIL | DROP |
+
+**Verdict:** whl=6 remains the best value. All alternatives are worse or equivalent on avg_brier. None clear the −0.0005 improvement gate. **whl=6 confirmed as champion.**
+
+### Sweep 2 — REGRESS (whl=6 fixed)
+
+| regress | 2022 | 2023 | 2024 | avg_brier | Δ vs champ | cal_err (stacked) | 2024 gate | core gate | Verdict |
+|---------|------|------|------|-----------|------------|-------------------|-----------|-----------|---------|
+| 0.30 | 0.6302 | 0.6355 | 0.6358 | 0.63383 | **−0.00084** | 0.1465 | PASS | PASS | **CONDITIONAL KEEP** |
+| 0.40 | 0.6305 | 0.6359 | 0.6346 | 0.63367 | **−0.00100** | 0.1596 | PASS | PASS | **CONDITIONAL KEEP** |
+| **0.50 (champ)** | **0.6317** | **0.6369** | **0.6354** | **0.63467** | ref | 0.1490 | ref | ref | ref |
+| 0.60 | 0.6306 | 0.6371 | 0.6351 | 0.63427 | −0.00040 | 0.1199 | PASS | FAIL | DROP |
+
+**Key finding:** regress=0.40 and regress=0.30 both clear the core Brier gate (−0.00100 and −0.00084 respectively) and the 2024 robustness gate. This contradicts the 2026-05-30 entry that found regress=0.40 worse — that test used whl=4; current champion uses whl=6. The interaction between longer weight half-life and lower ELO regression appears to be synergistic.
+
+**Cal_err caveat:** The harness reports stacked max-decile cal_err values (0.14–0.16 range) that differ from the production gate metric (0.0306). These are not directly comparable. The regress=0.40 stacked cal_err (0.1596) is slightly worse than champion (0.1490), while regress=0.30 (0.1465) is better. The production cal_err gate cannot be confirmed from this harness alone.
+
+**Best config from sweep:** regress=0.40, whl=6 → avg=0.63367, Δ=−0.00100, 2024=0.6346
+**Verdict:** CONDITIONAL KEEP pending production cal_err validation. Passes both Brier gates; cal_err gate indeterminate from this harness.
