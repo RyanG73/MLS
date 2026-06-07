@@ -1,5 +1,35 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase 5 free-source work + leakage tests (2026-06-07)**
+>
+> **F6/F7 — Security + dependency hygiene (COMPLETE)**
+> - F6: Removed three global SSL env-var bypass lines from `eval_baseline.py`
+>   (`PYTHONHTTPSVERIFY=0`, `CURL_CA_BUNDLE=""`, `REQUESTS_CA_BUNDLE=""`).
+>   The scoped `asa.session.verify = False` already on the ASA client object handles the
+>   ASA cert issue; global env-var disablement was disabling TLS for the entire process.
+>   `build_dashboard_data.py` already used scoped `verify=False` — no change needed.
+> - F7: Added `.python-version` (3.11) so pyenv/mise/uv auto-select the correct interpreter.
+>
+> **Phase 5m — Referee bias features (COMPLETE)**
+> - Added section 5m to `eval_baseline.py`: season-lagged per-referee home-win rate and draw
+>   rate derived from `games_raw` (no new API call). Falls back to league-wide averages when
+>   the referee column is absent from `games_raw` (graceful, zero-crash).
+> - New AB set: `+Referee`. Also included in `_ALL_EXTRA` (and therefore `+All`).
+> - Requires `referee` / `referee_id` / `official` column in ASA `get_games()` response.
+>   Prior session confirmed ASA `matches` table has `referee_id=None` — the feature will
+>   silently fall back to league averages until the column is populated.
+>
+> **Leakage tests (COMPLETE — prerequisite for Phase 3a split)**
+> - Created `tests/test_walk_forward.py`: 10 tests across 4 test classes:
+>   - `TestSplitDisjointness`: train/cal/test match-id sets are disjoint; all seasons in train.
+>   - `TestNoFutureLeakage`: train dates < cal season start; cal dates < test season start.
+>   - `TestRollingFeatureLeakage`: rolling xG excludes the current match and future matches.
+>   - `TestRefereeFeatureLeakage`: referee stats use season−1 only; debut-season refs absent.
+> - Fixed `pytest.ini` to add `-p no:seleniumbase` (suppresses system-installed seleniumbase
+>   conflict that caused INTERNALERROR on all pytest runs without the flag).
+> - All 20 tests (10 leakage + 10 metrics) pass: `pytest tests/test_walk_forward.py tests/test_metrics.py`.
+> - **These tests are the direct prerequisite for Phase 3a (eval_baseline.py monolith split).**
+>
 > **Phase 2 + Phase 3 execution (2026-06-07) — data quality accounting + code simplification**
 >
 > **Phase 2 — Data quality accounting (COMPLETE)**
