@@ -1,5 +1,39 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
+>
+> **Phase D (F4 monolith split) — COMPLETE, behavior-preserving.** Extracted the
+> pure Dixon-Coles engine → `scripts/eval/dixon_coles.py` and calibration/metric
+> helpers → `scripts/eval/calibration.py` (--calibration threaded as a param;
+> eval_baseline keeps thin wrappers so call sites are unchanged). 13 new DC unit
+> tests. VERIFIED: `--smoke-test --ab-only Base` → 2024=0.6354, EXACT match to ref
+> (|Δ|=0.0000). The 2000-line feature section stays for incremental extraction. (2d011c3)
+>
+> **Phase E (F1 + circular loop) — COMPLETE.** promotion_gate gains a
+> `data_source_health` criterion consuming Phase A's `coverage_gate_status()`
+> (self-test now 6/6 incl. degraded-source→reject); model_report embeds a
+> source_health snapshot. Legacy `models/{stacking_ensemble,gradient_boost,
+> dixon_coles}.py` carry deprecation banners → research_model.py is canonical
+> (removal deferred to the Pi-validated migration). (c5506d6)
+>
+> **Phase F (production validation) — COMPLETE; referee GATED OUT on calibration.**
+> parity_check/model_report are DB-free (frame-based), so the production model was
+> validated here, not just on the Pi. champ-base report reproduces the champion
+> EXACTLY (avg 0.63465, 2024 0.635364, cal 0.0306). Referee challenger via
+> research_model (Base + ref_hw_rate + ref_draw_rate):
+>   | metric | champion | challenger | gate verdict |
+>   |--------|----------|------------|--------------|
+>   | avg_brier | 0.63465 | **0.63397** (gain +0.00068) | PASS core_metric |
+>   | 2024 | 0.635364 | 0.635662 (Δ+0.0003) | PASS robustness_2024 |
+>   | cal_err | 0.0306 | **0.0394** (Δ+0.0088) | **FAIL calibration (tol 0.005)** |
+> **RESULT: REJECT ✗.** The review loop did its job — it caught a calibration
+> regression that a naive "Brier improved!" promotion would have shipped. Referee
+> is a real Brier signal in BOTH harnesses, but `ref_draw_rate` shifts the draw
+> distribution in a way scalar second-pass temperature can't recalibrate. Follow-up
+> experiment in flight: `ref_hw_rate`-only (drop the draw-rate feature) to try to
+> land the Brier gain without the calibration cost. Runbook: docs/PI_VALIDATION.md;
+> `make validate` is the DB-free CI gate. (f1c6490)
+>
 > **8-hour phase loop (2026-06-07) — review findings F1–F9 + Brier hunt**
 > Continuous mode, one phase per checkpoint, full eval runs in-repo (live ASA).
 >
