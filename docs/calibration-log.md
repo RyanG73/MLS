@@ -8,6 +8,56 @@
 
 ---
 
+## 2026-06-07 — Referee draw-shift calibration: a proven TRILEMMA (probe)
+
+Goal: find a calibration that absorbs the +Referee (`ref_draw_rate`) draw-shift
+without the vector-cal 2024 penalty, to unlock the gated Brier win (0.63465 →
+0.63397) and F9. Tool: `scripts/probe_referee_calibration.py` — runs the
+research_model walk-forward ONCE per season (gate-faithful), caches the
+pre-final-calibration blend probs, then sweeps calibration families instantly.
+Metrics match `model_report.py` exactly. Champion ref: avg 0.63465 · 2024
+0.635364 · cal 0.0306. Gate: gain≥0.0005, 2024≤0.635864, cal≤0.0356.
+
+Families swept (14 variants): `scalar` (current), `vector` (per-class T),
+`tempbias λ` (shared T + L2-regularised per-class bias `b`), `vshrink λ`
+(per-class T shrunk toward a common temp). λ→∞ ≡ scalar; λ→0 ≡ vector.
+
+| method | avg | 2024 | cal_err | blocker |
+|--------|-----|------|---------|---------|
+| scalar (current) | 0.63397 | 0.63566 ✓ | 0.03945 | cal |
+| vector | 0.63633 | 0.64612 | 0.04879 | all three |
+| tempbias λ=2.0 | 0.63399 ✓ | 0.63594 | 0.03894 | 2024 (+0.00004), cal |
+| tempbias λ=0.5 | 0.63408 | 0.63673 | **0.03451 ✓** | 2024 |
+| vshrink λ=1.0 | 0.63420 | 0.63644 | **0.03535 ✓** | 2024 (+0.0006), core (+0.00005) |
+| vshrink λ=0.5 | 0.63439 | 0.63713 | **0.02825 ✓** (beats champ!) | 2024, core |
+
+**Finding — a hard trilemma.** The relationship is monotonic across the full
+scalar↔vector spectrum: every increment of class-specific flexibility that
+recovers the draw calibration *simultaneously* worsens 2024 Brier. Root cause
+(same as the 2024 diagnosis): the draw correction is fit on the 2023 cal fold and
+misapplied to the 2024 HFA-collapse regime. The Brier gain, the calibration fix,
+and 2024 robustness are mutually exclusive in pairs — **no cal-fold-fit
+calibration clears all three gates.** This generalises the earlier vector-cal
+DROP: it is not a tuning problem, it is structural.
+
+**Consequences / paths (none are "just a calibration method"):**
+  1. Make the draw signal regime-robust — e.g. season-detrended `ref_draw_rate`
+     (relative to league draw rate) so its calibration correction generalises
+     across the HFA shift. This is a FEATURE change, the most promising next step.
+  2. Multi-regime held-out cal fold — structurally impossible without sacrificing
+     recent training data (cal must stay = test−1; train can't see the future).
+  3. Governance: the referee model's absolute cal_err (0.0394) is still under the
+     historical <0.05 target; the gate REJECTS on a *relative* +0.005 regression
+     vs an unusually-good champion (0.0306). Widening the relative tol is a
+     policy decision for the owner, not a calibration fix — flagged, not taken.
+
+Referee stays an eval_baseline `+Referee` AB set; NOT promoted. Reproduce:
+`python scripts/probe_referee_calibration.py` (cached after first build).
+
+**experiment_id:** probe-referee-cal-20260607
+
+---
+
 <!-- calibration-tuner agent appends entries here -->
 
 ## 2026-06-06 — Per-class (vector) calibration on the blend output (Phase 4d)
