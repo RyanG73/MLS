@@ -129,6 +129,14 @@ def _parse_args() -> "_ap.Namespace":
                         "matches (strictly earlier dates — leakage-safe). Lets the "
                         "calibrator track a same-year regime shift (e.g. 2024 HFA "
                         "collapse). Reported as ens_isr_brier alongside standard.")
+    p.add_argument("--inseason-prior", action="store_true",
+                   help="T1b' variant: per-match class-prior reweighting of the "
+                        "final ensemble toward the test season's observed class "
+                        "rates (strictly earlier dates), Dirichlet-shrunk toward "
+                        "the cal-fold prior with alpha pseudo-counts. Unlike "
+                        "scalar T, this CAN track a class-prior regime shift "
+                        "(2024 home-rate collapse). Evaluates alpha in {50,150,"
+                        "300}; reported as ens_isp{a}_brier alongside standard.")
     p.add_argument("--out",          type=str,   default=None,
                    help="Write results JSON to this file path")
     p.add_argument("--dump-frame",   type=str,   default=None,
@@ -2438,6 +2446,40 @@ for test_season in TEST_SEASONS:
         except Exception as e:
             print(f" | ISR✗({e})", end="", flush=True)
 
+    # ── T1b′ (--inseason-prior): per-match shrunk class-prior reweighting ─────
+    # Prior-shift correction on the FINAL ensemble output: p'_j ∝ p_j ·
+    # (π_target_j / π_cal_j), where π_cal is the cal-fold class distribution the
+    # calibrator was fit to and π_target is the test season's observed class
+    # rates so far (strictly earlier dates), Dirichlet-shrunk toward π_cal with
+    # α pseudo-counts. Unlike scalar T (sharpness-only), this can track the
+    # 2024 home-rate regime shift. α ∈ {50,150,300} evaluated in one pass.
+    _ISP_ALPHAS = (50, 150, 300)
+    isp_ok = False
+    ens_isp: dict = {}
+    if _ARGS.inseason_prior and meta_ok:
+        try:
+            _dates = pd.to_datetime(test["date"]).values
+            _order = np.argsort(_dates, kind="stable")
+            _pi_cal = np.bincount(y_cal_r, minlength=3) / len(y_cal_r)
+            _pi_cal = np.clip(_pi_cal, 1e-9, None)
+            ens_isp = {a: ens_stacked.copy() for a in _ISP_ALPHAS}
+            for _pos, _idx in enumerate(_order):
+                _done = _order[:_pos][_dates[_order[:_pos]] < _dates[_idx]]
+                _nd = len(_done)
+                if _nd == 0:
+                    continue
+                _pi_obs = np.bincount(y_te_r[_done], minlength=3) / _nd
+                for _a in _ISP_ALPHAS:
+                    _pi_t = (_nd * _pi_obs + _a * _pi_cal) / (_nd + _a)
+                    _p = ens_stacked[_idx] * (_pi_t / _pi_cal)
+                    ens_isp[_a][_idx] = _p / _p.sum()
+            isp_ok = True
+            print(" | ISP✓(" + ",".join(
+                f"a{_a}:{multiclass_brier(y_te_oh, ens_isp[_a]):.4f}"
+                for _a in _ISP_ALPHAS) + ")", end="", flush=True)
+        except Exception as e:
+            print(f" | ISP✗({e})", end="", flush=True)
+
     # ── Simple average ensemble ───────────────────────────────────────────────
     if dc_ok and xgb_ok:
         ens_avg = (dc_pred_te + xgb_te_probs_best) / 2.0
@@ -2502,6 +2544,12 @@ for test_season in TEST_SEASONS:
         r["ens_isr_brier"] = multiclass_brier(y_te_oh, ens_isr)
         r["ens_isr_ll"]    = log_loss(y_te_r, ens_isr)
         r["isr_cal_err_max"], _ = decile_cal_error(ens_isr[:, 0], (y_te_r == 0))
+
+    if isp_ok:
+        for _a in _ISP_ALPHAS:
+            r[f"ens_isp{_a}_brier"] = multiclass_brier(y_te_oh, ens_isp[_a])
+            r[f"isp{_a}_cal_err_max"], _ = decile_cal_error(
+                ens_isp[_a][:, 0], (y_te_r == 0))
         raw_ce, _ = decile_cal_error(ens_avg[:, 0], (y_te_r == 0))
         stk_ce, _ = decile_cal_error(ens_stacked[:, 0], (y_te_r == 0))
         r["cal_stage_raw_avg"] = raw_ce
@@ -2799,6 +2847,20 @@ if _ARGS.out:
                 if not math.isnan(float(_row["ens_isr_brier"]))
             }
             _result_json["isr_cal_err_max"] = _avg_safe("isr_cal_err_max")
+
+    # --inseason-prior variant (T1b'): emit each alpha alongside standard
+    if _ARGS.inseason_prior:
+        for _a in (50, 150, 300):
+            _k = f"ens_isp{_a}_brier"
+            if _k in rd.columns and _avg_safe(_k) is not None:
+                _result_json[_k] = _avg_safe(_k)
+                _result_json[f"per_season_isp{_a}"] = {
+                    str(int(_row["season"])): round(float(_row[_k]), 6)
+                    for _, _row in rd.iterrows()
+                    if not math.isnan(float(_row[_k]))
+                }
+                _result_json[f"isp{_a}_cal_err_max"] = _avg_safe(
+                    f"isp{_a}_cal_err_max")
 
     _out_path = _Path(_ARGS.out)
     _out_path.parent.mkdir(parents=True, exist_ok=True)

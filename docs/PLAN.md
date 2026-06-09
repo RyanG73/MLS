@@ -92,6 +92,15 @@
 >   CLASS-PRIOR correction, not T: queue **T1b′ — per-match shrunk prior reweighting**
 >   (p·(π_inseason/π_cal)^λ or Dirichlet-smoothed π, fit on the same expanding pool) as next iteration,
 >   before T1c.
+> - **T1b′ — DROP (2026-06-09, iter 6), mechanism confirmed real but not net-positive.** New `--inseason-prior`
+>   flag: per-match prior-shift correction p′∝p·(π_target/π_cal) on the final ensemble, π_target =
+>   Dirichlet-shrunk in-season observed class rates (α∈{50,150,300} pseudo-counts, one pass). Paired 3-seed:
+>   **α50 Δ+0.0016, α150 Δ+0.0006, α300 Δ+0.0001 — monotone convergence to no-op; no α beats standard.**
+>   BUT at α300, 2024 improves −0.0005…−0.0006 on ALL three seeds (regime tracking works in the regime year)
+>   while 2022 pays +0.0011 (prior noise in a reverted year). The trilemma now has a complete map: scalar-T
+>   tracks nothing, vector-cal overfits the cal fold, in-season priors trade non-regime years for regime years
+>   ~1:1. A regime-CONDITIONAL prior correction (activate only on detected shift) is the only remaining door;
+>   parked as multiple-testing-prone. Next: T1c (XGB seed bagging, then LightGBM sibling).
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >
