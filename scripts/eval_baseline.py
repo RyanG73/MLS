@@ -138,6 +138,10 @@ def _parse_args() -> "_ap.Namespace":
                    help="T1c variant 2: add N LightGBM members (same features, "
                         "season weights; fixed modest params) to the bag average. "
                         "Combine with --xgb-bag for a mixed-library bag.")
+    p.add_argument("--xgb-wide-grid", action="store_true",
+                   help="T2c variant: widen the inner hyperparameter grid with "
+                        "min_child_weight {1,5} and reg_lambda {1,5} (12 -> 48 "
+                        "combos). Regularisation knobs were never swept.")
     p.add_argument("--dc-train-on-cal", action="store_true",
                    help="T2a variant: refit ONLY Dixon-Coles on train+cal (XGB "
                         "path standard), applying frozen T_dc / blend w / 2nd-pass "
@@ -2274,10 +2278,17 @@ for test_season in TEST_SEASONS:
     _best_xgb_b = float("inf")
     _best_p = {"max_depth": 4, "n_estimators": 300, "learning_rate": 0.05}
 
-    for _md, _ne, _lr in itertools.product([3, 4, 5], [200, 400], [0.05, 0.10]):
+    # Regularisation axes (min_child_weight, reg_lambda) only swept under
+    # --xgb-wide-grid; the single values below are the XGBoost defaults, so the
+    # standard 12-combo grid behaves exactly as before.
+    _mcw_axis = [1, 5] if _ARGS.xgb_wide_grid else [1]
+    _rl_axis  = [1.0, 5.0] if _ARGS.xgb_wide_grid else [1.0]
+    for _md, _ne, _lr, _mcw, _rl in itertools.product(
+            [3, 4, 5], [200, 400], [0.05, 0.10], _mcw_axis, _rl_axis):
         try:
             _c = xgb.XGBClassifier(
                 n_estimators=_ne, max_depth=_md, learning_rate=_lr,
+                min_child_weight=_mcw, reg_lambda=_rl,
                 subsample=0.8, colsample_bytree=0.8,
                 objective="multi:softprob", num_class=3,
                 eval_metric="mlogloss", verbosity=0, random_state=_XGB_SEED,
@@ -2289,7 +2300,9 @@ for test_season in TEST_SEASONS:
             _b = float(np.mean(np.sum((_ip - np.eye(3)[_ival["label_result"].values]) ** 2, axis=1)))
             if _b < _best_xgb_b:
                 _best_xgb_b = _b
-                _best_p = {"max_depth": _md, "n_estimators": _ne, "learning_rate": _lr}
+                _best_p = {"max_depth": _md, "n_estimators": _ne,
+                           "learning_rate": _lr, "min_child_weight": _mcw,
+                           "reg_lambda": _rl}
         except Exception:
             pass
 

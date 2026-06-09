@@ -130,6 +130,13 @@
 >   protocol confirmed deterministic). **Cross-experiment pattern (T1a + T2a): adding recent data to fitted
 >   models under frozen calibration consistently loses — the cal-season holdout is what keeps the calibration
 >   constants valid.** Next: T2c (wider XGB hyperparameter search).
+> - **T2c — SCREENING KEEP (2026-06-09, iter 10): first Brier win of the loop.** New `--xgb-wide-grid`
+>   (inner grid + min_child_weight {1,5} × reg_lambda {1,5}, 12→48 combos; non-wide behavior unchanged).
+>   Bagged single-run: **0.63299 vs bagged control 0.63347 (Δ−0.00048 ≈ 2.7σ); 2022 −0.0007, 2023 −0.0008,
+>   2024 +0.0000 (robustness OK)**. Vs champion 0.63369: −0.00070 → clears formal core_metric (≤0.63319).
+>   Harness cal_err 0.1494 (vs 0.1400 in-run control; gate's calibration criterion uses model_report's
+>   measure, TBD at port). Seed-1 confirm run in flight; if confirmed → port wide grid (+ optionally bag) to
+>   models/research_model.py, build challenger report, run promotion_gate.py.
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >
