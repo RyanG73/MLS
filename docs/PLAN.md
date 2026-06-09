@@ -137,6 +137,10 @@
 >   Harness cal_err 0.1494 (vs 0.1400 in-run control; gate's calibration criterion uses model_report's
 >   measure, TBD at port). Seed-1 confirm run in flight; if confirmed → port wide grid (+ optionally bag) to
 >   models/research_model.py, build challenger report, run promotion_gate.py.
+>   **CONFIRM (iter 11): downgraded to MARGINAL.** Seed-1 bagged confirm: Δ−0.00009 (vs seed-42's −0.00048);
+>   two-base-seed mean −0.00029, below the 0.0005 gate bar. Both directions positive → real but small effect.
+>   Flag retained; NOT ported/promoted. Lesson reinforced: even bagged single runs need a second base seed
+>   before gate claims (the grid *selection* is seed-sensitive even when fits are bagged).
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >
