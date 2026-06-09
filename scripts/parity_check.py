@@ -20,10 +20,21 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Research-harness headline after the 2026-06-06 calibration fix (second-pass
-# temperature on the blend output). Pre-fix target was 0.6363; the calibrated
-# pipeline that walk_forward / predict_upcoming / eval_baseline now share is 0.6347.
-TARGET_BRIER = 0.6347
+# Parity target = the live champion's avg_brier (experiments/champion.report.json),
+# so this check always guards the actual champion rather than a hardcoded snapshot.
+# Fallback covers a fresh checkout where the report is absent.
+_FALLBACK_TARGET_BRIER = 0.63369  # regress=0.40 champion, promoted 2026-06-07
+
+
+def _champion_target() -> float:
+    report = Path(__file__).parent.parent / "experiments" / "champion.report.json"
+    try:
+        return float(json.loads(report.read_text())["avg_brier"])
+    except Exception:
+        return _FALLBACK_TARGET_BRIER
+
+
+TARGET_BRIER = _champion_target()
 
 
 def main() -> int:

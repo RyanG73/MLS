@@ -97,7 +97,7 @@ Validated values that must match CLAUDE.md:
 |-----------|-------|-------|
 | `elo.k_factor` | 25 | Grid winner 2026 |
 | `elo.home_advantage_elo` | 80 | Grid winner 2026 |
-| `elo.season_regression_pct` | 0.50 | Validated 2026-05-30 |
+| `elo.season_regression_pct` | 0.40 | Promoted 2026-06-07 (synergistic with whl=6) |
 | `dixon_coles.time_decay_half_life_days` | 120 | Grid winner 2026 |
 | `features.xg_windows` | [3, 5, 10, 15] | All four in champion feat_base (parity_frame.meta.json) |
 | `features.form_windows` | [3, 5, 10, 15] | All four in champion feat_base |

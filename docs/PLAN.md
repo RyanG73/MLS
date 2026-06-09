@@ -44,6 +44,15 @@
 >
 > **Loop order:** I3 → I2 → I1 → T1a → T1b → T1c → T2a/T2b/T2c → gate items → T3 (only if plateau persists).
 > Verdicts are appended to this block as each iteration completes.
+>
+> **Verdicts:**
+> - **I3 — DONE (2026-06-09, iter 1).** Parity frame rebuilt at regress=0.40 (`--cache --seed 42 --dump-frame`,
+>   meta now regress:0.4, 3,982 rows, 2017–2026; frame stays gitignored/regenerable). `parity_check.py` now reads
+>   its target from `experiments/champion.report.json` (fallback 0.63369) instead of the stale 0.6347 constant.
+>   **Parity PASS: avg 0.6331 vs target 0.63369, |Δ|=0.0006 (tol 0.0015)**; per-season 2022=0.6304/w=0.70,
+>   2023=0.6345/w=0.92, 2024=0.6343/w=0.70. Docs synced: CURRENT_STATE config table 0.50→0.40; HANDOFF inner-grid
+>   wording (fits on last 2 train seasons, not cal fold); CODE_WALKTHROUGH §7 expected regress 0.5→0.4;
+>   experiment-protocol now distinguishes the 0.001 A/B screening bar from the 0.0005 promotion-gate bar.
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >

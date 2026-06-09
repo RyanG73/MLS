@@ -49,6 +49,12 @@ Compare your experiment's `best_brier` to the baseline's `best_brier` from `expe
 
 For the calibration agent, the primary metric is `max_decile_calibration_error` (target < 0.05); a secondary veto applies if `best_brier` regresses by > 0.001.
 
+**Note — two thresholds, two stages.** The Δ > 0.001 bar above is the *harness A/B screening* rule
+(deciding which experiments graduate from `eval_baseline.py`). Champion *promotion* is governed
+separately by `scripts/promotion_gate.py`, whose `core_metric` gate requires avg-Brier gain ≥ 0.0005
+plus the 2024-robustness, calibration, coverage, slice, and source-health guardrails. A change can
+pass screening yet fail the gate (or vice versa); the gate is final.
+
 ---
 
 ## 5. Scope guard

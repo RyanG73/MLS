@@ -413,7 +413,7 @@ print(df[meta["feat_base"]].nunique().sort_values().head(10))
 
 # Confirm hyperparams match CLAUDE.md
 print(meta["weight_hl"], meta["dc_decay_hl"], meta["regress"])
-# Expected: 6, 120, 0.5
+# Expected: 6, 120, 0.4 (regress promoted 0.50→0.40 on 2026-06-07)
 
 # Quick stats on calibration inputs
 print(df[df["season"].isin([2022,2023,2024])]["label_result"].value_counts(normalize=True))
