@@ -113,6 +113,10 @@
 >   Also fixed this iter: a 2026-06-09 edit had orphaned `cal_stage_*` collection into the variant-flag
 >   branches (plain runs lost `max_decile_calibration_error`; no verdicts affected — every variant run had its
 >   flag on). Restored to the meta block; smoke-test PASS (0.6349 vs ref 0.6346).
+> - **T1c/LGBM — DROP (2026-06-09, iter 8).** New `--lgbm-bag N` adds LightGBM members (fixed modest params,
+>   same features/weights) to the bag. Single-bagged-run protocol: mix(5 XGB + 5 LGBM) = **0.63556 vs
+>   xgb-bag5 control 0.63347 (Δ+0.0021; 2023 +0.0045)**. Untuned LGBM members are weaker and dilute the
+>   average. Per-fold-tuned LGBM possible but deprioritised. T1c complete: bagging=KEEP(infra), LGBM=DROP.
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >
