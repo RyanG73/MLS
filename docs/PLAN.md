@@ -101,6 +101,18 @@
 >   tracks nothing, vector-cal overfits the cal fold, in-season priors trade non-regime years for regime years
 >   ~1:1. A regime-CONDITIONAL prior correction (activate only on detected shift) is the only remaining door;
 >   parked as multiple-testing-prone. Next: T1c (XGB seed bagging, then LightGBM sibling).
+> - **T1c/bagging — INFRASTRUCTURE KEEP (2026-06-09, iter 7).** New `--xgb-bag N`: BestAB XGB refit N times
+>   (base seed +1000i), raw probs averaged pre-calibration; AB selection untouched. Paired 3-seed, N=5:
+>   **mean 0.63337 vs control 0.63390 (Δ−0.00053); inter-seed σ collapses 0.00111 → 0.00018** (0.63347/
+>   0.63349/0.63316). Bagging removes seed luck (unlucky seed 1: −0.0017; lucky seed 42: +0.0004) and lands at
+>   the true expected performance. Vs champion 0.63369 the gain is −0.00032 → **fails formal core_metric
+>   (needs ≤0.63319), so NOT a champion promotion** — but adopted as the loop's verification protocol:
+>   **future experiments are judged on a single `--xgb-bag 5 --seed 42` run (σ≈0.0002) instead of 3-seed
+>   means**, cheaper AND tighter. Production port of bagging = open user decision (real ~−0.0004 expected
+>   gain + determinism, formally sub-gate). Bagged-control reference: **0.63347** (seed-42, bag-5).
+>   Also fixed this iter: a 2026-06-09 edit had orphaned `cal_stage_*` collection into the variant-flag
+>   branches (plain runs lost `max_decile_calibration_error`; no verdicts affected — every variant run had its
+>   flag on). Restored to the meta block; smoke-test PASS (0.6349 vs ref 0.6346).
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >

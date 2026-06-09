@@ -129,6 +129,11 @@ def _parse_args() -> "_ap.Namespace":
                         "matches (strictly earlier dates — leakage-safe). Lets the "
                         "calibrator track a same-year regime shift (e.g. 2024 HFA "
                         "collapse). Reported as ens_isr_brier alongside standard.")
+    p.add_argument("--xgb-bag", type=int, default=None,
+                   help="T1c variant: bag the BestAB XGB over N seeds (base seed "
+                        "+1000*i), averaging raw probabilities before calibration "
+                        "and blending. AB selection itself is unchanged. N>=2 "
+                        "activates; the ensemble then uses the bagged model.")
     p.add_argument("--inseason-prior", action="store_true",
                    help="T1b' variant: per-match class-prior reweighting of the "
                         "final ensemble toward the test season's observed class "
@@ -2332,6 +2337,35 @@ for test_season in TEST_SEASONS:
     if xgb_ok:
         print(f" | BestAB={_best_ab_name}", end="", flush=True)
 
+    # ── T1c (--xgb-bag N): seed-bag the BestAB XGB before calibration/blend ──
+    # Variance reduction: refit the winning feature set N-1 more times with
+    # offset seeds and average RAW probabilities; calibration, blend and the
+    # second pass then operate on the bagged model. Selection is untouched.
+    if _ARGS.xgb_bag and _ARGS.xgb_bag > 1 and xgb_ok:
+        try:
+            _bag_cal = [xgb_cal_probs_best]
+            _bag_te  = [xgb_te_probs_best]
+            _Xtr_b  = train[_best_feat].fillna(0).values
+            _Xcal_b = cal[_best_feat].fillna(0).values
+            _Xte_b  = test[_best_feat].fillna(0).values
+            for _bi in range(1, _ARGS.xgb_bag):
+                _cb = xgb.XGBClassifier(
+                    objective="multi:softprob", num_class=3,
+                    eval_metric="mlogloss", verbosity=0,
+                    random_state=_XGB_SEED + 1000 * _bi,
+                    subsample=0.8, colsample_bytree=0.8, n_jobs=_XGB_NJOBS,
+                    **_best_p)
+                _cb.fit(_Xtr_b, train["label_result"].values, sample_weight=sw)
+                _bag_cal.append(_cb.predict_proba(_Xcal_b))
+                _bag_te.append(_cb.predict_proba(_Xte_b))
+            xgb_cal_probs_best = np.mean(_bag_cal, axis=0)
+            xgb_te_probs_best  = np.mean(_bag_te, axis=0)
+            xgb_cal_te3 = calibrate_multiclass(
+                xgb_cal_probs_best, y_cal_r, xgb_te_probs_best)
+            print(f" | Bag✓(n={_ARGS.xgb_bag})", end="", flush=True)
+        except Exception as e:
+            print(f" | Bag✗({e})", end="", flush=True)
+
     # ── Stacking meta-learner ─────────────────────────────────────────────────
     meta_ok = False
     ens_stacked = None
@@ -2534,6 +2568,10 @@ for test_season in TEST_SEASONS:
         h, d, a = per_class_brier(y_te_oh, ens_stacked)
         r["ens_stacked_h"], r["ens_stacked_d"], r["ens_stacked_a"] = h, d, a
         r["ens_cal_err_max"], _ = decile_cal_error(ens_stacked[:, 0], (y_te_r == 0))
+        raw_ce, _ = decile_cal_error(ens_avg[:, 0], (y_te_r == 0))
+        stk_ce, _ = decile_cal_error(ens_stacked[:, 0], (y_te_r == 0))
+        r["cal_stage_raw_avg"] = raw_ce
+        r["cal_stage_stacked"] = stk_ce
 
     if toc_ok:
         r["ens_toc_brier"] = multiclass_brier(y_te_oh, ens_toc)
@@ -2550,10 +2588,6 @@ for test_season in TEST_SEASONS:
             r[f"ens_isp{_a}_brier"] = multiclass_brier(y_te_oh, ens_isp[_a])
             r[f"isp{_a}_cal_err_max"], _ = decile_cal_error(
                 ens_isp[_a][:, 0], (y_te_r == 0))
-        raw_ce, _ = decile_cal_error(ens_avg[:, 0], (y_te_r == 0))
-        stk_ce, _ = decile_cal_error(ens_stacked[:, 0], (y_te_r == 0))
-        r["cal_stage_raw_avg"] = raw_ce
-        r["cal_stage_stacked"] = stk_ce
 
     results.append(r)
     best_key = next(
