@@ -83,6 +83,15 @@
 >   comes from 2021-in-train, NOT from "more recent data always helps". Untested variant (deprioritised, bigger
 >   build): season-blocked OOF calibration so constants are fit on predictions from a model that trained on all
 >   seasons. Next: T1b (in-season adaptive recalibration).
+> - **T1b (scalar T) — DROP (2026-06-09, iter 5), but mechanism identified.** New `--inseason-recal` flag:
+>   per-match 2nd-pass temperature refit on cal-fold ∪ strictly-earlier completed test-season matches
+>   (leakage-safe expanding pool). Paired 3-seed result: **+0.00048 worse, uniformly** (+0.0004…+0.0006 on
+>   every fold × every seed, 2024 included — no regime-tracking benefit, just early-season T noise).
+>   **Insight: scalar temperature adjusts sharpness only — it cannot shift class priors, and the 2024 regime
+>   shift IS a class-prior problem (home 0.51→0.45).** The trilemma's missing exit is therefore an in-season
+>   CLASS-PRIOR correction, not T: queue **T1b′ — per-match shrunk prior reweighting**
+>   (p·(π_inseason/π_cal)^λ or Dirichlet-smoothed π, fit on the same expanding pool) as next iteration,
+>   before T1c.
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >

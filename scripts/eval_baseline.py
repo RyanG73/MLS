@@ -123,6 +123,12 @@ def _parse_args() -> "_ap.Namespace":
                         "then REFIT DC+XGB on train+cal and apply the frozen "
                         "constants to the refit models' test predictions. Reported "
                         "as ens_toc_brier alongside the standard ensemble.")
+    p.add_argument("--inseason-recal", action="store_true",
+                   help="T1b variant: per-match second-pass temperature refit on "
+                        "the cal fold POOLED with the test season's own completed "
+                        "matches (strictly earlier dates — leakage-safe). Lets the "
+                        "calibrator track a same-year regime shift (e.g. 2024 HFA "
+                        "collapse). Reported as ens_isr_brier alongside standard.")
     p.add_argument("--out",          type=str,   default=None,
                    help="Write results JSON to this file path")
     p.add_argument("--dump-frame",   type=str,   default=None,
@@ -2400,6 +2406,38 @@ for test_season in TEST_SEASONS:
         except Exception as e:
             print(f" | ToC✗({e})", end="", flush=True)
 
+    # ── T1b (--inseason-recal): per-match 2nd-pass T on cal ∪ completed-test ──
+    # The standard 2nd-pass T is frozen at season start (fit on cal fold only),
+    # so it cannot track a same-year regime shift. Here, for each test match,
+    # T is refit on the cal-fold blend pooled with the blends+outcomes of test-
+    # season matches that finished on STRICTLY EARLIER dates (leakage-safe; the
+    # cal fold acts as the prior and is gradually outweighed as the season runs).
+    isr_ok = False
+    ens_isr = None
+    if _ARGS.inseason_recal and meta_ok:
+        try:
+            _dates = pd.to_datetime(test["date"]).values
+            _order = np.argsort(_dates, kind="stable")
+            ens_isr = np.empty_like(ens_stacked_raw)
+            _T_last, _n_last = None, -1
+            for _pos, _idx in enumerate(_order):
+                _done = _order[:_pos][_dates[_order[:_pos]] < _dates[_idx]]
+                if len(_done) != _n_last:  # refit only when the pool grows
+                    _pool_p = np.vstack([stacked_cal_blend,
+                                         ens_stacked_raw[_done]]) if len(_done) \
+                        else stacked_cal_blend
+                    _pool_y = np.concatenate([y_cal_r, y_te_r[_done]]) if len(_done) \
+                        else y_cal_r
+                    _T_last = _fit_temperature(_pool_p, _pool_y)
+                    _n_last = len(_done)
+                ens_isr[_idx] = _apply_temperature(
+                    ens_stacked_raw[_idx:_idx + 1], _T_last)[0]
+            isr_ok = True
+            print(f" | ISR✓({multiclass_brier(y_te_oh, ens_isr):.4f})",
+                  end="", flush=True)
+        except Exception as e:
+            print(f" | ISR✗({e})", end="", flush=True)
+
     # ── Simple average ensemble ───────────────────────────────────────────────
     if dc_ok and xgb_ok:
         ens_avg = (dc_pred_te + xgb_te_probs_best) / 2.0
@@ -2459,6 +2497,11 @@ for test_season in TEST_SEASONS:
         r["ens_toc_brier"] = multiclass_brier(y_te_oh, ens_toc)
         r["ens_toc_ll"]    = log_loss(y_te_r, ens_toc)
         r["toc_cal_err_max"], _ = decile_cal_error(ens_toc[:, 0], (y_te_r == 0))
+
+    if isr_ok:
+        r["ens_isr_brier"] = multiclass_brier(y_te_oh, ens_isr)
+        r["ens_isr_ll"]    = log_loss(y_te_r, ens_isr)
+        r["isr_cal_err_max"], _ = decile_cal_error(ens_isr[:, 0], (y_te_r == 0))
         raw_ce, _ = decile_cal_error(ens_avg[:, 0], (y_te_r == 0))
         stk_ce, _ = decile_cal_error(ens_stacked[:, 0], (y_te_r == 0))
         r["cal_stage_raw_avg"] = raw_ce
@@ -2744,6 +2787,18 @@ if _ARGS.out:
                 if not math.isnan(float(_row["ens_toc_brier"]))
             }
             _result_json["toc_cal_err_max"] = _avg_safe("toc_cal_err_max")
+
+    # --inseason-recal variant (T1b): emit alongside the standard ensemble
+    if _ARGS.inseason_recal and "ens_isr_brier" in rd.columns:
+        _isr_avg = _avg_safe("ens_isr_brier")
+        if _isr_avg is not None:
+            _result_json["ens_isr_brier"] = _isr_avg
+            _result_json["per_season_isr"] = {
+                str(int(_row["season"])): round(float(_row["ens_isr_brier"]), 6)
+                for _, _row in rd.iterrows()
+                if not math.isnan(float(_row["ens_isr_brier"]))
+            }
+            _result_json["isr_cal_err_max"] = _avg_safe("isr_cal_err_max")
 
     _out_path = _Path(_ARGS.out)
     _out_path.parent.mkdir(parents=True, exist_ok=True)
