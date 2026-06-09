@@ -62,6 +62,15 @@
 >   on the mean over seeds {42,1,2} (Δ must exceed ~0.0011 ≈ σ·√(2/3)·t to be credible); paired per-match
 >   bootstrap in promotion_gate.py stays queued under gate items. Harness cal_err is also seed-volatile
 >   (0.130–0.170), so calibration verdicts need the same treatment.
+> - **I1 — RESOLVED (2026-06-09, iter 3): keep 2021 in training; docs corrected, not the code.**
+>   New `--exclude-train-seasons` flag (training rows only; frame/features/cal folds untouched).
+>   3-seed A/B (42/1/2, Base, cached): excluding 2021 = **+0.00190 mean Brier (worse), same direction all
+>   seeds** (+0.0022/+0.0007/+0.0028); damage almost entirely on 2023 (Δ+0.0055 — 2021 is its most recent
+>   training season); 2022 unchanged (2021 was never in its train), 2024 flat (+0.0002). The accidental
+>   2026-05-29 retention of 2021 is empirically right — plausibly because 2021's compressed home advantage
+>   resembles the 2024+ regime. CLAUDE.md / HANDOFF / CURRENT_STATE / CODE_WALKTHROUGH all corrected
+>   ("2020 excluded; 2021 retained, A/B-validated"). Side-benefit: confirms recent-season training value →
+>   raises confidence in T1a (train on the cal season).
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >

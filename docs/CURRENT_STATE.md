@@ -19,7 +19,7 @@ definitions, data sources, and run commands. Update it when any of these change.
 5. Second-pass temperature calibration on the blend output (fixes the pre-blend calibration bug that caused cal_err=0.1326)
 
 **Walk-forward evaluation config:**
-- Train data: 2017+, 2020 and 2021 excluded (COVID)
+- Train data: 2017+, 2020 excluded (COVID bubble); 2021 retained in training + as 2022 cal fold (A/B-validated 2026-06-09: excluding it costs +0.0019 Brier)
 - Test seasons: 2022–2024 (2022 skips COVID cal fold)
 - 2025 in-progress: used for training only, never in test window
 - ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07; synergistic with whl=6)

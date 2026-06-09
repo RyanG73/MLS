@@ -119,15 +119,15 @@ The 2024 gate exists because 2024 represents a regime shift (see The 2024 Proble
 **Test seasons: 2022, 2023, 2024** (three independent test folds)
 
 For each test season T:
-- Train: all seasons in 2017–(T-2), COVID excluded (2020, 2021)
+- Train: all seasons in 2017–(T-2), COVID-bubble 2020 excluded (2021 retained — see below)
 - Calibration fold: season T-1 (the most recent completed season before test)
 - Test: season T (held out entirely — no leakage)
 
 **Why walk-forward (not random split):** A random train/test split would leak future information into training — XGB would learn from 2024 matches while predicting 2022 matches. Walk-forward preserves the temporal structure and tests the model under the same conditions it faces in production: predict a future season using only past seasons.
 
-**Why 2022 skips a COVID cal fold:** The natural cal fold for test year 2022 would be 2021. However, 2021 is excluded from training entirely due to COVID disruptions (irregular schedule, no fans, abnormal team behavior). Using 2021 as a calibration fold would mean fitting temperature T on a dataset that does not represent normal MLS play. Test year 2022 therefore uses a cal fold from 2019, with a caution flag. This is a known limitation.
+**2021's status (corrected 2026-06-09):** Earlier versions of this document claimed 2021 was excluded and that test-2022 used a 2019 cal fold. The code has in fact retained 2021 since 2026-05-29 (`_COVID = {2020}` in eval_baseline.py): 2021 is the calibration fold for test 2022 and a training season for tests 2023/2024. A 3-seed A/B (2026-06-09, `--exclude-train-seasons 2021`) validated this: removing 2021 from training costs +0.0019 avg Brier, almost entirely on 2023 (+0.0055), where 2021 is the most recent training season. The retention is now the documented decision.
 
-**Why 2020 and 2021 excluded:** The COVID seasons produced systematically different match dynamics: no crowds (eliminating home advantage), condensed tournament formats, roster disruptions. Including them in training contaminates the model's estimate of normal home advantage and form patterns. The decision is irrevocable — these seasons should not be re-included without strong evidence that their dynamics have returned to normal patterns.
+**Why 2020 is excluded:** The bubble season produced systematically different match dynamics: no crowds (eliminating home advantage), a condensed tournament format, roster disruptions. Including it in training contaminates the model's estimate of normal home advantage and form patterns. 2021 (partial attendance, full home-and-away schedule) empirically helps more than it contaminates — plausibly *because* its compressed home advantage resembles the post-2024 regime.
 
 ---
 
@@ -198,9 +198,9 @@ The following features were investigated and rejected through the gate:
 
 The research harness always uses `sum((p_i - y_i)^2)` across three classes without division. This form makes per-season Brier values directly additive across classes (brier_home + brier_draw + brier_away = brier_sum). The half-form (÷2) is only used in the Streamlit dashboard for display. Mixing the two conventions was a historical source of confusion; the current convention is explicit in `models/metrics.py` and `CURRENT_STATE.md`.
 
-### 2. COVID exclusion (2020, 2021)
+### 2. COVID exclusion (2020 only; 2021 retained — corrected 2026-06-09)
 
-Both seasons are excluded from training and from the calibration/test window entirely. The 2020 season was played in a bubble without fans; 2021 was a COVID-disrupted partial-attendance season. Home advantage effectively disappeared. Including these seasons would pollute the model's estimate of the home advantage embedded in ELO (HOME_ADV=80) and DC parameters, causing systematic misprediction in post-COVID seasons where the crowd effect returned.
+2020 is excluded from training and from the calibration/test window entirely: it was played in a bubble without fans, home advantage effectively disappeared, and including it would pollute the ELO/DC home-advantage estimates. 2021 (partial attendance, normal home-and-away schedule) is retained — it serves as the cal fold for test 2022 and as training data for tests 2023/2024. A 3-seed A/B confirmed retention is worth +0.0019 avg Brier (the cost of excluding it lands almost entirely on 2023, which would otherwise lose its most recent training season).
 
 ### 3. Walk-forward validation
 

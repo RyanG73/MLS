@@ -16,9 +16,11 @@ All development goes on `claude/mls-prediction-dashboard-C2mQM`. Never push to m
 
 ## Key decisions (do not re-litigate without being asked)
 
-- Training data: 2017+ only, 2020 and 2021 excluded (COVID)
+- Training data: 2017+ only, 2020 excluded (COVID bubble). 2021 is RETAINED in training and as the
+  2022 cal fold — A/B-validated 2026-06-09 (excluding 2021 from training costs +0.0019 Brier on the
+  3-seed mean, nearly all on 2023; the earlier "2021 excluded" wording was stale docs)
 - 2025 in-progress data: used for training, never in eval test window
-- Test seasons: 2022–2024 walk-forward (2022 skips due to COVID cal fold)
+- Test seasons: 2022–2024 walk-forward (2022 evaluates with the 2021 cal fold)
 - Calibration: temperature scaling (single T parameter, minimise NLL on cal fold)
 - ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07: whl=6 + regress=0.40 synergistic; avg Brier 0.6337, cal_err 0.0195; prior "50% wins" was measured at whl=4)
 - DC time-decay: 120-day half-life

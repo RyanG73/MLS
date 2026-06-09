@@ -112,6 +112,11 @@ def _parse_args() -> "_ap.Namespace":
                    help="Cache ASA API responses to data/eval_cache/ (parquet)")
     p.add_argument("--seed",         type=int,   default=None,
                    help="Random seed for numpy/xgboost reproducibility")
+    p.add_argument("--exclude-train-seasons", type=int, nargs="*", default=None,
+                   help="Seasons to drop from TRAINING rows only (DC + XGB fits). "
+                        "They remain in the frame, so rolling/ELO features and cal "
+                        "folds are unchanged. E.g. --exclude-train-seasons 2021 "
+                        "tests the documented-but-unimplemented COVID exclusion.")
     p.add_argument("--out",          type=str,   default=None,
                    help="Write results JSON to this file path")
     p.add_argument("--dump-frame",   type=str,   default=None,
@@ -134,6 +139,9 @@ if _ARGS.seed is not None:
 # historical hardcoded value, so unseeded runs keep the published reference
 # numbers); --seed N overrides it so seed-sensitivity is actually measurable.
 _XGB_SEED = _ARGS.seed if _ARGS.seed is not None else 42
+
+# Seasons excluded from training ROWS only (frame/features/cal folds untouched).
+_EXCL_TRAIN: set[int] = set(_ARGS.exclude_train_seasons or [])
 
 # ASA response cache — opt-in via --cache so default live behaviour is unchanged
 _CACHE_DIR: "_Path | None" = _Path("data/eval_cache") if _ARGS.cache else None
@@ -2168,7 +2176,8 @@ all_imp: list[dict] = []
 
 for test_season in TEST_SEASONS:
     cal_season = test_season - 1
-    train_raw = df[df["season"] < cal_season].copy()
+    train_raw = df[(df["season"] < cal_season)
+                   & (~df["season"].isin(_EXCL_TRAIN))].copy()
     cal_raw   = df[df["season"] == cal_season].copy()
     test_raw  = df[df["season"] == test_season].copy()
 

@@ -63,13 +63,13 @@ The flow is: research → validated → ported to `research_model.py` → report
 **What happens:** The ASA API is called via `itscalledsoccer`. Two endpoints are used: `get_games` (scores, schedule, stage) and `get_game_xgoals` (xG per match). A third call `get_game_xpass` (PPDA, possession) is attempted and gracefully skipped if unavailable.
 
 **Key decisions baked in here:**
-- `df = df[(df["season"] >= 2017) & (~df["season"].isin(_COVID))]` — keeps 2017+, drops 2020 and 2021.
+- `df = df[(df["season"] >= 2017) & (~df["season"].isin(_COVID))]` — keeps 2017+, drops 2020 only (`_COVID = {2020}`; 2021 retention A/B-validated 2026-06-09).
 - Label encoding: 0 = home win, 1 = draw, 2 = away win (`label_result`).
 - `is_playoff` is detected from the `stage_name` / `competition_round` column if present; defaults to 0 otherwise.
 
 **What to look for:** The print line at ~line 279 reports how many matches were loaded and how many were excluded as pre-2017/COVID. A normal run shows roughly 2 800–3 200 matches retained. xG coverage should be 95%+.
 
-**What would look wrong:** xG coverage below 80% means the ASA `get_game_xgoals` call partially failed. COVID seasons (2020, 2021) appearing in the retained data means the exclusion filter broke.
+**What would look wrong:** xG coverage below 80% means the ASA `get_game_xgoals` call partially failed. 2020 appearing in the retained data means the exclusion filter broke (2021 is intentionally retained as of 2026-06-09).
 
 ---
 
@@ -474,7 +474,7 @@ df = pd.read_parquet("data/parity_frame.parquet")
 meta = json.load(open("data/parity_frame.meta.json"))
 
 print(df.shape)                          # rows, cols
-print(sorted(df["season"].unique()))     # should include 2017–2024 excl. 2020, 2021
+print(sorted(df["season"].unique()))     # should include 2017–2024 excl. 2020 (2021 retained)
 print(meta["feat_base"])                 # 34 features
 print(meta["dc_decay_hl"], meta["regress"], meta["weight_hl"])  # 120, 0.4, 6
 ```
