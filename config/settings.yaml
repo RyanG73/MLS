@@ -22,7 +22,7 @@ elo:
   k_factor: 25                          # Validated 2026 (research harness ELO grid winner)
   home_advantage_elo: 80                # Validated 2026 (was 100; grid winner = 80)
   mov_multiplier: true                  # Apply margin-of-victory multiplier
-  season_regression_pct: 0.50          # Validated 2026-05-30 (0.50 beats 0.40/0.30; 2024 driver)
+  season_regression_pct: 0.40          # Promoted 2026-06-07 (synergistic with whl=6; avg 0.6337, cal 0.0195)
 
 # ─── Feature Engineering ─────────────────────────────────────────────────────
 features:

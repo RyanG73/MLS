@@ -256,6 +256,10 @@
 >   - 2024: **0.6346** (PASS, tol 0.0005)
 > Gate: all 6 criteria PASS → `promotion_gate.py promote` run, champion pointer updated.
 > Parity frame rebuilt with regress=0.40 ELO features. CLAUDE.md updated: REGRESS=40%.
+> Harness aligned to the new champion: `eval_baseline.py` default REGRESS 0.50→0.40,
+> `elo.py` DEFAULT_REGRESS 0.50→0.40, `settings.yaml` season_regression_pct 0.50→0.40,
+> smoke-test pin 0.6354→0.6346 (2024 Base). Smoke-test PASS (0.6346±0.001); 98 tests green.
+> CODE_WALKTHROUGH.md and HANDOFF.md refreshed to the new champion numbers throughout.
 >
 > **Remaining review items:**
 > - Legacy model deletion (F1): stacking_ensemble.py, gradient_boost.py,

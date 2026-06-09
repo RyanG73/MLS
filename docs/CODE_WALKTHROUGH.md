@@ -75,13 +75,13 @@ The flow is: research → validated → ported to `research_model.py` → report
 
 ### Step 2 — ELO ratings (eval_baseline.py, lines ~344–374 / scripts/eval/elo.py)
 
-**What happens:** A grid search over K ∈ {20, 25, 30} × HOME_ADV ∈ {80, 100, 120} picks the best (K, HOME_ADV) pair on a 2019 validation season. `compute_elo()` then walks forward across all matches in date order, applying 50% season regression at each new season.
+**What happens:** A grid search over K ∈ {20, 25, 30} × HOME_ADV ∈ {80, 100, 120} picks the best (K, HOME_ADV) pair on a 2019 validation season. `compute_elo()` then walks forward across all matches in date order, applying 40% season regression at each new season.
 
-**Key function:** `compute_elo(df, K, home_adv, regress=0.50, initial=1500.0)` in `scripts/eval/elo.py`.
+**Key function:** `compute_elo(df, K, home_adv, regress=0.40, initial=1500.0)` in `scripts/eval/elo.py`.
 
 **What to look for:** The print line reports `Best: K=25, HOME_ADV=80`. If the grid search finds a different winner, check whether the `--elo-k` or `--elo-home-adv` flags were passed.
 
-**What would look wrong:** `REGRESS` defaults to 0.50 at line 163 of eval_baseline.py — confirm it is not 0.40 (an older incorrect value). The season-regression line in `elo.py` is: `elo = {t: initial + (r - initial) * (1 - regress) for t, r in elo.items()}`. With `regress=0.50` this pulls each team halfway back to 1500 each season.
+**What would look wrong:** `REGRESS` defaults to 0.40 at line 163 of eval_baseline.py (promoted 2026-06-07, synergistic with whl=6). The season-regression line in `elo.py` is: `elo = {t: initial + (r - initial) * (1 - regress) for t, r in elo.items()}`. With `regress=0.40` this pulls each team 40% of the way back to 1500 each season. (Note: an earlier 2026-05-30 sweep at whl=4 favoured 0.50 — the interaction with whl matters; they must be swept together.)
 
 ---
 
@@ -150,9 +150,9 @@ def blend(xg, dc, w):
     return b / b.sum(axis=1, keepdims=True).clip(1e-9, None)
 ```
 
-**What to look for:** The champion report shows `w_xgb` per season: `{"2022": 0.7, "2023": 0.85, "2024": 0.7}`. Values at or near 0.7 mean DC got its maximum allowed 30% weight. Values near 1.0 mean XGB dominated.
+**What to look for:** The champion report shows `w_xgb` per season: `{"2022": 0.7, "2023": 0.841, "2024": 0.7}`. Values at or near 0.7 mean DC got its maximum allowed 30% weight. Values near 1.0 mean XGB dominated.
 
-**What would look wrong:** `w_xgb` outside [0.7, 1.0] — this is clamped by the bounds and should never happen. A second-pass cal_err above 0.05 (current champion: 0.0306 max-decile) would indicate the temperature fix is not working.
+**What would look wrong:** `w_xgb` outside [0.7, 1.0] — this is clamped by the bounds and should never happen. A second-pass cal_err above 0.05 (current champion: 0.0195 max-decile) would indicate the temperature fix is not working.
 
 ---
 
@@ -216,7 +216,7 @@ Aggregates XGBoost gain-based importances across all folds. The top features by 
 ```python
 XG_WINDOWS   = (3, 5, 10, 15)    # line 161
 FORM_WINDOWS = (3, 5, 10, 15)    # line 162
-REGRESS      = 0.50               # line 163
+REGRESS      = 0.40               # line 163
 DC_DECAY_HL  = 120                # line 165
 TEST_SEASONS = [2021,2022,2023,2024] # line 174
 WEIGHT_HL    = 6                  # line 176
@@ -226,7 +226,7 @@ WEIGHT_HL    = 6                  # line 176
 
 ```
 Season 2022: train=1427 cal=543 test=489 | DC✓ | XGB-grid(d=4,n=200,lr=0.05) | BestAB=Base | Blend✓(w_xgb=0.70)+2ndPass
-  Naive:   0.6667   DC-raw: 0.6389   XGB(Base): 0.6333   Blend: 0.6317
+  Naive:   0.6667   DC-raw: 0.6389   XGB(Base): 0.6333   Blend: 0.6305
 ```
 
 - `DC✓` / `DC✗` — whether Dixon-Coles fitted cleanly
@@ -267,7 +267,7 @@ te_blend  = blend(xgb_te,  dc_te,  w)    # blend on test fold
 ens_te    = calibrate_temperature(cal_blend, y_cal, te_blend)  # 2nd-pass cal
 ```
 
-The second-pass calibration is the critical fix introduced in Phase 10. Before it, individual temperature scaling was applied to XGB and DC separately, but the convex combination of two calibrated models is not itself calibrated — causing `cal_err=0.1326`. Fitting `T` on the blend output directly reduces this to the current 0.0306.
+The second-pass calibration is the critical fix introduced in Phase 10. Before it, individual temperature scaling was applied to XGB and DC separately, but the convex combination of two calibrated models is not itself calibrated — causing `cal_err=0.1326`. Fitting `T` on the blend output directly reduces this to the current 0.0195 (was 0.0306 under the regress=0.50 champion).
 
 ### Where calibration happens
 
@@ -286,7 +286,7 @@ Production inference. Mirrors walk_forward_predictions but predicts into `upcomi
 
 ### elo.py
 
-Single public function: `compute_elo(df, K, home_adv, regress, initial, return_expected)`. Walks the DataFrame row by row in the order provided (must be sorted by date ascending before calling). Applies season regression at the first match of each new season. Includes a margin-of-victory multiplier: `mov = 1 + log(|goal_diff| + 1) * 0.1`. The defaults `initial=1500.0`, `regress=0.50` match the validated config. No module-level state — calling it twice with the same input gives identical output.
+Single public function: `compute_elo(df, K, home_adv, regress, initial, return_expected)`. Walks the DataFrame row by row in the order provided (must be sorted by date ascending before calling). Applies season regression at the first match of each new season. Includes a margin-of-victory multiplier: `mov = 1 + log(|goal_diff| + 1) * 0.1`. The defaults `initial=1500.0`, `regress=0.40` match the validated config (regress promoted from 0.50 on 2026-06-07). No module-level state — calling it twice with the same input gives identical output.
 
 ### dixon_coles.py
 
@@ -329,17 +329,17 @@ The report is a JSON file. Key fields to check:
 
 ```json
 {
-  "avg_brier":       0.63465,        ← must beat champion by 0.0005 to promote
+  "avg_brier":       0.63369,        ← must beat champion by 0.0005 to promote
   "per_season": {
-    "2022": 0.631729,
-    "2023": 0.636857,
-    "2024": 0.635364                 ← 2024 hard-gated: no regression > 0.0005 allowed
+    "2022": 0.630505,
+    "2023": 0.635932,
+    "2024": 0.634633                 ← 2024 hard-gated: no regression > 0.0005 allowed
   },
-  "max_decile_cal_error": 0.030601,  ← calibration quality; lower is better
+  "max_decile_cal_error": 0.019457,  ← calibration quality; lower is better
   "coverage_by_season": {
     "2022": 489, "2023": 521, "2024": 522
   },
-  "w_xgb": {"2022": 0.7, "2023": 0.85, "2024": 0.7},   ← blend weights
+  "w_xgb": {"2022": 0.7, "2023": 0.841, "2024": 0.7},   ← blend weights
   "slices": {
     "by_confidence": {
       "<40%": ..., "40-50%": ..., "50-60%": ..., ">60%": ...
@@ -428,7 +428,7 @@ print(df[df["season"].isin([2022,2023,2024])]["label_result"].value_counts(norma
 |-----------|-------|-----------------|--------------------------|----------------------|-----------|
 | ELO K-factor | 25 | Grid default `[20,25,30]`; winner empirical | — | `elo.k_factor: 25` | K=25 |
 | ELO HOME_ADV | 80 | Grid default `[80,100,120]`; winner empirical | — | `elo.home_advantage_elo: 80` | HOME_ADV=80 |
-| ELO REGRESS | 0.50 | line 163: `REGRESS = 0.50` | `DEFAULT_REGRESS=0.50` in elo.py | `elo.season_regression_pct: 0.50` | REGRESS=50% |
+| ELO REGRESS | 0.40 | line 163: `REGRESS = 0.40` | `DEFAULT_REGRESS=0.40` in elo.py | `elo.season_regression_pct: 0.40` | REGRESS=40% |
 | DC decay half-life | 120 days | line 165: `DC_DECAY_HL = 120` | `DEFAULT_DC_DECAY_HL = 120` (line 29) | `dixon_coles.time_decay_half_life_days: 120` | 120-day half-life |
 | XGB season weight half-life | 6 seasons | line 176: `WEIGHT_HL = 6` | `DEFAULT_WEIGHT_HL = 6` (line 30) | — | — |
 | xG windows | (3, 5, 10, 15) | line 161: `XG_WINDOWS = (3,5,10,15)` | passed as `feat_base` columns | `features.xg_windows: [3,5,10,15]` | xG windows: (3,5,10,15) |
@@ -436,7 +436,7 @@ print(df[df["season"].isin([2022,2023,2024])]["label_result"].value_counts(norma
 | Blend DC cap | 30% max (w_xgb ≥ 0.7) | lines ~2307–2314: bounds `[(0.7,1.0)]` | `fit_capped_blend(w_min=0.7, w_max=1.0)` | — | — |
 | Edge threshold | 8% | — | — | `market.default_edge_threshold_pct: 8.0` | 8% before live betting |
 | XGB thread cap | 2 | line 187: `_XGB_NJOBS = int(os.environ.get("EVAL_XGB_NJOBS","2"))` | `DEFAULT_XGB_NJOBS = 2` (line 31) | — | — |
-| Smoke-test reference | 0.6354 (2024 Brier) | line 122: `--smoke-test` asserts within 0.001 | — | — | — |
+| Smoke-test reference | 0.6346 (2024 Base Brier, regress=0.40) | line 2567: `--smoke-test` asserts within 0.001 | — | — | — |
 
 **To override XGB threads for a single fast run:**
 ```bash
@@ -451,7 +451,7 @@ EVAL_XGB_NJOBS=8 python scripts/eval_baseline.py --smoke-test
 ```bash
 make smoke-test
 # Equivalent: python scripts/eval_baseline.py --smoke-test
-# Pass condition: 2024 Brier within 0.001 of 0.6354
+# Pass condition: 2024 Base Brier within 0.001 of 0.6346 (regress=0.40)
 ```
 
 ### Full test suite
@@ -476,17 +476,17 @@ meta = json.load(open("data/parity_frame.meta.json"))
 print(df.shape)                          # rows, cols
 print(sorted(df["season"].unique()))     # should include 2017–2024 excl. 2020, 2021
 print(meta["feat_base"])                 # 34 features
-print(meta["dc_decay_hl"], meta["regress"], meta["weight_hl"])  # 120, 0.5, 6
+print(meta["dc_decay_hl"], meta["regress"], meta["weight_hl"])  # 120, 0.4, 6
 ```
 
 ### Confirm champion report values match CURRENT_STATE.md
 ```python
 import json
 r = json.load(open("experiments/champion.report.json"))
-print(r["avg_brier"])           # expect 0.63465 (CURRENT_STATE says 0.6347 avg)
-print(r["per_season"])          # 2022: 0.6317, 2023: 0.6369, 2024: 0.6354
-print(r["max_decile_cal_error"])# expect ~0.031
-print(r["w_xgb"])               # {"2022":0.7, "2023":0.85, "2024":0.7}
+print(r["avg_brier"])           # expect 0.63369 (CURRENT_STATE says 0.6337 avg)
+print(r["per_season"])          # 2022: 0.6305, 2023: 0.6359, 2024: 0.6346
+print(r["max_decile_cal_error"])# expect ~0.0195
+print(r["w_xgb"])               # {"2022":0.7, "2023":0.841, "2024":0.7}
 ```
 
 ### Verify champion pointer
@@ -524,7 +524,7 @@ import yaml
 c = yaml.safe_load(open('config/settings.yaml'))
 assert c['elo']['k_factor'] == 25
 assert c['elo']['home_advantage_elo'] == 80
-assert c['elo']['season_regression_pct'] == 0.50
+assert c['elo']['season_regression_pct'] == 0.40
 assert c['dixon_coles']['time_decay_half_life_days'] == 120
 assert c['features']['xg_windows'] == [3, 5, 10, 15]
 print('Config OK')
@@ -542,7 +542,7 @@ print('Config OK')
 | Avg Brier > 0.640 | Worse than random baseline (0.6406). Something broke fundamentally — check that COVID seasons are excluded, calibration applied, label encoding correct. |
 | Avg Brier > 0.637 | Worse than the pre-blend-fix baseline (0.6381). The second-pass calibration may not be running. |
 | 2024 Brier > 0.637 | Hard-gate threshold. The 2024 season is the canary: unconstrained DC blend caused 0.6523 in 2024. If it appears again, check that `w_xgb` bound is `[0.7, 1.0]` not `[0.0, 1.0]`. |
-| `max_decile_cal_error` > 0.05 | Poor calibration. The current champion is 0.0306. Values above 0.05 suggest the second-pass temperature scaling is missing or fitting on the wrong target. Pre-fix was 0.1326 → 0.1567. |
+| `max_decile_cal_error` > 0.05 | Poor calibration. The current champion is 0.0195. Values above 0.05 suggest the second-pass temperature scaling is missing or fitting on the wrong target. Pre-fix was 0.1326 → 0.1567. |
 | `cal_err` per-class home > 0.10 | The home probability distribution is badly miscalibrated. |
 
 ### Data quality signals
@@ -561,7 +561,7 @@ print('Config OK')
 |--------|--------------|
 | Brier suspiciously below 0.60 on any single season | Very unlikely with real data; usually means test data leaked into training (e.g. wrong season split boundary). |
 | Rolling features for match 1 of a season have non-zero values from that same season | Walk-forward chronological ordering broke. Check `df.sort_values("date")` call. |
-| ELO values for a team at the start of a season identical to the end of the previous season (no regression) | `REGRESS` is 0.0 instead of 0.50. |
+| ELO values for a team at the start of a season identical to the end of the previous season (no regression) | `REGRESS` is 0.0 instead of 0.40. |
 
 ### Model integrity signals
 

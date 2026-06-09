@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-This project builds a market-blind probabilistic model for MLS soccer match outcomes (home win / draw / away win), with the purpose of identifying betting edges as the gap between model probability and market probability. The current champion model achieves an average Brier score of **0.63465** (sum-form, 2022–2024 walk-forward test) — meaningfully better than both the uniform-random baseline (0.6406) and the naive always-predict-home baseline (0.6667). A substantial engineering effort has been completed: the research harness is fully extracted into a tested module package (`scripts/eval/`), a promotion gate protects the champion from regressions, and a calibration deep-dive definitively closed the draw-signal question. The next priorities are validating the production pipeline end-to-end on the Raspberry Pi and exploring `dc_p_draw` as a new XGB feature.
+This project builds a market-blind probabilistic model for MLS soccer match outcomes (home win / draw / away win), with the purpose of identifying betting edges as the gap between model probability and market probability. The current champion model achieves an average Brier score of **0.6337** (sum-form, 2022–2024 walk-forward test) — meaningfully better than both the uniform-random baseline (0.6406) and the naive always-predict-home baseline (0.6667). A substantial engineering effort has been completed: the research harness is fully extracted into a tested module package (`scripts/eval/`), a promotion gate protects the champion from regressions, and a calibration deep-dive definitively closed the draw-signal question. The most recent promotion (2026-06-07) lowered ELO season-regression from 0.50 to 0.40 — synergistic with the 6-season XGB weight half-life — improving avg Brier from 0.63465 to 0.6337 and cal_err from 0.0306 to 0.0195. The next priorities are validating the production pipeline end-to-end on the Raspberry Pi and continuing the hyperparameter/feature hunt through the promotion gate.
 
 ---
 
@@ -42,37 +42,40 @@ The production system runs on a Raspberry Pi. It executes `scripts/daily_update.
 
 ### Champion metrics
 
-**Model ID:** `champion-6824be37-20260606T204937`
+**Model ID:** `challenger-regress-0.40-4aa51334-20260607T171337`
 **Model file:** `models/research_model.py`
 **Metric convention:** sum-form Brier (range 0–2; see metric section below)
+**ELO config:** K=25, HOME_ADV=80, REGRESS=0.40 (promoted 2026-06-07)
 
 | Season | Brier (sum-form) | n matches |
 |--------|-----------------|-----------|
-| 2022   | 0.631729        | 489       |
-| 2023   | 0.636857        | 521       |
-| 2024   | 0.635364        | 522       |
-| **Avg**| **0.63465**     | 1532      |
+| 2022   | 0.630505        | 489       |
+| 2023   | 0.635932        | 521       |
+| 2024   | 0.634633        | 522       |
+| **Avg**| **0.6337**      | 1532      |
 
-**Calibration error** (max decile, blend output): **0.0306**
+**Calibration error** (max decile, blend output): **0.0195**
 
 **Per-class Brier breakdown:**
-- Home: 0.2477 (best-predicted class — home dominance most predictable)
-- Away: 0.1935 (second)
-- Draw: 0.1935 (hardest class; structural weakness)
+- Home: 0.2470 (best-predicted class — home dominance most predictable)
+- Away: 0.1933 (second)
+- Draw: 0.1934 (hardest class; structural weakness)
 
 **Per-class calibration error:**
-- Home: 0.0629
-- Away: 0.0349
-- Draw: 0.0594
+- Home: 0.0652
+- Away: 0.0280
+- Draw: 0.0741
+
+**Prior champion (regress=0.50):** avg 0.63465, cal_err 0.0306 — superseded 2026-06-07.
 
 ### What these numbers mean
 
 The sum-form Brier score sums squared errors over all three probability outputs per match without dividing by 2 (the "half-form" convention). Reference points:
 - **Uniform random baseline:** 0.6406 (predict 1/3 each outcome always)
 - **Naive home-always baseline:** ~0.6667
-- **Champion: 0.63465** — 0.59% better than random, 4.4% better than naive
+- **Champion: 0.6337** — 1.1% better than random, 4.9% better than naive
 
-MLS soccer is close to a random process from the perspective of any model, so differences at the third decimal place represent real predictive value. The model's 0.6347 is well-established over three seasons and 1,532 test matches.
+MLS soccer is close to a random process from the perspective of any model, so differences at the third decimal place represent real predictive value. The model's 0.6337 is well-established over three seasons and 1,532 test matches.
 
 ### Promotion gate
 
@@ -109,7 +112,7 @@ The 2024 gate exists because 2024 represents a regime shift (see The 2024 Proble
 
 **Capped-DC blend** combines DC and XGB probabilities using a convex weight. The XGB floor of 0.7 (DC ceiling of 0.30) is not arbitrary: DC failed catastrophically in 2024, and higher DC weights regress the 2024 Brier. At w=0.7, DC still contributes structural Poisson priors for low-data teams; at w=1.0, the model relies entirely on XGB. The blend weight is re-fitted each test year on the prior-year calibration fold.
 
-**Second-pass temperature scaling** was added to fix a pre-blend calibration bug. The first calibration passes were applied to DC and XGB separately before blending. The blended output was itself miscalibrated (cal_err 0.1326 before the fix). Adding a second temperature scaling pass directly on the blended output brought cal_err down to 0.1490 (per `CURRENT_STATE.md`) and then further to 0.0306 on the gated production model.
+**Second-pass temperature scaling** was added to fix a pre-blend calibration bug. The first calibration passes were applied to DC and XGB separately before blending. The blended output was itself miscalibrated (cal_err 0.1326 before the fix). Adding a second temperature scaling pass directly on the blended output brought cal_err down to 0.1490 (harness max-decile) and then to 0.0306 on the gated production model — and to **0.0195** under the current REGRESS=0.40 champion.
 
 ### Walk-forward validation design
 
@@ -209,15 +212,15 @@ Temperature scaling (fitting a single T parameter to minimize NLL on the cal fol
 
 ### 5. DC cap at ≤30% blend weight
 
-The XGB floor of 0.70 (DC ceiling of 0.30) was empirically determined: at higher DC weights, 2024 Brier regresses. The root cause is DC's static home field advantage parameter embedded in its Poisson means — DC cannot dynamically adapt to the 2024 HFA collapse. The cap means DC contributes structural priors (particularly for small-sample teams) without dominating a season where its core assumption failed. The blend weight w is re-fitted each test year on its own cal fold, so w=0.70 for both 2022 and 2024, w=0.85 for 2023.
+The XGB floor of 0.70 (DC ceiling of 0.30) was empirically determined: at higher DC weights, 2024 Brier regresses. The root cause is DC's static home field advantage parameter embedded in its Poisson means — DC cannot dynamically adapt to the 2024 HFA collapse. The cap means DC contributes structural priors (particularly for small-sample teams) without dominating a season where its core assumption failed. The blend weight w is re-fitted each test year on its own cal fold, so w=0.70 for both 2022 and 2024, w=0.841 for 2023.
 
-### 6. ELO K=25, HOME_ADV=80, REGRESS=50%
+### 6. ELO K=25, HOME_ADV=80, REGRESS=40%
 
-These parameters were grid-searched and empirically confirmed on 2026-05-30. An earlier note in the codebase said REGRESS=40%, which was incorrect — 0.40 regresses 2024 Brier; 0.50 is the validated value. HOME_ADV=80 ELO points (added to home team before computing win probability) represents the typical MLS home advantage. K=25 (update step size) balances responsiveness to results against noise. These are **locked decisions** and should not be re-tuned without a full grid re-sweep.
+K=25 and HOME_ADV=80 were grid-searched and locked. REGRESS was changed from 0.50 to **0.40 on 2026-06-07**: a sweep found that with the current 6-season XGB weight half-life (whl=6), regress=0.40 improves all three test seasons (avg 0.63465→0.6337, 2024 0.6354→0.6346) and sharply improves calibration (cal_err 0.0306→0.0195). This *reverses* the 2026-05-30 finding that "0.50 wins" — that earlier sweep was run at whl=4, where the interaction does not hold. The lesson: REGRESS and WEIGHT_HL interact, so they must be swept together, not independently. HOME_ADV=80 ELO points represents the typical MLS home advantage; K=25 (update step size) balances responsiveness against noise. The full validation went through `promotion_gate.py` (all 6 criteria PASS).
 
 ### 7. 2024 hard robustness gate
 
-The promotion gate requires that any challenger's 2024 Brier stay within +0.0005 of the champion's 0.635364. This is stricter than a simple average improvement requirement. The rationale: 2024 represents the current operating regime (home win rate 0.45, not the historical 0.51). A model that recovers 2022/2023 performance at the cost of 2024 is a worse real-world model even if its average looks better. Every challenger must demonstrate it can handle the current regime.
+The promotion gate requires that any challenger's 2024 Brier stay within +0.0005 of the champion's 0.634633. This is stricter than a simple average improvement requirement. The rationale: 2024 represents the current operating regime (home win rate 0.45, not the historical 0.51). A model that recovers 2022/2023 performance at the cost of 2024 is a worse real-world model even if its average looks better. Every challenger must demonstrate it can handle the current regime.
 
 ### 8. Market-blind model
 
@@ -282,15 +285,13 @@ This same structural constraint applies to referee features: `ref_draw_rate` shi
 
 ## Open Questions / What's Next
 
-### 1. dc_p_draw as XGB feature (in progress)
+### 1. dc_p_draw as XGB feature (TESTED — DROP)
 
-The draw class remains the hardest to predict (0.1935 Brier; all direct draw signals have failed the gate). An unexplored avenue: use DC's own draw probability (`dc_p_draw`) as an XGB input feature. This gives XGB direct access to the Poisson model's structural draw estimate, which is derived from attack/defense parameter combinations and the Dixon-Coles low-score correction. If DC's draw probability carries signal that isn't already captured by xG or ELO differential, this could be the path to draw improvement without the calibration fragility of referee features.
+The draw class remains the hardest to predict (~0.1934 Brier; all direct draw signals have failed the gate). The DC analytical draw probability (`dc_p_draw`, the diagonal sum of the Dixon-Coles score matrix) was added as an XGB feature and A/B tested on 2026-06-07: `+DCDrawProb` Δ=−0.0005, `+DCParams` (dc_lam+dc_mu) Δ=−0.0016, `+DCAll` Δ=−0.0026 — **all DROP**. Root cause: `dc_p_draw = f(λ, μ)` is a deterministic function of the Poisson means, which are themselves deterministic functions of team attack/defense strength — already captured by the rolling xG features in Base. No new signal. The function `dc_draw_prob_batch()` is retained in `scripts/eval/dixon_coles.py` for reference, but the column is not in Base or `_FEAT_ALL`.
 
-To add this feature: compute `dc_p_draw` during the DC fitting step and include it in the feature matrix passed to XGB. Then run a standard AB challenger through `make validate`.
+### 2. ELO parameter sweep (DONE — REGRESS 0.50→0.40 promoted)
 
-### 2. ELO parameter sweep
-
-HOME_ADV=80 and REGRESS=0.50 were grid-searched but the sweep space may not have been exhaustive. Candidate values to try: WEIGHT_HL for season-weighted ELO updates, and finer REGRESS increments around 0.50. Run via `scripts/eval_baseline.py --ab-only Base` with parameter overrides; promote only if the gate clears.
+A WEIGHT_HL × REGRESS sweep was run on 2026-06-07. WEIGHT_HL=6 was confirmed best (3,4,5,7,8 all worse or equivalent). REGRESS=0.40 beat the 0.50 champion (avg 0.63367 vs 0.63467, Δ=−0.00100; 2024 0.6346 PASS) and was promoted (see design decision #6). Remaining unexplored knobs: HOME_ADV finer increments (50–90), DC recent-seasons window, schedule-density window. Run via `scripts/eval_baseline.py --ab-only Base` with parameter overrides; validate any winner with `model_report.py` + `promotion_gate.py` before promoting.
 
 ### 3. Pi E2E validation
 
@@ -321,11 +322,11 @@ Waiting on Pi E2E validation. After that passes, `models/stacking_ensemble.py`, 
 
 ### Draw class
 
-The draw class has a Brier of 0.1935 — significantly worse than home (0.2477 / 3 classes = higher share, but home is the most frequent outcome and thus contributes most to avg) and away (0.1935). Every systematic attempt to improve draw prediction has been closed:
+The draw class has a Brier of ~0.1934 — the hardest class to predict. Every systematic attempt to improve draw prediction has been closed:
 - H2H draw rate: −0.0027 Brier (DROP)
 - Referee draw rate: genuine Brier gain, gated on calibration (hard trilemma proved)
 - Vector calibration: catastrophic 2024 regression (DROP)
-- dc_p_draw: open, not yet tested
+- dc_p_draw: −0.0005 Brier (DROP — deterministic function of λ/μ, no new signal)
 
 The draw class weakness may be structural for MLS: draws occur in roughly 28% of matches but are the outcome most sensitive to in-game dynamics that are not predictable from pre-match features.
 
@@ -379,7 +380,7 @@ docs/PI_VALIDATION.md          Runbook for Pi E2E validation
 # Full walk-forward eval, all AB sets
 python scripts/eval_baseline.py --seed 42
 
-# Smoke-test only (fast, verifies 2024 Brier ≤ 0.6354 ± 0.001)
+# Smoke-test only (fast, verifies 2024 Base Brier ≈ 0.6346 ± 0.001, regress=0.40)
 make smoke-test
 
 # Run just the Base config + one challenger AB set
@@ -395,14 +396,14 @@ make validate
 ### Interpreting a model report
 
 The `experiments/champion.report.json` file structure:
-- `avg_brier`: the headline metric (lower is better; champion is 0.63465)
+- `avg_brier`: the headline metric (lower is better; champion is 0.6337)
 - `per_season`: per-year breakdown (2022/2023/2024); watch for 2024 regression
-- `max_decile_cal_error`: calibration quality (champion is 0.0306; gate tolerance is +0.005)
-- `overall.brier_draw`: the structurally hardest class (champion 0.1935)
+- `max_decile_cal_error`: calibration quality (champion is 0.0195; gate tolerance is +0.005)
+- `overall.brier_draw`: the structurally hardest class (champion 0.1934)
 - `w_xgb`: the blend weights fit per test season (confirms whether DC got capped)
 - `per_class_calibration_error`: home/draw/away calibration; home and draw are the concern
 
-A challenger report must show: (a) `avg_brier` < 0.63465 − 0.0005 = 0.63415, (b) `per_season.2024` < 0.635364 + 0.0005 = 0.635864, and (c) `max_decile_cal_error` < 0.0306 + 0.005 = 0.0356. All three must pass simultaneously.
+A challenger report must show: (a) `avg_brier` < 0.63369 − 0.0005 = 0.63319, (b) `per_season.2024` < 0.634633 + 0.0005 = 0.635133, and (c) `max_decile_cal_error` < 0.0195 + 0.005 = 0.0245. All three must pass simultaneously.
 
 ### Git conventions
 

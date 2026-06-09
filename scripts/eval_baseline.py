@@ -119,7 +119,7 @@ def _parse_args() -> "_ap.Namespace":
                         "path and exit (for the production parity harness)")
     p.add_argument("--smoke-test",   action="store_true",
                    help="Run 2024-only eval and assert Brier within 0.001 of pinned "
-                        "reference (0.6354). Gate before refactoring eval_baseline.py.")
+                        "reference (0.6346). Gate before refactoring eval_baseline.py.")
     return p.parse_args()
 
 
@@ -160,7 +160,7 @@ def _cf(fn, *args, **kw):
 
 XG_WINDOWS   = tuple(_ARGS.xg_windows)  if _ARGS.xg_windows  else (3, 5, 10, 15)
 FORM_WINDOWS = tuple(_ARGS.form_windows) if _ARGS.form_windows else (3, 5, 10, 15)
-REGRESS      = _ARGS.regress     if _ARGS.regress   is not None else 0.50
+REGRESS      = _ARGS.regress     if _ARGS.regress   is not None else 0.40
 INITIAL_ELO  = 1500.0
 DC_DECAY_HL  = _ARGS.dc_decay_hl if _ARGS.dc_decay_hl is not None else 120
 # Smoke-test override: single 2024-only Base-only run for fast regression check.
@@ -2563,8 +2563,9 @@ print("Evaluation complete.")
 
 # ─── Smoke-test gate (--smoke-test flag) ─────────────────────────────────────
 if _ARGS.smoke_test:
-    # Pinned reference from champion.report.json (2026-06-06 champion)
-    _SMOKE_REF_2024 = 0.6354
+    # Pinned reference: 2024-only Base, regress=0.40 champion (2026-06-07).
+    # Prior pin 0.6354 was the regress=0.50 champion (superseded).
+    _SMOKE_REF_2024 = 0.6346
     _SMOKE_TOL = 0.001
     _rd_2024 = rd[rd["season"] == 2024]
     if _rd_2024.empty:

@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 DEFAULT_INITIAL_ELO: float = 1500.0
-DEFAULT_REGRESS:     float = 0.50
+DEFAULT_REGRESS:     float = 0.40   # promoted 2026-06-07 (synergistic with whl=6)
 
 
 def compute_elo(
