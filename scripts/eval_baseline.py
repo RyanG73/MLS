@@ -138,6 +138,13 @@ def _parse_args() -> "_ap.Namespace":
                    help="T1c variant 2: add N LightGBM members (same features, "
                         "season weights; fixed modest params) to the bag average. "
                         "Combine with --xgb-bag for a mixed-library bag.")
+    p.add_argument("--dc-train-on-cal", action="store_true",
+                   help="T2a variant: refit ONLY Dixon-Coles on train+cal (XGB "
+                        "path standard), applying frozen T_dc / blend w / 2nd-pass "
+                        "T from the standard cal-fold fits. With the 120d decay, "
+                        "standard DC predicting season T effectively last saw "
+                        "data from late T-2; this closes that gap. Reported as "
+                        "ens_dtoc_brier + dc_toc_brier alongside standard.")
     p.add_argument("--inseason-prior", action="store_true",
                    help="T1b' variant: per-match class-prior reweighting of the "
                         "final ensemble toward the test season's observed class "
@@ -2531,6 +2538,33 @@ for test_season in TEST_SEASONS:
         except Exception as e:
             print(f" | ISP✗({e})", end="", flush=True)
 
+    # ── T2a (--dc-train-on-cal): refit ONLY DC through the cal season ─────────
+    # With the 120-day decay half-life, the standard DC fit (train < cal_season)
+    # effectively last sees data from late T-2 when predicting season T. Refit
+    # DC on train+cal (its effective sample becomes late T-1) while keeping the
+    # XGB path and all calibration constants frozen from the standard cal-fold
+    # fits — isolating the value of closing DC's data gap.
+    dtoc_ok = False
+    ens_dtoc = dc_toc_b = None
+    if _ARGS.dc_train_on_cal and meta_ok:
+        try:
+            T_dc2 = _fit_temperature(dc_pred_cal, y_cal_r)
+            T_bl2 = _fit_temperature(stacked_cal_blend, y_cal_r)
+            _full_dc = pd.concat([train, cal], ignore_index=True)
+            atk3, dfd3, ha3, rho3 = fit_dc(_full_dc, decay_hl=DC_DECAY_HL)
+            dc_te3 = _apply_temperature(
+                dc_predict_batch(test, atk3, dfd3, ha3, rho3), T_dc2)
+            dc_toc_b = multiclass_brier(y_te_oh, dc_te3)
+            _b4 = _w * xgb_cal_te3 + (1.0 - _w) * dc_te3
+            _b4 = _b4 / _b4.sum(axis=1, keepdims=True).clip(1e-9, None)
+            ens_dtoc = _apply_temperature(_b4, T_bl2)
+            dtoc_ok = True
+            print(f" | DCToC✓(dc:{dc_toc_b:.4f},ens:"
+                  f"{multiclass_brier(y_te_oh, ens_dtoc):.4f})",
+                  end="", flush=True)
+        except Exception as e:
+            print(f" | DCToC✗({e})", end="", flush=True)
+
     # ── Simple average ensemble ───────────────────────────────────────────────
     if dc_ok and xgb_ok:
         ens_avg = (dc_pred_te + xgb_te_probs_best) / 2.0
@@ -2605,6 +2639,12 @@ for test_season in TEST_SEASONS:
             r[f"ens_isp{_a}_brier"] = multiclass_brier(y_te_oh, ens_isp[_a])
             r[f"isp{_a}_cal_err_max"], _ = decile_cal_error(
                 ens_isp[_a][:, 0], (y_te_r == 0))
+
+    if dtoc_ok:
+        r["ens_dtoc_brier"] = multiclass_brier(y_te_oh, ens_dtoc)
+        r["dc_toc_brier"]   = dc_toc_b
+        r["dtoc_cal_err_max"], _ = decile_cal_error(
+            ens_dtoc[:, 0], (y_te_r == 0))
 
     results.append(r)
     best_key = next(
@@ -2898,6 +2938,19 @@ if _ARGS.out:
                 if not math.isnan(float(_row["ens_isr_brier"]))
             }
             _result_json["isr_cal_err_max"] = _avg_safe("isr_cal_err_max")
+
+    # --dc-train-on-cal variant (T2a): emit alongside the standard ensemble
+    if _ARGS.dc_train_on_cal and "ens_dtoc_brier" in rd.columns:
+        _dtoc_avg = _avg_safe("ens_dtoc_brier")
+        if _dtoc_avg is not None:
+            _result_json["ens_dtoc_brier"] = _dtoc_avg
+            _result_json["dc_toc_brier"] = _avg_safe("dc_toc_brier")
+            _result_json["per_season_dtoc"] = {
+                str(int(_row["season"])): round(float(_row["ens_dtoc_brier"]), 6)
+                for _, _row in rd.iterrows()
+                if not math.isnan(float(_row["ens_dtoc_brier"]))
+            }
+            _result_json["dtoc_cal_err_max"] = _avg_safe("dtoc_cal_err_max")
 
     # --inseason-prior variant (T1b'): emit each alpha alongside standard
     if _ARGS.inseason_prior:

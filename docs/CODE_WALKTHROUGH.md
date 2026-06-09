@@ -107,7 +107,7 @@ add_rolling_features(
 
 **What to look for:** The print line around eval_baseline line 401 shows the first 8 rolling column names. The presence of `home_xg_roll_15` confirms the 4-window config is active.
 
-**What would look wrong:** A feature column that is all zeros or all the same value (NaN-fill issue). A rolling window wider than the available data at the start of each season is filled with 0 — that is intentional and is not a bug for the first few matches.
+**What would look wrong:** A feature column that is all zeros or all the same value (NaN-fill issue). A rolling window wider than the available history uses whatever history exists (a 15-window with 3 prior matches averages those 3); a team with no history at all gets league-typical priors (xG/xGA → 1.3, form → 1.0 ppg), not zeros. The model-side `fillna(0)` only covers auxiliary features whose neutral value is genuinely 0 (e.g., gk_z z-scores).
 
 ---
 

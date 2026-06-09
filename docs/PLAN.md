@@ -117,6 +117,19 @@
 >   same features/weights) to the bag. Single-bagged-run protocol: mix(5 XGB + 5 LGBM) = **0.63556 vs
 >   xgb-bag5 control 0.63347 (Δ+0.0021; 2023 +0.0045)**. Untuned LGBM members are weaker and dilute the
 >   average. Per-fold-tuned LGBM possible but deprioritised. T1c complete: bagging=KEEP(infra), LGBM=DROP.
+> - **T2b — CLOSED without a run (2026-06-09, iter 9): premise invalidated.** Code inspection of
+>   `scripts/eval/feature_builders.py`: rolling windows use whatever history exists (15-window with 3 matches
+>   averages 3) and empty histories get league-typical priors (xG→1.3, form→1.0 ppg, PPDA→10, poss→50) — there
+>   are no destructive season-start zeros. Model-side `fillna(0)` only touches aux features whose neutral IS 0
+>   (gk_z etc.). CODE_WALKTHROUGH's "filled with 0" line corrected. Expected gain ≈ nil; no eval spent.
+> - **T2a — DROP (2026-06-09, iter 9, redesigned).** ha-trend idea superseded by a decay insight: with the
+>   120d half-life, DC's effective sample already ends near train-max — its true handicap is the cal-season
+>   gap (predicting T from data ending late T-2). New `--dc-train-on-cal`: refit ONLY DC on train+cal, frozen
+>   T_dc/w/2nd-pass-T, bagged XGB. Single-bagged-run: **ens 0.63389 vs control 0.63347 (Δ+0.0004; 2022 +0.0014,
+>   2024 +0.0003); DC-alone 0.64504 (no gain)**. In-run standard reproduced control EXACTLY (0.63347 —
+>   protocol confirmed deterministic). **Cross-experiment pattern (T1a + T2a): adding recent data to fitted
+>   models under frozen calibration consistently loses — the cal-season holdout is what keeps the calibration
+>   constants valid.** Next: T2c (wider XGB hyperparameter search).
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >
