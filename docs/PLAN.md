@@ -1,5 +1,50 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Codebase evaluation (2026-06-09) — integrity findings + ranked Brier opportunities (improvement-loop queue)**
+>
+> Full read of CODE_WALKTHROUGH / HANDOFF / CURRENT_STATE + harness/model code. Champion 0.6337 confirmed.
+> Findings drive the active improvement loop; each item below is resolved one loop iteration at a time and
+> annotated here with its verdict when done.
+>
+> **Integrity findings (fix before/alongside experiments):**
+> - **I1 — COVID exclusion drift:** `_COVID = {2020}` since commit 117640c (2026-05-29, message claimed
+>   "behavior-preserving"). 2021 is IN training for tests 2023/2024 and IS the cal fold for test 2022 —
+>   contradicting CLAUDE.md ("2020 and 2021 excluded", "2022 skips"). Every number since 0.6381 rests on this.
+>   → A/B: exclude 2021 from train (keep as 2022 cal fold) vs status quo; align code+docs to the winner.
+> - **I2 — `--seed` never reaches XGBoost:** `random_state=42` hardcoded (eval_baseline.py:2231,2263), so all
+>   "seed-stability" results were tautological and the gate's 0.0005 threshold has an unmeasured noise floor.
+>   → Wire seed through; run 5-seed spread of champion config; record σ.
+> - **I3 — Stale champion artifacts:** `data/parity_frame.meta.json` says regress=0.5 (champion is 0.40; report
+>   built from uncommitted challenger_r40.pkl) → `make parity-check` guards a stale frame. CURRENT_STATE config
+>   table still shows 0.50; HANDOFF says XGB grid fits "on the calibration fold" (code: last 2 train seasons);
+>   KEEP bar stated as 0.001 in experiment-protocol.md vs 0.0005 in promotion_gate.py.
+>   → Rebuild parity frame at regress=0.40; sync docs.
+>
+> **Ranked Brier opportunities (T1 = highest (gain × confidence)/effort):**
+> - **T1a — Train on the cal season for the final fit.** `train = seasons < cal_season` means the most recent
+>   completed season is NEVER training data (test-2024 trains on ≤2022). Fit T/blend-w on cal fold as now, then
+>   refit final DC+XGB on train+cal with frozen calibration params. Same waste exists in production
+>   `predict_upcoming` (2026 predictions train on ≤2024). Largest untouched lever.
+> - **T1b — In-season adaptive recalibration.** Expanding within-season refit of T (and optionally w) on the
+>   test season's completed matches, shrunk toward the cal-fold fit. Leakage-safe; escapes the proven
+>   "cal-fold-fit calibrator can't anticipate same-year regime shift" trilemma; if it lands, re-test the gated
+>   `+Referee` (+0.0010 Brier parked solely on calibration).
+> - **T1c — Seed bagging + LightGBM sibling.** Average XGB over 3–5 seeds (uses I2 wiring); test XGB+LGBM
+>   average as a blend member (lightgbm already in requirements, never evaluated).
+> - **T2a — Time-varying DC home advantage.** DC's static `ha` is the root-caused 2024 failure; give `ha`
+>   recency weighting (or time trend) in scripts/eval/dixon_coles.py. Could justify loosening the 30% DC cap.
+> - **T2b — NaN-vs-0 missing handling.** All feature matrices use `fillna(0)`; season-opening rolling windows
+>   become "0.0 xG", not "unknown". XGB handles NaN natively. One-line A/B.
+> - **T2c — Widen XGB search:** min_child_weight / reg_lambda / gamma / early stopping (never swept).
+> - **T3a — Draw hurdle architecture** (binary P(draw) + conditional H/A recombination) — low confidence.
+> - **T3b — New data (StatsBomb open / FBref-soccerdata)** — lowest priority given the feature graveyard.
+>
+> **Gate strengthening:** add 2025 completed matches as a 4th test fold (cal=2024); paired bootstrap p-value on
+> per-match Brier diffs in promotion_gate.py; commit the rebuilt champion parity frame.
+>
+> **Loop order:** I3 → I2 → I1 → T1a → T1b → T1c → T2a/T2b/T2c → gate items → T3 (only if plateau persists).
+> Verdicts are appended to this block as each iteration completes.
+
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >
 > **Phase D (F4 monolith split) — COMPLETE, behavior-preserving.** Extracted the
