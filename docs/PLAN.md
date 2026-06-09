@@ -71,6 +71,18 @@
 >   resembles the 2024+ regime. CLAUDE.md / HANDOFF / CURRENT_STATE / CODE_WALKTHROUGH all corrected
 >   ("2020 excluded; 2021 retained, A/B-validated"). Side-benefit: confirms recent-season training value →
 >   raises confidence in T1a (train on the cal season).
+> - **T1a — DROP (2026-06-09, iter 4): refit-on-train+cal with frozen calibration is WORSE, Δ=+0.0027.**
+>   New `--train-on-cal` flag (kept as a diagnostic): fits T_dc/T_xgb/blend-w/2nd-pass-T on the held-out cal
+>   fold exactly as standard, then refits DC+XGB on train+cal and applies the frozen constants
+>   (`ens_toc_brier`; `fit_temperature`/`apply_temperature` split added to scripts/eval/calibration.py).
+>   Paired 3-seed result: **+0.00372 / +0.00154 / +0.00294 (mean +0.0027, 8/9 season-folds worse)** — far
+>   outside seed noise (σ≈0.001). Notably toc cal_err improved (0.13→0.09–0.12) while Brier regressed: the
+>   refit model is better-calibrated but less sharp. Interpretation: the calibration constants don't transfer
+>   to a model whose season-weighting re-centers on the cal season (ref_s becomes cal_season, hyperparams were
+>   tuned for the old reference); the cal-season holdout is load-bearing, not waste. The 2023 gain seen in I1
+>   comes from 2021-in-train, NOT from "more recent data always helps". Untested variant (deprioritised, bigger
+>   build): season-blocked OOF calibration so constants are fit on predictions from a model that trained on all
+>   seasons. Next: T1b (in-season adaptive recalibration).
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >

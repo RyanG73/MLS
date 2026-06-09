@@ -117,6 +117,12 @@ def _parse_args() -> "_ap.Namespace":
                         "They remain in the frame, so rolling/ELO features and cal "
                         "folds are unchanged. E.g. --exclude-train-seasons 2021 "
                         "tests the documented-but-unimplemented COVID exclusion.")
+    p.add_argument("--train-on-cal", action="store_true",
+                   help="T1a variant: fit all calibration constants (T_dc, T_xgb, "
+                        "blend w, 2nd-pass T) on the held-out cal fold as usual, "
+                        "then REFIT DC+XGB on train+cal and apply the frozen "
+                        "constants to the refit models' test predictions. Reported "
+                        "as ens_toc_brier alongside the standard ensemble.")
     p.add_argument("--out",          type=str,   default=None,
                    help="Write results JSON to this file path")
     p.add_argument("--dump-frame",   type=str,   default=None,
@@ -2119,6 +2125,8 @@ from scripts.eval.calibration import (        # noqa: E402
     calibrate_multiclass as _calibrate_multiclass_impl,
     calibrate_stacked_second_pass as _calibrate_stacked_second_pass_impl,
     decile_cal_error, multiclass_brier, per_class_brier,
+    fit_temperature as _fit_temperature,
+    apply_temperature as _apply_temperature,
 )
 
 
@@ -2264,6 +2272,7 @@ for test_season in TEST_SEASONS:
     _best_xgb_cal_brier = float("inf")
     _best_ab_name = "Base"
     _best_imp: dict = {}
+    _best_feat: list = []
     ab_brier: dict[str, float] = {}
 
     for ab_name, ab_feat in AB_SETS.items():
@@ -2291,6 +2300,7 @@ for test_season in TEST_SEASONS:
             if xgb_cal_probs_best is None or cal_brier_val < _best_xgb_cal_brier:
                 _best_xgb_cal_brier = cal_brier_val
                 _best_ab_name = ab_name
+                _best_feat = feat
                 xgb_cal_probs_best = cal_p
                 xgb_te_probs_best  = te_p
                 xgb_cal_te3 = cal_te
@@ -2353,6 +2363,43 @@ for test_season in TEST_SEASONS:
         except Exception as e:
             print(f" | Meta✗({e})", end="", flush=True)
 
+    # ── T1a (--train-on-cal): refit DC+XGB on train+cal, frozen calibration ──
+    # Calibration constants (T_dc, T_xgb, blend w, second-pass T) come from the
+    # held-out cal fold exactly as in the standard path; only the model fits gain
+    # the cal season's rows. This tests whether withholding the most recent
+    # completed season from training (purely to fit 4 scalar constants) is waste.
+    toc_ok = False
+    ens_toc = None
+    if _ARGS.train_on_cal and meta_ok:
+        try:
+            T_dc  = _fit_temperature(dc_pred_cal, y_cal_r)
+            T_xgb = _fit_temperature(xgb_cal_probs_best, y_cal_r)
+            T_bl  = _fit_temperature(stacked_cal_blend, y_cal_r)
+            _full = pd.concat([train, cal], ignore_index=True)
+            atk2, dfd2, ha2, rho2 = fit_dc(_full, decay_hl=DC_DECAY_HL)
+            dc_te2 = _apply_temperature(
+                dc_predict_batch(test, atk2, dfd2, ha2, rho2), T_dc)
+            _ref_s2 = _full["season"].max()
+            _sw2 = _full["season"].apply(
+                lambda s: math.exp(-math.log(2) / WEIGHT_HL * (_ref_s2 - s))
+            ).values
+            _clf2 = xgb.XGBClassifier(
+                objective="multi:softprob", num_class=3, eval_metric="mlogloss",
+                verbosity=0, random_state=_XGB_SEED, subsample=0.8,
+                colsample_bytree=0.8, n_jobs=_XGB_NJOBS, **_best_p)
+            _clf2.fit(_full[_best_feat].fillna(0).values,
+                      _full["label_result"].values, sample_weight=_sw2)
+            xgb_te2 = _apply_temperature(
+                _clf2.predict_proba(test[_best_feat].fillna(0).values), T_xgb)
+            _b2 = _w * xgb_te2 + (1.0 - _w) * dc_te2
+            _b2 = _b2 / _b2.sum(axis=1, keepdims=True).clip(1e-9, None)
+            ens_toc = _apply_temperature(_b2, T_bl)
+            toc_ok = True
+            print(f" | ToC✓({multiclass_brier(y_te_oh, ens_toc):.4f})",
+                  end="", flush=True)
+        except Exception as e:
+            print(f" | ToC✗({e})", end="", flush=True)
+
     # ── Simple average ensemble ───────────────────────────────────────────────
     if dc_ok and xgb_ok:
         ens_avg = (dc_pred_te + xgb_te_probs_best) / 2.0
@@ -2407,6 +2454,11 @@ for test_season in TEST_SEASONS:
         h, d, a = per_class_brier(y_te_oh, ens_stacked)
         r["ens_stacked_h"], r["ens_stacked_d"], r["ens_stacked_a"] = h, d, a
         r["ens_cal_err_max"], _ = decile_cal_error(ens_stacked[:, 0], (y_te_r == 0))
+
+    if toc_ok:
+        r["ens_toc_brier"] = multiclass_brier(y_te_oh, ens_toc)
+        r["ens_toc_ll"]    = log_loss(y_te_r, ens_toc)
+        r["toc_cal_err_max"], _ = decile_cal_error(ens_toc[:, 0], (y_te_r == 0))
         raw_ce, _ = decile_cal_error(ens_avg[:, 0], (y_te_r == 0))
         stk_ce, _ = decile_cal_error(ens_stacked[:, 0], (y_te_r == 0))
         r["cal_stage_raw_avg"] = raw_ce
@@ -2681,6 +2733,17 @@ if _ARGS.out:
         },
         "per_season": _per_season,
     }
+    # --train-on-cal variant (T1a): emit alongside the standard ensemble
+    if _ARGS.train_on_cal and "ens_toc_brier" in rd.columns:
+        _toc_avg = _avg_safe("ens_toc_brier")
+        if _toc_avg is not None:
+            _result_json["ens_toc_brier"] = _toc_avg
+            _result_json["per_season_toc"] = {
+                str(int(_row["season"])): round(float(_row["ens_toc_brier"]), 6)
+                for _, _row in rd.iterrows()
+                if not math.isnan(float(_row["ens_toc_brier"]))
+            }
+            _result_json["toc_cal_err_max"] = _avg_safe("toc_cal_err_max")
 
     _out_path = _Path(_ARGS.out)
     _out_path.parent.mkdir(parents=True, exist_ok=True)

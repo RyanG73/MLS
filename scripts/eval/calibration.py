@@ -27,19 +27,28 @@ from models.metrics import (
 )
 
 
-def _temp_scale(raw_cal, y_cal, raw_target):
-    """Fit temperature T on (raw_cal, y_cal); apply to raw_target. Returns probs."""
+def fit_temperature(raw_cal, y_cal) -> float:
+    """Fit scalar temperature T on (raw_cal, y_cal) by NLL minimisation."""
     def _nll(T: float) -> float:
         log_p = np.log(np.clip(raw_cal, 1e-9, 1.0)) / max(T, 0.1)
         log_p -= log_p.max(axis=1, keepdims=True)
         exp_p = np.exp(log_p)
         probs = exp_p / exp_p.sum(axis=1, keepdims=True)
         return float(log_loss(y_cal, probs))
-    T = minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x
-    log_p = np.log(np.clip(raw_target, 1e-9, 1.0)) / T
+    return float(minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x)
+
+
+def apply_temperature(raw, T: float):
+    """Apply a previously-fitted temperature T to raw probabilities."""
+    log_p = np.log(np.clip(raw, 1e-9, 1.0)) / T
     log_p -= log_p.max(axis=1, keepdims=True)
     exp_p = np.exp(log_p)
     return exp_p / exp_p.sum(axis=1, keepdims=True)
+
+
+def _temp_scale(raw_cal, y_cal, raw_target):
+    """Fit temperature T on (raw_cal, y_cal); apply to raw_target. Returns probs."""
+    return apply_temperature(raw_target, fit_temperature(raw_cal, y_cal))
 
 
 def calibrate_multiclass(raw_cal: np.ndarray, y_cal: np.ndarray,
