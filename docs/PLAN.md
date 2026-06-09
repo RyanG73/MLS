@@ -53,6 +53,15 @@
 >   2023=0.6345/w=0.92, 2024=0.6343/w=0.70. Docs synced: CURRENT_STATE config table 0.50→0.40; HANDOFF inner-grid
 >   wording (fits on last 2 train seasons, not cal fold); CODE_WALKTHROUGH §7 expected regress 0.5→0.4;
 >   experiment-protocol now distinguishes the 0.001 A/B screening bar from the 0.0005 promotion-gate bar.
+> - **I2 — DONE (2026-06-09, iter 2). Seed wired; noise floor measured — gate threshold is sub-noise.**
+>   `--seed` now reaches both XGB fits (`_XGB_SEED`, default 42 → published references unchanged).
+>   5-seed sweep (42,1,2,3,4; Base-only, cached, 2022–24): best_brier mean **0.63372, σ=0.00096, range 0.00242**
+>   (seed42=0.63305, worst seed1=0.63519). Per-season 2024 alone ranges 0.6343–0.6381 across seeds.
+>   **Implication: the gate's MIN_GAIN (0.0005) ≈ 0.5σ of pure seed noise and the +0.0005 2024 tolerance is
+>   swamped — single-seed promotions at the threshold are noise.** Loop policy from iter 3 on: judge experiments
+>   on the mean over seeds {42,1,2} (Δ must exceed ~0.0011 ≈ σ·√(2/3)·t to be credible); paired per-match
+>   bootstrap in promotion_gate.py stays queued under gate items. Harness cal_err is also seed-volatile
+>   (0.130–0.170), so calibration verdicts need the same treatment.
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >

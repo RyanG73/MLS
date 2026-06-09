@@ -130,6 +130,11 @@ if _ARGS.seed is not None:
     _random.seed(_ARGS.seed)
     np.random.seed(_ARGS.seed)
 
+# XGBoost random_state for every fit in the walk-forward. Defaults to 42 (the
+# historical hardcoded value, so unseeded runs keep the published reference
+# numbers); --seed N overrides it so seed-sensitivity is actually measurable.
+_XGB_SEED = _ARGS.seed if _ARGS.seed is not None else 42
+
 # ASA response cache — opt-in via --cache so default live behaviour is unchanged
 _CACHE_DIR: "_Path | None" = _Path("data/eval_cache") if _ARGS.cache else None
 
@@ -2228,7 +2233,7 @@ for test_season in TEST_SEASONS:
                 n_estimators=_ne, max_depth=_md, learning_rate=_lr,
                 subsample=0.8, colsample_bytree=0.8,
                 objective="multi:softprob", num_class=3,
-                eval_metric="mlogloss", verbosity=0, random_state=42,
+                eval_metric="mlogloss", verbosity=0, random_state=_XGB_SEED,
                 n_jobs=_XGB_NJOBS,
             )
             _c.fit(_itr[_gs_feat].fillna(0).values,
@@ -2260,7 +2265,7 @@ for test_season in TEST_SEASONS:
         try:
             clf = xgb.XGBClassifier(
                 objective="multi:softprob", num_class=3,
-                eval_metric="mlogloss", verbosity=0, random_state=42,
+                eval_metric="mlogloss", verbosity=0, random_state=_XGB_SEED,
                 subsample=0.8, colsample_bytree=0.8, n_jobs=_XGB_NJOBS,
                 **_best_p,
             )
