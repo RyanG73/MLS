@@ -63,6 +63,11 @@
 >   --n-bags default 5) so production daily updates inherit it. wide_grid stays opt-in (gate-rejected).
 >   Suite 108 passed; parity check (bagged defaults vs new champion target) running as final verification.
 >   CURRENT_STATE / CLAUDE.md / HANDOFF / CODE_WALKTHROUGH all updated to the bag-5 champion.
+> - **P5 — WRAP (iter 6): parity PASS |Δ|=0.0000 (bagged defaults reproduce champion 0.6330 exactly);
+>   branch pushed. PROMOTION CYCLE COMPLETE.** Net result: champion 0.633471 → **0.632977** (−0.0005 Brier),
+>   calibration 0.0360 → **0.0182**, production deterministic (5-seed bag baked into research_model
+>   defaults). Wide grid remains opt-in/gate-rejected; future revisit path = calibration-aware grid
+>   selection. Next open fronts (user-ranked earlier): Pi E2E validation, betting/CLV workstream.
 
 > **Codebase evaluation (2026-06-09) — integrity findings + ranked Brier opportunities (improvement-loop queue)**
 >
