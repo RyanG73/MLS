@@ -50,6 +50,12 @@
 >   0.633471. The gate did its job — same shape as the referee rejection: Brier edge coupled to a
 >   calibration cost. Decision returned to user: accept reject / try bag-only challenger (calibration was
 >   harness-better without the wide grid) / pursue calibration fix / override.
+> - **P4 retry — bag-only: REJECT by six millionths (iter 4, user-directed).** `challenger-bag5-07c8442c`
+>   (n_bags=5, narrow grid): avg **0.632977**, gain +0.000494 vs required 0.0005 (**core FAIL by 6e-6**);
+>   2024 0.6349 vs limit 0.6348 (FAIL by ~0.0001); **calibration HALVED 0.0360→0.0182 (PASS)**; slices PASS;
+>   paired bootstrap P(better)=0.858. Note: champion's 2024 is a single-seed figure (luck included) while the
+>   challenger's is the de-noised bagged estimate — part of the "2024 regression" is luck removal. Both
+>   failures are sub-noise; per the clean-PASS-only rule this is NOT auto-promoted. Override decision → user.
 
 > **Codebase evaluation (2026-06-09) — integrity findings + ranked Brier opportunities (improvement-loop queue)**
 >
