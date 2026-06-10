@@ -148,6 +148,37 @@ def evaluate_gate(champion: dict | None, challenger: dict) -> tuple[bool, list]:
                    f"challenger {chal_b:.4f} vs champion {champ_b:.4f} "
                    f"(gain {gain:+.4f}, need >= {MIN_GAIN})"))
 
+    # ── paired significance (ADVISORY — reported, never blocks) ──────────────
+    # When both reports embed per-match Brier vectors (model_report.py
+    # "per_match"), bootstrap the mean paired difference on common match_ids.
+    # Measured seed noise is σ≈0.001 on avg Brier (2026-06-09), so unpaired
+    # gains near MIN_GAIN are ambiguous; this quantifies the paired evidence.
+    pm_c = (champion or {}).get("per_match")
+    pm_x = challenger.get("per_match")
+    if pm_c and pm_x:
+        try:
+            import numpy as _np
+            cd = dict(zip(pm_c["match_id"], pm_c["brier"]))
+            xd = dict(zip(pm_x["match_id"], pm_x["brier"]))
+            common = sorted(set(cd) & set(xd))
+            if len(common) >= 100:
+                diffs = _np.array([cd[m] - xd[m] for m in common])  # >0 ⇒ challenger better
+                rng = _np.random.default_rng(42)
+                boots = rng.choice(diffs, size=(2000, len(diffs)),
+                                   replace=True).mean(axis=1)
+                p_better = float((boots > 0).mean())
+                checks.append(("paired_significance", True,
+                               f"n={len(diffs)} paired · mean Δ={diffs.mean():+.5f} · "
+                               f"P(challenger better)={p_better:.3f} — advisory"))
+            else:
+                checks.append(("paired_significance", True,
+                               f"only {len(common)} common matches — skipped"))
+        except Exception as e:  # diagnostics must never break the gate
+            checks.append(("paired_significance", True, f"error ({e}) — skipped"))
+    else:
+        checks.append(("paired_significance", True,
+                       "per_match vectors absent — skipped (advisory)"))
+
     passed = all(ok for _, ok, _ in checks)
     return passed, checks
 

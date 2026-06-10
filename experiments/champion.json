@@ -1,6 +1,8 @@
 {
-  "report": "experiments/champion.report.json",
-  "run_id": "challenger-regress-0.40-4aa51334-20260607T171337",
-  "avg_brier": 0.63369,
-  "promoted_at": "2026-06-07T17:13:37Z"
+  "report": "experiments/champion-4fold.report.json",
+  "run_id": "champion-4fold-229bac79-20260609T235515",
+  "avg_brier": 0.633471,
+  "promoted_at": "2026-06-07T17:13:37Z",
+  "rebaselined_at": "2026-06-09T23:55:54Z",
+  "rebaseline_note": "Same model config as challenger-regress-0.40 (no model change). Measurement basis extended to 4 test folds (2025 season complete) + per_match vectors for the gate's paired bootstrap. Prior 3-fold report retained at experiments/champion.report.json."
 }

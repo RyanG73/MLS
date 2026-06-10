@@ -27,11 +27,19 @@ _FALLBACK_TARGET_BRIER = 0.63369  # regress=0.40 champion, promoted 2026-06-07
 
 
 def _champion_target() -> float:
-    report = Path(__file__).parent.parent / "experiments" / "champion.report.json"
+    exp = Path(__file__).parent.parent / "experiments"
     try:
+        # Resolve via the champion pointer (promotion_gate promote / re-baseline
+        # updates champion.json); fall back to the legacy fixed report name.
+        ptr = json.loads((exp / "champion.json").read_text())
+        report = Path(__file__).parent.parent / ptr["report"]
         return float(json.loads(report.read_text())["avg_brier"])
     except Exception:
-        return _FALLBACK_TARGET_BRIER
+        try:
+            return float(json.loads(
+                (exp / "champion.report.json").read_text())["avg_brier"])
+        except Exception:
+            return _FALLBACK_TARGET_BRIER
 
 
 TARGET_BRIER = _champion_target()

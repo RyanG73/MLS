@@ -20,23 +20,29 @@ definitions, data sources, and run commands. Update it when any of these change.
 
 **Walk-forward evaluation config:**
 - Train data: 2017+, 2020 excluded (COVID bubble); 2021 retained in training + as 2022 cal fold (A/B-validated 2026-06-09: excluding it costs +0.0019 Brier)
-- Test seasons: 2022–2024 (2022 skips COVID cal fold)
-- 2025 in-progress: used for training only, never in test window
+- Test seasons: 2022–2025 (2022 evaluates with the 2021 cal fold; 2025 added 2026-06-09 once the
+  season completed — 540 matches, cal fold 2024)
+- 2026 in-progress: used for training only, never in test window
 - ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07; synergistic with whl=6)
 - DC decay: 120-day half-life
 - XGB feature windows: xG and form over (3, 5, 10, 15) matches (all four; eval harness default)
 - Edge threshold: 8% before live betting
 
-**Validated metrics (2026-06-07, seed=42, regress=0.40):**
+**Validated metrics (2026-06-09 re-baseline: same model, 4-fold measurement, current frame):**
 
 | Season | Brier (sum-form) |
 |--------|-----------------|
-| 2022   | 0.6305          |
-| 2023   | 0.6359          |
-| 2024   | 0.6346          |
-| **Avg**| **0.6337**      |
+| 2022   | 0.6304          |
+| 2023   | 0.6345          |
+| 2024   | 0.6343          |
+| 2025   | 0.6347          |
+| **Avg**| **0.6335**      |
 
-Cal error (model_report, post-2nd-pass): 0.0195
+Cal error (model_report, post-2nd-pass): 0.0360
+Champion pointer: `experiments/champion.json` → `champion-4fold.report.json` (includes
+per-match Brier vectors consumed by the gate's advisory paired bootstrap).
+Prior 3-fold report (2026-06-07, avg 0.6337, cal 0.0195) retained at `champion.report.json`;
+per-season deltas vs that report reflect the data snapshot, not a model change.
 
 Previous champion (regress=0.50): avg 0.6347, cal_err 0.0306.
 Previous baseline before calibration fix: avg 0.6381, cal_err 0.1567.

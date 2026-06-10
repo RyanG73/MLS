@@ -221,6 +221,13 @@ def main() -> int:
         "per_season": per_season,
         "coverage_by_season": coverage,
         "slices": slices,
+        # Per-match Brier keyed by match_id — enables the gate's paired
+        # bootstrap significance check (champion vs challenger on common matches).
+        "per_match": {
+            "match_id": preds["match_id"].astype(str).tolist(),
+            "brier": np.round(
+                np.sum((P - np.eye(3)[y]) ** 2, axis=1), 6).tolist(),
+        },
         "source_health": _source_health_snapshot(),
         "market_slices": "deferred (no odds in frame; run against odds DB for edge/CLV slices)",
     }

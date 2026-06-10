@@ -19,8 +19,11 @@ All development goes on `claude/mls-prediction-dashboard-C2mQM`. Never push to m
 - Training data: 2017+ only, 2020 excluded (COVID bubble). 2021 is RETAINED in training and as the
   2022 cal fold — A/B-validated 2026-06-09 (excluding 2021 from training costs +0.0019 Brier on the
   3-seed mean, nearly all on 2023; the earlier "2021 excluded" wording was stale docs)
-- 2025 in-progress data: used for training, never in eval test window
-- Test seasons: 2022–2024 walk-forward (2022 evaluates with the 2021 cal fold)
+- Test seasons: 2022–2025 walk-forward (2022 evaluates with the 2021 cal fold). 2025 added as the 4th
+  fold 2026-06-09 — the old "2025 in-progress, never in test window" rule lapsed when the season
+  completed (540 matches). 2026 in-progress data: training only, never in the test window.
+- Champion measurement basis: experiments/champion.json → champion-4fold report (avg 0.6335, 4 folds,
+  per-match vectors for the gate's paired bootstrap). Gate challengers must also be 4-fold reports.
 - Calibration: temperature scaling (single T parameter, minimise NLL on cal fold)
 - ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07: whl=6 + regress=0.40 synergistic; avg Brier 0.6337, cal_err 0.0195; prior "50% wins" was measured at whl=4)
 - DC time-decay: 120-day half-life

@@ -15,6 +15,7 @@ experiments/*.json
 # Track the blessed champion pointer + its report (the promotion-gate reference)
 !experiments/champion.json
 !experiments/champion.report.json
+!experiments/champion-4fold.report.json
 # Probe blend cache (large, regenerable)
 experiments/_referee_blends.pkl
 

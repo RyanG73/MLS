@@ -141,6 +141,18 @@
 >   two-base-seed mean −0.00029, below the 0.0005 gate bar. Both directions positive → real but small effect.
 >   Flag retained; NOT ported/promoted. Lesson reinforced: even bagged single runs need a second base seed
 >   before gate claims (the grid *selection* is seed-sensitive even when fits are bagged).
+> - **Gate items — DONE (2026-06-09, iter 12): 4-fold re-baseline + paired bootstrap.**
+>   (a) **2025 added as 4th test fold** — season is complete (540 matches, cal=2024; the old "2025 never in
+>   test window" rule lapsed). Harness 4-fold bagged: 2025=**0.63150**, best season yet → the 2024 regime
+>   shift was largely a one-season transition cost; once the cal fold represents the new regime the model
+>   handles it. Champion **re-baselined** (same model, new measurement): `champion.json` →
+>   `champion-4fold.report.json`, avg **0.633471**, cal 0.0360, per-season 0.6304/0.6345/0.6343/0.6347,
+>   n=2,072. Prior 3-fold report retained. `parity_check` follows the pointer; **parity PASS |Δ|=0.0000**.
+>   Frame meta test_seasons now [2021–2025] so model_report defaults produce 4-fold challenger reports.
+>   (b) **Paired bootstrap in the gate** — model_report embeds per-match Brier vectors; promotion_gate adds an
+>   ADVISORY `paired_significance` check (n-paired, mean Δ, P(challenger better); never blocks — tightening it
+>   into a hard criterion is a user decision). Gate self-test 6/6; suite 108 passed.
+>   CLAUDE.md + CURRENT_STATE updated (test seasons 2022–2025; 2026 = training only).
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >
