@@ -269,16 +269,35 @@ def main():
     except Exception:
         git_commit = "unknown"
 
+    # Champion metrics come from the live pointer — never hardcode them here
+    # (a stale 0.6347 literal sat in this file across two promotions).
+    _naive = 0.6406
+    champ_brier, champ_cal, champ_run = None, None, "unknown"
+    try:
+        _ptr = json.loads(Path("experiments/champion.json").read_text())
+        _rep = json.loads(Path(_ptr["report"]).read_text())
+        champ_brier = float(_rep["avg_brier"])
+        champ_cal = _rep.get("max_decile_cal_error")
+        champ_run = _ptr.get("run_id", "unknown")
+    except Exception as e:
+        print(f"[warn] champion report unreadable ({e}); model card will lack metrics")
+
     data = {"season": ts, "in_season": True,
             "played": len(games) - len(upcoming_cards), "upcoming": len(upcoming_cards),
-            "model": {"best_brier": 0.6347, "naive": 0.6406, "improve_pct": 0.92,
+            "model": {"best_brier": round(champ_brier, 4) if champ_brier else None,
+                      "naive": _naive,
+                      "improve_pct": round((_naive - champ_brier) / _naive * 100, 2)
+                      if champ_brier else None,
+                      "cal_err": champ_cal,
                       "name": "research_model", "metric": "brier_sum_form"},
             "n_sims": N, "playoff_slots": _PLAYOFF_SLOTS, "hfa_slots": _HFA_SLOTS,
             "standings": standings, "games": games,
             "generated": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC"),
             "provenance": {"git_commit": git_commit,
                            "model_file": "models/research_model.py",
-                           "metric_convention": "brier_sum_form (range 0-2; random ~0.6406)"}}
+                           "champion_run": champ_run,
+                           "metric_convention": "brier_sum_form (range 0-2; random ~0.6406); "
+                                                "champion avg = 2022-2025 walk-forward"}}
     out = Path("webapp/data.js")
     out.write_text("window.MLS_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
     print(f"Wrote {out} · {data['played']} played + {data['upcoming']} upcoming · {len(standings)} teams")
