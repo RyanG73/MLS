@@ -8,7 +8,9 @@ The canonical project plan lives at `docs/PLAN.md`.
 
 ## Active branch
 
-All development goes on `claude/mls-prediction-dashboard-C2mQM`. Never push to main without explicit instruction.
+Development happens on `main` (user decision 2026-06-10, after the bag-5 champion promotion was merged
+to main by explicit instruction). The historical dev branch `claude/mls-prediction-dashboard-C2mQM`
+is merged and retained for history.
 
 ## Eval script
 
