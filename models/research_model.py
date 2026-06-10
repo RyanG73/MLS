@@ -136,7 +136,7 @@ def _season_weights(seasons, ref_s, weight_hl):
 
 
 def fit_xgb(train, feat, weight_hl=DEFAULT_WEIGHT_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42,
-            wide_grid=False, n_bags=1):
+            wide_grid=False, n_bags=DEFAULT_N_BAGS):
     """Inner-grid-tuned, season-weighted XGB multiclass on `feat`.
 
     wide_grid: sweep min_child_weight {1,5} × reg_lambda {1,5} in the inner grid
