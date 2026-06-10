@@ -6,9 +6,9 @@
 
 ## Executive Summary
 
-This project builds a market-blind probabilistic model for MLS soccer match outcomes (home win / draw / away win), with the purpose of identifying betting edges as the gap between model probability and market probability. The current champion achieves an average Brier score of **0.6335** (sum-form, 2022–2025 four-fold walk-forward; re-baselined 2026-06-09 when the completed 2025 season was added as a fourth test fold) — meaningfully better than the uniform-random baseline (0.6406) and the naive always-predict-home baseline (0.6667). The research harness is fully extracted into a tested module package (`scripts/eval/`), a six-criterion promotion gate (plus an advisory paired-bootstrap significance check) protects the champion, and a calibration deep-dive definitively closed the draw-signal question.
+This project builds a market-blind probabilistic model for MLS soccer match outcomes (home win / draw / away win), with the purpose of identifying betting edges as the gap between model probability and market probability. The current champion — a **5-member XGB seed bag** promoted 2026-06-10 — achieves an average Brier score of **0.6330** with calibration error **0.0182** (sum-form, 2022–2025 four-fold walk-forward) — meaningfully better than the uniform-random baseline (0.6406) and the naive always-predict-home baseline (0.6667). The research harness is fully extracted into a tested module package (`scripts/eval/`), a six-criterion promotion gate (plus an advisory paired-bootstrap significance check) protects the champion, and a calibration deep-dive definitively closed the draw-signal question.
 
-A 13-iteration improvement loop (2026-06-09, recorded verdict-by-verdict in `docs/PLAN.md`) measured the harness's seed-noise floor (σ≈0.001 — twice the gate's 0.0005 threshold), adopted **seed bagging** (`--xgb-bag 5`) as the verification protocol (collapsing run variance to σ≈0.0002), validated retaining 2021 in training, and cleanly refuted seven hypotheses (train-on-cal, in-season recalibration in two forms, DC-through-cal, LightGBM bag members, NaN-handling, draw-hurdle architecture). Two marginal-positive levers are banked unpromoted: the wide hyperparameter grid (`--xgb-wide-grid`, ~−0.0003) and production bagging (~−0.0004 + determinism). The next priorities are the bag+wide-grid combined promotion attempt and Pi end-to-end validation.
+A 13-iteration improvement loop (2026-06-09, recorded verdict-by-verdict in `docs/PLAN.md`) measured the harness's seed-noise floor (σ≈0.001 — twice the gate's 0.0005 threshold), adopted **seed bagging** (`--xgb-bag 5`) as the verification protocol (collapsing run variance to σ≈0.0002), validated retaining 2021 in training, and cleanly refuted seven hypotheses (train-on-cal, in-season recalibration in two forms, DC-through-cal, LightGBM bag members, NaN-handling, draw-hurdle architecture). The follow-on promotion cycle gate-tested both banked levers: bag+wide-grid was **rejected** (Brier gain, calibration cost) and bag-only was promoted by a documented user override (sub-noise shortfalls, calibration halved). The next priorities are Pi end-to-end validation and the betting/CLV workstream.
 
 ---
 
@@ -44,23 +44,26 @@ The production system runs on a Raspberry Pi. It executes `scripts/daily_update.
 
 ### Champion metrics
 
-**Model ID:** `champion-4fold-229bac79-20260609T235515` (re-baseline of `challenger-regress-0.40`: identical model config, measurement extended to 4 folds + per-match vectors)
-**Model file:** `models/research_model.py`
-**Pointer:** `experiments/champion.json` → `experiments/champion-4fold.report.json`
+**Model ID:** `challenger-bag5-07c8442c-20260610T010824` (promoted 2026-06-10 by user override)
+**Model file:** `models/research_model.py` (config baked in: `DEFAULT_N_BAGS = 5`, narrow grid)
+**Pointer:** `experiments/champion.json` → `experiments/challenger-bag5.report.json`
 **Metric convention:** sum-form Brier (range 0–2; see metric section below)
 **ELO config:** K=25, HOME_ADV=80, REGRESS=0.40 (promoted 2026-06-07)
+**Model config:** 5-member XGB seed bag (seeds 42 + 1000·i), raw probabilities averaged pre-calibration
 
 | Season | Brier (sum-form) | n matches |
 |--------|-----------------|-----------|
-| 2022   | 0.630402        | 489       |
-| 2023   | 0.634451        | 521       |
-| 2024   | 0.634305        | 522       |
-| 2025   | 0.634725        | 540       |
-| **Avg**| **0.6335**      | 2072      |
+| 2022   | 0.630827        | 489       |
+| 2023   | 0.634671        | 521       |
+| 2024   | 0.634913        | 522       |
+| 2025   | 0.631498        | 540       |
+| **Avg**| **0.6330**      | 2072      |
 
-**Calibration error** (max decile, blend output): **0.0360**
+**Calibration error** (max decile, blend output): **0.0182** — halved from the unbagged 0.0360
 
-(The prior 3-fold report — avg 0.6337, cal 0.0195 — is retained at `experiments/champion.report.json`; per-season differences vs that report reflect the data snapshot, not a model change. The strong 2025 fold is a substantive finding: once the cal fold (2024) represents the post-shift regime, the model handles it — the "2024 problem" was largely a one-season transition cost.)
+**The override:** the gate scored this challenger's core_metric short by 6×10⁻⁶ (gain +0.000494 vs the 0.0005 bar) and 2024 over tolerance by ~0.0001 — both far inside the measured seed-noise floor (σ≈0.001) — while calibration halved, the paired bootstrap gave P(challenger better)=0.858 over 2,072 matches, and production became deterministic. Promoted by explicit user decision; the rationale is recorded in `experiments/champion.json` `override_note`. Note the 2024 nuance: the prior champion's 2024 figure was a single-seed number (seed luck included), while the bagged figure is the de-noised estimate — part of the apparent regression is luck removal, not degradation.
+
+(Prior reports retained: `champion-4fold.report.json` — unbagged 4-fold, avg 0.6335, cal 0.0360 — and the 3-fold `champion.report.json`, avg 0.6337, cal 0.0195. The strong 2025 fold is a substantive finding: once the cal fold (2024) represents the post-shift regime, the model handles it — the "2024 problem" was largely a one-season transition cost.)
 
 **Per-class Brier breakdown:**
 - Home: 0.2470 (best-predicted class — home dominance most predictable)
@@ -319,9 +322,9 @@ Run verdict-by-verdict against a pre-registered queue (full detail in the `docs/
 
 ## Open Questions / What's Next
 
-### 0. Bag + wide-grid combined promotion (2026-06-09 — GATE REJECT; champion unchanged)
+### 0. Promotion cycle outcome (2026-06-10 — bag-only PROMOTED by override; wide grid rejected)
 
-The combo cleared screening (harness 2-seed mean −0.00085 vs champion) and the port landed in `models/research_model.py` (`fit_xgb(wide_grid=, n_bags=)` → list of classifiers + `bag_proba()`; defaults are exact no-ops). The formal gate then **rejected** the challenger (`challenger-bag5-wide-16bcf876`): core_metric PASS (0.632623, gain +0.0008; paired bootstrap P(better)=0.921, n=2,072) but **calibration FAIL (0.0584 vs limit 0.0410)**, robustness_2024 marginal FAIL (over by 0.0001), and the >60%-confidence slice regressed. Same structural shape as the referee rejection: a real Brier edge coupled to a calibration cost. The flags remain available in both the harness and `research_model` (defaults off); promotion would require recovering calibration (e.g., bag-only challenger, or a calibration-aware grid-selection criterion). Verdict detail: `docs/PLAN.md` "Promotion cycle" block.
+Both banked levers went through the formal gate. **Bag+wide-grid: REJECTED** — core_metric PASS (0.632623, gain +0.0008; paired bootstrap P=0.921) but calibration FAIL (0.0584 vs limit 0.0410), 2024 marginal FAIL, >60%-confidence slice regressed; same structural shape as the referee rejection (Brier edge coupled to a calibration cost). **Bag-only: REJECTED by the letter of the gate** (core short by 6×10⁻⁶, 2024 over by ~0.0001 — both sub-noise) **while halving calibration (0.0360→0.0182)** — and **promoted by explicit user override** (`promotion_gate.py promote --force`; rationale in `champion.json` `override_note`). `research_model.py` now defaults to the promoted config (`DEFAULT_N_BAGS=5`); `--xgb-wide-grid`/`wide_grid=` remain opt-in and gate-rejected. Remaining open item from this cycle: a calibration-aware grid-selection criterion could revisit the wide grid later. Verdict detail: `docs/PLAN.md` "Promotion cycle" block.
 
 ### 1. dc_p_draw as XGB feature (TESTED — DROP)
 

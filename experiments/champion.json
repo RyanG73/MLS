@@ -1,8 +1,7 @@
 {
-  "report": "experiments/champion-4fold.report.json",
-  "run_id": "champion-4fold-229bac79-20260609T235515",
-  "avg_brier": 0.633471,
-  "promoted_at": "2026-06-07T17:13:37Z",
-  "rebaselined_at": "2026-06-09T23:55:54Z",
-  "rebaseline_note": "Same model config as challenger-regress-0.40 (no model change). Measurement basis extended to 4 test folds (2025 season complete) + per_match vectors for the gate's paired bootstrap. Prior 3-fold report retained at experiments/champion.report.json."
+  "report": "experiments/challenger-bag5.report.json",
+  "run_id": "challenger-bag5-07c8442c-20260610T010824",
+  "avg_brier": 0.632977,
+  "promoted_at": "2026-06-10T01:08:24Z",
+  "override_note": "Promoted by user override 2026-06-10: core_metric short by 6e-6 (gain +0.000494 vs 0.0005) and 2024 over tolerance by ~0.0001 \u2014 both sub-noise (seed sigma ~0.001) \u2014 while max_decile_cal_error HALVED 0.0360->0.0182, paired bootstrap P(better)=0.858 (n=2072), and production becomes deterministic (n_bags=5). Prior champion report: champion-4fold.report.json."
 }

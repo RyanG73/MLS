@@ -56,6 +56,13 @@
 >   paired bootstrap P(better)=0.858. Note: champion's 2024 is a single-seed figure (luck included) while the
 >   challenger's is the de-noised bagged estimate — part of the "2024 regression" is luck removal. Both
 >   failures are sub-noise; per the clean-PASS-only rule this is NOT auto-promoted. Override decision → user.
+> - **P4 resolution — PROMOTED by user override (iter 5, 2026-06-10).** User decision: promote bag-only.
+>   `promotion_gate.py promote --force` → champion = `challenger-bag5-07c8442c` (**avg 0.632977, cal 0.0182**,
+>   per-season 0.6308/0.6347/0.6349/0.6315); `override_note` recorded in champion.json. Config baked into
+>   `models/research_model.py` (**DEFAULT_N_BAGS=5** across walk_forward/predict_upcoming; model_report
+>   --n-bags default 5) so production daily updates inherit it. wide_grid stays opt-in (gate-rejected).
+>   Suite 108 passed; parity check (bagged defaults vs new champion target) running as final verification.
+>   CURRENT_STATE / CLAUDE.md / HANDOFF / CODE_WALKTHROUGH all updated to the bag-5 champion.
 
 > **Codebase evaluation (2026-06-09) — integrity findings + ranked Brier opportunities (improvement-loop queue)**
 >

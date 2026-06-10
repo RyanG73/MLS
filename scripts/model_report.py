@@ -164,8 +164,9 @@ def main() -> int:
     ap.add_argument("--extra-feats", default=None,
                     help="Comma-separated feature columns to append to meta feat_base "
                          "(e.g. ref_hw_rate,ref_draw_rate) — for challenger A/B reports")
-    ap.add_argument("--n-bags", type=int, default=1,
-                    help="XGB bag size (seed +1000i, raw probs averaged); 1 = no bagging")
+    ap.add_argument("--n-bags", type=int, default=5,
+                    help="XGB bag size (seed +1000i, raw probs averaged); champion "
+                         "config is 5 since 2026-06-10; pass 1 to disable bagging")
     ap.add_argument("--wide-grid", action="store_true",
                     help="Sweep min_child_weight/reg_lambda in the inner XGB grid (48 combos)")
     args = ap.parse_args()

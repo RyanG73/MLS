@@ -28,21 +28,25 @@ definitions, data sources, and run commands. Update it when any of these change.
 - XGB feature windows: xG and form over (3, 5, 10, 15) matches (all four; eval harness default)
 - Edge threshold: 8% before live betting
 
-**Validated metrics (2026-06-09 re-baseline: same model, 4-fold measurement, current frame):**
+**Validated metrics (2026-06-10 champion: 5-member XGB seed bag, promoted by user override):**
 
 | Season | Brier (sum-form) |
 |--------|-----------------|
-| 2022   | 0.6304          |
-| 2023   | 0.6345          |
-| 2024   | 0.6343          |
-| 2025   | 0.6347          |
-| **Avg**| **0.6335**      |
+| 2022   | 0.6308          |
+| 2023   | 0.6347          |
+| 2024   | 0.6349          |
+| 2025   | 0.6315          |
+| **Avg**| **0.6330**      |
 
-Cal error (model_report, post-2nd-pass): 0.0360
-Champion pointer: `experiments/champion.json` → `champion-4fold.report.json` (includes
-per-match Brier vectors consumed by the gate's advisory paired bootstrap).
-Prior 3-fold report (2026-06-07, avg 0.6337, cal 0.0195) retained at `champion.report.json`;
-per-season deltas vs that report reflect the data snapshot, not a model change.
+Cal error (model_report, post-2nd-pass): **0.0182** (halved from 0.0360)
+Champion pointer: `experiments/champion.json` → `challenger-bag5.report.json`
+(`model_config: n_bags=5, wide_grid=false`; per-match Brier vectors included).
+**Override note:** the gate scored core_metric short by 6e-6 and 2024 over tolerance by
+~0.0001 — both far inside seed noise (σ≈0.001) — while calibration halved and production
+became deterministic; promoted by explicit user decision (see champion.json override_note).
+`models/research_model.py` defaults now bake the config in (`DEFAULT_N_BAGS = 5`).
+Prior reports retained: `champion-4fold.report.json` (unbagged 4-fold, avg 0.6335,
+cal 0.0360) and `champion.report.json` (3-fold 2026-06-07, avg 0.6337, cal 0.0195).
 
 Previous champion (regress=0.50): avg 0.6347, cal_err 0.0306.
 Previous baseline before calibration fix: avg 0.6381, cal_err 0.1567.

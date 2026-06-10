@@ -150,9 +150,9 @@ def blend(xg, dc, w):
     return b / b.sum(axis=1, keepdims=True).clip(1e-9, None)
 ```
 
-**What to look for:** The champion report shows `w_xgb` per season: `{"2022": 0.7, "2023": 0.92, "2024": 0.7, "2025": 0.83}` (4-fold report, 2026-06-09). Values at or near 0.7 mean DC got its maximum allowed 30% weight. Values near 1.0 mean XGB dominated.
+**What to look for:** The champion report shows `w_xgb` per season: `{"2022": 0.7, "2023": 0.93, "2024": 0.7, "2025": 0.871}` (bag-5 champion, 2026-06-10). Values at or near 0.7 mean DC got its maximum allowed 30% weight. Values near 1.0 mean XGB dominated.
 
-**What would look wrong:** `w_xgb` outside [0.7, 1.0] — this is clamped by the bounds and should never happen. A second-pass cal_err well above 0.05 (current champion: 0.0360 max-decile on the 4-fold report) would indicate the temperature fix is not working.
+**What would look wrong:** `w_xgb` outside [0.7, 1.0] — this is clamped by the bounds and should never happen. A second-pass cal_err well above 0.05 (current champion: 0.0182 max-decile) would indicate the temperature fix is not working.
 
 ---
 
@@ -503,10 +503,12 @@ print(meta["dc_decay_hl"], meta["regress"], meta["weight_hl"])  # 120, 0.4, 6
 ```python
 import json
 r = json.load(open("experiments/champion.report.json"))
-print(r["avg_brier"])           # expect 0.633471 (CURRENT_STATE says 0.6335 avg, 4-fold)
-print(r["per_season"])          # 2022: 0.6304, 2023: 0.6345, 2024: 0.6343, 2025: 0.6347
-print(r["max_decile_cal_error"])# expect ~0.0360
-print(r["w_xgb"])               # {"2022":0.7, "2023":0.92, "2024":0.7, "2025":0.83}
+print(r["avg_brier"])           # expect 0.632977 (CURRENT_STATE says 0.6330 avg, 4-fold, bag-5)
+print(r["per_season"])          # 2022: 0.6308, 2023: 0.6347, 2024: 0.6349, 2025: 0.6315
+print(r["max_decile_cal_error"])# expect ~0.0182
+print(r["w_xgb"])               # {"2022":0.7, "2023":0.93, "2024":0.7, "2025":0.871}
+# Resolve the report path via experiments/champion.json (championed 2026-06-10:
+# challenger-bag5.report.json, promoted by user override — see override_note).
 ```
 
 ### Verify champion pointer

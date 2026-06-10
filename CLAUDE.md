@@ -22,8 +22,13 @@ All development goes on `claude/mls-prediction-dashboard-C2mQM`. Never push to m
 - Test seasons: 2022–2025 walk-forward (2022 evaluates with the 2021 cal fold). 2025 added as the 4th
   fold 2026-06-09 — the old "2025 in-progress, never in test window" rule lapsed when the season
   completed (540 matches). 2026 in-progress data: training only, never in the test window.
-- Champion measurement basis: experiments/champion.json → champion-4fold report (avg 0.6335, 4 folds,
-  per-match vectors for the gate's paired bootstrap). Gate challengers must also be 4-fold reports.
+- Champion: experiments/champion.json → challenger-bag5 report (avg **0.6330**, cal 0.0182, 4 folds,
+  per-match vectors). Config: **5-member XGB seed bag** (research_model DEFAULT_N_BAGS=5), narrow grid.
+  Promoted 2026-06-10 by explicit user override (core short 6e-6 / 2024 over ~0.0001, both sub-noise;
+  calibration halved). Gate challengers must be 4-fold reports; wide_grid stays opt-in (gate-rejected
+  on calibration 2026-06-09).
+- Verification protocol: judge harness experiments on a single bagged run (--xgb-bag 5 --seed 42,
+  σ≈0.0002) and confirm gate-bound claims at a second base seed.
 - Calibration: temperature scaling (single T parameter, minimise NLL on cal fold)
 - ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07: whl=6 + regress=0.40 synergistic; avg Brier 0.6337, cal_err 0.0195; prior "50% wins" was measured at whl=4)
 - DC time-decay: 120-day half-life

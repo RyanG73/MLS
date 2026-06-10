@@ -29,6 +29,10 @@ _logger = logging.getLogger(__name__)
 DEFAULT_DC_DECAY_HL = 120
 DEFAULT_WEIGHT_HL = 6
 DEFAULT_XGB_NJOBS = 2
+# Champion config since the 2026-06-10 promotion (challenger-bag5, user override):
+# 5-member XGB seed bag, narrow grid. wide_grid stays opt-in (gate-rejected on
+# calibration). Set n_bags=1 to reproduce the pre-bagging champion exactly.
+DEFAULT_N_BAGS = 5
 
 
 # ─── Dixon-Coles ──────────────────────────────────────────────────────────────
@@ -211,7 +215,7 @@ def blend(xg, dc, w):
 
 def walk_forward_predictions(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
                              dc_decay_hl=DEFAULT_DC_DECAY_HL, n_jobs=DEFAULT_XGB_NJOBS,
-                             seed=42, wide_grid=False, n_bags=1):
+                             seed=42, wide_grid=False, n_bags=DEFAULT_N_BAGS):
     """
     Run the validated walk-forward pipeline and return PER-MATCH predictions for the
     test seasons (for slicing / reporting). Same computation as walk_forward — the
@@ -269,7 +273,7 @@ def walk_forward_predictions(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIG
 
 def walk_forward(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
                  dc_decay_hl=DEFAULT_DC_DECAY_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42,
-                 wide_grid=False, n_bags=1):
+                 wide_grid=False, n_bags=DEFAULT_N_BAGS):
     """Returns {'per_season': {yr: brier}, 'avg_brier': float, 'w_xgb': {yr: w}}."""
     preds, w_used = walk_forward_predictions(
         df, feat_base, test_seasons, weight_hl=weight_hl,
@@ -304,7 +308,7 @@ def predict_upcoming(
     n_jobs: int = DEFAULT_XGB_NJOBS,
     seed: int = 42,
     wide_grid: bool = False,
-    n_bags: int = 1,
+    n_bags: int = DEFAULT_N_BAGS,
 ) -> pd.DataFrame:
     """
     Fit the validated research pipeline on train_df and predict upcoming matches.
