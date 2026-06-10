@@ -41,6 +41,15 @@
 >   external `fit_xgb` callers migrated (build_dashboard_data + 3 probes). `model_report.py` gains
 >   `--n-bags/--wide-grid` and records `model_config` in the report JSON. Challenger report
 >   (`challenger-bag5-wide`, 4-fold, per-match vectors) building in background → P4 gate next.
+> - **P4 — GATE REJECT (iter 3): real Brier gain, but calibration + 2024 guardrails trip.**
+>   Challenger `challenger-bag5-wide-16bcf876` (research_model, n_bags=5, wide_grid): avg **0.632623**
+>   (core PASS, gain +0.0008; paired bootstrap n=2072, mean Δ+0.00088, **P(better)=0.921**). FAILS:
+>   calibration **0.0584 vs limit 0.0410** (champion 0.0360 — the combo is sharper but less calibrated);
+>   robustness_2024 0.6349 vs limit 0.6348 (over by 0.0001 — borderline noise); slices >60%-bucket +0.0594
+>   (n≈16). Per approved scope (auto-promote only on clean PASS) → **NOT promoted**; champion stays
+>   0.633471. The gate did its job — same shape as the referee rejection: Brier edge coupled to a
+>   calibration cost. Decision returned to user: accept reject / try bag-only challenger (calibration was
+>   harness-better without the wide grid) / pursue calibration fix / override.
 
 > **Codebase evaluation (2026-06-09) — integrity findings + ranked Brier opportunities (improvement-loop queue)**
 >

@@ -319,9 +319,9 @@ Run verdict-by-verdict against a pre-registered queue (full detail in the `docs/
 
 ## Open Questions / What's Next
 
-### 0. Bag + wide-grid combined promotion (IN FLIGHT, 2026-06-09 evening — screening PASSED, port DONE)
+### 0. Bag + wide-grid combined promotion (2026-06-09 — GATE REJECT; champion unchanged)
 
-The two banked marginals cleared the screening rule combined: 4-fold bagged harness, two base seeds, combo mean 0.63262 (−0.00085 vs the champion's 0.633471). The port landed in `models/research_model.py`: `fit_xgb(wide_grid=, n_bags=)` returns a list of classifiers, predictions go through `bag_proba()`, and defaults are exact no-ops. `model_report.py --n-bags 5 --wide-grid` builds the challenger report; `promotion_gate.py` decides (auto-promote on PASS per user decision). Status lives in the `docs/PLAN.md` "Promotion cycle" block.
+The combo cleared screening (harness 2-seed mean −0.00085 vs champion) and the port landed in `models/research_model.py` (`fit_xgb(wide_grid=, n_bags=)` → list of classifiers + `bag_proba()`; defaults are exact no-ops). The formal gate then **rejected** the challenger (`challenger-bag5-wide-16bcf876`): core_metric PASS (0.632623, gain +0.0008; paired bootstrap P(better)=0.921, n=2,072) but **calibration FAIL (0.0584 vs limit 0.0410)**, robustness_2024 marginal FAIL (over by 0.0001), and the >60%-confidence slice regressed. Same structural shape as the referee rejection: a real Brier edge coupled to a calibration cost. The flags remain available in both the harness and `research_model` (defaults off); promotion would require recovering calibration (e.g., bag-only challenger, or a calibration-aware grid-selection criterion). Verdict detail: `docs/PLAN.md` "Promotion cycle" block.
 
 ### 1. dc_p_draw as XGB feature (TESTED — DROP)
 
