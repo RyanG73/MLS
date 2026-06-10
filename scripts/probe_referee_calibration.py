@@ -49,7 +49,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from models.metrics import brier_multiclass_sum
 from models.research_model import (
-    fit_dc, dc_predict_batch, fit_xgb, calibrate_temperature,
+    fit_dc, dc_predict_batch, fit_xgb, bag_proba, calibrate_temperature,
     fit_capped_blend, blend,
 )
 
@@ -110,10 +110,10 @@ def build_blends(frame_path: str) -> list:
                                        dc_predict_batch(cal, atk, dfd, ha, rho))
         dc_te = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
                                       dc_predict_batch(test, atk, dfd, ha, rho))
-        clf, _ = fit_xgb(train, feat)
-        xc_raw = clf.predict_proba(cal[feat].fillna(0).values)
+        clfs, _ = fit_xgb(train, feat)
+        xc_raw = bag_proba(clfs, cal[feat].fillna(0).values)
         xgb_cal = calibrate_temperature(xc_raw, y_cal, xc_raw)
-        xgb_te = calibrate_temperature(xc_raw, y_cal, clf.predict_proba(test[feat].fillna(0).values))
+        xgb_te = calibrate_temperature(xc_raw, y_cal, bag_proba(clfs, test[feat].fillna(0).values))
         w = fit_capped_blend(xgb_cal, dc_cal, y_cal_oh)
         out.append({
             "season": ts,

@@ -57,7 +57,7 @@ def main() -> int:
     windows = [int(w) for w in args.windows.split(",")]
     dc_hl = meta.get("dc_decay_hl", 120)
 
-    from models.research_model import (fit_dc, dc_predict_batch, fit_xgb,
+    from models.research_model import (fit_dc, dc_predict_batch, fit_xgb, bag_proba,
                                        calibrate_temperature, fit_capped_blend, blend)
 
     print("# Probe: Dixon-Coles recent-seasons window sweep\n")
@@ -77,9 +77,9 @@ def main() -> int:
         y_cal_oh, y_te_oh = np.eye(3)[y_cal], np.eye(3)[y_te]
 
         # XGB fit once, reused for all windows
-        clf, _ = fit_xgb(train, feat, weight_hl=meta.get("weight_hl", 6))
-        xc = clf.predict_proba(cal[feat].fillna(0).values)
-        xt = clf.predict_proba(test[feat].fillna(0).values)
+        clfs, _ = fit_xgb(train, feat, weight_hl=meta.get("weight_hl", 6))
+        xc = bag_proba(clfs, cal[feat].fillna(0).values)
+        xt = bag_proba(clfs, test[feat].fillna(0).values)
         xgb_cal = calibrate_temperature(xc, y_cal, xc)
         xgb_te = calibrate_temperature(xc, y_cal, xt)
 

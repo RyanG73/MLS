@@ -83,7 +83,7 @@ def main() -> int:
     feat = [c for c in meta["feat_base"] if c in df.columns]
     test_seasons = [int(s) for s in args.test_seasons.split(",")]
 
-    from models.research_model import (fit_dc, dc_predict_batch, fit_xgb,
+    from models.research_model import (fit_dc, dc_predict_batch, fit_xgb, bag_proba,
                                        calibrate_temperature, fit_capped_blend, blend)
 
     print("# Probe: vector vs scalar calibration on the blend output\n")
@@ -107,9 +107,9 @@ def main() -> int:
                                        dc_predict_batch(cal, atk, dfd, ha, rho))
         dc_te = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
                                       dc_predict_batch(test, atk, dfd, ha, rho))
-        clf, _ = fit_xgb(train, feat, weight_hl=meta.get("weight_hl", 6))
-        xc = clf.predict_proba(cal[feat].fillna(0).values)
-        xt = clf.predict_proba(test[feat].fillna(0).values)
+        clfs, _ = fit_xgb(train, feat, weight_hl=meta.get("weight_hl", 6))
+        xc = bag_proba(clfs, cal[feat].fillna(0).values)
+        xt = bag_proba(clfs, test[feat].fillna(0).values)
         xgb_cal = calibrate_temperature(xc, y_cal, xc)
         xgb_te = calibrate_temperature(xc, y_cal, xt)
         w = fit_capped_blend(xgb_cal, dc_cal, y_cal_oh)

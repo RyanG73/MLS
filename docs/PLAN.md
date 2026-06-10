@@ -30,6 +30,17 @@
 >   bases clarified, sanity-check numbers updated, new variant-flags table with loop verdicts, harness-vs-
 >   model_report cal-measure footnote. P2 screening runs launched concurrently (s1 4-fold control + combo at
 >   both base seeds, sequential).
+> - **P2 — PASS (iter 2): combo screening clears the pre-registered rule.** 4-fold bagged: s42 ctrl 0.63298 →
+>   combo **0.63236** (Δ−0.00062); s1 ctrl 0.63304 → combo 0.63288 (Δ−0.00016). Two-seed mean 0.63262,
+>   Δ−0.00039 ≈ the −0.0004 rule, direction consistent; vs champion 0.633471 the combined gain is
+>   **−0.00085** (core bar 0.0005). 2024 non-regressing in the paired sense (+0.0000/+0.0003 vs own control);
+>   formal 2024 gate decided at P4 on like-for-like research_model reports. → proceed to P3.
+> - **P3 — DONE (iter 2): ported to research_model.py.** `fit_xgb(wide_grid=, n_bags=)` now returns a LIST of
+>   classifiers + `bag_proba()` helper; threaded through `walk_forward_predictions`, `walk_forward`,
+>   `predict_upcoming` (defaults n_bags=1/wide_grid=False are exact no-ops — suite 108 passed). All four
+>   external `fit_xgb` callers migrated (build_dashboard_data + 3 probes). `model_report.py` gains
+>   `--n-bags/--wide-grid` and records `model_config` in the report JSON. Challenger report
+>   (`challenger-bag5-wide`, 4-fold, per-match vectors) building in background → P4 gate next.
 
 > **Codebase evaluation (2026-06-09) — integrity findings + ranked Brier opportunities (improvement-loop queue)**
 >

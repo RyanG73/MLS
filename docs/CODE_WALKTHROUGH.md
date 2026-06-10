@@ -126,9 +126,9 @@ add_rolling_features(
 
 ---
 
-### Step 5 — XGBoost with season weights (models/research_model.py, lines ~130–161)
+### Step 5 — XGBoost with season weights (models/research_model.py)
 
-**What happens:** `fit_xgb()` builds a multiclass XGBoost model (softprob, 3 classes). An inner grid over `max_depth ∈ {3,4,5}`, `n_estimators ∈ {200,400}`, `learning_rate ∈ {0.05,0.10}` (12 combinations) is evaluated on the last 2 seasons of the training window. Sample weights decay exponentially by season: `exp(-log(2)/6 * (ref_season - s))` so a season 6 years old counts half as much.
+**What happens:** `fit_xgb()` builds multiclass XGBoost models (softprob, 3 classes). An inner grid over `max_depth ∈ {3,4,5}`, `n_estimators ∈ {200,400}`, `learning_rate ∈ {0.05,0.10}` (12 combinations; 48 with `wide_grid=True`, which adds `min_child_weight ∈ {1,5}` × `reg_lambda ∈ {1,5}`) is evaluated on the last 2 seasons of the training window. Sample weights decay exponentially by season: `exp(-log(2)/6 * (ref_season - s))` so a season 6 years old counts half as much. With `n_bags=N`, N models are fitted at seeds `seed + 1000·i` and `bag_proba()` averages their raw probabilities before calibration (variance reduction, harness-validated 2026-06-09). `fit_xgb` returns `(clfs_list, best_params)` — always use `bag_proba(clfs, X)` for predictions. Defaults (`n_bags=1, wide_grid=False`) reproduce the pre-port behavior exactly.
 
 **What to look for:** `subsample=0.8, colsample_bytree=0.8` are fixed. The inner grid winner varies by fold — you will see it printed as `XGB-grid(d=4,n=200,lr=0.05)` or similar.
 

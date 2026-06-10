@@ -164,6 +164,10 @@ def main() -> int:
     ap.add_argument("--extra-feats", default=None,
                     help="Comma-separated feature columns to append to meta feat_base "
                          "(e.g. ref_hw_rate,ref_draw_rate) — for challenger A/B reports")
+    ap.add_argument("--n-bags", type=int, default=1,
+                    help="XGB bag size (seed +1000i, raw probs averaged); 1 = no bagging")
+    ap.add_argument("--wide-grid", action="store_true",
+                    help="Sweep min_child_weight/reg_lambda in the inner XGB grid (48 combos)")
     args = ap.parse_args()
 
     df, meta, snapshot_hash = _load_frame(args.frame)
@@ -188,7 +192,8 @@ def main() -> int:
           f"test {test_seasons}")
     preds, w_used = walk_forward_predictions(
         df, feat_base, test_seasons,
-        weight_hl=meta.get("weight_hl", 6), dc_decay_hl=meta.get("dc_decay_hl", 120))
+        weight_hl=meta.get("weight_hl", 6), dc_decay_hl=meta.get("dc_decay_hl", 120),
+        wide_grid=args.wide_grid, n_bags=args.n_bags)
     if preds.empty:
         raise SystemExit("[report] no predictions produced")
 
@@ -210,6 +215,7 @@ def main() -> int:
         "git_sha": _git_sha(),
         "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "model": "models/research_model.py (DC + XGB + temp + capped blend + 2nd-pass)",
+        "model_config": {"n_bags": args.n_bags, "wide_grid": args.wide_grid},
         "metric_convention": "brier_sum_form",
         "data_snapshot_hash": snapshot_hash,
         "frame": str(Path(args.frame).name),

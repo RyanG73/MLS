@@ -101,7 +101,7 @@ def main():
         df = pd.read_pickle(_frame)
     df["date"] = pd.to_datetime(df["date"])
 
-    from models.research_model import (fit_dc, dc_predict_batch, fit_xgb,
+    from models.research_model import (fit_dc, dc_predict_batch, fit_xgb, bag_proba,
                                         calibrate_temperature, fit_capped_blend, blend)
     from itscalledsoccer.client import AmericanSoccerAnalysis
     import models.research_model as rm
@@ -147,9 +147,9 @@ def main():
                                   dc_predict_batch(cal, atk0, dfd0, ha0, rho0))
     dcte = calibrate_temperature(dc_predict_batch(cal, atk0, dfd0, ha0, rho0), y_cal,
                                  dc_predict_batch(played, atk0, dfd0, ha0, rho0))
-    clf, _ = fit_xgb(train, feat)
-    xc = clf.predict_proba(cal[feat].fillna(0).values)
-    xt = clf.predict_proba(played[feat].fillna(0).values)
+    clfs, _ = fit_xgb(train, feat)
+    xc = bag_proba(clfs, cal[feat].fillna(0).values)
+    xt = bag_proba(clfs, played[feat].fillna(0).values)
     xgbcal = calibrate_temperature(xc, y_cal, xc); xgbte = calibrate_temperature(xc, y_cal, xt)
     w = fit_capped_blend(xgbcal, dccal, y_cal_oh)
     pe = blend(xgbte, dcte, w)

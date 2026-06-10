@@ -131,18 +131,34 @@ def _season_weights(seasons, ref_s, weight_hl):
     return seasons.apply(lambda s: math.exp(-math.log(2) / weight_hl * (ref_s - s))).values
 
 
-def fit_xgb(train, feat, weight_hl=DEFAULT_WEIGHT_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42):
-    """Inner-grid-tuned, season-weighted XGB multiclass on `feat`."""
+def fit_xgb(train, feat, weight_hl=DEFAULT_WEIGHT_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42,
+            wide_grid=False, n_bags=1):
+    """Inner-grid-tuned, season-weighted XGB multiclass on `feat`.
+
+    wide_grid: sweep min_child_weight {1,5} × reg_lambda {1,5} in the inner grid
+               (12 → 48 combos; single values below are XGBoost defaults so
+               wide_grid=False behaves exactly as before).
+    n_bags:    fit N models at seeds (seed + 1000·i) and average raw probabilities
+               downstream (variance reduction; harness-validated 2026-06-09).
+    Returns (clfs, best_p) where clfs is a LIST of fitted classifiers — use
+    bag_proba(clfs, X) for predictions.
+    """
     ref_s = train["season"].max()
     sw = _season_weights(train["season"], ref_s, weight_hl)
     inner_s = sorted(train["season"].unique())[-2:]
     itr, ival = train[~train["season"].isin(inner_s)], train[train["season"].isin(inner_s)]
     sw_i = _season_weights(itr["season"], ref_s, weight_hl)
-    best_b, best_p = float("inf"), {"max_depth": 4, "n_estimators": 300, "learning_rate": 0.05}
+    best_b = float("inf")
+    best_p = {"max_depth": 4, "n_estimators": 300, "learning_rate": 0.05,
+              "min_child_weight": 1, "reg_lambda": 1.0}
+    mcw_axis = [1, 5] if wide_grid else [1]
+    rl_axis = [1.0, 5.0] if wide_grid else [1.0]
     if len(ival) >= 30:
-        for md, ne, lr in itertools.product([3, 4, 5], [200, 400], [0.05, 0.10]):
+        for md, ne, lr, mcw, rl in itertools.product(
+                [3, 4, 5], [200, 400], [0.05, 0.10], mcw_axis, rl_axis):
             try:
                 c = xgb.XGBClassifier(n_estimators=ne, max_depth=md, learning_rate=lr,
+                                      min_child_weight=mcw, reg_lambda=rl,
                                       subsample=0.8, colsample_bytree=0.8,
                                       objective="multi:softprob", num_class=3,
                                       eval_metric="mlogloss", verbosity=0,
@@ -151,14 +167,26 @@ def fit_xgb(train, feat, weight_hl=DEFAULT_WEIGHT_HL, n_jobs=DEFAULT_XGB_NJOBS, 
                 ip = c.predict_proba(ival[feat].fillna(0).values)
                 b = multiclass_brier(np.eye(3)[ival["label_result"].values], ip)
                 if b < best_b:
-                    best_b, best_p = b, {"max_depth": md, "n_estimators": ne, "learning_rate": lr}
+                    best_b = b
+                    best_p = {"max_depth": md, "n_estimators": ne, "learning_rate": lr,
+                              "min_child_weight": mcw, "reg_lambda": rl}
             except Exception:
                 pass
-    clf = xgb.XGBClassifier(objective="multi:softprob", num_class=3,
-                            eval_metric="mlogloss", verbosity=0, random_state=seed,
-                            subsample=0.8, colsample_bytree=0.8, n_jobs=n_jobs, **best_p)
-    clf.fit(train[feat].fillna(0).values, train["label_result"].values, sample_weight=sw)
-    return clf, best_p
+    clfs = []
+    for bi in range(max(1, int(n_bags))):
+        clf = xgb.XGBClassifier(objective="multi:softprob", num_class=3,
+                                eval_metric="mlogloss", verbosity=0,
+                                random_state=seed + 1000 * bi,
+                                subsample=0.8, colsample_bytree=0.8, n_jobs=n_jobs,
+                                **best_p)
+        clf.fit(train[feat].fillna(0).values, train["label_result"].values, sample_weight=sw)
+        clfs.append(clf)
+    return clfs, best_p
+
+
+def bag_proba(clfs, X):
+    """Average raw predict_proba over bag members (len-1 bags are a no-op)."""
+    return np.mean([c.predict_proba(X) for c in clfs], axis=0)
 
 
 # ─── Capped-DC convex blend ───────────────────────────────────────────────────
@@ -183,7 +211,7 @@ def blend(xg, dc, w):
 
 def walk_forward_predictions(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
                              dc_decay_hl=DEFAULT_DC_DECAY_HL, n_jobs=DEFAULT_XGB_NJOBS,
-                             seed=42):
+                             seed=42, wide_grid=False, n_bags=1):
     """
     Run the validated walk-forward pipeline and return PER-MATCH predictions for the
     test seasons (for slicing / reporting). Same computation as walk_forward — the
@@ -211,9 +239,10 @@ def walk_forward_predictions(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIG
         dc_te = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
                                       dc_predict_batch(test, atk, dfd, ha, rho))
 
-        clf, _ = fit_xgb(train, feat, weight_hl=weight_hl, n_jobs=n_jobs, seed=seed)
-        xgb_cal_raw = clf.predict_proba(cal[feat].fillna(0).values)
-        xgb_te_raw = clf.predict_proba(test[feat].fillna(0).values)
+        clfs, _ = fit_xgb(train, feat, weight_hl=weight_hl, n_jobs=n_jobs, seed=seed,
+                          wide_grid=wide_grid, n_bags=n_bags)
+        xgb_cal_raw = bag_proba(clfs, cal[feat].fillna(0).values)
+        xgb_te_raw = bag_proba(clfs, test[feat].fillna(0).values)
         xgb_cal = calibrate_temperature(xgb_cal_raw, y_cal, xgb_cal_raw)
         xgb_te = calibrate_temperature(xgb_cal_raw, y_cal, xgb_te_raw)
 
@@ -239,11 +268,13 @@ def walk_forward_predictions(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIG
 
 
 def walk_forward(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIGHT_HL,
-                 dc_decay_hl=DEFAULT_DC_DECAY_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42):
+                 dc_decay_hl=DEFAULT_DC_DECAY_HL, n_jobs=DEFAULT_XGB_NJOBS, seed=42,
+                 wide_grid=False, n_bags=1):
     """Returns {'per_season': {yr: brier}, 'avg_brier': float, 'w_xgb': {yr: w}}."""
     preds, w_used = walk_forward_predictions(
         df, feat_base, test_seasons, weight_hl=weight_hl,
-        dc_decay_hl=dc_decay_hl, n_jobs=n_jobs, seed=seed)
+        dc_decay_hl=dc_decay_hl, n_jobs=n_jobs, seed=seed,
+        wide_grid=wide_grid, n_bags=n_bags)
     per_season = {}
     if not preds.empty:
         for ts, g in preds.groupby("season"):
@@ -272,6 +303,8 @@ def predict_upcoming(
     dc_decay_hl: int = DEFAULT_DC_DECAY_HL,
     n_jobs: int = DEFAULT_XGB_NJOBS,
     seed: int = 42,
+    wide_grid: bool = False,
+    n_bags: int = 1,
 ) -> pd.DataFrame:
     """
     Fit the validated research pipeline on train_df and predict upcoming matches.
@@ -341,9 +374,10 @@ def predict_upcoming(
     dc_up_t = calibrate_temperature(dc_cal_raw, y_cal, dc_up_raw)
 
     # XGBoost on pre-cal training data
-    clf, _ = fit_xgb(train, feat, weight_hl=weight_hl, n_jobs=n_jobs, seed=seed)
-    xgb_cal_raw = clf.predict_proba(cal[feat].fillna(0).values)
-    xgb_up_raw = clf.predict_proba(upcoming_df[feat].fillna(0).values)
+    clfs, _ = fit_xgb(train, feat, weight_hl=weight_hl, n_jobs=n_jobs, seed=seed,
+                      wide_grid=wide_grid, n_bags=n_bags)
+    xgb_cal_raw = bag_proba(clfs, cal[feat].fillna(0).values)
+    xgb_up_raw = bag_proba(clfs, upcoming_df[feat].fillna(0).values)
     xgb_cal_t = calibrate_temperature(xgb_cal_raw, y_cal, xgb_cal_raw)
     xgb_up_t = calibrate_temperature(xgb_cal_raw, y_cal, xgb_up_raw)
 

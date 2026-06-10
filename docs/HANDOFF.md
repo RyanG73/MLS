@@ -319,9 +319,9 @@ Run verdict-by-verdict against a pre-registered queue (full detail in the `docs/
 
 ## Open Questions / What's Next
 
-### 0. Bag + wide-grid combined promotion (IN FLIGHT, 2026-06-09 evening)
+### 0. Bag + wide-grid combined promotion (IN FLIGHT, 2026-06-09 evening — screening PASSED, port DONE)
 
-The two banked marginals (`--xgb-bag 5` ≈ −0.0004, `--xgb-wide-grid` ≈ −0.0003) may clear the 0.0005 gate bar combined where neither does alone. Plan (user-approved, auto-promote on PASS): screen the combo at two base seeds on 4 folds; if it holds, port bagging + the wide grid axes into `models/research_model.py`, build a 4-fold challenger report, and run the full promotion gate. Status lives in the `docs/PLAN.md` "Promotion cycle" block.
+The two banked marginals cleared the screening rule combined: 4-fold bagged harness, two base seeds, combo mean 0.63262 (−0.00085 vs the champion's 0.633471). The port landed in `models/research_model.py`: `fit_xgb(wide_grid=, n_bags=)` returns a list of classifiers, predictions go through `bag_proba()`, and defaults are exact no-ops. `model_report.py --n-bags 5 --wide-grid` builds the challenger report; `promotion_gate.py` decides (auto-promote on PASS per user decision). Status lives in the `docs/PLAN.md` "Promotion cycle" block.
 
 ### 1. dc_p_draw as XGB feature (TESTED — DROP)
 
