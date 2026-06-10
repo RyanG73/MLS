@@ -150,9 +150,9 @@ def blend(xg, dc, w):
     return b / b.sum(axis=1, keepdims=True).clip(1e-9, None)
 ```
 
-**What to look for:** The champion report shows `w_xgb` per season: `{"2022": 0.7, "2023": 0.841, "2024": 0.7}`. Values at or near 0.7 mean DC got its maximum allowed 30% weight. Values near 1.0 mean XGB dominated.
+**What to look for:** The champion report shows `w_xgb` per season: `{"2022": 0.7, "2023": 0.92, "2024": 0.7, "2025": 0.83}` (4-fold report, 2026-06-09). Values at or near 0.7 mean DC got its maximum allowed 30% weight. Values near 1.0 mean XGB dominated.
 
-**What would look wrong:** `w_xgb` outside [0.7, 1.0] — this is clamped by the bounds and should never happen. A second-pass cal_err above 0.05 (current champion: 0.0195 max-decile) would indicate the temperature fix is not working.
+**What would look wrong:** `w_xgb` outside [0.7, 1.0] — this is clamped by the bounds and should never happen. A second-pass cal_err well above 0.05 (current champion: 0.0360 max-decile on the 4-fold report) would indicate the temperature fix is not working.
 
 ---
 
@@ -195,7 +195,7 @@ Several sub-steps:
 If `FETCH_WEATHER=True`, queries Open-Meteo historical API for temperature, precipitation, wind. Dome stadiums get structural NULL. Adds `temp_c`, `precip_mm`, `wind_kph`. Skipped by default.
 
 **[7/9] Walk-forward evaluation** (~lines 2149–2290+)
-The main loop. For each `test_season ∈ TEST_SEASONS` (default 2021–2024, but 2021 skips because its COVID cal fold has <50 matches):
+The main loop. For each `test_season ∈ TEST_SEASONS` (harness default 2021–2024 — 2021 skips because its cal fold 2020 is excluded; the gate's measurement basis is 4-fold 2022–2025 via `--test-seasons 2022 2023 2024 2025`, which `model_report.py` uses by default through `parity_frame.meta.json`):
 1. Split: `train = seasons < cal_season`, `cal = cal_season`, `test = test_season`
 2. Fit DC on train, calibrate, predict cal + test
 3. Grid-search XGB hyperparams, fit on train, calibrate
@@ -267,7 +267,7 @@ te_blend  = blend(xgb_te,  dc_te,  w)    # blend on test fold
 ens_te    = calibrate_temperature(cal_blend, y_cal, te_blend)  # 2nd-pass cal
 ```
 
-The second-pass calibration is the critical fix introduced in Phase 10. Before it, individual temperature scaling was applied to XGB and DC separately, but the convex combination of two calibrated models is not itself calibrated — causing `cal_err=0.1326`. Fitting `T` on the blend output directly reduces this to the current 0.0195 (was 0.0306 under the regress=0.50 champion).
+The second-pass calibration is the critical fix introduced in Phase 10. Before it, individual temperature scaling was applied to XGB and DC separately, but the convex combination of two calibrated models is not itself calibrated — causing `cal_err=0.1326`. Fitting `T` on the blend output directly reduces this to 0.0360 on the current 4-fold champion report (0.0195 on the prior 3-fold report/snapshot).
 
 ### Where calibration happens
 
@@ -323,23 +323,27 @@ Defined at the top of `scripts/promotion_gate.py` (lines 45–48):
 
 `core_metric` is the only improvement gate — all others are guardrails. A challenger that scores identically to the champion does not pass because gain < MIN_GAIN (0.0005).
 
+A seventh check, **`paired_significance` (advisory, added 2026-06-09)**, runs when both reports embed `per_match` Brier vectors (model_report.py writes them): it bootstraps the mean paired Brier difference on common match_ids and prints `P(challenger better)`. It never blocks — the measured unbagged seed-noise floor (σ≈0.001) makes unpaired gains near 0.0005 ambiguous, so the paired evidence is surfaced for the human decision.
+
 ### How to read a model report
 
 The report is a JSON file. Key fields to check:
 
 ```json
 {
-  "avg_brier":       0.63369,        ← must beat champion by 0.0005 to promote
+  "avg_brier":       0.633471,       ← must beat champion by 0.0005 to promote
   "per_season": {
-    "2022": 0.630505,
-    "2023": 0.635932,
-    "2024": 0.634633                 ← 2024 hard-gated: no regression > 0.0005 allowed
+    "2022": 0.630402,
+    "2023": 0.634451,
+    "2024": 0.634305,                ← 2024 hard-gated: no regression > 0.0005 allowed
+    "2025": 0.634725                 ← 4th fold added 2026-06-09 (season complete)
   },
-  "max_decile_cal_error": 0.019457,  ← calibration quality; lower is better
+  "max_decile_cal_error": 0.036014,  ← calibration quality; lower is better
   "coverage_by_season": {
-    "2022": 489, "2023": 521, "2024": 522
+    "2022": 489, "2023": 521, "2024": 522, "2025": 540
   },
-  "w_xgb": {"2022": 0.7, "2023": 0.841, "2024": 0.7},   ← blend weights
+  "w_xgb": {"2022": 0.7, "2023": 0.92, "2024": 0.7, "2025": 0.83},  ← blend weights
+  "per_match": {"match_id": [...], "brier": [...]},  ← feeds the gate's paired bootstrap
   "slices": {
     "by_confidence": {
       "<40%": ..., "40-50%": ..., "50-60%": ..., ">60%": ...
@@ -443,6 +447,22 @@ print(df[df["season"].isin([2022,2023,2024])]["label_result"].value_counts(norma
 EVAL_XGB_NJOBS=8 python scripts/eval_baseline.py --smoke-test
 ```
 
+### Experiment-variant flags (added in the 2026-06-09 loop)
+
+All default OFF; each reports its metric alongside the standard ensemble so runs are self-paired:
+
+| Flag | What it does | Loop verdict |
+|------|--------------|--------------|
+| `--xgb-bag N` | Bag the BestAB XGB over N seeds, average raw probs pre-calibration | **KEEP (infra)** — `--xgb-bag 5 --seed 42` is the verification protocol |
+| `--xgb-wide-grid` | Inner grid + min_child_weight {1,5} × reg_lambda {1,5} (48 combos) | marginal (−0.0003), banked |
+| `--lgbm-bag N` | Add N fixed-param LightGBM members to the bag | DROP |
+| `--exclude-train-seasons S…` | Drop seasons from training rows only (features/cal untouched) | diagnostic (settled the 2021 question) |
+| `--train-on-cal` | Refit DC+XGB on train+cal under frozen calibration constants | DROP |
+| `--dc-train-on-cal` | Refit only DC through the cal season, frozen constants | DROP |
+| `--inseason-recal` | Per-match 2nd-pass T on cal ∪ completed test matches | DROP |
+| `--inseason-prior` | Per-match shrunk class-prior reweighting (α∈{50,150,300}) | DROP |
+| `--draw-hurdle` | Binary P(draw) model + conditional H/A renormalisation | DROP |
+
 ---
 
 ## 9. Sanity checks to run
@@ -475,7 +495,7 @@ meta = json.load(open("data/parity_frame.meta.json"))
 
 print(df.shape)                          # rows, cols
 print(sorted(df["season"].unique()))     # should include 2017–2024 excl. 2020 (2021 retained)
-print(meta["feat_base"])                 # 34 features
+print(meta["feat_base"])                 # 37 features (incl. availability trio)
 print(meta["dc_decay_hl"], meta["regress"], meta["weight_hl"])  # 120, 0.4, 6
 ```
 
@@ -483,10 +503,10 @@ print(meta["dc_decay_hl"], meta["regress"], meta["weight_hl"])  # 120, 0.4, 6
 ```python
 import json
 r = json.load(open("experiments/champion.report.json"))
-print(r["avg_brier"])           # expect 0.63369 (CURRENT_STATE says 0.6337 avg)
-print(r["per_season"])          # 2022: 0.6305, 2023: 0.6359, 2024: 0.6346
-print(r["max_decile_cal_error"])# expect ~0.0195
-print(r["w_xgb"])               # {"2022":0.7, "2023":0.841, "2024":0.7}
+print(r["avg_brier"])           # expect 0.633471 (CURRENT_STATE says 0.6335 avg, 4-fold)
+print(r["per_season"])          # 2022: 0.6304, 2023: 0.6345, 2024: 0.6343, 2025: 0.6347
+print(r["max_decile_cal_error"])# expect ~0.0360
+print(r["w_xgb"])               # {"2022":0.7, "2023":0.92, "2024":0.7, "2025":0.83}
 ```
 
 ### Verify champion pointer
@@ -542,7 +562,7 @@ print('Config OK')
 | Avg Brier > 0.640 | Worse than random baseline (0.6406). Something broke fundamentally — check that COVID seasons are excluded, calibration applied, label encoding correct. |
 | Avg Brier > 0.637 | Worse than the pre-blend-fix baseline (0.6381). The second-pass calibration may not be running. |
 | 2024 Brier > 0.637 | Hard-gate threshold. The 2024 season is the canary: unconstrained DC blend caused 0.6523 in 2024. If it appears again, check that `w_xgb` bound is `[0.7, 1.0]` not `[0.0, 1.0]`. |
-| `max_decile_cal_error` > 0.05 | Poor calibration. The current champion is 0.0195. Values above 0.05 suggest the second-pass temperature scaling is missing or fitting on the wrong target. Pre-fix was 0.1326 → 0.1567. |
+| `max_decile_cal_error` > 0.05 | Poor calibration (model_report measure). The current 4-fold champion is 0.0360. Values well above 0.05 suggest the second-pass temperature scaling is missing or fitting on the wrong target. Pre-fix was 0.1326 → 0.1567. (The harness's own `cal_stage_stacked` is a different, noisier measure that runs 0.13–0.17 — do not compare across the two.) |
 | `cal_err` per-class home > 0.10 | The home probability distribution is badly miscalibrated. |
 
 ### Data quality signals

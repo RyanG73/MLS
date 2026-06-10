@@ -1,5 +1,36 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Promotion cycle (2026-06-09 evening) — bag + wide-grid combo toward a new champion (loop 2 queue)**
+>
+> User decisions (AskUserQuestion): pursue the combined banked marginals toward formal promotion;
+> auto-promote if the full gate passes (with a 2-base-seed confirm); full refresh of CODE_WALKTHROUGH +
+> HANDOFF now and **every iteration updates PLAN + CODE_WALKTHROUGH + HANDOFF together**; self-paced loop.
+>
+> **Queue:**
+> - **P1 — docs refresh:** bring CODE_WALKTHROUGH.md + HANDOFF.md current (4-fold basis, new flags
+>   --xgb-bag/--lgbm-bag/--xgb-wide-grid/--train-on-cal/--inseason-recal/--inseason-prior/--dc-train-on-cal/
+>   --draw-hurdle/--exclude-train-seasons, bagged verification protocol, gate paired-bootstrap advisory,
+>   champion pointer resolution, 2021/2025 season-status corrections).
+> - **P2 — combo screening:** harness `--xgb-bag 5 --xgb-wide-grid`, 4 folds, base seeds 42 AND 1, vs
+>   4-fold bagged controls (s42 control exists: 0.63298; s1 control to run). KEEP toward port iff 2-seed
+>   mean gain vs control ≥ ~0.0004 and no 2024/2025 regression beyond tolerance.
+> - **P3 — port to research_model.py:** n_bags + wide-grid axes in fit_xgb, threaded through walk_forward
+>   and predict_upcoming; parity expectations updated.
+> - **P4 — formal gate:** model_report challenger (4-fold, per-match vectors) → promotion_gate evaluate
+>   (incl. advisory paired bootstrap) → **auto-promote on PASS** → re-baseline champion.json + all docs +
+>   `make validate`.
+> - **P5 — wrap:** push branch, loop summary, PLAN verdicts complete.
+>
+> **Verdicts:** (appended per iteration)
+> - **P1 — DONE (iter 1): full docs refresh.** HANDOFF: exec summary + champion metrics rewritten to the
+>   4-fold basis (0.6335/cal 0.0360, pointer, 2025-fold finding), gate section now lists all 6 criteria +
+>   advisory bootstrap + bagged verification protocol, 13-iteration loop summary table added, gate-threshold
+>   arithmetic recomputed vs the 4-fold champion, "What's Next #0" = this promotion cycle. CODE_WALKTHROUGH:
+>   w_xgb/cal/report-JSON examples updated to 4-fold, paired_significance documented, harness-vs-gate fold
+>   bases clarified, sanity-check numbers updated, new variant-flags table with loop verdicts, harness-vs-
+>   model_report cal-measure footnote. P2 screening runs launched concurrently (s1 4-fold control + combo at
+>   both base seeds, sequential).
+
 > **Codebase evaluation (2026-06-09) — integrity findings + ranked Brier opportunities (improvement-loop queue)**
 >
 > Full read of CODE_WALKTHROUGH / HANDOFF / CURRENT_STATE + harness/model code. Champion 0.6337 confirmed.
