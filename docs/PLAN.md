@@ -153,6 +153,20 @@
 >   ADVISORY `paired_significance` check (n-paired, mean Δ, P(challenger better); never blocks — tightening it
 >   into a hard criterion is a user decision). Gate self-test 6/6; suite 108 passed.
 >   CLAUDE.md + CURRENT_STATE updated (test seasons 2022–2025; 2026 = training only).
+> - **T3a — DROP (2026-06-09, iter 13).** New `--draw-hurdle`: binary P(draw) XGB owns the draw column;
+>   3-class model decides home-vs-away conditionally; standard calibration/blend/2nd-pass downstream.
+>   4-fold bagged: **0.63437 vs control 0.63298 (Δ+0.0014; 2022 −0.0012, 2023/24/25 +0.002…+0.003)**.
+>   Wrinkle: draw-class Brier IMPROVED (0.19254 vs 0.1934 — first architecture ever to beat the draw column
+>   here), but the conditional H/A renormalisation costs more than the draw gain. Draw door now closed at
+>   both the feature AND architecture level. T3b (StatsBomb/FBref data acquisition) left as a future project,
+>   per its lowest-priority ranking.
+>
+> **LOOP COMPLETE (2026-06-09, 13 iterations).** Queue exhausted. Durable outcomes: 4-fold re-baselined
+> champion (avg 0.6335, parity |Δ|=0.0000), seed-bagged verification protocol (σ 0.0011→0.0002), advisory
+> paired bootstrap in the gate, seed wiring, 2021-retention validated + docs corrected, stale-artifact fixes,
+> and seven cleanly-refuted hypotheses with mechanisms documented (T1a, T1b, T1b′, T2a, T2b, T3a, LGBM-bag).
+> Marginal-positive levers banked, unpromoted: --xgb-wide-grid (−0.0003), --xgb-bag for production
+> (−0.0004 expected + determinism — user decision pending).
 
 > **Phase D/E/F (2026-06-07) — monolith split, review loop, production validation**
 >

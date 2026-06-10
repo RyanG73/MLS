@@ -138,6 +138,13 @@ def _parse_args() -> "_ap.Namespace":
                    help="T1c variant 2: add N LightGBM members (same features, "
                         "season weights; fixed modest params) to the bag average. "
                         "Combine with --xgb-bag for a mixed-library bag.")
+    p.add_argument("--draw-hurdle", action="store_true",
+                   help="T3a variant: fit a dedicated binary P(draw) XGB on the "
+                        "BestAB features; replace the 3-class model's draw column "
+                        "with it and renormalise home/away conditionally "
+                        "(p_h' = (1-pd)*p_h/(p_h+p_a)). Calibration, blend and "
+                        "2nd pass run as standard on the hurdle output. Reported "
+                        "as ens_hur_brier alongside standard.")
     p.add_argument("--xgb-wide-grid", action="store_true",
                    help="T2c variant: widen the inner hyperparameter grid with "
                         "min_child_weight {1,5} and reg_lambda {1,5} (12 -> 48 "
@@ -2578,6 +2585,61 @@ for test_season in TEST_SEASONS:
         except Exception as e:
             print(f" | DCToC✗({e})", end="", flush=True)
 
+    # ── T3a (--draw-hurdle): dedicated binary P(draw) + conditional H/A ──────
+    # Every draw FEATURE has failed; this tests a draw ARCHITECTURE: a binary
+    # draw model owns the draw probability, the 3-class model only decides
+    # home-vs-away conditionally. Downstream (temperature, capped-DC blend,
+    # second pass) runs as standard on the hurdle output.
+    hur_ok = False
+    ens_hur = None
+    if _ARGS.draw_hurdle and dc_ok and xgb_ok and meta_ok:
+        try:
+            _clf_d = xgb.XGBClassifier(
+                objective="binary:logistic", eval_metric="logloss",
+                verbosity=0, random_state=_XGB_SEED,
+                subsample=0.8, colsample_bytree=0.8, n_jobs=_XGB_NJOBS,
+                max_depth=_best_p["max_depth"],
+                n_estimators=_best_p["n_estimators"],
+                learning_rate=_best_p["learning_rate"])
+            _clf_d.fit(train[_best_feat].fillna(0).values,
+                       (train["label_result"].values == 1).astype(int),
+                       sample_weight=sw)
+            _pd_cal = _clf_d.predict_proba(cal[_best_feat].fillna(0).values)[:, 1]
+            _pd_te  = _clf_d.predict_proba(test[_best_feat].fillna(0).values)[:, 1]
+
+            def _hur(p3, pdraw):
+                ha2 = p3[:, [0, 2]]
+                ha2 = ha2 / ha2.sum(axis=1, keepdims=True).clip(1e-9, None)
+                out = np.empty_like(p3)
+                out[:, 0] = (1.0 - pdraw) * ha2[:, 0]
+                out[:, 1] = pdraw
+                out[:, 2] = (1.0 - pdraw) * ha2[:, 1]
+                return out
+
+            _h_cal_raw = _hur(xgb_cal_probs_best, _pd_cal)
+            _h_te_raw  = _hur(xgb_te_probs_best, _pd_te)
+            _h_cal = calibrate_multiclass(_h_cal_raw, y_cal_r, _h_cal_raw)
+            _h_te  = calibrate_multiclass(_h_cal_raw, y_cal_r, _h_te_raw)
+
+            def _hb(w_arr):
+                w = w_arr[0]
+                b = w * _h_cal + (1.0 - w) * dc_cal_cal3
+                b = b / b.sum(axis=1, keepdims=True).clip(1e-9, None)
+                return float(np.mean(np.sum((b - y_cal_oh) ** 2, axis=1)))
+            _wh = float(np.clip(
+                minimize(_hb, x0=[0.85], bounds=[(0.7, 1.0)],
+                         method="L-BFGS-B").x[0], 0.7, 1.0))
+            _cal_bl = _wh * _h_cal + (1.0 - _wh) * dc_cal_cal3
+            _cal_bl = _cal_bl / _cal_bl.sum(axis=1, keepdims=True).clip(1e-9, None)
+            _te_bl = _wh * _h_te + (1.0 - _wh) * dc_cal_te3
+            _te_bl = _te_bl / _te_bl.sum(axis=1, keepdims=True).clip(1e-9, None)
+            ens_hur = _calibrate_stacked_second_pass(_cal_bl, y_cal_r, _te_bl)
+            hur_ok = True
+            print(f" | Hur✓({multiclass_brier(y_te_oh, ens_hur):.4f},"
+                  f"w={_wh:.2f})", end="", flush=True)
+        except Exception as e:
+            print(f" | Hur✗({e})", end="", flush=True)
+
     # ── Simple average ensemble ───────────────────────────────────────────────
     if dc_ok and xgb_ok:
         ens_avg = (dc_pred_te + xgb_te_probs_best) / 2.0
@@ -2658,6 +2720,12 @@ for test_season in TEST_SEASONS:
         r["dc_toc_brier"]   = dc_toc_b
         r["dtoc_cal_err_max"], _ = decile_cal_error(
             ens_dtoc[:, 0], (y_te_r == 0))
+
+    if hur_ok:
+        r["ens_hur_brier"] = multiclass_brier(y_te_oh, ens_hur)
+        _hh, _hd, _ha = per_class_brier(y_te_oh, ens_hur)
+        r["hur_draw_brier"] = _hd
+        r["hur_cal_err_max"], _ = decile_cal_error(ens_hur[:, 0], (y_te_r == 0))
 
     results.append(r)
     best_key = next(
@@ -2964,6 +3032,19 @@ if _ARGS.out:
                 if not math.isnan(float(_row["ens_dtoc_brier"]))
             }
             _result_json["dtoc_cal_err_max"] = _avg_safe("dtoc_cal_err_max")
+
+    # --draw-hurdle variant (T3a): emit alongside the standard ensemble
+    if _ARGS.draw_hurdle and "ens_hur_brier" in rd.columns:
+        _hur_avg = _avg_safe("ens_hur_brier")
+        if _hur_avg is not None:
+            _result_json["ens_hur_brier"] = _hur_avg
+            _result_json["hur_draw_brier"] = _avg_safe("hur_draw_brier")
+            _result_json["per_season_hur"] = {
+                str(int(_row["season"])): round(float(_row["ens_hur_brier"]), 6)
+                for _, _row in rd.iterrows()
+                if not math.isnan(float(_row["ens_hur_brier"]))
+            }
+            _result_json["hur_cal_err_max"] = _avg_safe("hur_cal_err_max")
 
     # --inseason-prior variant (T1b'): emit each alpha alongside standard
     if _ARGS.inseason_prior:
