@@ -24,6 +24,7 @@ def compute_elo(
     regress: float = DEFAULT_REGRESS,
     initial: float = DEFAULT_INITIAL_ELO,
     return_expected: bool = False,
+    return_ratings: bool = False,
 ) -> pd.DataFrame:
     """Walk-forward ELO ratings with margin-of-victory multiplier and season regression.
 
@@ -37,11 +38,15 @@ def compute_elo(
         initial:        Starting ELO for any team that has not been seen yet.
         return_expected: If True, also writes ``elo_p_home`` (pre-match expected home
                         win probability from the ELO formula).
+        return_ratings: If True, returns ``(out_df, ratings)`` where ratings is the
+                        post-final-match {team: elo} dict (current ratings — used by
+                        the dashboard build; pre-match columns can't provide these).
 
     Returns:
         Copy of ``df`` with columns added:
         ``home_elo``, ``away_elo``, ``elo_diff`` (home − away *before* the match),
-        and optionally ``elo_p_home``.
+        and optionally ``elo_p_home``.  With ``return_ratings`` a tuple
+        ``(df, ratings_dict)`` instead.
     """
     elo: dict[str, float] = {}
     h_elo, a_elo, h_exp = [], [], []
@@ -71,4 +76,6 @@ def compute_elo(
     out["elo_diff"] = np.array(h_elo) - np.array(a_elo)
     if return_expected:
         out["elo_p_home"] = h_exp
+    if return_ratings:
+        return out, dict(elo)
     return out

@@ -17,7 +17,7 @@
   --draw:#5d6b82;
   --r-sm:6px; --r-md:10px; --r-lg:16px;
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:36px;
-  --maxw:1200px;
+  --maxw:1360px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
@@ -87,7 +87,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .ladder-h .name{font-family:"Archivo";font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px}
 .conf-dot{width:8px;height:8px;border-radius:50%}
 .east .conf-dot{background:var(--floodlight)} .west .conf-dot{background:var(--west)}
-.col-head,.row{display:grid;grid-template-columns:22px minmax(0,1fr) 30px 50px 40px 44px 46px 42px;align-items:center;gap:6px;padding:8px var(--s3)}
+.col-head,.row{display:grid;grid-template-columns:22px minmax(0,1fr) 30px 42px 36px 38px 40px 42px 42px 38px 88px;align-items:center;gap:5px;padding:8px var(--s3)}
 .col-head{font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt-3);border-bottom:1px solid var(--line)}
 .col-head .c{text-align:center;line-height:1.1}
 .row{border-bottom:1px solid var(--line);position:relative;transition:background .12s}
@@ -111,6 +111,35 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .po-line::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--qualify),transparent);box-shadow:0 0 10px rgba(52,211,154,.6)}
 .wc-line .lab{color:var(--hfa)}
 .wc-line::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;background:repeating-linear-gradient(90deg,var(--line-3) 0 7px,transparent 7px 13px)}
+/* ELO column */
+.eloc{font-family:"Archivo";font-weight:600;font-size:11.5px;text-align:center;color:var(--txt-2)}
+/* what-if boxes: next-5 result toggles */
+.wgroup{display:flex;gap:3px;justify-content:center}
+.wbox{width:13px;height:13px;border-radius:4px;border:1px solid var(--line-3);background:transparent;cursor:pointer;flex:none;transition:.1s}
+.wbox:hover{border-color:var(--floodlight)}
+.wbox.w{background:var(--qualify);border-color:var(--qualify)}
+.wbox.d{background:var(--draw);border-color:var(--draw)}
+.wbox.l{background:#e25f4f;border-color:#e25f4f}
+.whatif-banner{display:none;align-items:center;gap:var(--s3);background:rgba(86,210,255,.08);
+  border:1px solid rgba(86,210,255,.35);border-radius:var(--r-md);padding:8px var(--s3);margin-bottom:var(--s3);font-size:12.5px;color:var(--txt-2)}
+.whatif-banner.on{display:flex}
+.whatif-banner b{color:var(--floodlight)}
+.whatif-banner a{margin-left:auto;color:var(--floodlight);cursor:pointer;font-weight:600;text-decoration:none}
+/* model health tab */
+.health-strip{display:flex;gap:var(--s4);flex-wrap:wrap;margin-bottom:var(--s4)}
+.hl-card{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4);font-size:12px;color:var(--txt-2)}
+.hl-card b{font-family:"Archivo";color:var(--txt-1)}
+.hrow{display:grid;grid-template-columns:130px 40px 1fr 56px 1fr 56px;align-items:center;gap:10px;
+  padding:10px var(--s3);border-bottom:1px solid var(--line);background:var(--ink-1)}
+.hrow:first-child{border-radius:var(--r-md) var(--r-md) 0 0}
+.hrow:last-child{border-bottom:none;border-radius:0 0 var(--r-md) var(--r-md)}
+.hrow .fam{font-weight:600;font-size:13px}
+.hrow .nc{font-size:11px;color:var(--txt-3);text-align:center}
+.hbar{height:7px;border-radius:4px;background:rgba(150,180,220,.10);overflow:hidden}
+.hbar>span{display:block;height:100%;border-radius:4px}
+.hv{font-family:"Archivo";font-weight:700;font-size:12px;text-align:right}
+.hhead{display:grid;grid-template-columns:130px 40px 1fr 56px 1fr 56px;gap:10px;padding:6px var(--s3);
+  font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3)}
 
 /* matches */
 .controls{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap;margin-bottom:var(--s4)}
@@ -157,16 +186,23 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6);padding-top:var(--s4);border-top:1px solid var(--line)}
 .hidden{display:none!important}
 
-@media(max-width:860px){
+@media(max-width:1280px){
   .ladders{grid-template-columns:1fr}
+}
+@media(max-width:860px){
   .favs{grid-template-columns:1fr 1fr}
   .acc{margin-left:0;width:100%;justify-content:space-between}
-  .col-head,.row{grid-template-columns:22px minmax(0,1fr) 30px 44px 36px 40px 42px 38px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
   .dayhead{top:56px}
+}
+/* narrow: drop the two widest new columns (ELO, Next-5 what-if) so the core
+   odds stay legible; what-if remains available on wider screens / desktop */
+@media(max-width:760px){
+  .col-head .c-elo,.row .eloc,.col-head .c-w5,.row .wgroup{display:none}
+  .col-head,.row{grid-template-columns:22px minmax(0,1fr) 28px 40px 38px 40px 42px 42px 38px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
 }
 @media(max-width:480px){
   .col-head .c-proj,.row .projc{display:none}
-  .col-head,.row{grid-template-columns:20px minmax(0,1fr) 28px 34px 36px 40px 36px;gap:3px}
+  .col-head,.row{grid-template-columns:20px minmax(0,1fr) 28px 36px 38px 40px 40px 36px;gap:3px}
   .heat{font-size:10px;padding:4px 0}
   .g-side .tn{font-size:12.5px}
   .acc .bars{display:none}
@@ -189,12 +225,25 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
   <div class="seg" role="tablist" id="seg">
     <button role="tab" aria-selected="true" data-view="outlook">Season Outlook</button>
     <button role="tab" aria-selected="false" data-view="matches">Match Predictions</button>
+    <button role="tab" aria-selected="false" data-view="health">Model Health</button>
   </div>
 
   <section id="view-outlook">
     <div class="favs" id="favs"></div>
+    <div class="whatif-banner" id="wbanner"><b>What-if mode</b><span id="wcount"></span>
+      <span style="color:var(--txt-3)">odds resimulated in your browser (10k runs)</span>
+      <a id="wreset">Reset ⟲</a></div>
     <div class="sec-h"><h2>Conference standings &amp; odds</h2><span class="note" id="laddernote"></span></div>
     <div class="ladders" id="ladders"></div>
+  </section>
+
+  <section id="view-health" class="hidden">
+    <div class="sec-h"><h2>Model &amp; data health</h2><span class="note">Input-variable quality over the current season — target 100%</span></div>
+    <div class="health-strip" id="hstrip"></div>
+    <div class="hhead"><span>Feature family</span><span style="text-align:center">Cols</span>
+      <span>Complete (non-null)</span><span style="text-align:right">%</span>
+      <span>Non-default (≠0)</span><span style="text-align:right">%</span></div>
+    <div id="hrows"></div>
   </section>
 
   <section id="view-matches" class="hidden">
@@ -244,13 +293,20 @@ const american=p=>{if(p==null||p<=0)return'—';const v=p>=0.5?-100*p/(1-p):100*
 $('#sub').textContent = D.in_season?`${D.season} season · live · ${D.played} played · ${D.upcoming} to play`:`${D.season} season projection`;
 (()=>{const m=D.model.best_brier,n=D.model.naive,worst=0.667;             // lower Brier = better
   const wm=(worst-m)/(worst-0.55)*100, wn=(worst-n)/(worst-0.55)*100;
+  const live=D.in_season_brier;
+  const liveHTML=live?`<div class="stat"><span class="lab">${D.season} live · n=${live.n_games}</span>
+       <div class="bars">
+         <div class="brow"><span class="t">Model</span><span class="track"><span style="width:${((worst-live.model)/(worst-0.55)*100).toFixed(0)}%;background:var(--floodlight)"></span></span><span class="v">${live.model.toFixed(4)}</span></div>
+         <div class="brow"><span class="t">Naive</span><span class="track"><span style="width:${((worst-live.naive)/(worst-0.55)*100).toFixed(0)}%;background:var(--txt-3)"></span></span><span class="v">${live.naive.toFixed(4)}</span></div>
+       </div></div>
+     <div class="delta" style="color:var(--floodlight)">${live.improve_pct>0?'+':''}${live.improve_pct}%<small>${D.season} vs naive</small></div>`:'';
   $('#acc').innerHTML=
-    `<div class="stat"><span class="lab">Model accuracy</span>
+    `<div class="stat"><span class="lab">Champion · 2022–25</span>
        <div class="bars">
          <div class="brow"><span class="t">Model</span><span class="track"><span style="width:${wm.toFixed(0)}%;background:var(--qualify)"></span></span><span class="v">${m}</span></div>
          <div class="brow"><span class="t">Naive</span><span class="track"><span style="width:${wn.toFixed(0)}%;background:var(--txt-3)"></span></span><span class="v">${n}</span></div>
        </div></div>
-     <div class="delta">+${D.model.improve_pct}%<small>Brier vs naive</small></div>`;
+     <div class="delta">+${D.model.improve_pct}%<small>Brier vs naive</small></div>`+liveHTML;
 })();
 const prov=D.provenance||{};
 const staleDays=Math.floor((Date.now()-new Date(D.generated).getTime())/86400000);
@@ -258,34 +314,150 @@ const staleWarn=staleDays>2?` <b style="color:var(--warn)">⚠ data ${staleDays}
 $('#foot').innerHTML=`Capped DC+XGB ensemble (${prov.model_file||'research_model'}) · Brier ${D.model.best_brier} sum-form vs naive ${D.model.naive} · `+
   `${D.n_sims.toLocaleString()} Monte-Carlo sims · git ${prov.git_commit||'—'} · generated ${D.generated}${staleWarn}.`;
 
+/* ═══════════════ WHAT-IF SIM ENGINE ═══════════════
+   SIM PORTING CONTRACT (JS here ↔ Python in scripts/build_dashboard_data.py —
+   any rule change must be made in BOTH places):
+   1. Regular season: start from current pts; each remaining fixture sampled
+      from its DC [pH,pD,pA]; W=3/D=1/L=0. Forced fixtures are deterministic.
+   2. Seeding key: pts*10000 + current_real_GD*10 + U(0,10), desc per conference.
+      Playoffs = top 9; HFA = top 4; conf winner = #1; Shield = best key
+      overall; Spoon = worst key overall.
+   3. Bracket: wild card 8 hosts 9 (pW = pH + 0.5*pD); round one Bo3
+      1v8/2v7/3v6/4v5, higher seed hosts G1+G3, lower hosts G2, each game
+      pW = pH + 0.5*pD, first to 2; semis W(1v8)vW(4v5) and W(2v7)vW(3v6), then
+      conf final — single match, higher seed hosts, pW = pH + pD*pH/(pH+pA);
+      MLS Cup hosted by the finalist with the higher seeding key.
+   4. All pairing probs from the same 30x30 pmatrix (row = host).
+   5. Acceptance: unforced JS@10k within ±1.5pp of server@20k. */
+const SIM=D.sim, nameIdx=new Map(SIM.teams.map((t,i)=>[t,i])), NT=SIM.teams.length;
+const STAND=new Map(D.standings.map(s=>[s.team,s]));
+const UPCOMING=D.games.filter(g=>g.result==null);
+const NF=UPCOMING.length;
+// fixture arrays indexed by g.id (NOT display order — see build contract)
+const FH=new Int16Array(NF),FA=new Int16Array(NF),FPH=new Float64Array(NF),FPHD=new Float64Array(NF);
+UPCOMING.forEach(g=>{FH[g.id]=nameIdx.get(g.home);FA[g.id]=nameIdx.get(g.away);
+  FPH[g.id]=g.pH;FPHD[g.id]=g.pH+g.pD;});
+const basePts=new Float64Array(NT),baseGd=new Float64Array(NT);
+const confOf=new Array(NT);
+D.standings.forEach(s=>{const i=nameIdx.get(s.team);basePts[i]=s.pts;baseGd[i]=s.gd;confOf[i]=s.conf;});
+const EAST=[...Array(NT).keys()].filter(i=>confOf[i]==='East'),WEST=[...Array(NT).keys()].filter(i=>confOf[i]==='West');
+const pwinPK=(h,a)=>{const c=SIM.pmatrix[h][a];return (c[0]+0.5*c[1])/1000;};
+const pwinET=(h,a)=>{const c=SIM.pmatrix[h][a];const ph=c[0],pd=c[1],pa=c[2];
+  return (ph+(ph+pa>0?pd*ph/(ph+pa):0.5*pd))/1000;};
+function confBracket(seeds){            // seeds: 9 team idx, best first → champion
+  const rank=new Map(seeds.map((t,i)=>[t,i]));
+  const wc=Math.random()<pwinPK(seeds[7],seeds[8])?seeds[7]:seeds[8];
+  const r1=[[seeds[0],wc],[seeds[1],seeds[6]],[seeds[2],seeds[5]],[seeds[3],seeds[4]]];
+  const winners=r1.map(([hi,lo])=>{let wh=0,wl=0;
+    for(let g=0;g<3;g++){const host=g===1?lo:hi,guest=g===1?hi:lo;
+      const hw=Math.random()<pwinPK(host,guest);
+      if((hw&&host===hi)||(!hw&&host===lo))wh++;else wl++;
+      if(wh===2||wl===2)break;}
+    return wh===2?hi:lo;});
+  const single=(t1,t2)=>{const[h,g]=rank.get(t1)<rank.get(t2)?[t1,t2]:[t2,t1];
+    return Math.random()<pwinET(h,g)?h:g;};
+  return single(single(winners[0],winners[3]),single(winners[1],winners[2]));
+}
+let forced={};            // gid -> 'H'|'D'|'A' (session-local)
+let simVals=null;         // team -> overridden odds when what-if active
+function runSim(N=10000){
+  const t0=performance.now();
+  const acc={};SIM.teams.forEach(t=>acc[t]={proj:0,playoff:0,hfa:0,shield:0,spoon:0,conf_win:0,cup:0});
+  const fixedPts=new Float64Array(NT);
+  const free=[];
+  for(let id=0;id<NF;id++){
+    const f=forced[id];
+    if(f==='H')fixedPts[FH[id]]+=3;
+    else if(f==='D'){fixedPts[FH[id]]+=1;fixedPts[FA[id]]+=1;}
+    else if(f==='A')fixedPts[FA[id]]+=3;
+    else free.push(id);
+  }
+  const pts=new Float64Array(NT),key=new Float64Array(NT);
+  for(let s=0;s<N;s++){
+    pts.set(basePts);for(let i=0;i<NT;i++)pts[i]+=fixedPts[i];
+    for(const id of free){const u=Math.random();
+      if(u<FPH[id])pts[FH[id]]+=3;
+      else if(u<FPHD[id]){pts[FH[id]]+=1;pts[FA[id]]+=1;}
+      else pts[FA[id]]+=3;}
+    for(let i=0;i<NT;i++)key[i]=pts[i]*10000+baseGd[i]*10+Math.random()*10;
+    const finalists=[];
+    for(const ci of [EAST,WEST]){
+      const order=[...ci].sort((a,b)=>key[b]-key[a]);
+      for(let k=0;k<D.playoff_slots;k++)acc[SIM.teams[order[k]]].playoff++;
+      for(let k=0;k<D.hfa_slots;k++)acc[SIM.teams[order[k]]].hfa++;
+      acc[SIM.teams[order[0]]].conf_win++;
+      finalists.push(confBracket(order.slice(0,9)));
+    }
+    let bi=0,wi=0;for(let i=1;i<NT;i++){if(key[i]>key[bi])bi=i;if(key[i]<key[wi])wi=i;}
+    acc[SIM.teams[bi]].shield++;acc[SIM.teams[wi]].spoon++;
+    const [f1,f2]=finalists;const host=key[f1]>=key[f2]?f1:f2,guest=host===f1?f2:f1;
+    acc[SIM.teams[Math.random()<pwinET(host,guest)?host:guest]].cup++;
+    for(let i=0;i<NT;i++)acc[SIM.teams[i]].proj+=pts[i];
+  }
+  const out={};
+  for(const t of SIM.teams){const a=acc[t];out[t]={proj_pts:+(a.proj/N).toFixed(1),
+    playoff:+(a.playoff/N*100).toFixed(1),hfa:+(a.hfa/N*100).toFixed(1),
+    shield:+(a.shield/N*100).toFixed(1),spoon:+(a.spoon/N*100).toFixed(1),
+    conf_win:+(a.conf_win/N*100).toFixed(1),cup:+(a.cup/N*100).toFixed(1)};}
+  console.log(`runSim(${N}) ${(performance.now()-t0).toFixed(0)}ms`);
+  return out;
+}
+const vals=t=>simVals?Object.assign({},t,simVals[t.team]):t;
+let simTimer=null;
+function scheduleSim(){clearTimeout(simTimer);simTimer=setTimeout(()=>{
+  const n=Object.keys(forced).length;
+  if(n===0){simVals=null;}else{simVals=runSim(10000);}
+  $('#wbanner').classList.toggle('on',n>0);
+  $('#wcount').textContent=n?`· ${n} result${n>1?'s':''} forced`:'';
+  renderOutlook();},150);}
+
 /* favorites — four title races: Shield · Eastern Conf · Western Conf · Spoon */
-const sBy=k=>[...D.standings].sort((a,b)=>b[k]-a[k])[0];
-const sByConf=c=>[...D.standings].filter(s=>s.conf===c).sort((a,b)=>b.conf_win-a.conf_win)[0];
-const fav=(cls,lab,t,k)=>`<div class="fav ${cls}"><div class="lab"><span class="sq"></span>${lab}</div>
+const favCard=(cls,lab,t,k)=>`<div class="fav ${cls}"><div class="lab"><span class="sq"></span>${lab}</div>
   <div class="teamrow">${crest(t.team,t.logo)}<div class="ftxt"><div class="team">${t.team}</div></div></div>
-  <div class="favstats"><span class="pct">${fmt(t[k])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts</span></div></div>`;
-$('#favs').innerHTML=
-  fav('shield',"Supporters' Shield",sBy('shield'),'shield')+
-  fav('east','Eastern Conference',sByConf('East'),'conf_win')+
-  fav('west','Western Conference',sByConf('West'),'conf_win')+
-  fav('spoon','Wooden Spoon',sBy('spoon'),'spoon');
-$('#laddernote').textContent=`Top ${D.playoff_slots} per conference make the playoffs · seeds 8–9 play a wild-card play-in · top ${D.hfa_slots} host round one · cells heat-mapped by odds`;
+  <div class="favstats"><span class="pct">${fmt(t[k])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts · cup <b>${t.cup}%</b></span></div></div>`;
+function renderFavs(){
+  const all=D.standings.map(vals);
+  const sBy=k=>[...all].sort((a,b)=>b[k]-a[k])[0];
+  const sByConf=c=>all.filter(s=>s.conf===c).sort((a,b)=>b.conf_win-a.conf_win)[0];
+  $('#favs').innerHTML=
+    favCard('shield',"Supporters' Shield",sBy('shield'),'shield')+
+    favCard('east','Eastern Conference',sByConf('East'),'conf_win')+
+    favCard('west','Western Conference',sByConf('West'),'conf_win')+
+    favCard('spoon','Wooden Spoon',sBy('spoon'),'spoon');
+}
+$('#laddernote').textContent=`Top ${D.playoff_slots} per conference make the playoffs · seeds 8–9 play a wild-card play-in · top ${D.hfa_slots} host round one · click the Next-5 boxes to force results (win/draw/loss) and resimulate`;
 
 /* ladders with heat-mapped odds */
 const MAX={po:Math.max(...D.standings.map(s=>s.playoff),1),hfa:Math.max(...D.standings.map(s=>s.hfa),1),
-  sh:Math.max(...D.standings.map(s=>s.shield),1),sp:Math.max(...D.standings.map(s=>s.spoon),1)};
+  sh:Math.max(...D.standings.map(s=>s.shield),1),sp:Math.max(...D.standings.map(s=>s.spoon),1),
+  cup:Math.max(...D.standings.map(s=>s.cup),1)};
+RGB.cup=[86,210,255];
 function hcell(v,key){return v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGB[key],MAX[key])}">${v.toFixed(0)}</span>`;}
 const sgn=v=>(v>0?'+':'')+v;
 const sgnf=v=>(v>0?'+':'')+v.toFixed(1);
+const NEXT5=new Map();   // team -> next 5 upcoming games (date order)
+D.standings.forEach(s=>NEXT5.set(s.team,UPCOMING.filter(g=>g.home===s.team||g.away===s.team).slice(0,5)));
+function whatifCell(team){
+  const gs=NEXT5.get(team)||[];
+  return `<span class="wgroup">`+gs.map(g=>{
+    const homePOV=g.home===team, f=forced[g.id];
+    const st=!f?'':(f==='D'?'d':((f==='H')===homePOV?'w':'l'));
+    const opp=homePOV?g.away:g.home;
+    return `<span class="wbox ${st}" data-gid="${g.id}" data-team="${team}" title="${homePOV?'vs':'@'} ${opp} · ${g.date}"></span>`;
+  }).join('')+`</span>`;
+}
 function ladder(conf){
-  const teams=D.standings.filter(s=>s.conf===conf).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
+  const teams=D.standings.filter(s=>s.conf===conf).map(vals)
+    .sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
   const box=el('div','ladder '+conf.toLowerCase());
   box.appendChild(el('div','ladder-h',`<span class="name"><span class="conf-dot"></span>${conf}ern Conference</span>`));
   box.appendChild(el('div','col-head',
     `<span>#</span><span>Club</span>`+
     `<span class="c c-pts">Pts</span>`+
-    `<span class="c c-proj">Proj Pts</span>`+
-    `<span class="c">PO</span><span class="c">Top 4</span><span class="c">Shield</span><span class="c">Spoon</span>`));
+    `<span class="c c-proj">Proj</span>`+
+    `<span class="c c-elo">ELO</span>`+
+    `<span class="c">PO</span><span class="c">Top 4</span><span class="c">Shield</span><span class="c">Cup</span><span class="c">Spoon</span>`+
+    `<span class="c c-w5">Next 5</span>`));
   teams.forEach((t,i)=>{
     const r=el('div','row'+(i<D.hfa_slots?' hfa':''));
     const sub=`${t.gp} GP · ${sgn(t.gd)} GD · ${sgnf(t.xgd)} xGD`;
@@ -293,14 +465,52 @@ function ladder(conf){
       `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
       `<span class="pts">${t.pts}</span>`+
       `<span class="projc">${t.proj_pts}</span>`+
-      hcell(t.playoff,'po')+hcell(t.hfa,'hfa')+hcell(t.shield,'sh')+hcell(t.spoon,'sp');
+      `<span class="eloc">${t.elo}</span>`+
+      hcell(t.playoff,'po')+hcell(t.hfa,'hfa')+hcell(t.shield,'sh')+hcell(t.cup,'cup')+hcell(t.spoon,'sp')+
+      whatifCell(t.team);
     box.appendChild(r);
     if(i===6) box.appendChild(el('div','wc-line','<span class="lab">Wild card · play-in</span>'));
     if(i===D.playoff_slots-1) box.appendChild(el('div','po-line','<span class="lab">Playoff line</span>'));
   });
   return box;
 }
-$('#ladders').append(ladder('East'),ladder('West'));
+function renderOutlook(){
+  renderFavs();
+  const l=$('#ladders');l.innerHTML='';l.append(ladder('East'),ladder('West'));
+}
+renderOutlook();
+$('#ladders').addEventListener('click',e=>{
+  const b=e.target.closest('.wbox');if(!b)return;
+  const gid=+b.dataset.gid,team=b.dataset.team;
+  const g=UPCOMING.find(x=>x.id===gid),homePOV=g.home===team;
+  const cur=forced[gid];
+  const curPOV=!cur?null:(cur==='D'?'D':((cur==='H')===homePOV?'W':'L'));
+  const nextPOV={null:'W','W':'D','D':'L','L':null}[curPOV];
+  if(nextPOV==null)delete forced[gid];
+  else forced[gid]=nextPOV==='D'?'D':((nextPOV==='W')===homePOV?'H':'A');
+  // immediate visual feedback on the clicked row before the debounced sim
+  renderOutlook();
+  scheduleSim();
+});
+$('#wreset').onclick=()=>{forced={};simVals=null;$('#wbanner').classList.remove('on');renderOutlook();};
+
+/* model health tab */
+function renderHealth(){
+  const h=D.health;if(!h)return;
+  $('#hstrip').innerHTML=
+    `<div class="hl-card">Feature frame: <b>${h.frame_file.split('/').pop()}</b> · ${h.frame_mtime}</div>`+
+    `<div class="hl-card">ESPN schedule: <b>${h.espn_ok?'OK':'FAILED'}</b> · ${h.espn_events} events</div>`+
+    `<div class="hl-card">Season rows: <b>${h.season_rows}</b> (${h.played_rows} played)</div>`+
+    `<div class="hl-card">Dashboard generated: <b>${D.generated}</b></div>`;
+  const col=v=>v>=99?'var(--qualify)':v>=95?'var(--hfa)':'#e25f4f';
+  $('#hrows').innerHTML=h.features.map(f=>
+    `<div class="hrow"><span class="fam">${f.family}</span><span class="nc">${f.cols}</span>`+
+    `<span class="hbar"><span style="width:${f.complete_pct}%;background:${col(f.complete_pct)}"></span></span>`+
+    `<span class="hv" style="color:${col(f.complete_pct)}">${f.complete_pct}%</span>`+
+    `<span class="hbar"><span style="width:${f.nondefault_pct}%;background:${col(f.nondefault_pct)}"></span></span>`+
+    `<span class="hv" style="color:${col(f.nondefault_pct)}">${f.nondefault_pct}%</span></div>`).join('')+
+    `<div style="font-size:11px;color:var(--txt-3);padding:10px 2px">Non-default = share of values ≠ 0 (the fill value at predict time). is_playoff at 0% is expected during the regular season; Availability &lt;100% means roster data is missing for some matches.</div>`;
+}
 
 /* matches */
 const teams=[...new Set(D.games.flatMap(g=>[g.home,g.away]))].sort();
@@ -338,19 +548,26 @@ function renderGames(){
   const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
   gs.forEach(g=>{if(g.date!==cur){cur=g.date;grp=el('div','daygrp');grp.appendChild(el('div','dayhead',fmtDay(g.date)));list.appendChild(grp);}
     const played=g.result!=null,card=el('div','game');
+    const projScore=g.lam!=null?`${g.lam.toFixed(1)}<span class="v">–</span>${g.mu.toFixed(1)}`:null;
     card.innerHTML=`<div class="g-top">`+
       `<div class="g-side home">${crest(g.home,g.hlogo)}<span style="min-width:0"><span class="tn">${g.home}</span></span></div>`+
-      (played?`<div class="g-score">${g.hg}<span class="v">–</span>${g.ag}</div>`:`<div class="g-score upcoming">vs</div>`)+
+      (played?`<div class="g-score">${g.hg}<span class="v">–</span>${g.ag}</div>`
+             :`<div class="g-score" style="color:var(--txt-2)" title="projected score (expected goals)">${projScore||'<span class="upcoming">vs</span>'}</div>`)+
       `<div class="g-side away">${crest(g.away,g.alogo)}<span style="min-width:0"><span class="tn">${g.away}</span></span></div></div>`+
       band(g)+
       oddsRow(g)+
-      (played?`<div class="g-foot"><span style="margin-left:auto">${resultBadge(g)}</span></div>`:'');
+      (played?`<div class="g-foot">${projScore?`<span>model expected ${g.lam.toFixed(1)}–${g.mu.toFixed(1)}</span>`:''}<span style="margin-left:auto">${resultBadge(g)}</span></div>`
+             :(projScore?`<div class="g-foot"><span>projected score ${g.lam.toFixed(1)}–${g.mu.toFixed(1)}</span></div>`:''));
     grp.appendChild(card);});
   if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
 }
 $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));
-  const v=b.dataset.view;$('#view-outlook').classList.toggle('hidden',v!=='outlook');$('#view-matches').classList.toggle('hidden',v!=='matches');
-  if(v==='matches'&&!$('#gameList').children.length)renderGames();};
+  const v=b.dataset.view;
+  $('#view-outlook').classList.toggle('hidden',v!=='outlook');
+  $('#view-matches').classList.toggle('hidden',v!=='matches');
+  $('#view-health').classList.toggle('hidden',v!=='health');
+  if(v==='matches'&&!$('#gameList').children.length)renderGames();
+  if(v==='health'&&!$('#hrows').children.length)renderHealth();};
 </script>
 </body>
 </html>

@@ -1,5 +1,32 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Webapp + production roadmap (2026-06-11) — 19-item user roadmap; webapp-first, then model loop**
+> Plan file: `~/.claude/plans/i-skimmed-code-walkthrough-plan-buzzing-badger.md`. User decisions: webapp-only
+> production (deprecate Streamlit/Postgres/Pi), retest flagged DROPs (weather/salary/HFA) through the gate,
+> rolling-feature change via the gate, webapp first.
+>
+> **Phase A — webapp (DONE 2026-06-11, A1–A4; verified in-browser):**
+> - **A1 — data.js payload.** `build_dashboard_data.py` now emits: per-game `id` (sim-array index, not display
+>   order) + `lam`/`mu` DC expected goals; per-team `elo` (via new `compute_elo(return_ratings=True)` in
+>   scripts/eval/elo.py) + `cup` %; top-level `sim:{teams,pmatrix}` (30×30×3 DC probs, ints×1000, row=host),
+>   `in_season_brier` (2026: model 0.6298 vs naive 0.6339, n=218, +0.64%), and `health` (feature-family
+>   completeness + non-default % over 2026 frame rows, frame mtime, ESPN status). data.js 162→185 KB.
+> - **A2 — webapp static features.** "Proj Pts"→"Proj"; projected score (lam–mu) on every match card; second
+>   header card "2026 LIVE" Brier-vs-naive beside the champion benchmark; ELO column; new **Model Health** tab.
+> - **A3 — MLS Cup odds.** Python `simulate_bracket()` in the MC loop (wild card 8v9 PK 50/50; Bo3 round one;
+>   single-elim semis/final/Cup with proportional no-draw; tiebreak pts·10000+GD·10+U(0,10)); `cup` column +
+>   favorites integration. Verified: cup sums to ~100%, conference top seeds rank highest.
+> - **A4 — client-side what-if simulator.** Next-5 clickable boxes per team (W/D/L cycling, opponent-mirrored
+>   via one `forced` map); JS `runSim(10000)` typed-array Monte-Carlo keyed by `g.id`, full bracket ported per
+>   a SIM PORTING CONTRACT duplicated verbatim in both files. **Acceptance PASS: unforced JS@10k within
+>   ±1.2pp of server@20k on every cell** (bound 1.5pp); ~debounced, sub-second; forcing 5 wins on the worst
+>   team moved playoff 6.1%→43.1% with opponent boxes mirroring. Suite 108 passed; responsive 480/760/1280px.
+> - **A5 — Pi removal + webapp-only production: IN PROGRESS** (delete PI_VALIDATION/dashboard/legacy models,
+>   scrub Pi refs, launchd daily build, odds→parquet logging).
+>
+> **Phase B — model experiment loop (queued):** B1 season-aware rolling, B2 manager, B3 per-team HFA v2 +
+> neutral sites, B4 weather retest, B5 salary retest, B6 history depth 2011+, B7 2026 reporting — gate-governed.
+
 > **Promotion cycle (2026-06-09 evening) — bag + wide-grid combo toward a new champion (loop 2 queue)**
 >
 > User decisions (AskUserQuestion): pursue the combined banked marginals toward formal promotion;

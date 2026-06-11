@@ -103,7 +103,9 @@ def main():
 
     from models.research_model import (fit_dc, dc_predict_batch, fit_xgb, bag_proba,
                                         calibrate_temperature, fit_capped_blend, blend)
+    from scripts.eval.elo import compute_elo
     from itscalledsoccer.client import AmericanSoccerAnalysis
+    import math
     import models.research_model as rm
     asa = AmericanSoccerAnalysis(); asa.session.verify = False
     teams = asa.get_teams(leagues="mls")
@@ -155,12 +157,35 @@ def main():
     pe = blend(xgbte, dcte, w)
     played = played.reset_index(drop=True)
 
+    # ── In-season Brier (sum-form, matches the champion convention) ───────────
+    y_played = played["label_result"].values.astype(int)
+    brier_live = float(np.mean(np.sum((pe - np.eye(3)[y_played]) ** 2, axis=1)))
+    _freq = np.bincount(train["label_result"].values.astype(int), minlength=3) / len(train)
+    naive_live = float(np.mean(np.sum(
+        (np.tile(_freq, (len(played), 1)) - np.eye(3)[y_played]) ** 2, axis=1)))
+    in_season_brier = {
+        "model": round(brier_live, 4), "naive": round(naive_live, 4),
+        "n_games": int(len(played)),
+        "improve_pct": round((naive_live - brier_live) / naive_live * 100, 2),
+    }
+    print(f"In-season {ts} Brier: model {brier_live:.4f} vs naive {naive_live:.4f} "
+          f"(n={len(played)})")
+
     # ── Dixon-Coles fit on ALL played-through-now (forward projection) ────────
     allplayed = df[df["home_goals"].notna()].dropna(subset=["home_goals", "away_goals"])
     atk, dfd, ha, rho = fit_dc(allplayed)
 
     def dc_probs(htid, atid):
         return rm._dc_predict(htid, atid, atk, dfd, ha, rho)   # (pH, pD, pA)
+
+    def dc_lam_mu(htid, atid):
+        """Raw DC expected goals (home λ, away μ) — projected scoreline."""
+        return (math.exp(atk.get(htid, 0) + dfd.get(atid, 0) + ha),
+                math.exp(atk.get(atid, 0) + dfd.get(htid, 0)))
+
+    # ── Current ELO ratings (champion config; post-latest-match values) ───────
+    _, elo_now = compute_elo(allplayed.sort_values("date"), K=25, home_adv=80,
+                             regress=0.40, return_ratings=True)
 
     # ── Current standings from played frame games (pts, GD, xGD) ─────────────
     pts, gp, gf, ga, xgf, xga = {}, {}, {}, {}, {}, {}
@@ -191,12 +216,18 @@ def main():
             continue
         if state != "post":
             pH, pD, pA = dc_probs(htid, atid)
-            remaining.append((htid, atid))
-            upcoming_cards.append({"date": date, "home": id2name.get(htid), "away": id2name.get(atid),
+            lam, mu = dc_lam_mu(htid, atid)
+            # CONTRACT: "id" = index into the remaining/RP sim arrays (assignment
+            # order here), NOT display order — games are re-sorted by date below.
+            # The client what-if sim must key fixtures by id, never by position.
+            upcoming_cards.append({"id": len(remaining),
+                                   "date": date, "home": id2name.get(htid), "away": id2name.get(atid),
                                    "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
+                                   "lam": round(lam, 2), "mu": round(mu, 2),
                                    "hg": None, "ag": None, "result": None,
                                    "hlogo": meta(htid).get("logo"), "alogo": meta(atid).get("logo"),
                                    "hcolor": meta(htid).get("color"), "acolor": meta(atid).get("color")})
+            remaining.append((htid, atid))
 
     # universe = all teams with a conference that appear in standings or schedule
     tids = {t for t in pts} | {t for fx in remaining for t in fx}
@@ -205,13 +236,80 @@ def main():
     confs = np.array([_conf(_norm(id2name.get(t, ""))) for t in tids])
     base_pts = np.array([pts.get(t, 0) for t in tids], dtype=float)
 
-    # ── Monte-Carlo: current points + simulate remaining via DC ──────────────
+    # ── Pairing-probability matrix (powers the cup sim here AND the client
+    #    what-if sim — shipped in data.js as sim.pmatrix, ints x1000, row=host) ──
+    PM = np.zeros((nT, nT, 3))
+    for hi, th in enumerate(tids):
+        for ai, ta in enumerate(tids):
+            if hi != ai:
+                PM[hi, ai] = dc_probs(th, ta)
+
+    def _pwin_pk(hi, ai):
+        """Host win prob, PK rounds (wild card + Bo3 round one: straight to PKs
+        after 90'; PKs modeled 50/50)."""
+        ph, pd_, _pa = PM[hi, ai]
+        return ph + 0.5 * pd_
+
+    def _pwin_et(hi, ai):
+        """Host win prob, ET rounds (semis/final/Cup: extra time favors the
+        better side → proportional draw split)."""
+        ph, pd_, pa = PM[hi, ai]
+        return ph + (pd_ * ph / (ph + pa) if (ph + pa) > 1e-9 else 0.5 * pd_)
+
+    # ════════════════════════════════════════════════════════════════════════
+    # SIM PORTING CONTRACT (Python here ↔ JS in webapp/index.html — any rule
+    # change must be made in BOTH places):
+    #  1. Regular season: start from current pts; each remaining fixture sampled
+    #     from its DC [pH,pD,pA]; W=3/D=1/L=0. (Client: forced fixtures are
+    #     deterministic.)
+    #  2. Seeding key: pts*10000 + current_real_GD*10 + U(0,10), descending per
+    #     conference. Playoffs = top 9; HFA = top 4; conf winner = #1;
+    #     Shield = best key overall; Spoon = worst key overall.
+    #  3. Bracket: wild card 8 hosts 9 (pW = pH + 0.5*pD); round one Bo3
+    #     1v8/2v7/3v6/4v5, higher seed hosts G1+G3, lower hosts G2, each game
+    #     pW = pH + 0.5*pD, first to 2; semis W(1v8)vW(4v5) and W(2v7)vW(3v6),
+    #     then conf final — single match, higher seed hosts,
+    #     pW = pH + pD*pH/(pH+pA); MLS Cup hosted by the finalist with the
+    #     higher seeding key.
+    #  4. All pairing probs from the same 30x30 pmatrix (row = host).
+    #  5. Acceptance: unforced client sim @10k within ±1.5pp of server @20k.
+    # ════════════════════════════════════════════════════════════════════════
+
+    def _conf_bracket(seeds, rng):
+        """seeds: 9 team indices, best first. Returns conference champion idx."""
+        wc = seeds[7] if rng.random() < _pwin_pk(seeds[7], seeds[8]) else seeds[8]
+        r1 = [(seeds[0], wc), (seeds[1], seeds[6]), (seeds[2], seeds[5]),
+              (seeds[3], seeds[4])]
+        rank = {t: i for i, t in enumerate(seeds)}
+        winners = []
+        for hi, lo in r1:                      # best-of-3, G1+G3 at hi, G2 at lo
+            w_hi = w_lo = 0
+            for g in range(3):
+                host, guest = (hi, lo) if g != 1 else (lo, hi)
+                host_won = rng.random() < _pwin_pk(host, guest)
+                if (host_won and host == hi) or (not host_won and host == lo):
+                    w_hi += 1
+                else:
+                    w_lo += 1
+                if w_hi == 2 or w_lo == 2:
+                    break
+            winners.append(hi if w_hi == 2 else lo)
+
+        def _single(t1, t2):                   # higher seed hosts, ET rules
+            host, guest = (t1, t2) if rank[t1] < rank[t2] else (t2, t1)
+            return host if rng.random() < _pwin_et(host, guest) else guest
+
+        return _single(_single(winners[0], winners[3]),
+                       _single(winners[1], winners[2]))
+
+    # ── Monte-Carlo: current points + simulate remaining via DC + playoffs ───
     rng = np.random.default_rng(42)
     RP = np.array([dc_probs(h, a) for (h, a) in remaining]) if remaining else np.zeros((0, 3))
     RH = np.array([idx[h] for (h, a) in remaining]); RA = np.array([idx[a] for (h, a) in remaining])
     N = args.sims
+    base_gd = np.array([gf.get(t, 0) - ga.get(t, 0) for t in tids], dtype=float)
     playoff = np.zeros(nT); hfa = np.zeros(nT); shield = np.zeros(nT); spoon = np.zeros(nT)
-    confwin = np.zeros(nT); proj = np.zeros(nT)
+    confwin = np.zeros(nT); proj = np.zeros(nT); cup = np.zeros(nT)
     east_i = np.where(confs == "East")[0]; west_i = np.where(confs == "West")[0]
     print(f"Simulating {N:,} seasons · {len(remaining)} remaining fixtures · {nT} teams...")
     for _ in range(N):
@@ -223,12 +321,19 @@ def main():
             np.add.at(p, RH[o == 1], 1); np.add.at(p, RA[o == 1], 1)
             np.add.at(p, RA[o == 2], 3)
         proj += p
-        j = p + rng.random(nT) * 0.01
+        # Tiebreak per the porting contract: points → current real GD → random
+        j = p * 10000 + base_gd * 10 + rng.random(nT) * 10
+        finalists = []
         for ci in (east_i, west_i):
             order = ci[np.argsort(-j[ci])]
             playoff[order[:_PLAYOFF_SLOTS]] += 1; hfa[order[:_HFA_SLOTS]] += 1
             confwin[order[0]] += 1
+            finalists.append(_conf_bracket(list(order[:9]), rng))
         shield[np.argmax(j)] += 1; spoon[np.argmin(j)] += 1
+        # MLS Cup: hosted by the finalist with the higher seeding key
+        f1, f2 = finalists
+        host, guest = (f1, f2) if j[f1] >= j[f2] else (f2, f1)
+        cup[host if rng.random() < _pwin_et(host, guest) else guest] += 1
 
     standings = []
     for t in tids:
@@ -243,6 +348,8 @@ def main():
                           "shield": round(shield[i] / N * 100, 1),
                           "spoon": round(spoon[i] / N * 100, 1),
                           "conf_win": round(confwin[i] / N * 100, 1),
+                          "cup": round(cup[i] / N * 100, 1),
+                          "elo": int(round(elo_now.get(t, 1500))),
                           "logo": meta(t).get("logo"), "color": meta(t).get("color")})
     standings.sort(key=lambda s: (-s["pts"], -s["gd"], -s["proj_pts"]))
 
@@ -253,9 +360,12 @@ def main():
         if _conf(_norm(id2name.get(h, ""))) is None or _conf(_norm(id2name.get(a, ""))) is None:
             continue
         res = "H" if r["home_goals"] > r["away_goals"] else "D" if r["home_goals"] == r["away_goals"] else "A"
+        _lam, _mu = dc_lam_mu(h, a)
         games.append({"date": r["date"].strftime("%Y-%m-%d"), "home": id2name.get(h), "away": id2name.get(a),
                       "pH": round(float(pe[i, 0]), 3), "pD": round(float(pe[i, 1]), 3),
-                      "pA": round(float(pe[i, 2]), 3), "hg": int(r["home_goals"]),
+                      "pA": round(float(pe[i, 2]), 3),
+                      "lam": round(_lam, 2), "mu": round(_mu, 2),
+                      "hg": int(r["home_goals"]),
                       "ag": int(r["away_goals"]), "result": res,
                       "hlogo": meta(h).get("logo"), "alogo": meta(a).get("logo"),
                       "hcolor": meta(h).get("color"), "acolor": meta(a).get("color")})
@@ -282,8 +392,40 @@ def main():
     except Exception as e:
         print(f"[warn] champion report unreadable ({e}); model card will lack metrics")
 
+    # ── Model-health block: feature-family completeness over current-season rows
+    _FAMS = {
+        "ELO":          [c for c in feat if "elo" in c],
+        "xG rolling":   [c for c in feat if "xg" in c and "elo" not in c],
+        "Form":         [c for c in feat if "form" in c],
+        "GK z-score":   [c for c in feat if "gk_z" in c],
+        "Availability": [c for c in feat if "avail" in c],
+        "is_playoff":   [c for c in feat if c == "is_playoff"],
+    }
+    _rows = df[df["season"] == ts]
+    health = {
+        "frame_file": str(_frame),
+        "frame_mtime": pd.Timestamp(_frame.stat().st_mtime, unit="s").strftime("%Y-%m-%d %H:%M"),
+        "espn_ok": True, "espn_events": len(sched),
+        "season_rows": int(len(_rows)), "played_rows": int(len(played)),
+        # complete = non-null share; nondefault = non-zero share (0 is the
+        # fillna default at predict time). Both are per-column means averaged
+        # across the family's columns, over current-season frame rows.
+        "features": [
+            {"family": fam, "cols": len(cols),
+             "complete_pct": round(float(_rows[cols].notna().mean().mean() * 100), 1),
+             "nondefault_pct": round(float((_rows[cols] != 0).mean().mean() * 100), 1)}
+            for fam, cols in _FAMS.items() if cols
+        ],
+    }
+
     data = {"season": ts, "in_season": True,
             "played": len(games) - len(upcoming_cards), "upcoming": len(upcoming_cards),
+            "sim": {"teams": [id2name.get(t, t) for t in tids],
+                    "pmatrix": [[None if hi == ai else
+                                 [int(round(PM[hi, ai, k] * 1000)) for k in range(3)]
+                                 for ai in range(nT)] for hi in range(nT)]},
+            "in_season_brier": in_season_brier,
+            "health": health,
             "model": {"best_brier": round(champ_brier, 4) if champ_brier else None,
                       "naive": _naive,
                       "improve_pct": round((_naive - champ_brier) / _naive * 100, 2)
@@ -300,7 +442,9 @@ def main():
                                                 "champion avg = 2022-2025 walk-forward"}}
     out = Path("webapp/data.js")
     out.write_text("window.MLS_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
-    print(f"Wrote {out} · {data['played']} played + {data['upcoming']} upcoming · {len(standings)} teams")
+    _kb = out.stat().st_size / 1024
+    print(f"Wrote {out} ({_kb:.0f} KB) · {data['played']} played + "
+          f"{data['upcoming']} upcoming · {len(standings)} teams")
     for s in standings[:3]:
         print(f"  {s['team']:<22} {s['conf']} {s['pts']}pts/{s['gp']}gp  proj {s['proj_pts']}  "
               f"PO {s['playoff']}%  Shield {s['shield']}%")
