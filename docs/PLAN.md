@@ -31,9 +31,17 @@
 >   rewrite), CURRENT_STATE, HANDOFF, Makefile, settings.yaml; deleted `docs/PI_VALIDATION.md`. Verified:
 >   `make test` 101 passed, gate self-test 6/6, parity PASS 0.6330. Daily-build launchd plist: pending.
 >
-> **Phase B — model experiment loop (NEXT):** B1 season-aware rolling, B2 manager (ASA get_managers +
-> mls-roster-profiles repo, 2024+), B3 per-team HFA v2 + neutral sites, B4 weather retest, B5 salary retest
-> (itscalledsoccer get_player_salaries), B6 history depth 2011+, B7 2026 reporting — gate-governed loop.
+> **Phase B — model experiment loop (gate-governed; verdicts below):**
+> - **B1 — season-aware rolling: DROP (2026-06-11).** New `season_decay` weight on xG/xGA/form rolling means
+>   (prior-season matches count `decay^seasons_ago`; 1.0 = exact no-op, smoke + 20 unit tests confirm). Bagged
+>   4-fold sweep: decay 1.0=0.63298 (control), 0.85=**0.63325 (+0.0003, worse)**, 0.6=0.63284 (−0.0001,
+>   sub-noise, fails the −0.0005 gate bar); non-monotonic and cal_err degrades monotonically (0.134→0.152).
+>   Empirical answer to the user's hypothesis: down-weighting prior-season rolling data does NOT help — the
+>   early-season "stale data" cost is outweighed by having any signal; cross-season carryover is benign
+>   (consistent with I1: 2021-in-training helped 2023). Flag retained (`--season-decay`), default 1.0.
+> - **B2–B7 (NEXT):** B2 manager (ASA get_managers + mls-roster-profiles 2024+), B3 per-team HFA v2 + neutral
+>   sites, B4 weather retest, B5 salary retest (itscalledsoccer get_player_salaries), B6 history depth 2011+,
+>   B7 2026 reporting.
 
 > **Promotion cycle (2026-06-09 evening) — bag + wide-grid combo toward a new champion (loop 2 queue)**
 >

@@ -294,6 +294,7 @@ This same structural constraint applies to referee features: `ref_draw_rate` shi
 | DC shorter time-decay window | (Earlier experiment; exact result merged into blend design) | No leverage | The capped blend already floors DC's contribution; DC window changes are dominated by XGB |
 | 2-season cal fold pooling | Pool test−1 and test−2 for calibration (N=2) | avg cal_err WORSE despite larger fold | COVID exclusions mean only 2/4 seasons benefit from true pooling; 2021 (COVID-adjacent) degrades the average |
 | Isotonic regression calibration | Applied at first-pass and second-pass stages | Consistently regresses Brier due to overfitting at ~470–520 sample size | Monotone constraint insufficient regularisation; too flexible for this dataset size |
+| Season-decayed rolling features (B1) | `season_decay` weight on xG/xGA/form rolling means (prior seasons count `decay^seasons_ago`); swept 1.0/0.85/0.6 bagged 4-fold | Non-monotonic and sub-noise (0.85 +0.0003, 0.6 −0.0001); cal_err degrades 0.134→0.152 | Early-season "stale data" cost is outweighed by having any signal; cross-season carryover is benign (cf. 2021-in-training helping 2023) |
 
 ---
 
