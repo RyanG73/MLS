@@ -122,6 +122,10 @@ def _parse_args() -> "_ap.Namespace":
                         "means = season_decay**(seasons_ago). 1.0 (default) = "
                         "uniform = current behavior; <1.0 down-weights prior-season "
                         "matches; 0.0 = current-season only.")
+    p.add_argument("--start-season", type=int, default=None,
+                   help="B6 experiment: earliest training season (default 2017). "
+                        "ASA MLS xG goes back to 2013 at 100%%; the 2017 cutoff was "
+                        "a deliberate league-composition choice, not a data limit.")
     p.add_argument("--train-on-cal", action="store_true",
                    help="T1a variant: fit all calibration constants (T_dc, T_xgb, "
                         "blend w, 2nd-pass T) on the held-out cal fold as usual, "
@@ -241,6 +245,7 @@ _COVID       = {2020}
 WEIGHT_HL    = _ARGS.weight_hl  if _ARGS.weight_hl  is not None else 6
 GAMES_14D    = _ARGS.games_14d  if _ARGS.games_14d  is not None else 16
 _SEASON_DECAY = _ARGS.season_decay if _ARGS.season_decay is not None else 1.0
+_START_SEASON = _ARGS.start_season if _ARGS.start_season is not None else 2017
 
 FETCH_WEATHER       = bool(_ARGS.weather)  # --weather enables Open-Meteo API calls (~5 min extra)
 FETCH_TRANSFERMARKT = True   # Transfermarkt CSVs present: data/transfermarkt_squad_values_*_mapped.csv (2017-2024)
@@ -340,11 +345,11 @@ df["home_goals"] = df["home_goals"].astype(int)
 df["away_goals"] = df["away_goals"].astype(int)
 
 _n_raw = len(df)
-df = df[(df["season"] >= 2017) & (~df["season"].isin(_COVID))].copy()
+df = df[(df["season"] >= _START_SEASON) & (~df["season"].isin(_COVID))].copy()
 df = df.sort_values("date").reset_index(drop=True)
 
 print(f"    {len(df):,} matches ({df['season'].min()}–{df['season'].max()})  |  "
-      f"{_n_raw - len(df):,} pre-2017/COVID excluded")
+      f"{_n_raw - len(df):,} pre-{_START_SEASON}/COVID excluded")
 print(f"    xG coverage: {df['home_xg'].notna().mean():.0%}  |  "
       f"Playoff: {df['is_playoff'].sum()} ({df['is_playoff'].mean():.1%})")
 _HAS_SP_XG = "home_xg_sp" in df.columns and df["home_xg_sp"].notna().mean() > 0.3
