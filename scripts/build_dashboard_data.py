@@ -168,6 +168,49 @@ def main():
         "n_games": int(len(played)),
         "improve_pct": round((naive_live - brier_live) / naive_live * 100, 2),
     }
+
+    # ── Market (opening-line) Brier on the subset of played games with a logged
+    #    opener. Self-populates over the season once ODDS_API_KEY logging runs;
+    #    "pending" until model-predicted played games overlap logged openers. ───
+    market_brier = {"status": "pending", "n_games": 0,
+                    "note": "Add ODDS_API_KEY and run `make odds-log` daily; "
+                            "opening lines accumulate for future games."}
+    _olog = Path("data/odds_log.parquet")
+    if _olog.exists():
+        try:
+            _od = pd.read_parquet(_olog)
+            # de-vig per fixture → market implied [home,draw,away]
+            _mkt = {}
+            for _fk, _g in _od.groupby("fixture_key"):
+                _imp = {r.outcome: 1.0 / r.decimal_odds for r in _g.itertuples()
+                        if r.decimal_odds and r.decimal_odds > 1}
+                if {"home", "draw", "away"} <= set(_imp):
+                    _s = _imp["home"] + _imp["draw"] + _imp["away"]
+                    # key: (home_id, away_id, YYYY-MM-DD)
+                    _hn, _an = _g.iloc[0]["home_team"], _g.iloc[0]["away_team"]
+                    _hid, _aid = map_team(_norm(_hn)), map_team(_norm(_an))
+                    _dt = str(_g.iloc[0]["commence_time"])[:10]
+                    if _hid and _aid:
+                        _mkt[(_hid, _aid, _dt)] = np.array(
+                            [_imp["home"], _imp["draw"], _imp["away"]]) / _s
+            # overlap with model-predicted played games
+            _mp, _mk, _yy = [], [], []
+            for _i, _r in played.iterrows():
+                _k = (_r["home_team"], _r["away_team"], _r["date"].strftime("%Y-%m-%d"))
+                if _k in _mkt:
+                    _mp.append(pe[_i]); _mk.append(_mkt[_k]); _yy.append(int(_r["label_result"]))
+            if len(_yy) >= 10:
+                _yoh = np.eye(3)[np.array(_yy)]
+                _bm = float(np.mean(np.sum((np.array(_mk) - _yoh) ** 2, axis=1)))
+                _bmod = float(np.mean(np.sum((np.array(_mp) - _yoh) ** 2, axis=1)))
+                market_brier = {"status": "ok", "n_games": len(_yy),
+                                "market": round(_bm, 4), "model": round(_bmod, 4),
+                                "edge_pct": round((_bm - _bmod) / _bm * 100, 2)}
+        except Exception as _e:
+            market_brier = {"status": "error", "n_games": 0, "note": str(_e)}
+    print(f"Market Brier: {market_brier.get('status')} "
+          f"(n={market_brier.get('n_games', 0)})")
+
     print(f"In-season {ts} Brier: model {brier_live:.4f} vs naive {naive_live:.4f} "
           f"(n={len(played)})")
 
@@ -184,8 +227,8 @@ def main():
                 math.exp(atk.get(atid, 0) + dfd.get(htid, 0)))
 
     # ── Current ELO ratings (champion config; post-latest-match values) ───────
-    _, elo_now = compute_elo(allplayed.sort_values("date"), K=25, home_adv=80,
-                             regress=0.40, return_ratings=True)
+    _elo_df, elo_now = compute_elo(allplayed.sort_values("date"), K=25, home_adv=80,
+                                   regress=0.40, return_ratings=True)
 
     # ── Current standings from played frame games (pts, GD, xGD) ─────────────
     pts, gp, gf, ga, xgf, xga = {}, {}, {}, {}, {}, {}
@@ -353,6 +396,56 @@ def main():
                           "logo": meta(t).get("logo"), "color": meta(t).get("color")})
     standings.sort(key=lambda s: (-s["pts"], -s["gd"], -s["proj_pts"]))
 
+    # ── Per-team current model inputs (latest rolling feature snapshot) ───────
+    # For each team, the most recent match's own-side rolling features — the
+    # actual quantities the model consumes. Drawn from the frozen feature frame.
+    _team_inputs = {}
+    _df_s = df.sort_values("date")
+    _input_cols = {  # display label -> (home_col, away_col)
+        "xg_for": ("home_xg_roll_5", "away_xg_roll_5"),
+        "xg_against": ("home_xga_roll_5", "away_xga_roll_5"),
+        "form": ("home_form_5", "away_form_5"),
+        "gk_z": ("home_gk_z", "away_gk_z"),
+        "avail": ("home_avail_share", "away_avail_share"),
+    }
+    for _t in tids:
+        _name = id2name.get(_t, _t)
+        _rows = _df_s[(_df_s["home_team"] == _t) | (_df_s["away_team"] == _t)]
+        if _rows.empty:
+            continue
+        _last = _rows.iloc[-1]
+        _is_home = _last["home_team"] == _t
+        _snap = {"elo": int(round(elo_now.get(_t, 1500)))}
+        for _lab, (_hc, _ac) in _input_cols.items():
+            _col = _hc if _is_home else _ac
+            _v = _last.get(_col)
+            _snap[_lab] = round(float(_v), 3) if _v is not None and pd.notna(_v) else None
+        _team_inputs[_name] = _snap
+
+    # ── ELO history (per-team trajectory, downsampled) + trophy annotations ───
+    _elo_hist = {}
+    for _t in tids:
+        _name = id2name.get(_t, _t)
+        _hm = _elo_df[_elo_df["home_team"] == _t][["date", "home_elo"]].rename(
+            columns={"home_elo": "elo"})
+        _aw = _elo_df[_elo_df["away_team"] == _t][["date", "away_elo"]].rename(
+            columns={"away_elo": "elo"})
+        _ser = pd.concat([_hm, _aw]).sort_values("date")
+        if _ser.empty:
+            continue
+        # downsample to ~120 points max (keep every Nth) for payload size
+        _step = max(1, len(_ser) // 120)
+        _pts = [[d.strftime("%Y-%m-%d"), int(round(e))]
+                for d, e in zip(_ser["date"].iloc[::_step], _ser["elo"].iloc[::_step])]
+        _elo_hist[_name] = _pts
+
+    from data_pipeline.trophies import trophies_for
+    _trophies = {id2name.get(_t, _t): trophies_for(id2name.get(_t, _t)) for _t in tids}
+    _trophies = {k: v for k, v in _trophies.items() if v}
+    print(f"Team profiles: {len(_team_inputs)} | ELO history: "
+          f"{sum(len(v) for v in _elo_hist.values())} points | "
+          f"teams with trophies: {len(_trophies)}")
+
     # ── Game cards: played (ensemble) + upcoming (DC) ────────────────────────
     games = []
     for i, r in played.iterrows():
@@ -425,6 +518,10 @@ def main():
                                  [int(round(PM[hi, ai, k] * 1000)) for k in range(3)]
                                  for ai in range(nT)] for hi in range(nT)]},
             "in_season_brier": in_season_brier,
+            "market_brier": market_brier,
+            "team_inputs": _team_inputs,
+            "elo_history": _elo_hist,
+            "trophies": _trophies,
             "health": health,
             "model": {"best_brier": round(champ_brier, 4) if champ_brier else None,
                       "naive": _naive,
