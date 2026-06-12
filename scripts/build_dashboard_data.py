@@ -423,12 +423,27 @@ def main():
         _team_inputs[_name] = _snap
 
     # ── ELO history (per-team trajectory, downsampled) + trophy annotations ───
+    # Computed over the FULL ASA game history (2013+, deeper than the 2017+ model
+    # frame) so the chart shows the complete trajectory under each trophy.
+    try:
+        _gh = asa.get_games(leagues="mls")
+        _gh = _gh.rename(columns={"date_time_utc": "date", "home_team_id": "home_team",
+                                  "away_team_id": "away_team", "home_score": "home_goals",
+                                  "away_score": "away_goals", "season_name": "season"})
+        _gh["date"] = pd.to_datetime(_gh["date"], errors="coerce", utc=True).dt.tz_localize(None)
+        _gh["season"] = pd.to_numeric(_gh["season"], errors="coerce")
+        _gh = _gh.dropna(subset=["date", "home_goals", "away_goals", "season"])
+        _gh = _gh[_gh["season"] >= 2013].sort_values("date")
+        _elo_full, _ = compute_elo(_gh, K=25, home_adv=80, regress=0.40, return_ratings=True)
+    except Exception as _e:
+        print(f"[warn] full ELO history fetch failed ({_e}); using model frame")
+        _elo_full = _elo_df
     _elo_hist = {}
     for _t in tids:
         _name = id2name.get(_t, _t)
-        _hm = _elo_df[_elo_df["home_team"] == _t][["date", "home_elo"]].rename(
+        _hm = _elo_full[_elo_full["home_team"] == _t][["date", "home_elo"]].rename(
             columns={"home_elo": "elo"})
-        _aw = _elo_df[_elo_df["away_team"] == _t][["date", "away_elo"]].rename(
+        _aw = _elo_full[_elo_full["away_team"] == _t][["date", "away_elo"]].rename(
             columns={"away_elo": "elo"})
         _ser = pd.concat([_hm, _aw]).sort_values("date")
         if _ser.empty:
