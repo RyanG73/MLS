@@ -51,8 +51,17 @@
 >   neutral) 0.634542 (Δ+0.00014 — WORSE than Base AND than +HomeAdv).** The neutral-site signal is too sparse
 >   (2.8%) — XGB overfits it as noise. Neutral-site = DROP; the per-team HFA tilt re-confirmed marginal
 >   (strongest marginal yet but below the 0.001 bar). Features retained as `+HomeAdv`/`+HFA2` AB sets.
-> - **B4–B7 (NEXT):** B4 weather retest (full coverage), B5 salary retest (ASA get_player_salaries —
->   confirmed present, DROPped twice; pause for user's source), B6 history depth 2011+, B7 2026 reporting.
+> - **B4 — weather retest: DROP, now definitive (2026-06-11).** Re-ran `--weather` (Open-Meteo archive);
+>   coverage **89%** (the prior 45% was an incomplete fetch; the remaining 11% is dome teams correctly →
+>   NULL — outdoor alignment already structural). Bagged 4-fold AB: **+Weather 0.634711 vs Base 0.634403,
+>   Δ=+0.00031 (worse).** The retest premise ("full coverage changes the answer") is falsified — weather still
+>   hurts at near-full coverage; rolling xG/form already absorb condition effects on 1X2 outcomes.
+> - **B5 — salary retest: BLOCKED/predetermined (pause for user).** User's named source `itscalledsoccer
+>   get_player_salaries` IS the ASA data DROPped twice (player −0.0008, team −0.0045). mls-roster-profiles repo
+>   is genuinely different (roster construction: DP/TAM/U22) but 2024+ only → no pre-2024 training history →
+>   single-fold (train 2024 → test 2025) low-power test (same confound that voided the original roster A/B).
+>   Awaiting user direction before spending the build.
+> - **B6–B7 (NEXT):** B6 history depth 2011+ (verify pre-2017 xG quality first), B7 2026 reporting.
 
 > **Promotion cycle (2026-06-09 evening) — bag + wide-grid combo toward a new champion (loop 2 queue)**
 >
