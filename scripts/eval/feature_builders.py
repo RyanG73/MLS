@@ -37,6 +37,7 @@ def add_rolling_features(
     has_ppda: bool = False,
     has_poss: bool = False,
     has_sp_xg: bool = False,
+    season_decay: float = 1.0,
 ) -> pd.DataFrame:
     """Walk-forward rolling features (xG, form, venue split, Pythagorean luck, congestion).
 
@@ -52,6 +53,13 @@ def add_rolling_features(
         has_ppda:       Whether PPDA stats are present in xpass_by_game.
         has_poss:       Whether possession stats are present in xpass_by_game.
         has_sp_xg:      Whether set-piece xG split columns exist in df.
+        season_decay:   B1 experiment. Per-match weight for xG/xGA/form rolling
+                        means is ``season_decay ** (current_season - match_season)``
+                        — i.e. matches from N seasons ago count ``season_decay**N``.
+                        Default 1.0 = uniform mean = current behavior (exact no-op).
+                        < 1.0 down-weights prior-season matches so a new season
+                        leans on its own (sparse) early data; 0.0 = current season
+                        only (falls back to the prior when no in-season matches yet).
 
     Returns:
         Copy of ``df`` with all rolling feature columns added.
@@ -59,8 +67,19 @@ def add_rolling_features(
     _VENUE_WINDOWS = (5, 10)
     _HA_WINDOW = 20
 
+    def _wmean(vals, seasons, ref_s, fallback):
+        """Season-decayed mean of `vals` (aligned with `seasons`)."""
+        if not vals:
+            return fallback
+        if season_decay >= 1.0:
+            return float(np.mean(vals))
+        w = np.array([season_decay ** max(0, ref_s - s) for s in seasons], dtype=float)
+        tot = w.sum()
+        return float(np.dot(w, vals) / tot) if tot > 1e-9 else fallback
+
     team_xg:       dict[str, list] = {}
     team_pts:      dict[str, list] = {}
+    team_seasons:  dict[str, list] = {}
     team_goals:    dict[str, list] = {}
     team_ppda:     dict[str, list] = {}
     team_poss:     dict[str, list] = {}
@@ -121,17 +140,21 @@ def add_rolling_features(
             ppda_hist = team_ppda.get(team, [])
             poss_hist = team_poss.get(team, [])
             date_hist = team_dates_d.get(team, [])
+            seas_hist = team_seasons.get(team, [])
+            ref_s = row["season"]
 
             for w in xg_windows:
                 seg = xg_hist[-w:]
+                seg_s = seas_hist[-w:]
                 res[f"{role}_xg_roll_{w}"].append(
-                    np.mean([x["xg"] for x in seg]) if seg else 1.3)
+                    _wmean([x["xg"] for x in seg], seg_s, ref_s, 1.3))
                 res[f"{role}_xga_roll_{w}"].append(
-                    np.mean([x["xga"] for x in seg]) if seg else 1.3)
+                    _wmean([x["xga"] for x in seg], seg_s, ref_s, 1.3))
 
             for fw in form_windows:
                 seg_pts = pts_hist[-fw:]
-                res[f"{role}_form_{fw}"].append(np.mean(seg_pts) if seg_pts else 1.0)
+                res[f"{role}_form_{fw}"].append(
+                    _wmean(seg_pts, seas_hist[-fw:], ref_s, 1.0))
 
             cutoff = dt - timedelta(days=games_14d_days)
             res[f"{role}_games_in_14d"].append(sum(1 for d in date_hist if d > cutoff))
@@ -194,6 +217,8 @@ def add_rolling_features(
         team_xg.setdefault(at, []).append({"xg": a_xg, "xga": h_xg, "opp_xg_sp": h_xg_sp})
         team_pts.setdefault(ht, []).append(h_pts)
         team_pts.setdefault(at, []).append(a_pts)
+        team_seasons.setdefault(ht, []).append(row["season"])
+        team_seasons.setdefault(at, []).append(row["season"])
         team_goals.setdefault(ht, []).append((float(hg), float(ag)))
         team_goals.setdefault(at, []).append((float(ag), float(hg)))
         team_ppda.setdefault(ht, []).append(h_ppda_v)

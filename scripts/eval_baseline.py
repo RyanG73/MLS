@@ -117,6 +117,11 @@ def _parse_args() -> "_ap.Namespace":
                         "They remain in the frame, so rolling/ELO features and cal "
                         "folds are unchanged. E.g. --exclude-train-seasons 2021 "
                         "tests the documented-but-unimplemented COVID exclusion.")
+    p.add_argument("--season-decay", type=float, default=None,
+                   help="B1 experiment: per-match weight for xG/xGA/form rolling "
+                        "means = season_decay**(seasons_ago). 1.0 (default) = "
+                        "uniform = current behavior; <1.0 down-weights prior-season "
+                        "matches; 0.0 = current-season only.")
     p.add_argument("--train-on-cal", action="store_true",
                    help="T1a variant: fit all calibration constants (T_dc, T_xgb, "
                         "blend w, 2nd-pass T) on the held-out cal fold as usual, "
@@ -235,6 +240,7 @@ TEST_SEASONS = list(_ARGS.test_seasons) if _ARGS.test_seasons else [2021, 2022, 
 _COVID       = {2020}
 WEIGHT_HL    = _ARGS.weight_hl  if _ARGS.weight_hl  is not None else 6
 GAMES_14D    = _ARGS.games_14d  if _ARGS.games_14d  is not None else 16
+_SEASON_DECAY = _ARGS.season_decay if _ARGS.season_decay is not None else 1.0
 
 FETCH_WEATHER       = bool(_ARGS.weather)  # --weather enables Open-Meteo API calls (~5 min extra)
 FETCH_TRANSFERMARKT = True   # Transfermarkt CSVs present: data/transfermarkt_squad_values_*_mapped.csv (2017-2024)
@@ -457,8 +463,10 @@ df = _add_rolling_features_fb(
     has_ppda=_HAS_PPDA,
     has_poss=_HAS_POSS,
     has_sp_xg=_HAS_SP_XG,
+    season_decay=_SEASON_DECAY,
 )
-print(f"    Rolling features complete. Columns added: {[c for c in df.columns if 'roll' in c or 'form_' in c or '14d' in c][:8]}...")
+print(f"    Rolling features complete (season_decay={_SEASON_DECAY}). "
+      f"Columns added: {[c for c in df.columns if 'roll' in c or 'form_' in c or '14d' in c][:8]}...")
 
 # ─── 5. Altitude flag ─────────────────────────────────────────────────────────
 
