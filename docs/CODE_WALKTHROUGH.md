@@ -463,6 +463,9 @@ All default OFF; each reports its metric alongside the standard ensemble so runs
 | `--inseason-prior` | Per-match shrunk class-prior reweighting (α∈{50,150,300}) | DROP |
 | `--draw-hurdle` | Binary P(draw) model + conditional H/A renormalisation | DROP |
 | `--season-decay F` | Weight xG/xGA/form rolling means by `F**(seasons_ago)`; 1.0 = no-op | DROP (B1) |
+| `--start-season Y` | Earliest training season (default 2017; xG exists to 2013) | DROP (B6 — regresses current regime) |
+| `+Manager` AB set | Manager new-flag + tenure from ASA `*_manager_id` | MARGINAL (B2) |
+| `+HFA2` AB set | Per-team HFA tilt + per-season neutral-site flag | DROP (B3 — neutral too sparse) |
 
 ---
 

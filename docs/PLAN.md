@@ -71,9 +71,20 @@
 > - **B6 — history depth 2013+: PROMISING, confirming (2026-06-11).** xG is 100% back to 2013 (ASA MLS games
 >   start 2013; 2017 cutoff was a deliberate league-composition choice, not a data limit). `--start-season`
 >   sweep bagged 4-fold: 2017=0.63298 (ctrl), **2015=0.63231 (Δ−0.00067, clears screening bar)**,
->   2013=0.63293 (−0.00005, neutral). BUT 2015 helps 2022 a lot (−0.0037) while **regressing 2024
->   +0.0008 (would fail the gate's 2024-robustness tolerance)** — older data dilutes the recent regime.
->   Seed-1 confirm + gate check in flight before a verdict. Non-monotonic (2013 worse than 2015).
+>   2013=0.63293 (−0.00005, neutral). **DROP after seed-1 confirm:** seed-1 start=2015 = 0.63358 (WORSE
+>   than control), so the 2-seed mean 0.63295 ≈ control — the seed-42 gain was luck. AND 2024 regresses both
+>   seeds (0.6357/0.6363 > 0.6348 limit, FAIL robustness) and 2025 too (+0.0024 at seed-1). Extending history
+>   fits the old 2022 fold (−0.0037) at the cost of current-regime folds (2024, 2025) — the wrong tradeoff for
+>   forward-looking prediction. **The 2017 cutoff is empirically vindicated.** (Also a clean bagging-protocol
+>   lesson: single-seed would have falsely promoted this.) `--start-season` flag retained, default 2017.
+>
+> **PHASE B COMPLETE (2026-06-11, B1–B7).** Champion unchanged at 0.6330 throughout. Verdicts: B1 season-decay
+> DROP · B2 manager MARGINAL · B3 neutral-site DROP (per-team HFA marginal) · B4 weather DROP (89% cov,
+> definitive) · B5 roster-profiles INCONCLUSIVE (2024-only too thin) · B6 history-depth DROP (vindicates 2017
+> cutoff) · B7 SATISFIED by A1. **Unanimous finding: the model is at its pre-match-feature ceiling — ELO +
+> rolling xG/form already absorb team quality, home advantage, manager effects, conditions, and roster
+> investment.** The frontier is no longer features but the betting/CLV workstream (measuring edge vs the
+> market; opening-line logging now in place via `data_pipeline/odds_log.py`).
 > - **B7 — 2026 reporting: SATISFIED by A1.** The webapp header shows live 2026 Brier (0.6298 model vs 0.6339
 >   naive, +0.64%, n=218); `build_dashboard_data` prints it each run. No separate work needed.
 
