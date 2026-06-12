@@ -60,26 +60,23 @@ Previous baseline before calibration fix: avg 0.6381, cal_err 0.1567.
 - All research history, CLAUDE.md decisions, and `models/metrics.py` use this form
 - Function: `brier_multiclass_sum(probs, y)` in `models/metrics.py`
 
-**Display-only: half-form Brier** — sum-form ÷ 2.
-- Range: 0–1; random baseline ≈ 0.250
-- Used in: `dashboard/pages/2_Performance.py`, `scripts/check_drift.py`, `scripts/performance_report.py`
-- Labeled explicitly in those files; do not compare directly with research Brier values
-
-When you see "Brier 0.25" in the Streamlit dashboard and "Brier 0.6375" in eval output,
-these are the **same metric measured in different conventions** (÷2 vs no-division).
+**Display-only: half-form Brier** — sum-form ÷ 2 (range 0–1; random ≈ 0.250). Only
+the archived Streamlit pages used this; the active webapp shows sum-form. Do not
+compare half-form values directly with research Brier.
 
 ---
 
-## Production Paths
+## Production Path (webapp-only)
 
 | What | Path | Model |
 |------|------|-------|
-| Operational Postgres predictions | `scripts/daily_update.py` → step 10 | `models/research_model.predict_upcoming` |
-| Public dashboard | `scripts/build_dashboard_data.py` → `webapp/data.js` | `models/research_model` |
+| Static web dashboard | `scripts/build_dashboard_data.py` → `webapp/data.js` → `webapp/` | `models/research_model` |
 
-Both paths use the same model. The legacy stack (`models/dixon_coles.py`,
-`models/gradient_boost.py`, `models/stacking_ensemble.py`) runs for component
-predictions only and is not the source of the `ensemble` model in Postgres.
+The single active path is database-free: the Mac runs `build_dashboard_data.py`
+to render `webapp/data.js`, and `webapp/index.html` is served statically. The
+former Postgres/Streamlit pipeline and the legacy model stack
+(`dixon_coles`/`gradient_boost`/`stacking_ensemble`) were archived under
+`legacy/` on 2026-06-11 (see `legacy/README.md`).
 
 ---
 
@@ -89,7 +86,7 @@ predictions only and is not the source of the `ensemble` model in Postgres.
 |--------|-----------------|-------|
 | ASA API (`itscalledsoccer`) | xG, possession, pass stats, referee | Primary features; SSL verify scoped to ASA client only (F6 fixed) |
 | ESPN scoreboard | Results, fixtures, injuries | Schedule sync |
-| The Odds API (Pinnacle) | Opening + closing lines | CLV only — model stays market-blind |
+| The Odds API (Pinnacle) | Opening lines | Logged to `data/odds_log.parquet` via `data_pipeline/odds_log.py`; CLV-only — model stays market-blind |
 | FBref / worldfootballR | Referee statistics | Optional refresh |
 | Open-Meteo | Weather at kickoff | Phase 2 feature |
 
@@ -120,42 +117,29 @@ Validated values that must match CLAUDE.md:
 - **Python:** 3.11 (pinned in `.python-version`).
 - **Spec:** `requirements.txt` — lower bounds (minimum tested) + upper bounds
   (next major) to stop a silent breaking upgrade.
-- **Lockfile:** `requirements.lock` is environment-specific and generated on the
-  deploy target (the Pi), not committed from a dev machine:
+- **Lockfile:** `requirements.lock` (optional) is environment-specific —
+  regenerate on whatever machine you deploy from:
   ```bash
-  make lock                          # pip freeze > requirements.lock (on the Pi)
+  make lock                          # pip freeze > requirements.lock
   pip install -r requirements.lock   # reproducible install
   ```
-  The dev research-harness env runs newer scientific libs than the Pi, so
-  freezing it would pin wrong versions — hence target-side generation.
 
 ---
 
 ## Run Commands
 
 ```bash
-# Run daily update (fits model, writes predictions to Postgres)
-make daily-update
-
-# Rebuild the web dashboard data file
-make build-dashboard-data
-
-# Verify research_model parity with eval harness (|Δ| < 0.0015)
-make parity-check
-
-# Run the test suite
-make test
-
-# Print performance metrics from Postgres
-make performance-report
+make build-dashboard-data   # rebuild webapp/data.js (the production artifact)
+make parity-check           # research_model reproduces the champion (|Δ| < 0.0015)
+make test                   # DB-free unit suite
+make odds-log               # append Pinnacle opening lines to data/odds_log.parquet
 ```
 
 ---
 
-## Legacy / Not Canonical
+## Legacy / Archived (under legacy/, not in the active path)
 
-- `models/dixon_coles.py` — old DC wrapper; still runs for component predictions
-- `models/gradient_boost.py` — old GB wrapper; still runs for component predictions
-- `models/stacking_ensemble.py` — old meta-learner; no longer source of `ensemble` predictions
-- `dashboard/pages/6_Backtest.py`, `7_Season_Forecast.py`, `8_Real_Bets.py` — beta, gated behind `dashboard.beta_pages_enabled`
-- `docs/PLAN.md` — historical plan; may reference DuckDB (superseded by PostgreSQL)
+- `legacy/models/{dixon_coles,gradient_boost,stacking_ensemble,backtest,season_simulator}.py` — old model stack, superseded by `models/research_model.py`
+- `legacy/dashboard/` — Streamlit multi-page app, superseded by `webapp/`
+- `legacy/data_pipeline/`, `legacy/features/`, `legacy/market/`, `legacy/scripts/` — Postgres-backed ingest, feature builders, betting layer, and ops/cron scripts
+- `docs/PLAN.md` — historical plan; deep-history sections describe the archived Postgres/Pi architecture

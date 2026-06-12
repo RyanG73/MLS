@@ -7,10 +7,11 @@ data:
   backfill_start_season: 2011          # ASA API reliable from 2011; earlier years sparse
   current_season: null                 # Optional; defaults to current year or env MLS_CURRENT_SEASON
 
-# ─── PostgreSQL Connection ────────────────────────────────────────────────────
-# All values can be overridden by environment variables in .env
+# ─── PostgreSQL Connection (legacy — archived stack only) ─────────────────────
+# Used only by the archived Postgres pipeline under legacy/. The active
+# webapp/harness path is database-free. Overridable by .env environment vars.
 database:
-  host: "192.168.1.100"    # Pi's static IP — override with env PG_HOST
+  host: "127.0.0.1"        # override with env PG_HOST
   port: 5432               # override with env PG_PORT
   name: "mls"              # override with env PG_DBNAME
   user: "ryang"            # override with env PG_USER
@@ -51,7 +52,7 @@ bayesian:
   enabled: false                        # Set true once R/Stan is installed and Python baseline is validated
   chains: 4
   iter: 2000                            # 1000 warmup + 1000 samples per chain
-  cores: 4                              # Parallel chains (match Pi CPU count)
+  cores: 4                              # Parallel chains (match CPU count)
   adapt_delta: 0.95
   elo_scale_factor: 400                 # Divide ELO diff by this to get prior mean
   expansion_prior_sd_multiplier: 2.0   # Wider prior for expansion teams

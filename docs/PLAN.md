@@ -21,11 +21,19 @@
 >   a SIM PORTING CONTRACT duplicated verbatim in both files. **Acceptance PASS: unforced JS@10k within
 >   ±1.2pp of server@20k on every cell** (bound 1.5pp); ~debounced, sub-second; forcing 5 wins on the worst
 >   team moved playoff 6.1%→43.1% with opponent boxes mirroring. Suite 108 passed; responsive 480/760/1280px.
-> - **A5 — Pi removal + webapp-only production: IN PROGRESS** (delete PI_VALIDATION/dashboard/legacy models,
->   scrub Pi refs, launchd daily build, odds→parquet logging).
+> - **A5 — Pi removal + webapp-only production: DONE 2026-06-11.** Archived (not deleted) the entire
+>   Postgres/Streamlit/Pi system under `legacy/` (36 files: `dashboard/`, legacy `models/`, DB-backed
+>   `data_pipeline/` + `features/` + `market/`, ops `scripts/`, + 4 DB tests) — `legacy/README.md` documents
+>   it; recoverable, kept the `market/` betting layer for the CLV workstream. Active surface = harness +
+>   `research_model` + `webapp/`, all DB-free. Kept in place: `data_pipeline/{team_metadata,source_health,
+>   db_utils,espn_rosters}` (gate/harness need them). New `data_pipeline/odds_log.py` logs Pinnacle **opening**
+>   lines → `data/odds_log.parquet` (no-ops without `ODDS_API_KEY`). Scrubbed Pi refs from README (full
+>   rewrite), CURRENT_STATE, HANDOFF, Makefile, settings.yaml; deleted `docs/PI_VALIDATION.md`. Verified:
+>   `make test` 101 passed, gate self-test 6/6, parity PASS 0.6330. Daily-build launchd plist: pending.
 >
-> **Phase B — model experiment loop (queued):** B1 season-aware rolling, B2 manager, B3 per-team HFA v2 +
-> neutral sites, B4 weather retest, B5 salary retest, B6 history depth 2011+, B7 2026 reporting — gate-governed.
+> **Phase B — model experiment loop (NEXT):** B1 season-aware rolling, B2 manager (ASA get_managers +
+> mls-roster-profiles repo, 2024+), B3 per-team HFA v2 + neutral sites, B4 weather retest, B5 salary retest
+> (itscalledsoccer get_player_salaries), B6 history depth 2011+, B7 2026 reporting — gate-governed loop.
 
 > **Promotion cycle (2026-06-09 evening) — bag + wide-grid combo toward a new champion (loop 2 queue)**
 >
@@ -94,7 +102,7 @@
 >   branch pushed. PROMOTION CYCLE COMPLETE.** Net result: champion 0.633471 → **0.632977** (−0.0005 Brier),
 >   calibration 0.0360 → **0.0182**, production deterministic (5-seed bag baked into research_model
 >   defaults). Wide grid remains opt-in/gate-rejected; future revisit path = calibration-aware grid
->   selection. Next open fronts (user-ranked earlier): Pi E2E validation, betting/CLV workstream.
+>   selection. Next open fronts: the betting/CLV workstream (opening-line logging now in place).
 
 > **Codebase evaluation (2026-06-09) — integrity findings + ranked Brier opportunities (improvement-loop queue)**
 >
@@ -278,11 +286,11 @@
 > (self-test now 6/6 incl. degraded-source→reject); model_report embeds a
 > source_health snapshot. Legacy `models/{stacking_ensemble,gradient_boost,
 > dixon_coles}.py` carry deprecation banners → research_model.py is canonical
-> (removal deferred to the Pi-validated migration). (c5506d6)
+> (removal deferred to the production-validated migration). (c5506d6)
 >
 > **Phase F (production validation) — COMPLETE; referee GATED OUT on calibration.**
 > parity_check/model_report are DB-free (frame-based), so the production model was
-> validated here, not just on the Pi. champ-base report reproduces the champion
+> validated here, not just on the production host. champ-base report reproduces the champion
 > EXACTLY (avg 0.63465, 2024 0.635364, cal 0.0306). Referee challenger via
 > research_model (Base + ref_hw_rate + ref_draw_rate):
 >   | metric | champion | challenger | gate verdict |
@@ -351,7 +359,7 @@
 > The 2026-05-31 "referee BLOCKED" note referred to the empty DB `matches.referee_id`;
 > the ASA `get_games()` API returns a referee column in the raw frame — gap now closed.
 > **Production promotion (port to `models/research_model.py` + parity frame + promotion
-> gate) is the Pi step** — eval_baseline↔research_model parity gap (~0.002) means the
+> gate) is the production host step** — eval_baseline↔research_model parity gap (~0.002) means the
 > gate-quality 2024 number must come from research_model, not the harness. (commits 38d1560, d8bc06f)
 >
 > **Phase 5 free-source work + leakage tests (2026-06-07)**
@@ -527,7 +535,7 @@
 >
 > **Remaining review items:**
 > - Legacy model deletion (F1): stacking_ensemble.py, gradient_boost.py,
->   models/dixon_coles.py carry banners; deletion deferred to Pi E2E validation.
+>   models/dixon_coles.py carry banners; deletion deferred to production E2E validation.
 > - F4 section 5a–5n builders: inline but rely on live ASA fetches; lower priority now
 >   that the two largest functions (ELO, rolling) are extracted and tested.
 > - Phase 5 (better data sources): not started; long-horizon exploratory.
@@ -783,7 +791,7 @@ python scripts/experiment.py compare
 
 ## Phase 10 — Production Port (opened 2026-05-31)
 
-**Why:** the research harness validated a materially better model (0.6392→0.6363) but the live pipeline (`features/`, `models/`, `config/`) still runs an older, unvalidated config. Per CLAUDE.md ("improve eval first, then port"), this port is overdue. **Constraint discovered: no DuckDB in this env, so the production pipeline can't be run end-to-end here** — verification is unit tests + clean imports + config-flow checks; full E2E must run on the Pi/production box.
+**Why:** the research harness validated a materially better model (0.6392→0.6363) but the live pipeline (`features/`, `models/`, `config/`) still runs an older, unvalidated config. Per CLAUDE.md ("improve eval first, then port"), this port is overdue. **Constraint discovered: no DuckDB in this env, so the production pipeline can't be run end-to-end here** — verification is unit tests + clean imports + config-flow checks; full E2E must run on the production host/production box.
 
 **DONE (verified here):**
 - **Fixed the long-standing `datetime` NameError** in `models/stacking_ensemble.py` (missing import) → test suite now **10 passed / 1 skipped** (was 9/1-fail all session).
@@ -794,13 +802,13 @@ python scripts/experiment.py compare
 - **Temperature calibration** — code hardcodes `CalibratedClassifierCV(method="isotonic")`; wire it to the validated temperature method (the `calibration_method` YAML is currently ignored).
 - **XGB season weighting `weight_hl=6`** — add to `models/gradient_boost.py` (absent in prod).
 - **xg_windows [5,10,20]→[5,15]** and **drop the O/U model** (research is 1X2-only) — feature/structural changes.
-- These change prediction behavior and must be validated on the Pi (DuckDB + data) before deploy; the unit tests don't exercise the blend math.
+- These change prediction behavior and must be validated on the production host (DuckDB + data) before deploy; the unit tests don't exercise the blend math.
 
 **STATUS: config + bug-fix ported and verified; structural model port specified.**
 
-### Phase 10b — CSV-backed local validation (no Pi needed) — 2026-05-31
+### Phase 10b — CSV-backed local validation (no host needed) — 2026-05-31
 
-**Key finding:** the production model classes are **DataFrame-in and DB-agnostic** (`DixonColesModel.fit(df)`, `GradientBoostModels` uses *dynamic* `get_feature_columns(df)`, `StackingEnsemble.fit(oof_df)`). The DB (Postgres) only feeds `feature_builder.build_training_dataset()` and stores predictions — **not the model logic**. So the structural port can be validated **locally on a CSV frame**; only the DB read/write IO waits for the Pi.
+**Key finding:** the production model classes are **DataFrame-in and DB-agnostic** (`DixonColesModel.fit(df)`, `GradientBoostModels` uses *dynamic* `get_feature_columns(df)`, `StackingEnsemble.fit(oof_df)`). The DB (Postgres) only feeds `feature_builder.build_training_dataset()` and stores predictions — **not the model logic**. So the structural port can be validated **locally on a CSV frame**; only the DB read/write IO waits for the production host.
 
 **Built:** `scripts/eval_baseline.py --dump-frame` exports the validated feature frame → `data/parity_frame.parquet`; `scripts/parity_check.py` runs production model classes on it, no DB. **Proven:** production `DixonColesModel` runs DB-free on the CSV frame (DC-alone Brier ~0.654, expected ballpark) ✓ — the local validation loop works.
 
@@ -808,7 +816,7 @@ python scripts/experiment.py compare
 - `models/research_model.py` — single, importable, DataFrame-in implementation of the validated 1X2 pipeline (DC fit + season-weighted XGB grid + temperature calibration + capped-DC convex blend; weight_hl=6, dc_decay_hl=120, no O/U). The production-bound model logic, decoupled from Postgres.
 - `scripts/parity_check.py` — runs it on `data/parity_frame.parquet` (+ `.meta.json` sidecar from `--dump-frame`) and asserts parity with the research headline. **RESULT: avg_brier 0.6353 vs target 0.6363, |Δ|=0.0010 → PASS**, fully DB-free.
 
-**Remaining (Pi-side IO only):** wire the production pipeline (`scripts/daily_update.py`) to fit/predict via `models/research_model.py` instead of the divergent `GradientBoostModels`/`StackingEnsemble`, and store predictions to Postgres. The model is validated; the Pi sees only the DB read/write wiring. This eliminates the two-divergent-stacks drift — there is now ONE validated model implementation.
+**Remaining (production-side IO only):** wire the production pipeline (`scripts/daily_update.py`) to fit/predict via `models/research_model.py` instead of the divergent `GradientBoostModels`/`StackingEnsemble`, and store predictions to Postgres. The model is validated; the production host sees only the DB read/write wiring. This eliminates the two-divergent-stacks drift — there is now ONE validated model implementation.
 
 ---
 
@@ -892,7 +900,7 @@ python scripts/experiment.py compare
 > **(DuckDB era). The production stack migrated to PostgreSQL; daily_update.py and**
 > **db_utils.py use Postgres exclusively. DuckDB references below are historical only.**
 
-Build a production-grade MLS score prediction and betting-market tracking system from scratch. The system must predict Win/Draw/Loss and Over/Under outcomes for all MLS regular season and playoff matches using an ensemble of statistical and ML models, compare model probabilities to Pinnacle odds for edge detection, and present all of this through a Streamlit dashboard with live news integration. Everything runs on a Raspberry Pi (DuckDB storage + daily cron + Streamlit), exposed publicly via a free Cloudflare Tunnel.
+Build a production-grade MLS score prediction and betting-market tracking system from scratch. The system must predict Win/Draw/Loss and Over/Under outcomes for all MLS regular season and playoff matches using an ensemble of statistical and ML models, compare model probabilities to Pinnacle odds for edge detection, and present all of this through a Streamlit dashboard with live news integration. Everything runs on a the production host (DuckDB storage + daily cron + Streamlit), exposed publicly via a free Cloudflare Tunnel.
 
 ---
 
@@ -1044,7 +1052,7 @@ Tables:
 - Expansion teams: wider prior variance (more uncertainty)
 - Posterior predictive: sample 4000 draws → compute match outcome + O/U probabilities
 - Output written to temp CSV, read back by run_bayes.py
-- Retrain: nightly (MCMC, ~5–10 min on Pi with 4 cores)
+- Retrain: nightly (MCMC, ~5–10 min with 4 cores)
 
 ### Model D — Stacking Ensemble (stacking_ensemble.py)
 - Level 0 inputs: prob_home, prob_draw, prob_away, prob_over from all 3 models (9 features for 1X2, 3 for O/U)
@@ -1127,20 +1135,20 @@ Tables:
 
 ---
 
-## Phase 7: Infrastructure (Raspberry Pi)
+## Phase 7: Infrastructure (original deployment — SUPERSEDED 2026-06-11 by webapp-only; see top of file + legacy/)
 
-### Folder Layout on Pi
+### Folder Layout (original deployment)
 ```
-/home/pi/mls/          ← cloned repo
-/home/pi/mls/data/mls.duckdb   ← DuckDB file
-/home/pi/mls/.env      ← API keys (CLAUDE_API_KEY, ODDS_API_KEY)
-/home/pi/mls/venv/     ← Python virtualenv
+/path/to/mls/          ← cloned repo
+/path/to/mls/data/mls.duckdb   ← DuckDB file
+/path/to/mls/.env      ← API keys (CLAUDE_API_KEY, ODDS_API_KEY)
+/path/to/mls/venv/     ← Python virtualenv
 ```
 
-### Cron Job (crontab -e on Pi)
+### Cron Job (crontab -e)
 ```
-0 6 * * * /home/pi/mls/scripts/daily_update.sh >> /home/pi/mls/logs/daily.log 2>&1
-0 */6 * * * /home/pi/mls/scripts/news_poll.sh >> /home/pi/mls/logs/news.log 2>&1
+0 6 * * * /path/to/mls/scripts/daily_update.sh >> /path/to/mls/logs/daily.log 2>&1
+0 */6 * * * /path/to/mls/scripts/news_poll.sh >> /path/to/mls/logs/news.log 2>&1
 ```
 
 ### daily_update.py Orchestration Order
@@ -1158,7 +1166,7 @@ Tables:
 12. Write all predictions + odds to DuckDB
 
 ### Cloudflare Tunnel
-- Install `cloudflared` on Pi
+- Install `cloudflared` on the host
 - Create free Cloudflare Tunnel: `cloudflared tunnel create mls-dashboard`
 - Configure to route `https://mls-dashboard.yourdomain.com` → `localhost:8501`
 - Run as systemd service for persistence after reboot
@@ -1231,7 +1239,7 @@ install.packages(c("brms", "worldfootballR", "tidyverse", "jsonlite", "posterior
 28. `dashboard/pages/5_Betting_Tracker.py`
 29. `requirements.txt`
 30. `r_requirements.R`
-31. Pi setup instructions in README.md (Cloudflare Tunnel, crontab, systemd)
+31. Host setup instructions in README.md (Cloudflare Tunnel, crontab, systemd)
 
 ---
 

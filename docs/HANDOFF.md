@@ -8,7 +8,7 @@
 
 This project builds a market-blind probabilistic model for MLS soccer match outcomes (home win / draw / away win), with the purpose of identifying betting edges as the gap between model probability and market probability. The current champion — a **5-member XGB seed bag** promoted 2026-06-10 — achieves an average Brier score of **0.6330** with calibration error **0.0182** (sum-form, 2022–2025 four-fold walk-forward) — meaningfully better than the uniform-random baseline (0.6406) and the naive always-predict-home baseline (0.6667). The research harness is fully extracted into a tested module package (`scripts/eval/`), a six-criterion promotion gate (plus an advisory paired-bootstrap significance check) protects the champion, and a calibration deep-dive definitively closed the draw-signal question.
 
-A 13-iteration improvement loop (2026-06-09, recorded verdict-by-verdict in `docs/PLAN.md`) measured the harness's seed-noise floor (σ≈0.001 — twice the gate's 0.0005 threshold), adopted **seed bagging** (`--xgb-bag 5`) as the verification protocol (collapsing run variance to σ≈0.0002), validated retaining 2021 in training, and cleanly refuted seven hypotheses (train-on-cal, in-season recalibration in two forms, DC-through-cal, LightGBM bag members, NaN-handling, draw-hurdle architecture). The follow-on promotion cycle gate-tested both banked levers: bag+wide-grid was **rejected** (Brier gain, calibration cost) and bag-only was promoted by a documented user override (sub-noise shortfalls, calibration halved). The next priorities are Pi end-to-end validation and the betting/CLV workstream.
+A 13-iteration improvement loop (2026-06-09, recorded verdict-by-verdict in `docs/PLAN.md`) measured the harness's seed-noise floor (σ≈0.001 — twice the gate's 0.0005 threshold), adopted **seed bagging** (`--xgb-bag 5`) as the verification protocol (collapsing run variance to σ≈0.0002), validated retaining 2021 in training, and cleanly refuted seven hypotheses (train-on-cal, in-season recalibration in two forms, DC-through-cal, LightGBM bag members, NaN-handling, draw-hurdle architecture). The follow-on promotion cycle gate-tested both banked levers: bag+wide-grid was **rejected** (Brier gain, calibration cost) and bag-only was promoted by a documented user override (sub-noise shortfalls, calibration halved). On 2026-06-11 the project moved to a webapp-only architecture (the Postgres/Streamlit/Pi stack was archived under `legacy/`) and the dashboard gained a what-if standings simulator, MLS Cup odds, projected scores, ELO, and an in-season Brier readout. The next priority is the betting/CLV workstream (opening-line logging is now in place via `data_pipeline/odds_log.py`).
 
 ---
 
@@ -34,9 +34,9 @@ Betting odds are **never used as model features**. If closing lines were used in
 
 Pinnacle opening and closing lines are stored for CLV (Closing Line Value) analysis only.
 
-### Production deployment
+### Production deployment (webapp-only)
 
-The production system runs on a Raspberry Pi. It executes `scripts/daily_update.py` on a schedule: this script fetches fresh data from ASA (xG, form, referee), ESPN (schedule), and The Odds API (lines), fits the model, and writes predictions to a PostgreSQL database. A Streamlit dashboard reads from that database. The research harness (`scripts/eval_baseline.py`) runs on a development machine and is never the source of production predictions.
+Production is database-free. A scheduled job on a Mac runs `scripts/build_dashboard_data.py`, which fits the canonical model (`models/research_model.py`) on the frozen feature frame plus the live ESPN schedule and writes `webapp/data.js`; the static `webapp/` folder is served directly. There is no Raspberry Pi, PostgreSQL, or Streamlit in the active path — that stack was archived under `legacy/` on 2026-06-11. The research harness (`scripts/eval_baseline.py`) validates model changes through the promotion gate before they reach `research_model.py`.
 
 ---
 
@@ -157,7 +157,7 @@ Resolution: `models/metrics.py` defines `brier_multiclass_sum()` as the single c
 
 The legacy stack (`models/dixon_coles.py`, `models/gradient_boost.py`, `models/stacking_ensemble.py`) was the original production path. It has been superseded by `models/research_model.py`, which implements the DC + XGB + temperature + capped blend pipeline described above and is the sole source of predictions in Postgres.
 
-The legacy files remain in the repo with deprecation banners because deletion is gated on Pi E2E validation — removing them before confirming the Pi can run the new path would leave production without a fallback.
+The legacy model stack was archived under `legacy/models/` on 2026-06-11 when the project moved to webapp-only; `models/research_model.py` is the sole model in the active path.
 
 ### Data quality accounting (F5)
 
@@ -334,15 +334,9 @@ The draw class remains the hardest to predict (~0.1934 Brier; all direct draw si
 
 A WEIGHT_HL × REGRESS sweep was run on 2026-06-07. WEIGHT_HL=6 was confirmed best (3,4,5,7,8 all worse or equivalent). REGRESS=0.40 beat the 0.50 champion (avg 0.63367 vs 0.63467, Δ=−0.00100; 2024 0.6346 PASS) and was promoted (see design decision #6). Remaining unexplored knobs: HOME_ADV finer increments (50–90), DC recent-seasons window, schedule-density window. Run via `scripts/eval_baseline.py --ab-only Base` with parameter overrides; validate any winner with `model_report.py` + `promotion_gate.py` before promoting.
 
-### 3. Pi E2E validation
+### 3. Production architecture (RESOLVED — webapp-only)
 
-**Current status:** The research harness (`eval_baseline.py`) and `models/research_model.py` are confirmed to produce identical outputs (`make parity-check`, |Δ| < 0.0015). The parity check is DB-free (frame-based). What has NOT been confirmed: that `scripts/daily_update.py` running on the Pi produces predictions that match the research model's expected probabilities for the same matches.
-
-**Blocking issue:** No Pi-side test run has been executed in this session. The runbook is at `docs/PI_VALIDATION.md`. The gate is `make validate` (DB-free CI).
-
-**What Pi E2E validation means:** Run `make daily-update` on the Pi, then compare its written predictions against `research_model.predict_upcoming()` called with the same input features. Both should agree within a tolerance.
-
-**After Pi E2E passes:** The legacy model files (`models/stacking_ensemble.py`, `models/gradient_boost.py`, `models/dixon_coles.py`) can be deleted. They currently carry deprecation banners. Deletion is the unlock for cleaner production imports.
+Production is now database-free: `scripts/build_dashboard_data.py` → `webapp/data.js` → static `webapp/`, all using `models/research_model.py`. The former Postgres/Streamlit/Raspberry-Pi stack and the legacy model files were archived under `legacy/` on 2026-06-11 (`legacy/README.md`), so the Pi-E2E validation that previously gated their deletion is moot. `make parity-check` (DB-free, |Δ| < 0.0015) remains the model-correctness gate.
 
 ### 4. Phase 5: better data sources
 
@@ -353,9 +347,9 @@ The ASA API is the primary xG source. Potential improvements:
 
 Evaluation checklist for any new data source: (a) confirm temporal leakage safety, (b) measure coverage rate, (c) implement graceful fallback for missing values, (d) run as an AB set in eval_baseline, (e) port to research_model only if the gate clears.
 
-### 5. Legacy model deletion
+### 5. Legacy model archival (DONE)
 
-Waiting on Pi E2E validation. After that passes, `models/stacking_ensemble.py`, `models/gradient_boost.py`, and `models/dixon_coles.py` can be deleted or archived. These files currently run only for "component predictions" in daily_update.py — a leftover from the old stacking architecture — but are not the source of the ensemble predictions that go into Postgres.
+The legacy stack (`stacking_ensemble`, `gradient_boost`, `dixon_coles`, `backtest`, `season_simulator`) was archived to `legacy/models/` on 2026-06-11 with the rest of the Postgres pipeline. `models/research_model.py` is the sole active model.
 
 ---
 
@@ -375,9 +369,9 @@ The draw class weakness may be structural for MLS: draws occur in roughly 28% of
 
 `ref_draw_rate` is the first independent draw signal found in the entire project. It is real (XGB importance 2.8%; improves draw Brier 0.1943→0.1936 in harness). It is correctly gated out of production today. The path to promotion requires either: (a) a calibration method that does not overfit the 2023 cal fold's draw distribution — impossible with any cal-fold-fit calibrator while the 2024 regime shift persists; or (b) additional training seasons (2025, 2026) that normalize the regime, allowing the calibration fold to represent the current draw-rate distribution. This is an open research item, not a known bug.
 
-### Production/research gap
+### Production/research parity
 
-The research harness (`eval_baseline.py`) and `models/research_model.py` are parity-verified (|Δ| < 0.0015 on the parity frame). However, Pi-side E2E has not been run in this session. There may be environment differences (Python version on Pi, package versions, Postgres schema) that cause silent divergence. The parity check is the guard rail, but it only confirms the model code; it does not confirm the full daily pipeline.
+The research harness (`eval_baseline.py`) and `models/research_model.py` are parity-verified (`make parity-check`, |Δ| < 0.0015 on the parity frame). Since production is now the same DB-free `build_dashboard_data.py` → `webapp/data.js` path using `research_model.py` directly (no separate prediction stack), there is no production/research model divergence to validate — the parity check fully covers the active path.
 
 ### SSL / ASA certificate
 
@@ -400,7 +394,8 @@ experiments/champion.report.json Current champion's signed metrics (do not hand-
 data/parity_frame.parquet       Shared feature frame for research_model ↔ harness parity check
 data/parity_frame.meta.json     Describes feat_base, window config, ELO params of the champion frame
 docs/CURRENT_STATE.md           Single source of truth for canonical config and metric definitions
-docs/PI_VALIDATION.md          Runbook for Pi E2E validation
+scripts/build_dashboard_data.py Builds webapp/data.js (the production artifact)
+legacy/                         Archived Postgres/Streamlit/Pi stack (legacy/README.md)
 ```
 
 ### Adding a new feature
