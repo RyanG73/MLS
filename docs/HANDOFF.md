@@ -296,6 +296,7 @@ This same structural constraint applies to referee features: `ref_draw_rate` shi
 | Isotonic regression calibration | Applied at first-pass and second-pass stages | Consistently regresses Brier due to overfitting at ~470–520 sample size | Monotone constraint insufficient regularisation; too flexible for this dataset size |
 | Season-decayed rolling features (B1) | `season_decay` weight on xG/xGA/form rolling means (prior seasons count `decay^seasons_ago`); swept 1.0/0.85/0.6 bagged 4-fold | Non-monotonic and sub-noise (0.85 +0.0003, 0.6 −0.0001); cal_err degrades 0.134→0.152 | Early-season "stale data" cost is outweighed by having any signal; cross-season carryover is benign (cf. 2021-in-training helping 2023) |
 | Manager tenure (B2, `+Manager`) | new-manager flag (first 5 games) + games-in-charge tenure + diffs, from ASA `home/away_manager_id` (100% coverage) | +Manager 0.634136 vs Base 0.634403, Δ=−0.00027 — MARGINAL, below the 0.001 bar | Real but tiny; ELO + rolling form already encode the team-quality shifts a manager change drives |
+| Neutral-site flag (B3, `+HFA2`) | per-team-season modal stadium; flag home games elsewhere (2.8%); damp HFA tilt at neutral venues | +HFA2 0.634542 vs Base 0.634403 (+0.00014, WORSE) and vs +HomeAdv-alone 0.633835 (+0.0007 worse) | 2.8% is too sparse — XGB overfits it as noise; the plain per-team HFA tilt (`+HomeAdv`, −0.00057) is the better but still-marginal version |
 
 ---
 

@@ -45,9 +45,14 @@
 >   Base 0.634403, Δ=−0.00027** — directionally positive (managers carry a sliver of signal) but below the
 >   0.001 screening bar. Joins the registered-not-ensemble-capturing pile (+HomeAdv/+TZ_Pythag): ELO+form
 >   already encode most team quality. `+Manager` AB set retained.
-> - **B3–B7 (NEXT):** B3 per-team HFA v2 + neutral sites, B4 weather retest, B5 salary retest (ASA
->   get_player_salaries/get_team_salaries — confirmed present; was DROPped twice, retest only if user's source
->   differs), B6 history depth 2011+, B7 2026 reporting.
+> - **B3 — neutral-site DROP; per-team HFA marginal (2026-06-11).** Threaded `stadium_id`; neutral-site flag =
+>   home game at a non-modal stadium for that team-season (2.8%, isolates true relocations), damping the HFA
+>   tilt at neutral venues. Bagged 4-fold AB: **+HomeAdv (tilt only) 0.633835 (Δ−0.00057, best), +HFA2 (tilt +
+>   neutral) 0.634542 (Δ+0.00014 — WORSE than Base AND than +HomeAdv).** The neutral-site signal is too sparse
+>   (2.8%) — XGB overfits it as noise. Neutral-site = DROP; the per-team HFA tilt re-confirmed marginal
+>   (strongest marginal yet but below the 0.001 bar). Features retained as `+HomeAdv`/`+HFA2` AB sets.
+> - **B4–B7 (NEXT):** B4 weather retest (full coverage), B5 salary retest (ASA get_player_salaries —
+>   confirmed present, DROPped twice; pause for user's source), B6 history depth 2011+, B7 2026 reporting.
 
 > **Promotion cycle (2026-06-09 evening) — bag + wide-grid combo toward a new champion (loop 2 queue)**
 >
