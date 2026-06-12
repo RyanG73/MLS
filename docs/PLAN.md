@@ -61,7 +61,21 @@
 >   is genuinely different (roster construction: DP/TAM/U22) but 2024+ only → no pre-2024 training history →
 >   single-fold (train 2024 → test 2025) low-power test (same confound that voided the original roster A/B).
 >   Awaiting user direction before spending the build.
-> - **B6–B7 (NEXT):** B6 history depth 2011+ (verify pre-2017 xG quality first), B7 2026 reporting.
+> - **B5 — roster profiles (single-fold probe): INCONCLUSIVE / data-limited (2026-06-11, user chose to try).**
+>   Built `scripts/probe_roster_profiles.py` — DP/U22/TAM/GAM/intl-slot counts from the ASA mls-roster-profiles
+>   repo (team `id` = ASA team_id, trivial join), train-2024 → test-2025 single split. Result: the 2024-only
+>   training (522 matches, no valid cal fold) yields an **unreliable model (Brier ~1.0, worse than random)**,
+>   so the roster Δ (−0.013) is noise on a broken baseline. Confirms the structural blocker: the repo's
+>   2024+ depth is too thin for any fair test. Revisit once 2024+ accumulates ≥3 seasons. Probe + snapshots
+>   retained for that future re-run.
+> - **B6 — history depth 2013+: PROMISING, confirming (2026-06-11).** xG is 100% back to 2013 (ASA MLS games
+>   start 2013; 2017 cutoff was a deliberate league-composition choice, not a data limit). `--start-season`
+>   sweep bagged 4-fold: 2017=0.63298 (ctrl), **2015=0.63231 (Δ−0.00067, clears screening bar)**,
+>   2013=0.63293 (−0.00005, neutral). BUT 2015 helps 2022 a lot (−0.0037) while **regressing 2024
+>   +0.0008 (would fail the gate's 2024-robustness tolerance)** — older data dilutes the recent regime.
+>   Seed-1 confirm + gate check in flight before a verdict. Non-monotonic (2013 worse than 2015).
+> - **B7 — 2026 reporting: SATISFIED by A1.** The webapp header shows live 2026 Brier (0.6298 model vs 0.6339
+>   naive, +0.64%, n=218); `build_dashboard_data` prints it each run. No separate work needed.
 
 > **Promotion cycle (2026-06-09 evening) — bag + wide-grid combo toward a new champion (loop 2 queue)**
 >
