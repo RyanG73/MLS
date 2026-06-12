@@ -1,5 +1,20 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Webapp round 2 (2026-06-12) — market-Brier, Team Profile, History tabs**
+> - **Market (opening-line) Brier comparison.** `build_dashboard_data` computes a de-vigged opening-line
+>   market Brier on played games that have a logged opener, shown in the header beside model & naive with the
+>   model's edge%. Source = `data/odds_log.parquet` (`data_pipeline/odds_log.py`, opening lines only). **Setup
+>   needed:** add `ODDS_API_KEY` to `.env`; the daily build's `make odds-log` then captures each future game's
+>   opener (free tier: one ~daily poll, ~30 req/mo). Shows "awaiting odds" until openers overlap results — the
+>   free tier cannot backfill the ~218 already-played 2026 games (paid historical endpoint only). Model stays
+>   market-blind; odds are post-prediction only.
+> - **Team Profile tab.** Team selector → model inputs (ELO, rolling xG for/against, form, GK z, availability),
+>   2026 season summary (record, pts, GD/xGD, conf rank, playoff/Shield/Cup odds), next-5 fixtures with model
+>   win prob, and recent results with model hit/miss.
+> - **History tab.** Per-team ELO trajectory 2013–2026 (computed over the full ASA game history, hand-rolled
+>   SVG) annotated with trophy markers — MLS Cup, Supporters' Shield, US Open Cup, Conference championship —
+>   from `data_pipeline/trophies.py` (Wikipedia-verified 2013–2025). data.js 281 KB; tests 101 pass.
+
 > **Webapp + production roadmap (2026-06-11) — 19-item user roadmap; webapp-first, then model loop**
 > Plan file: `~/.claude/plans/i-skimmed-code-walkthrough-plan-buzzing-badger.md`. User decisions: webapp-only
 > production (deprecate Streamlit/Postgres/Pi), retest flagged DROPs (weather/salary/HFA) through the gate,
