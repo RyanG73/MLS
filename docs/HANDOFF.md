@@ -295,6 +295,7 @@ This same structural constraint applies to referee features: `ref_draw_rate` shi
 | 2-season cal fold pooling | Pool test−1 and test−2 for calibration (N=2) | avg cal_err WORSE despite larger fold | COVID exclusions mean only 2/4 seasons benefit from true pooling; 2021 (COVID-adjacent) degrades the average |
 | Isotonic regression calibration | Applied at first-pass and second-pass stages | Consistently regresses Brier due to overfitting at ~470–520 sample size | Monotone constraint insufficient regularisation; too flexible for this dataset size |
 | Season-decayed rolling features (B1) | `season_decay` weight on xG/xGA/form rolling means (prior seasons count `decay^seasons_ago`); swept 1.0/0.85/0.6 bagged 4-fold | Non-monotonic and sub-noise (0.85 +0.0003, 0.6 −0.0001); cal_err degrades 0.134→0.152 | Early-season "stale data" cost is outweighed by having any signal; cross-season carryover is benign (cf. 2021-in-training helping 2023) |
+| Manager tenure (B2, `+Manager`) | new-manager flag (first 5 games) + games-in-charge tenure + diffs, from ASA `home/away_manager_id` (100% coverage) | +Manager 0.634136 vs Base 0.634403, Δ=−0.00027 — MARGINAL, below the 0.001 bar | Real but tiny; ELO + rolling form already encode the team-quality shifts a manager change drives |
 
 ---
 

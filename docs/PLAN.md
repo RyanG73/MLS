@@ -39,9 +39,15 @@
 >   Empirical answer to the user's hypothesis: down-weighting prior-season rolling data does NOT help — the
 >   early-season "stale data" cost is outweighed by having any signal; cross-season carryover is benign
 >   (consistent with I1: 2021-in-training helped 2023). Flag retained (`--season-decay`), default 1.0.
-> - **B2–B7 (NEXT):** B2 manager (ASA get_managers + mls-roster-profiles 2024+), B3 per-team HFA v2 + neutral
->   sites, B4 weather retest, B5 salary retest (itscalledsoccer get_player_salaries), B6 history depth 2011+,
->   B7 2026 reporting.
+> - **B2 — manager tenure: MARGINAL (2026-06-11), not promoted.** Feasible (unlike referee): ASA get_games
+>   carries `home/away_manager_id` at 100% coverage. Built walk-forward `home/away_mgr_new` (first 5 games of
+>   a stint), `_mgr_tenure` (games in charge, capped 100), + diffs. Bagged 4-fold AB: **+Manager 0.634136 vs
+>   Base 0.634403, Δ=−0.00027** — directionally positive (managers carry a sliver of signal) but below the
+>   0.001 screening bar. Joins the registered-not-ensemble-capturing pile (+HomeAdv/+TZ_Pythag): ELO+form
+>   already encode most team quality. `+Manager` AB set retained.
+> - **B3–B7 (NEXT):** B3 per-team HFA v2 + neutral sites, B4 weather retest, B5 salary retest (ASA
+>   get_player_salaries/get_team_salaries — confirmed present; was DROPped twice, retest only if user's source
+>   differs), B6 history depth 2011+, B7 2026 reporting.
 
 > **Promotion cycle (2026-06-09 evening) — bag + wide-grid combo toward a new champion (loop 2 queue)**
 >
