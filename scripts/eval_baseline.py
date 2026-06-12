@@ -297,7 +297,8 @@ _stage_col = next(
     None,
 )
 _sel = ["game_id", "date_time_utc", "home_team_id", "away_team_id",
-        "home_score", "away_score", "season_name", "status"]
+        "home_score", "away_score", "season_name", "status",
+        "home_manager_id", "away_manager_id"]
 if _stage_col:
     _sel.append(_stage_col)
 
@@ -467,6 +468,48 @@ df = _add_rolling_features_fb(
 )
 print(f"    Rolling features complete (season_decay={_SEASON_DECAY}). "
       f"Columns added: {[c for c in df.columns if 'roll' in c or 'form_' in c or '14d' in c][:8]}...")
+
+# ─── 4b. Manager tenure features (B2) ────────────────────────────────────────
+# Walk-forward over games in date order, tracking each team's current manager
+# and how many games they've overseen. Leakage-safe: features use only games
+# strictly before the current one. home_manager_id / away_manager_id come from
+# ASA get_games. Coverage reported; absent IDs → neutral (tenure 0, not-new).
+if "home_manager_id" in df.columns and "away_manager_id" in df.columns:
+    _MGR_NEW_GAMES = 5            # "new manager" = first 5 games of a stint
+    _mgr_cur: dict = {}          # team -> (manager_id, games_under_current)
+    _hm_new, _am_new, _hm_ten, _am_ten = [], [], [], []
+    _df_sorted = df.sort_values("date")
+    _idx_order = _df_sorted.index
+    for _i in _idx_order:
+        _r = df.loc[_i]
+        for _team, _mgr, _new_l, _ten_l in (
+            (_r["home_team"], _r.get("home_manager_id"), _hm_new, _hm_ten),
+            (_r["away_team"], _r.get("away_manager_id"), _am_new, _am_ten),
+        ):
+            _prev = _mgr_cur.get(_team)
+            if _mgr is None or (isinstance(_mgr, float) and pd.isna(_mgr)):
+                _new_l.append(0); _ten_l.append(_prev[1] if _prev else 0)
+                continue
+            if _prev is None or _prev[0] != _mgr:        # new stint begins
+                _cnt = 0
+            else:
+                _cnt = _prev[1]
+            _new_l.append(1 if _cnt < _MGR_NEW_GAMES else 0)
+            _ten_l.append(min(_cnt, 100))                # tenure proxy, capped
+            _mgr_cur[_team] = (_mgr, _cnt + 1)           # update AFTER reading
+    df.loc[_idx_order, "home_mgr_new"] = _hm_new
+    df.loc[_idx_order, "away_mgr_new"] = _am_new
+    df.loc[_idx_order, "home_mgr_tenure"] = _hm_ten
+    df.loc[_idx_order, "away_mgr_tenure"] = _am_ten
+    df["mgr_new_diff"] = df["home_mgr_new"] - df["away_mgr_new"]
+    df["mgr_tenure_diff"] = df["home_mgr_tenure"] - df["away_mgr_tenure"]
+    _mgr_cov = df[["home_manager_id", "away_manager_id"]].notna().all(axis=1).mean()
+    print(f"    Manager tenure features: coverage {_mgr_cov:.0%} "
+          f"(home_mgr_new/tenure, away_*, diffs)")
+    _HAS_MGR = True
+else:
+    _HAS_MGR = False
+    print("    Manager features: home/away_manager_id absent — skipped.")
 
 # ─── 5. Altitude flag ─────────────────────────────────────────────────────────
 
@@ -2043,6 +2086,10 @@ AB_SETS["+DCParams"]   = _FEAT_BASE + ["dc_lam", "dc_mu"]
 AB_SETS["+DCDrawProb"] = _FEAT_BASE + ["dc_p_draw"]
 AB_SETS["+DCAll"]      = _FEAT_BASE + ["dc_lam", "dc_mu", "dc_p_draw"]
 AB_SETS["+Games14d"] = _FEAT_BASE + ["home_games_in_14d", "away_games_in_14d", "games14d_diff"]
+_FEAT_MGR = ["home_mgr_new", "away_mgr_new", "home_mgr_tenure", "away_mgr_tenure",
+             "mgr_new_diff", "mgr_tenure_diff"]
+if _HAS_MGR:
+    AB_SETS["+Manager"] = _FEAT_BASE + _FEAT_MGR
 if _FEAT_TOPN:
     AB_SETS["+ASA_TopN"]     = _FEAT_BASE + _FEAT_TOPN
 if _FEAT_XPASS:
