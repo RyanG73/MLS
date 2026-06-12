@@ -298,7 +298,7 @@ _stage_col = next(
 )
 _sel = ["game_id", "date_time_utc", "home_team_id", "away_team_id",
         "home_score", "away_score", "season_name", "status",
-        "home_manager_id", "away_manager_id"]
+        "home_manager_id", "away_manager_id", "stadium_id"]
 if _stage_col:
     _sel.append(_stage_col)
 
@@ -510,6 +510,31 @@ if "home_manager_id" in df.columns and "away_manager_id" in df.columns:
 else:
     _HAS_MGR = False
     print("    Manager features: home/away_manager_id absent — skipped.")
+
+# ─── 4c. Neutral-site / per-team HFA features (B3) ────────────────────────────
+# Neutral site = a home game played at a stadium other than the team's MODAL
+# home stadium for that SEASON (isolates true relocations — NFL-stadium games,
+# weather moves — from between-season stadium changes). Combined with the
+# existing rolling home-advantage tilt (home_ha_tilt) into the +HFA2 AB set.
+if "stadium_id" in df.columns:
+    _modal = (df.dropna(subset=["stadium_id"])
+                .groupby(["home_team", "season"])["stadium_id"]
+                .agg(lambda s: s.mode().iloc[0] if len(s.mode()) else None))
+    def _is_neutral(r):
+        if pd.isna(r.get("stadium_id")):
+            return 0
+        m = _modal.get((r["home_team"], r["season"]))
+        return int(m is not None and r["stadium_id"] != m)
+    df["home_neutral_site"] = df.apply(_is_neutral, axis=1)
+    # HFA tilt damped to ~0 when the home team is away from its modal venue
+    df["home_adv_effective"] = df.get("home_ha_tilt", 0.0) * (1 - df["home_neutral_site"])
+    _neu = df["home_neutral_site"].mean()
+    print(f"    Neutral-site / HFA features: {_neu:.1%} of home games flagged neutral "
+          f"(home_neutral_site, home_adv_effective)")
+    _HAS_HFA2 = True
+else:
+    _HAS_HFA2 = False
+    print("    Neutral-site features: stadium_id absent — skipped.")
 
 # ─── 5. Altitude flag ─────────────────────────────────────────────────────────
 
@@ -2159,6 +2184,9 @@ AB_SETS["+GoalDiffForm"] = _FEAT_BASE + _FEAT_GOAL_DIFF_FORM
 # Combined: both venue and goal-diff form together
 AB_SETS["+VenueGoalDiff"] = _FEAT_BASE + _FEAT_VENUE_FORM + _FEAT_GOAL_DIFF_FORM
 AB_SETS["+HomeAdv"]       = _FEAT_BASE + _FEAT_HOME_ADV
+if _HAS_HFA2:
+    AB_SETS["+HFA2"] = _FEAT_BASE + _FEAT_HOME_ADV + [
+        "home_neutral_site", "home_adv_effective"]
 
 # ── Combined marginal keepers (overnight loop iter 3) ──────────────────────────
 # Stack the small-but-positive A/B signals (each individually below the KEEP bar)
