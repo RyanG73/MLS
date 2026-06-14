@@ -1,6 +1,6 @@
 #!/bin/bash
 # Daily webapp build (DB-free, webapp-only production).
-# Rebuilds webapp/data.js from the canonical research model and logs any new
+# Rebuilds webapp/data/mls.js from the canonical research model and logs any new
 # Pinnacle opening lines. Intended to run on a schedule via launchd
 # (see scripts/com.mls.dashboard.plist). Idempotent and safe to re-run.
 set -euo pipefail

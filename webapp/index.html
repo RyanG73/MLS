@@ -17,15 +17,39 @@
   --draw:#5d6b82;
   --r-sm:6px; --r-md:10px; --r-lg:16px;
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:36px;
-  --maxw:1360px;
+  --maxw:1360px; --sbw:220px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
 body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:radial-gradient(1200px 500px at 70% -10%, rgba(86,210,255,.08), transparent 60%), var(--ink-0);
-  color:var(--txt-1); font-feature-settings:"tnum" 1; line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:48px}
+  color:var(--txt-1); font-feature-settings:"tnum" 1; line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:48px;padding-left:var(--sbw)}
 h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--s4)}
+
+/* ── league sidebar ── */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sbw);z-index:40;overflow-y:auto;
+  background:linear-gradient(180deg,var(--ink-1),var(--ink-0));border-right:1px solid var(--line-2);
+  padding:var(--s3) 0}
+.sb-brand{display:flex;align-items:center;gap:9px;padding:6px var(--s4) var(--s4);border-bottom:1px solid var(--line)}
+.sb-brand .beacon{width:24px;height:24px;border-radius:7px;flex:none;background:radial-gradient(circle at 50% 30%,var(--floodlight),#1b6f93 75%);box-shadow:0 0 14px rgba(86,210,255,.4)}
+.sb-brand b{font-family:"Archivo";font-weight:800;font-size:14px}
+.sb-brand span{font-size:9px;color:var(--txt-3);letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:1px}
+.sb-grp{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-3);padding:var(--s4) var(--s4) 6px}
+.sb-lg{display:flex;align-items:center;gap:9px;padding:7px var(--s4);font-size:13px;color:var(--txt-2);cursor:pointer;text-decoration:none;border-left:2px solid transparent;transition:.12s}
+.sb-lg:hover{background:var(--ink-2);color:var(--txt-1)}
+.sb-lg.active{background:var(--ink-2);color:var(--txt-1);border-left-color:var(--floodlight);font-weight:600}
+.sb-lg .lgc{width:20px;height:20px;flex:none;display:grid;place-items:center;object-fit:contain}
+.sb-lg .lgc img{width:100%;height:100%;object-fit:contain}
+.sb-lg.soon{opacity:.5} .sb-lg .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
+.sb-toggle{display:none}
+@media(max-width:900px){
+  :root{--sbw:0px}
+  .sidebar{transform:translateX(-100%);transition:transform .2s;width:230px}
+  .sidebar.open{transform:translateX(0)}
+  .sb-toggle{display:flex;position:fixed;left:10px;top:10px;z-index:50;width:38px;height:38px;align-items:center;justify-content:center;
+    background:var(--ink-2);border:1px solid var(--line-2);border-radius:8px;color:var(--txt-1);font-size:18px;cursor:pointer}
+}
 
 header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(10,17,30,.96),rgba(10,17,30,.84));
   backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
@@ -47,6 +71,19 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .acc .brow .v{font-family:"Archivo";font-weight:700;color:var(--txt-1);width:42px;text-align:right}
 .acc .delta{font-family:"Archivo";font-weight:800;font-size:20px;color:var(--qualify);line-height:1}
 .acc .delta small{display:block;font-family:"Inter";font-size:9.5px;font-weight:600;color:var(--txt-3);letter-spacing:.04em}
+/* simplified accuracy card (no bars) */
+.acc-nums{display:flex;flex-direction:column;gap:2px}
+.acc-row{display:flex;align-items:baseline;gap:10px;font-size:11px}
+.acc-row .t{color:var(--txt-3);font-weight:600;width:42px}
+.acc-row .v{font-family:"Archivo";font-weight:700;color:var(--txt-1)} .acc-row .v.muted{color:var(--txt-3);font-weight:600}
+.acc-years{display:flex;gap:9px;border-left:1px solid var(--line-2);padding-left:var(--s3)}
+.acc-years .yr{display:flex;flex-direction:column;font-size:10.5px;color:var(--qualify);font-weight:600;align-items:center;gap:1px}
+.acc-years .yr b{font-family:"Archivo";color:var(--txt-3);font-weight:700;font-size:9px}
+.soon-badge{font-size:11px;color:var(--txt-3);border:1px dashed var(--line-3);border-radius:var(--r-sm);padding:6px 12px}
+/* coming-soon league view */
+.soon-view{margin-top:var(--s4)}
+.soon-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:var(--s2)}
+.soon-team{display:flex;align-items:center;gap:10px;background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:10px var(--s3);font-size:13px;font-weight:600}
 
 .seg{display:inline-flex;background:var(--ink-1);border:1px solid var(--line-2);border-radius:999px;padding:3px;margin:var(--s5) 0 var(--s4);gap:2px}
 .seg button{font:inherit;font-weight:600;font-size:13.5px;color:var(--txt-2);background:none;border:none;padding:8px 18px;border-radius:999px;cursor:pointer;transition:.15s}
@@ -61,6 +98,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
   font-family:"Archivo";font-weight:700;font-size:9.5px;color:var(--txt-2);background:var(--ink-3);
   border:1px solid var(--line-2);overflow:hidden}
 .crest img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:2px;background:transparent}
+.crest:has(img) .mono{display:none}   /* logo present → hide fallback initials */
 
 /* favorites — four title races: Shield · East · West · Spoon */
 .favs{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3);margin-bottom:var(--s5)}
@@ -99,6 +137,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .tcell{display:flex;align-items:center;gap:9px;min-width:0}
 .tcol{min-width:0;display:flex;flex-direction:column;gap:1px}
 .tname{display:block;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tname.tlink{cursor:pointer} .tname.tlink:hover{color:var(--floodlight);text-decoration:underline}
 .tsub{display:block;font-size:10px;color:var(--txt-3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pts{font-family:"Archivo";font-weight:700;font-size:14px;text-align:center}
 .projc{font-family:"Archivo";font-weight:700;font-size:12.5px;text-align:center;color:var(--txt-2)}
@@ -171,6 +210,25 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .troph-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--s3)}
 .troph-chip{font-size:11px;background:var(--ink-2);border:1px solid var(--line-2);border-radius:999px;padding:3px 10px;color:var(--txt-2)}
 .troph-chip b{color:var(--txt-1);font-family:"Archivo"}
+/* Teams: ELO mini-chart grid */
+.elo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:var(--s3)}
+.elo-card{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:10px;cursor:pointer;transition:.12s}
+.elo-card:hover{border-color:var(--line-3);background:var(--ink-2)}
+.elo-card.sel{border-color:var(--floodlight);box-shadow:0 0 0 1px var(--floodlight)}
+.elo-card-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.elo-card-h .crest{width:22px;height:22px}
+.elo-card-h .nm{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.elo-card-h .el{font-family:"Archivo";font-weight:700;font-size:12px;color:var(--txt-2);flex:none}
+.elo-svg{display:block;width:100%;height:60px}
+.elo-svg .eloline{fill:none;stroke:var(--floodlight);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.elo-svg .grid{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+.elo-svg .axis{fill:var(--txt-3);font-size:9px;font-family:"Inter"}
+.elo-empty{font-size:11px;color:var(--txt-3);padding:18px 0;text-align:center}
+.chart-wrap.big .elo-svg{height:200px;min-width:0}
+.chart-wrap.big{margin-bottom:var(--s4)}
+.elo-tip{position:fixed;z-index:60;display:none;pointer-events:none;background:var(--ink-3);border:1px solid var(--line-3);
+  border-radius:6px;padding:4px 9px;font-size:11px;color:var(--txt-1);box-shadow:0 6px 20px rgba(0,0,0,.5)}
+.elo-tip b{font-family:"Archivo";color:var(--floodlight)}
 
 /* matches */
 .controls{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap;margin-bottom:var(--s4)}
@@ -189,6 +247,22 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .dayhead{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3);padding:var(--s2) 2px;position:sticky;top:60px;background:var(--ink-0);z-index:5}
 .game{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4);margin-bottom:var(--s2);transition:.12s}
 .game:hover{border-color:var(--line-2);background:var(--ink-2)}
+/* compact match-projection rows (skimmable, one line each) */
+.grow{display:grid;grid-template-columns:minmax(0,1fr) 58px 120px minmax(0,1fr) 92px;align-items:center;gap:var(--s2);
+  background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px var(--s3);margin-bottom:4px}
+.grow:hover{border-color:var(--line-2);background:var(--ink-2)}
+.grow.done{opacity:.92}
+.gr-team{display:flex;align-items:center;gap:8px;min-width:0}
+.gr-team.home{justify-content:flex-end;text-align:right}.gr-team.away{justify-content:flex-start}
+.gr-team .crest{width:22px;height:22px}
+.gr-team .tn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gr-mid{font-family:"Archivo";font-weight:700;font-size:14px;text-align:center;color:var(--txt-2)}
+.gr-mid b{color:var(--txt-1)}
+.cbar{display:flex;height:14px;border-radius:4px;overflow:hidden;border:1px solid var(--line);background:var(--ink-0)}
+.cbar>span{display:block}
+.gr-end{text-align:right;font-size:11px}
+.gr-pick{font-family:"Archivo";font-weight:700;color:var(--txt-2);font-size:11.5px}
+@media(max-width:640px){.grow{grid-template-columns:minmax(0,1fr) 46px 70px minmax(0,1fr);gap:6px}.gr-end{display:none}}
 .g-top{display:flex;align-items:center;gap:var(--s3);margin-bottom:10px}
 .g-side{display:flex;align-items:center;gap:9px;flex:1;min-width:0}
 .g-side.away{flex-direction:row-reverse;text-align:right}
@@ -242,11 +316,16 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 </style>
 </head>
 <body>
+<button class="sb-toggle" id="sbToggle" aria-label="Leagues">☰</button>
+<nav class="sidebar" id="sidebar">
+  <div class="sb-brand"><div class="beacon"></div><div><b>Pitchside</b><span>Soccer Projections</span></div></div>
+  <div id="sbLeagues"></div>
+</nav>
 <header>
   <div class="wrap head-in">
     <div class="brand">
-      <div class="beacon"></div>
-      <div><h1>MLS Projections</h1><div class="sub" id="sub"></div></div>
+      <div class="beacon" id="leagueLogo"></div>
+      <div><h1 id="leagueTitle">MLS Projections</h1><div class="sub" id="sub"></div></div>
     </div>
     <div class="acc" id="acc"></div>
   </div>
@@ -254,10 +333,9 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 
 <main class="wrap">
   <div class="seg" role="tablist" id="seg">
-    <button role="tab" aria-selected="true" data-view="outlook">Season Outlook</button>
-    <button role="tab" aria-selected="false" data-view="matches">Match Predictions</button>
-    <button role="tab" aria-selected="false" data-view="profile">Team Profile</button>
-    <button role="tab" aria-selected="false" data-view="history">History</button>
+    <button role="tab" aria-selected="true" data-view="outlook">League Projections</button>
+    <button role="tab" aria-selected="false" data-view="matches">Match Projections</button>
+    <button role="tab" aria-selected="false" data-view="teams">Teams</button>
     <button role="tab" aria-selected="false" data-view="health">Model Health</button>
   </div>
 
@@ -266,29 +344,14 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
     <div class="whatif-banner" id="wbanner"><b>What-if mode</b><span id="wcount"></span>
       <span style="color:var(--txt-3)">odds resimulated in your browser (10k runs)</span>
       <a id="wreset">Reset ⟲</a></div>
-    <div class="sec-h"><h2>Conference standings &amp; odds</h2><span class="note" id="laddernote"></span></div>
+    <div class="sec-h"><h2>League Table</h2><span class="note" id="laddernote"></span></div>
     <div class="ladders" id="ladders"></div>
   </section>
 
-  <section id="view-profile" class="hidden">
-    <div class="controls">
-      <div class="dd" id="profDD">
-        <button class="dd-btn" id="profBtn"><span id="profSel">Select a team</span><span class="car">▼</span></button>
-        <div class="dd-menu" id="profMenu"></div>
-      </div>
-    </div>
-    <div id="profBody"></div>
-  </section>
-
-  <section id="view-history" class="hidden">
-    <div class="controls">
-      <div class="dd" id="histDD">
-        <button class="dd-btn" id="histBtn"><span id="histSel">Select a team</span><span class="car">▼</span></button>
-        <div class="dd-menu" id="histMenu"></div>
-      </div>
-      <span class="note" style="margin-left:var(--s2)">ELO over time · markers = trophies won</span>
-    </div>
-    <div id="histBody"></div>
+  <section id="view-teams" class="hidden">
+    <div class="sec-h"><h2>ELO history</h2><span class="note">Click a team to see its profile · hover the line for ELO · markers = trophies</span></div>
+    <div class="elo-grid" id="eloGrid"></div>
+    <div id="teamProfile" style="margin-top:var(--s5)"></div>
   </section>
 
   <section id="view-health" class="hidden">
@@ -316,9 +379,9 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
       <span class="count" id="gcount"></span>
     </div>
     <div class="legend-band" id="bandLegend">
-      <span><i style="background:var(--draw)"></i>Draw = gray</span>
-      <span>American odds are fair (no-vig)</span>
-      <span style="margin-left:auto"><i style="background:var(--qualify)"></i>✓ model's top pick was correct</span>
+      <span>Bar = model win / draw / loss probability · draw = gray</span>
+      <span>Score = projected (expected goals)</span>
+      <span style="margin-left:auto"><i style="background:var(--qualify)"></i>✓ model's pick was correct</span>
     </div>
     <div id="gameList"></div>
   </section>
@@ -326,12 +389,43 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 
 <footer class="wrap" id="foot"></footer>
 
-<script src="data.js"></script>
+<script src="leagues.js"></script>
 <script>
-const D = window.MLS_DATA, $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+// League selected via ?league=<id> (default mls). Synchronous document.write so
+// window.LEAGUE_DATA is set before the main render script runs.
+const LID=new URLSearchParams(location.search).get('league')||'mls';
+document.write('<scr'+'ipt src="data/'+LID+'.js"></scr'+'ipt>');
+</script>
+<script>
+const D = window.LEAGUE_DATA, $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+// ── Sidebar: leagues grouped by confederation ──
+(()=>{
+  const wrap=$('#sbLeagues'), groups={};
+  (window.LEAGUES||[]).forEach(l=>{(groups[l.confederation]=groups[l.confederation]||[]).push(l);});
+  let html='';
+  for(const conf of ['Concacaf','UEFA']){
+    if(!groups[conf])continue;
+    html+=`<div class="sb-grp">${conf}</div>`;
+    groups[conf].forEach(l=>{
+      const lg=l.logo?`<span class="lgc"><img src="${l.logo}" alt="" onerror="this.remove()"></span>`:`<span class="lgc"></span>`;
+      const active=l.id===LID?' active':'', soon=l.status!=='live'?' soon':'';
+      html+=`<a class="sb-lg${active}${soon}" href="?league=${l.id}">${lg}<span>${l.name}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`;
+    });
+  }
+  wrap.innerHTML=html;
+  $('#sbToggle').onclick=()=>$('#sidebar').classList.toggle('open');
+})();
+// ── League header (title + logo + % complete) ──
+(()=>{
+  const lg=D.league||{id:LID,name:'League'};
+  document.title=lg.name;
+  $('#leagueTitle').textContent=lg.name;
+  if(lg.logo){const b=$('#leagueLogo');b.style.background='none';b.style.boxShadow='none';
+    b.innerHTML=`<img src="${lg.logo}" alt="" style="width:100%;height:100%;object-fit:contain" onerror="this.remove()">`;}
+})();
 const monogram=n=>{const w=n.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean);return ((w[0]?.[0]||'')+(w[1]?.[0]||'')).toUpperCase();};
 const fmt=v=>`${v.toFixed(1)}%`;                         // percentages with one decimal + sign
-const crest=(name,logo)=>`<span class="crest">${monogram(name)}${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:''}</span>`;
+const crest=(name,logo)=>`<span class="crest"><span class="mono">${monogram(name)}</span>${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:''}</span>`;
 /* visibility-safe team color on dark band */
 function hexrgb(h){h=(h||'#888').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 const lum=([r,g,b])=>(0.2126*r+0.7152*g+0.0722*b)/255;
@@ -343,39 +437,47 @@ const RGB={po:[52,211,154],hfa:[246,181,63],sh:[215,222,234],sp:[189,125,78]};
 /* fair (no-vig) American odds from a probability */
 const american=p=>{if(p==null||p<=0)return'—';const v=p>=0.5?-100*p/(1-p):100*(1-p)/p;const r=Math.round(v);return r>0?`+${r}`:`${r}`;};
 
-/* header + accuracy vs naive */
-$('#sub').textContent = D.in_season?`${D.season} season · live · ${D.played} played · ${D.upcoming} to play`:`${D.season} season projection`;
-(()=>{const m=D.model.best_brier,n=D.model.naive,worst=0.667;             // lower Brier = better
-  const wm=(worst-m)/(worst-0.55)*100, wn=(worst-n)/(worst-0.55)*100;
-  const live=D.in_season_brier, mkt=D.market_brier||{};
-  const W=v=>((worst-v)/(worst-0.55)*100).toFixed(0);
-  const mktRow=mkt.status==='ok'
-    ? `<div class="brow"><span class="t">Market</span><span class="track"><span style="width:${W(mkt.market)}%;background:var(--hfa)"></span></span><span class="v">${mkt.market.toFixed(4)}</span></div>`
-    : '';
-  // delta vs the toughest available benchmark: market if we have it, else naive
-  const liveDelta = mkt.status==='ok'
-    ? `<div class="delta" style="color:${mkt.edge_pct>0?'var(--qualify)':'#e25f4f'}">${mkt.edge_pct>0?'+':''}${mkt.edge_pct}%<small>vs market · n=${mkt.n_games}</small></div>`
-    : `<div class="delta" style="color:var(--floodlight)">${live.improve_pct>0?'+':''}${live.improve_pct}%<small>${D.season} vs naive</small></div>`;
-  const liveHTML=live?`<div class="stat"><span class="lab">${D.season} live · n=${live.n_games}${mkt.status==='pending'?' · market: awaiting odds':''}</span>
-       <div class="bars">
-         <div class="brow"><span class="t">Model</span><span class="track"><span style="width:${W(live.model)}%;background:var(--floodlight)"></span></span><span class="v">${live.model.toFixed(4)}</span></div>
-         ${mktRow}
-         <div class="brow"><span class="t">Naive</span><span class="track"><span style="width:${W(live.naive)}%;background:var(--txt-3)"></span></span><span class="v">${live.naive.toFixed(4)}</span></div>
-       </div></div>
-     ${liveDelta}`:'';
+/* ── coming-soon leagues: no model → static teams view, stop here ── */
+function renderSoonView(){
+  $('#sub').textContent='Projections coming soon';
+  $('#seg').style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>s.classList.add('hidden'));
+  $('#acc').innerHTML='<div class="soon-badge">Model not built yet</div>';
+  const sec=el('section','soon-view',
+    `<div class="sec-h"><h2>${(D.league||{}).name||'League'}</h2><span class="note">A projection model for this league isn't built yet — teams shown for reference.</span></div>
+     <div class="soon-teams" id="soonTeams"></div>`);
+  $('main.wrap').appendChild(sec);
+  $('#soonTeams').innerHTML=(D.teams||[]).map(t=>
+    `<div class="soon-team">${crest(t.name,t.logo)}<span>${t.name}</span></div>`).join('')
+    ||'<div style="color:var(--txt-3)">Team list coming soon.</div>';
+  $('#foot').textContent='';
+}
+if((D.league||{}).status==='soon'){ renderSoonView(); }
+else {
+/* header: % complete + simplified model-vs-naive accuracy card */
+const _pct=(D.league||{}).pct_complete;
+$('#sub').textContent = D.in_season
+  ? `${D.season} season is ${_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
+  : `${D.season} season projection`;
+(()=>{const m=D.model.best_brier,n=D.model.naive, live=D.in_season_brier||{}, mkt=D.market_brier||{};
+  const py=(D.perf_by_year||[]);
+  // by-year mini list (replaces the static "2022-25" label)
+  const yrCells=py.map(p=>`<span class="yr"><b>${String(p.year).slice(2)}</b>${p.improve_pct>0?'+':''}${p.improve_pct}%</span>`).join('');
+  // primary delta: vs market if available, else champion vs naive
+  const primary = mkt.status==='ok'
+    ? `<div class="delta" style="color:${mkt.edge_pct>0?'var(--qualify)':'#e25f4f'}">${mkt.edge_pct>0?'+':''}${mkt.edge_pct}%<small>edge vs market</small></div>`
+    : `<div class="delta">+${D.model.improve_pct}%<small>vs naive</small></div>`;
   $('#acc').innerHTML=
-    `<div class="stat"><span class="lab">Champion · 2022–25</span>
-       <div class="bars">
-         <div class="brow"><span class="t">Model</span><span class="track"><span style="width:${wm.toFixed(0)}%;background:var(--qualify)"></span></span><span class="v">${m}</span></div>
-         <div class="brow"><span class="t">Naive</span><span class="track"><span style="width:${wn.toFixed(0)}%;background:var(--txt-3)"></span></span><span class="v">${n}</span></div>
-       </div></div>
-     <div class="delta">+${D.model.improve_pct}%<small>Brier vs naive</small></div>`+liveHTML;
+    `<div class="acc-nums">
+       <div class="acc-row"><span class="t">Model</span><span class="v">${m}</span></div>
+       ${mkt.status==='ok'?`<div class="acc-row"><span class="t">Market</span><span class="v">${mkt.market.toFixed(4)}</span></div>`:''}
+       <div class="acc-row"><span class="t">Naive</span><span class="v muted">${n}</span></div>
+       ${live.model?`<div class="acc-row"><span class="t">${D.season}</span><span class="v">${live.model.toFixed(4)}${mkt.status==='pending'?' · mkt: awaiting odds':''}</span></div>`:''}
+     </div>
+     ${py.length?`<div class="acc-years">${yrCells}</div>`:''}
+     ${primary}`;
 })();
-const prov=D.provenance||{};
-const staleDays=Math.floor((Date.now()-new Date(D.generated).getTime())/86400000);
-const staleWarn=staleDays>2?` <b style="color:var(--warn)">⚠ data ${staleDays}d old</b>`:'';
-$('#foot').innerHTML=`Capped DC+XGB ensemble (${prov.model_file||'research_model'}) · Brier ${D.model.best_brier} sum-form vs naive ${D.model.naive} · `+
-  `${D.n_sims.toLocaleString()} Monte-Carlo sims · git ${prov.git_commit||'—'} · generated ${D.generated}${staleWarn}.`;
+$('#foot').textContent='';
 
 /* ═══════════════ WHAT-IF SIM ENGINE ═══════════════
    SIM PORTING CONTRACT (JS here ↔ Python in scripts/build_dashboard_data.py —
@@ -525,7 +627,7 @@ function ladder(conf){
     const r=el('div','row'+(i<D.hfa_slots?' hfa':''));
     const sub=`${t.gp} GP · ${sgn(t.gd)} GD · ${sgnf(t.xgd)} xGD`;
     r.innerHTML=`<span class="rank">${i+1}</span>`+
-      `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
+      `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname tlink" data-team="${t.team}">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
       `<span class="pts">${t.pts}</span>`+
       `<span class="projc">${t.proj_pts}</span>`+
       `<span class="eloc">${t.elo}</span>`+
@@ -543,6 +645,7 @@ function renderOutlook(){
 }
 renderOutlook();
 $('#ladders').addEventListener('click',e=>{
+  const tl=e.target.closest('.tlink');if(tl){openTeam(tl.dataset.team);return;}
   const b=e.target.closest('.wbox');if(!b)return;
   const gid=+b.dataset.gid,team=b.dataset.team;
   const g=UPCOMING.find(x=>x.id===gid),homePOV=g.home===team;
@@ -609,49 +712,78 @@ function renderGames(){
   $('#gcount').textContent=`${gs.length} match${gs.length!==1?'es':''}`;
   const list=$('#gameList');list.innerHTML='';let cur=null,grp=null;
   const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const cbar=g=>{const S=[[g.pH,vis(g.hcolor)],[g.pD,'var(--draw)'],[g.pA,vis(g.acolor)]];
+    return `<span class="cbar" title="H ${(g.pH*100).toFixed(0)}% · D ${(g.pD*100).toFixed(0)}% · A ${(g.pA*100).toFixed(0)}%">`+
+      S.map(([p,c])=>`<span style="width:${(p*100).toFixed(1)}%;background:${c}"></span>`).join('')+`</span>`;};
   gs.forEach(g=>{if(g.date!==cur){cur=g.date;grp=el('div','daygrp');grp.appendChild(el('div','dayhead',fmtDay(g.date)));list.appendChild(grp);}
-    const played=g.result!=null,card=el('div','game');
-    const projScore=g.lam!=null?`${g.lam.toFixed(1)}<span class="v">–</span>${g.mu.toFixed(1)}`:null;
-    card.innerHTML=`<div class="g-top">`+
-      `<div class="g-side home">${crest(g.home,g.hlogo)}<span style="min-width:0"><span class="tn">${g.home}</span></span></div>`+
-      (played?`<div class="g-score">${g.hg}<span class="v">–</span>${g.ag}</div>`
-             :`<div class="g-score" style="color:var(--txt-2)" title="projected score (expected goals)">${projScore||'<span class="upcoming">vs</span>'}</div>`)+
-      `<div class="g-side away">${crest(g.away,g.alogo)}<span style="min-width:0"><span class="tn">${g.away}</span></span></div></div>`+
-      band(g)+
-      oddsRow(g)+
-      (played?`<div class="g-foot">${projScore?`<span>model expected ${g.lam.toFixed(1)}–${g.mu.toFixed(1)}</span>`:''}<span style="margin-left:auto">${resultBadge(g)}</span></div>`
-             :(projScore?`<div class="g-foot"><span>projected score ${g.lam.toFixed(1)}–${g.mu.toFixed(1)}</span></div>`:''));
-    grp.appendChild(card);});
+    const played=g.result!=null;
+    const mid=played?`<b>${g.hg}–${g.ag}</b>`:(g.lam!=null?`${g.lam.toFixed(1)}–${g.mu.toFixed(1)}`:'vs');
+    const pk=topPick(g), pkp=Math.round(Math.max(g.pH,g.pD,g.pA)*100), pkL=pk==='H'?'Home':pk==='D'?'Draw':'Away';
+    const end=played?resultBadge(g):`<span class="gr-pick">${pkL} ${pkp}%</span>`;
+    const row=el('div','grow'+(played?' done':''));
+    row.innerHTML=
+      `<span class="gr-team home"><span class="tn">${g.home}</span>${crest(g.home,g.hlogo)}</span>`+
+      `<span class="gr-mid">${mid}</span>`+
+      `<span class="gr-bar">${cbar(g)}</span>`+
+      `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="tn">${g.away}</span></span>`+
+      `<span class="gr-end">${end}</span>`;
+    grp.appendChild(row);});
   if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
 }
 /* ── Team selector dropdowns (profile + history) ── */
-function buildSelect(menuId,btnSelId,ddId,onPick){
-  const menu=$('#'+menuId);
-  [...new Set(D.standings.map(s=>s.team))].sort().forEach(t=>{
-    const o=el('div','dd-opt',t);o.setAttribute('role','option');
-    o.onclick=()=>{$('#'+btnSelId).textContent=t;$('#'+ddId).classList.remove('open');menu.classList.remove('open');
-      [...menu.children].forEach(c=>c.setAttribute('aria-selected',c.textContent===t?'true':'false'));onPick(t);};
-    menu.appendChild(o);});
-  $('#'+ddId+' .dd-btn').onclick=ev=>{ev.stopPropagation();const op=menu.classList.toggle('open');$('#'+ddId).classList.toggle('open',op);};
+/* ═══════════════ TEAMS (ELO grid + trophies + profile) ═══════════════ */
+const stdByTeam=new Map(D.standings.map(s=>[s.team,s]));
+// distinct SVG trophy glyphs (conference championships dropped per spec)
+const TROPHY={'MLS Cup':{c:'#f6b53f',g:'cup'},"Supporters' Shield":{c:'#cfd8e6',g:'shield'},'US Open Cup':{c:'#56d2ff',g:'cup'}};
+const _CUP='M -3 -4 L 3 -4 L 3 -2 C 3 0.4 -3 0.4 -3 -2 Z M -0.8 0.2 L 0.8 0.2 L 0.8 2.2 L 2 2.2 L 2 3.2 L -2 3.2 L -2 2.2 L -0.8 2.2 Z';
+const _SHIELD='M 0 -4 L 3.2 -2.6 L 3.2 0.6 C 3.2 2.6 0 4 0 4 C 0 4 -3.2 2.6 -3.2 0.6 L -3.2 -2.6 Z';
+function trophyGlyph(kind,year,cx,cy,s){const t=TROPHY[kind];if(!t)return'';
+  return `<g transform="translate(${cx.toFixed(1)},${cy.toFixed(1)}) scale(${s})"><path d="${t.g==='cup'?_CUP:_SHIELD}" fill="${t.c}" stroke="#0a111e" stroke-width="0.6"/><title>${kind} ${year}</title></g>`;}
+const eloTip=el('div','elo-tip'); document.body.appendChild(eloTip);
+
+// One ELO chart SVG (used for both grid minis and the larger profile chart)
+function eloChartSVG(team,W,H,big){
+  const series=(D.elo_history||{})[team]||[];
+  const trophies=((D.trophies||{})[team]||[]).filter(t=>t.type!=='Conference');
+  if(!series.length)return {svg:'<div class="elo-empty">no history</div>',x0:0,x1:0};
+  const padL=big?40:6,padR=big?14:6,padT=big?14:8,padB=big?28:8;
+  const xs=series.map(p=>new Date(p[0]+'T12:00').getTime()), ys=series.map(p=>p[1]);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys)-15,y1=Math.max(...ys)+15;
+  const X=t=>padL+(t-x0)/(x1-x0)*(W-padL-padR), Y=v=>padT+(1-(v-y0)/(y1-y0))*(H-padT-padB);
+  const path=series.map((p,i)=>`${i?'L':'M'}${X(xs[i]).toFixed(1)} ${Y(p[1]).toFixed(1)}`).join(' ');
+  let extra='';
+  if(big){let g='';for(let i=0;i<=4;i++){const v=y0+(y1-y0)*i/4,yy=Y(v);
+      g+=`<line class="grid" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W-padR}" y2="${yy.toFixed(1)}"/><text class="axis" x="${padL-5}" y="${(yy+3).toFixed(1)}" text-anchor="end">${Math.round(v)}</text>`;}
+    for(let y=new Date(x0).getFullYear();y<=new Date(x1).getFullYear();y++){const t=new Date(y,5,1).getTime();if(t<x0||t>x1)continue;
+      g+=`<text class="axis" x="${X(t).toFixed(1)}" y="${H-padB+15}" text-anchor="middle">${y}</text>`;}
+    extra=g;}
+  const marks=trophies.map(tr=>{const t=Math.max(x0,Math.min(x1,new Date(tr.year,8,1).getTime()));
+    let bi=0;for(let i=1;i<series.length;i++)if(Math.abs(xs[i]-t)<Math.abs(xs[bi]-t))bi=i;
+    return trophyGlyph(tr.type,tr.year,X(t),Y(series[bi][1]),big?1.5:0.9);}).join('');
+  const svg=`<svg class="elo-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" data-team="${team}" data-x0="${x0}" data-x1="${x1}">
+      ${extra}<path class="eloline" d="${path}"/>${marks}</svg>`;
+  return {svg,x0,x1};
 }
 
-/* ── Team Profile ── */
-const stdByTeam=new Map(D.standings.map(s=>[s.team,s]));
-function renderProfile(team){
-  const s=stdByTeam.get(team), inp=(D.team_inputs||{})[team]||{};
-  const gms=D.games.filter(g=>g.home===team||g.away===team);
+let _selTeam=null;
+function renderProfile(team,scroll){
+  const s=stdByTeam.get(team); if(!s)return;
+  _selTeam=team;
+  document.querySelectorAll('.elo-card').forEach(c=>c.classList.toggle('sel',c.dataset.team===team));
+  const inp=(D.team_inputs||{})[team]||{}, gms=D.games.filter(g=>g.home===team||g.away===team);
   const rank=(D.standings.filter(x=>x.conf===s.conf).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)).findIndex(x=>x.team===team))+1;
-  // W-D-L from played games
-  let w=0,d=0,l=0;
-  gms.filter(g=>g.result).forEach(g=>{const home=g.home===team;
-    if(g.result==='D')d++; else if((g.result==='H')===home)w++; else l++;});
-  const fmtv=v=>v==null?'—':v;
+  let w=0,d=0,l=0; gms.filter(g=>g.result).forEach(g=>{const h=g.home===team;
+    if(g.result==='D')d++; else if((g.result==='H')===h)w++; else l++;});
+  const fv=v=>v==null?'—':v;
+  const chart=eloChartSVG(team,720,200,true).svg;
+  const troph=((D.trophies||{})[team]||[]).filter(t=>t.type!=='Conference');
+  const chips=troph.length?troph.map(t=>`<span class="troph-chip"><b>${t.year}</b> ${t.type}</span>`).join(''):'<span style="color:var(--txt-3);font-size:12px">No major trophies 2013–present.</span>';
   const inputsCard=`<div class="pcard"><h3>Model inputs (current)</h3>
     <div class="pstat"><span class="k">ELO rating</span><span class="v">${inp.elo??'—'}</span></div>
-    <div class="pstat"><span class="k">xG for (roll 5)</span><span class="v">${fmtv(inp.xg_for)}</span></div>
-    <div class="pstat"><span class="k">xG against (roll 5)</span><span class="v">${fmtv(inp.xg_against)}</span></div>
-    <div class="pstat"><span class="k">Form (pts/game, 5)</span><span class="v">${fmtv(inp.form)}</span></div>
-    <div class="pstat"><span class="k">GK quality (z)</span><span class="v">${fmtv(inp.gk_z)}</span></div>
+    <div class="pstat"><span class="k">xG for (roll 5)</span><span class="v">${fv(inp.xg_for)}</span></div>
+    <div class="pstat"><span class="k">xG against (roll 5)</span><span class="v">${fv(inp.xg_against)}</span></div>
+    <div class="pstat"><span class="k">Form (pts/game, 5)</span><span class="v">${fv(inp.form)}</span></div>
+    <div class="pstat"><span class="k">GK quality (z)</span><span class="v">${fv(inp.gk_z)}</span></div>
     <div class="pstat"><span class="k">Squad availability</span><span class="v">${inp.avail==null?'—':(inp.avail*100).toFixed(0)+'%'}</span></div></div>`;
   const seasonCard=`<div class="pcard"><h3>${D.season} season</h3>
     <div class="pstat"><span class="k">Record (W-D-L)</span><span class="v">${w}-${d}-${l}</span></div>
@@ -660,63 +792,48 @@ function renderProfile(team){
     <div class="pstat"><span class="k">${s.conf} rank</span><span class="v">#${rank}</span></div>
     <div class="pstat"><span class="k">Playoff odds</span><span class="v">${s.playoff}%</span></div>
     <div class="pstat"><span class="k">Shield · Cup</span><span class="v">${s.shield}% · ${s.cup}%</span></div></div>`;
-  const upc=gms.filter(g=>g.result==null).slice(0,5).map(g=>{const home=g.home===team,opp=home?g.away:g.home;
-    const pw=home?g.pH:g.pA;
-    return `<div class="pmini"><span class="d">${g.date.slice(5)}</span><span class="opp">${home?'vs':'@'} ${opp}</span><span class="pr">${(pw*100).toFixed(0)}% W</span></div>`;}).join('')||'<div class="pstat"><span class="k">No upcoming fixtures</span></div>';
-  const upcCard=`<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div>`;
-  const rec=gms.filter(g=>g.result).slice(-8).reverse().map(g=>{const home=g.home===team,opp=home?g.away:g.home;
-    const won=g.result==='D'?'D':((g.result==='H')===home?'W':'L');
-    const pick=[['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,x)=>x[1]>m[1]?x:m)[0];
-    const hit=pick===g.result;
-    return `<div class="pmini"><span class="d">${g.date.slice(5)}</span><span class="opp">${home?'vs':'@'} ${opp} · ${g.hg}-${g.ag}</span><span class="pr" style="color:${won==='W'?'var(--qualify)':won==='L'?'#e25f4f':'var(--txt-2)'}">${won}</span><span class="res ${hit?'ok':'miss'}">${hit?'✓':'✗'}</span></div>`;}).join('')||'<div class="pstat"><span class="k">No results yet</span></div>';
-  const recCard=`<div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>`;
-  $('#profBody').innerHTML=
-    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${s.conf}ern Conference · ELO ${inp.elo??'—'}</div></div></div>
-     <div class="prof-grid">${inputsCard}${seasonCard}${upcCard}${recCard}</div>`;
+  const upc=gms.filter(g=>g.result==null).slice(0,5).map(g=>{const h=g.home===team,opp=h?g.away:g.home;
+    return `<div class="pmini"><span class="d">${g.date.slice(5)}</span><span class="opp">${h?'vs':'@'} ${opp}</span><span class="pr">${((h?g.pH:g.pA)*100).toFixed(0)}% W</span></div>`;}).join('')||'<div class="pstat"><span class="k">No upcoming fixtures</span></div>';
+  const rec=gms.filter(g=>g.result).slice(-8).reverse().map(g=>{const h=g.home===team,opp=h?g.away:g.home;
+    const won=g.result==='D'?'D':((g.result==='H')===h?'W':'L'), pick=[['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,x)=>x[1]>m[1]?x:m)[0], hit=pick===g.result;
+    return `<div class="pmini"><span class="d">${g.date.slice(5)}</span><span class="opp">${h?'vs':'@'} ${opp} · ${g.hg}-${g.ag}</span><span class="pr" style="color:${won==='W'?'var(--qualify)':won==='L'?'#e25f4f':'var(--txt-2)'}">${won}</span><span class="res ${hit?'ok':'miss'}">${hit?'✓':'✗'}</span></div>`;}).join('')||'<div class="pstat"><span class="k">No results yet</span></div>';
+  $('#teamProfile').innerHTML=
+    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${s.conf}ern Conference · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div></div>
+     <div class="chart-wrap big">${chart}<div class="troph-legend"><span><svg width="13" height="13" viewBox="-4 -5 8 9"><path d="${_CUP}" fill="#f6b53f"/></svg>MLS Cup</span><span><svg width="13" height="13" viewBox="-4 -5 8 9"><path d="${_SHIELD}" fill="#cfd8e6"/></svg>Supporters' Shield</span><span><svg width="13" height="13" viewBox="-4 -5 8 9"><path d="${_CUP}" fill="#56d2ff"/></svg>US Open Cup</span></div><div class="troph-list">${chips}</div></div>
+     <div class="prof-grid">${inputsCard}${seasonCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div></div>`;
+  if(scroll)$('#teamProfile').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
-/* ── History: ELO trajectory + trophy markers (hand-rolled SVG) ── */
-const TROPHY_COLOR={'MLS Cup':'#f6b53f',"Supporters' Shield":'#d7deea','US Open Cup':'#56d2ff','Conference':'#9aa7bd'};
-function renderHistory(team){
-  const series=(D.elo_history||{})[team]||[], trophies=(D.trophies||{})[team]||[];
-  if(!series.length){$('#histBody').innerHTML='<div style="color:var(--txt-3);padding:32px">No ELO history.</div>';return;}
-  const W=820,H=320,padL=44,padR=16,padT=18,padB=46;
-  const xs=series.map(p=>new Date(p[0]+'T12:00').getTime()), ys=series.map(p=>p[1]);
-  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys)-20,y1=Math.max(...ys)+20;
-  const X=t=>padL+(t-x0)/(x1-x0)*(W-padL-padR), Y=v=>padT+(1-(v-y0)/(y1-y0))*(H-padT-padB);
-  const path=series.map((p,i)=>`${i?'L':'M'}${X(xs[i]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join('');
-  // y gridlines
-  let grid='',yticks=4;
-  for(let i=0;i<=yticks;i++){const v=y0+(y1-y0)*i/yticks,yy=Y(v);
-    grid+=`<line class="grid" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W-padR}" y2="${yy.toFixed(1)}"/><text class="axis" x="${padL-6}" y="${(yy+3).toFixed(1)}" text-anchor="end">${Math.round(v)}</text>`;}
-  // x year ticks
-  let xticks='';const yrA=new Date(x0).getFullYear(),yrB=new Date(x1).getFullYear();
-  for(let y=yrA;y<=yrB;y++){const t=new Date(y,5,1).getTime();if(t<x0||t>x1)continue;const xx=X(t);
-    xticks+=`<text class="axis" x="${xx.toFixed(1)}" y="${H-padB+16}" text-anchor="middle">${y}</text>`;}
-  // trophy markers: place at the ELO point nearest that year (use Sep of that year)
-  const marks=trophies.map(tr=>{const t=new Date(tr.year,8,1).getTime();const tc=Math.max(x0,Math.min(x1,t));
-    // nearest series y
-    let bi=0;for(let i=1;i<series.length;i++)if(Math.abs(xs[i]-tc)<Math.abs(xs[bi]-tc))bi=i;
-    const cx=X(tc),cy=Y(series[bi][1]),col=TROPHY_COLOR[tr.type]||'#9aa7bd';
-    return `<line class="tmark" x1="${cx.toFixed(1)}" y1="${padT}" x2="${cx.toFixed(1)}" y2="${(H-padB).toFixed(1)}" stroke="${col}" stroke-dasharray="2 3" opacity="0.5"/><circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.5" fill="${col}" stroke="var(--ink-1)" stroke-width="1.5"><title>${tr.type} ${tr.year}</title></circle>`;}).join('');
-  const legend=Object.entries(TROPHY_COLOR).map(([k,c])=>`<span><i style="background:${c}"></i>${k}</span>`).join('');
-  const chips=trophies.length?trophies.map(t=>`<span class="troph-chip"><b>${t.year}</b> ${t.type}</span>`).join(''):'<span style="color:var(--txt-3);font-size:12px">No major trophies 2013–present.</span>';
-  $('#histBody').innerHTML=
-    `<div class="prof-hd">${crest(team,(stdByTeam.get(team)||{}).logo)}<div><h2>${team}</h2><div class="sub">ELO ${ys[ys.length-1]} now · ${series.length} match points · ${trophies.length} trophies</div></div></div>
-     <div class="chart-wrap"><svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
-       ${grid}<path class="eloline" d="${path}"/>${marks}${xticks}</svg>
-       <div class="troph-legend">${legend}</div>
-       <div class="troph-list">${chips}</div></div>`;
+function renderTeams(){
+  const teams=[...D.standings].sort((a,b)=>(b.elo||0)-(a.elo||0));
+  $('#eloGrid').innerHTML=teams.map(s=>{
+    const ch=eloChartSVG(s.team,210,66,false);
+    const now=((D.elo_history||{})[s.team]||[]).slice(-1)[0];
+    return `<div class="elo-card${s.team===_selTeam?' sel':''}" data-team="${s.team}">
+      <div class="elo-card-h">${crest(s.team,s.logo)}<span class="nm">${s.team}</span><span class="el">${now?now[1]:s.elo||''}</span></div>
+      ${ch.svg}</div>`;}).join('');
+  if(!_selTeam)renderProfile(teams[0].team); else renderProfile(_selTeam);
 }
-
-buildSelect('profMenu','profSel','profDD',renderProfile);
-buildSelect('histMenu','histSel','histDD',renderHistory);
+// click a mini → profile; hover → ELO tooltip
+$('#eloGrid').addEventListener('click',e=>{const c=e.target.closest('.elo-card');if(c)renderProfile(c.dataset.team,true);});
+$('#eloGrid').addEventListener('mousemove',e=>{const svg=e.target.closest('.elo-svg');if(!svg){eloTip.style.display='none';return;}
+  const team=svg.dataset.team, series=(D.elo_history||{})[team]||[]; if(!series.length)return;
+  const r=svg.getBoundingClientRect(), x0=+svg.dataset.x0, x1=+svg.dataset.x1;
+  const tt=x0+Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*(x1-x0);
+  let bi=0;for(let i=1;i<series.length;i++)if(Math.abs(new Date(series[i][0]).getTime()-tt)<Math.abs(new Date(series[bi][0]).getTime()-tt))bi=i;
+  eloTip.innerHTML=`<b>${series[bi][1]}</b> ELO · ${series[bi][0]}`;
+  eloTip.style.display='block';eloTip.style.left=(e.clientX+12)+'px';eloTip.style.top=(e.clientY-10)+'px';});
+$('#eloGrid').addEventListener('mouseleave',()=>eloTip.style.display='none');
 
 $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));
   const v=b.dataset.view;
-  ['outlook','matches','profile','history','health'].forEach(x=>$('#view-'+x).classList.toggle('hidden',v!==x));
+  ['outlook','matches','teams','health'].forEach(x=>$('#view-'+x).classList.toggle('hidden',v!==x));
   if(v==='matches'&&!$('#gameList').children.length)renderGames();
+  if(v==='teams'&&!$('#eloGrid').children.length)renderTeams();
   if(v==='health'&&!$('#hrows').children.length)renderHealth();};
+// deep-link a team from the League Table → Teams tab
+function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfile(team,true);}
+}  /* end full-app (non-soon) block */
 </script>
 </body>
 </html>

@@ -526,7 +526,46 @@ def main():
         ],
     }
 
-    data = {"season": ts, "in_season": True,
+    # ── Per-year model vs naive (walk-forward; 2019 + 2022-2025; skip 2020/2021
+    #    COVID cal-fold gap). Unbagged (n_bags=1) for build speed — a yearly
+    #    display read; the headline champion 0.6330 stays the bagged number. ───
+    from models.research_model import walk_forward
+    perf_by_year = []
+    try:
+        _pyears = [y for y in (2019, 2022, 2023, 2024, 2025) if y in set(df["season"])]
+        _wf = walk_forward(df, feat, _pyears, n_bags=1)
+        for _y in _pyears:
+            _ys = str(_y)
+            _mb = _wf["per_season"].get(_ys)
+            _tr = df[df["season"] < _y - 1].dropna(subset=["label_result"])
+            _te = df[df["season"] == _y].dropna(subset=["label_result"])
+            if _mb is None or _tr.empty or _te.empty:
+                continue
+            _fq = np.bincount(_tr["label_result"].values.astype(int), minlength=3) / len(_tr)
+            _yo = np.eye(3)[_te["label_result"].values.astype(int)]
+            _nb = float(np.mean(np.sum((np.tile(_fq, (len(_te), 1)) - _yo) ** 2, axis=1)))
+            perf_by_year.append({"year": _y, "model": round(_mb, 4), "naive": round(_nb, 4),
+                                 "improve_pct": round((_nb - _mb) / _nb * 100, 2)})
+        print(f"Perf by year: {[(p['year'], p['model']) for p in perf_by_year]}")
+    except Exception as _e:
+        print(f"[warn] perf_by_year failed: {_e}")
+
+    # ── League meta (multi-league platform) ──────────────────────────────────
+    _lg_logo = None
+    try:
+        _lg_logo = (requests.get(f"{_ESPN}/scoreboard", headers=_HDR,
+                    verify=False, timeout=20).json().get("leagues", [{}])[0]
+                    .get("logos") or [{}])[0].get("href")
+    except Exception:
+        pass
+    _pct = round(len([g for g in games if g["result"]]) /
+                 max(1, len(games)) * 100)
+
+    data = {"league": {"id": "mls", "name": "Major League Soccer", "logo": _lg_logo,
+                       "confederation": "Concacaf", "status": "live",
+                       "pct_complete": _pct},
+            "perf_by_year": perf_by_year,
+            "season": ts, "in_season": True,
             "played": len(games) - len(upcoming_cards), "upcoming": len(upcoming_cards),
             "sim": {"teams": [id2name.get(t, t) for t in tids],
                     "pmatrix": [[None if hi == ai else
@@ -552,8 +591,9 @@ def main():
                            "champion_run": champ_run,
                            "metric_convention": "brier_sum_form (range 0-2; random ~0.6406); "
                                                 "champion avg = 2022-2025 walk-forward"}}
-    out = Path("webapp/data.js")
-    out.write_text("window.MLS_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
+    out = Path("webapp/data/mls.js")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("window.LEAGUE_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
     _kb = out.stat().st_size / 1024
     print(f"Wrote {out} ({_kb:.0f} KB) · {data['played']} played + "
           f"{data['upcoming']} upcoming · {len(standings)} teams")
