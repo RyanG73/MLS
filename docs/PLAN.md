@@ -26,6 +26,32 @@
 >    already league-agnostic.
 > 5. Flip the 5 leagues `soon`→`live`; verify each in-browser.
 >
+> **Status (2026-06-14):**
+> - **WS1 ✅** `data_pipeline/understat.py` — 21,588 played matches (2014–2025), 100% xG coverage,
+>   parquet-cached per league. 6 contract tests. (commit `4011c09`)
+> - **WS2 ✅ — the champion pipeline transfers UNCHANGED.** `scripts/eval/league_features.py` composes
+>   the league-agnostic 31-feature subset (ELO + rolling xG/xGA + form; the 6 MLS-only gk_z/avail
+>   features are simply absent — `walk_forward` intersects feat_base with present columns). Walk-forward
+>   (champion config: ELO 25/80/0.40, DC 120d, whl 6) on 2022–2025, `n_bags=1` directional sweep:
+>
+>   | League | Matches | avg Brier | naive | edge |
+>   |---|---|---|---|---|
+>   | La Liga | 4,560 | **0.5863** | 0.6410 | +8.5% |
+>   | EPL | 4,560 | **0.5890** | 0.6455 | +8.8% |
+>   | Bundesliga | 3,672 | **0.5934** | 0.6503 | +8.7% |
+>   | Serie A | 4,560 | **0.5946** | 0.6586 | +9.7% |
+>   | Ligue 1 | 4,236 | **0.6035** | 0.6478 | +6.8% |
+>   | _MLS champion (ref)_ | _—_ | _0.6330_ | _0.6406_ | _+1.2%_ |
+>
+>   All five beat the MLS champion's Brier and beat naive by 6.8–9.7% (vs MLS's ~1.2%): European
+>   leagues carry far more capturable signal (lower parity → xG-visible hierarchies). Model untouched.
+>   COVID handled as planned: 2019-20/2020-21 kept in training; Ligue 1's cancelled 2019-20 (~100
+>   unplayed matches) is simply absent. `n_bags=5` confirmation optional (directional signal unambiguous).
+> - **WS3 ▶ built** `scripts/build_league_data.py` — single-table builder emitting the MLS payload schema
+>   with Title/Top-4(UCL)/Relegation outcomes + a config-driven `outlook` block; single source (Understat
+>   matches+xG+fixtures), crests from the ESPN stubs. European 2025-26 seasons are complete → launches as
+>   a finished final table; live projections resume when 2026-27 starts (Aug 2026).
+>
 > **Deferred (Phase 2+):** FBref leagues (Championship, 2.Bundesliga, Serie B, Ligue 2, Liga MX); goals-only
 > lower divisions (League One/Two, Canadian PL); cup competitions (UCL/Europa/Conference/Concacaf/Leagues Cup
 > — cross-league knockout models, a separate effort). Champion 0.6330 MLS model untouched.
