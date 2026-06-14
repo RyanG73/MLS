@@ -1,5 +1,32 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase 2 — market comparison + operationalisation + league expansion (2026-06-14, in progress)**
+> After Phase 1 put the big-5 European leagues live, this phase adds the betting-market benchmark the
+> accuracy card was missing, operationalises the European builds for the 2026-27 season, and probes the
+> next league tier. User directives: (1) the header accuracy grid was conflating two different "naive"
+> baselines — make it **two rows: model-vs-naive and model-vs-market**, each consistent; (2) source the
+> market row from **real betting markets**.
+>
+> - **P2-1 — Market comparison (`data_pipeline/football_data.py`).** Source = **football-data.co.uk**
+>   (verified 2026-06-14: free historical 1X2 odds — Bet365 / **Pinnacle** / market-avg — for all big-5
+>   back to ~2014; div codes E0/SP1/I1/D1/F1). Adapter fetches per league/season, de-vigs Pinnacle (→
+>   market-avg fallback) to implied [H,D,A], matches the canonical frame by date + normalised team name,
+>   computes **per-season market Brier**. Added to the build payload as `market_by_year`. The webapp
+>   accuracy card becomes **two rows** (model vs naive, model vs market), retiring the standalone
+>   champion-vs-uniform "+X% vs naive" headline that didn't match the per-season grid. MLS keeps its
+>   forward-logging opening-odds path (football-data doesn't cover MLS).
+> - **P2-2 — Operationalise European builds.** Wire the 5 live leagues into the daily/seasonal build so
+>   2026-27 auto-rebuilds (season auto-detect already picks the latest started season). Until Aug 2026 the
+>   leagues correctly show completed 2025-26 final tables.
+> - **P2-3 — Table-league what-if simulator.** Port the MLS client-side what-if sim to single-table
+>   leagues (force remaining results → resimulate final table → Title/UCL/Relegation odds). Inert until
+>   2026-27 has live fixtures, so it ships ahead of need.
+> - **P2-4 — `n_bags=5` confirmation.** Re-run the big-5 validation at the champion bag size (vs the
+>   `n_bags=1` directional sweep) for gate-grade numbers.
+> - **P2-5 — Phase 3 league tier (feasibility).** Probe FBref via `soccerdata` for the next leagues
+>   (Championship, 2.Bundesliga, Serie B, Ligue 2, Liga MX) — does it deliver per-match xG? Cups remain a
+>   separate cross-league knockout effort.
+>
 > **Big-5 European model program (2026-06-14) — first non-MLS leagues**
 > User decisions: build the **5 big European leagues in parallel** (EPL, La Liga, Serie A, Bundesliga,
 > Ligue 1), **Tier-1 scope** (league-table leagues with xG), **Understat first** (FBref leagues later).
