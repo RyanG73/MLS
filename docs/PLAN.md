@@ -47,10 +47,18 @@
 >   leagues carry far more capturable signal (lower parity → xG-visible hierarchies). Model untouched.
 >   COVID handled as planned: 2019-20/2020-21 kept in training; Ligue 1's cancelled 2019-20 (~100
 >   unplayed matches) is simply absent. `n_bags=5` confirmation optional (directional signal unambiguous).
-> - **WS3 ▶ built** `scripts/build_league_data.py` — single-table builder emitting the MLS payload schema
+> - **WS3 ✅** `scripts/build_league_data.py` — single-table builder emitting the MLS payload schema
 >   with Title/Top-4(UCL)/Relegation outcomes + a config-driven `outlook` block; single source (Understat
 >   matches+xG+fixtures), crests from the ESPN stubs. European 2025-26 seasons are complete → launches as
->   a finished final table; live projections resume when 2026-27 starts (Aug 2026).
+>   a finished final table; live projections resume when 2026-27 starts (Aug 2026). Verified on EPL
+>   (in-season Brier 0.6219, perf-by-year 2017–2025, logos/colors resolve). (commit `53c2a66`)
+> - **WS4 ✅** webapp renders single-table leagues. When `outlook.mode==='table'`, League Projections shows
+>   config-driven favorite cards + a single isolated table ladder (`.tlad`) with UCL/relegation cut-lines;
+>   MLS conference/playoff/cup view untouched (`isTable=false`). Verified in-browser: EPL all 4 tabs, zero
+>   console errors; MLS regression-clean. (commit `c98151a`)
+> - **WS5 ▶** flip the 5 European leagues `soon`→`live` (`fetch_league_teams.py` REGISTRY → `leagues.js`),
+>   regenerate all 5 data files via `build_league_data.py`, verify each in-browser. **Phase 1 = big-5
+>   European leagues LIVE on the platform.**
 >
 > **Deferred (Phase 2+):** FBref leagues (Championship, 2.Bundesliga, Serie B, Ligue 2, Liga MX); goals-only
 > lower divisions (League One/Two, Canadian PL); cup competitions (UCL/Europa/Conference/Concacaf/Leagues Cup

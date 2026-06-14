@@ -598,3 +598,67 @@ print('Config OK')
 | XGB `best_p` always `max_depth=3, n_estimators=200` | Inner grid is not running (validation fold too small). Check `len(ival) >= 30` condition in `fit_xgb`. |
 | Smoke-test fails by > 0.005 | A breaking change was made to eval_baseline.py. Do not proceed until the source of the divergence is identified. |
 | Parity check fails (`|Δ| > 0.0015`) | `research_model.py` has drifted from `eval_baseline.py`. One of the two was changed without updating the other. |
+
+---
+
+## 11. Multi-league platform (European leagues)
+
+As of 2026-06-14 the platform serves the **big-5 European leagues** (EPL, La Liga, Serie A,
+Bundesliga, Ligue 1) alongside MLS. The model is **unchanged** — the same champion pipeline
+(ELO + Dixon-Coles + bagged XGBoost + capped-DC blend + temperature) runs on every league. The
+multi-league work is entirely data-adapter + feature-composition + webapp generalization.
+
+### The flow for a non-MLS league
+
+1. **Data — `data_pipeline/understat.py`.** Fetches per-match goals + xG via the `understatapi`
+   library and produces the **canonical match frame** (the same schema ASA produces for MLS:
+   `match_id, date, season, home/away_team, home/away_goals, home/away_xg, label_result, is_result,
+   is_playoff`). Seasons keyed by start year, history back to 2014. Parquet-cached per league under
+   `data/understat/` (gitignored). `espn_name()` maps the ~30 Understat titles that differ from ESPN
+   displayName, for crest lookup only — the model treats team names as opaque categorical keys.
+
+2. **Features — `scripts/eval/league_features.py`.** `build_league_features(played)` composes the two
+   already-extracted, pure builders — `compute_elo` (`scripts/eval/elo.py`) and `add_rolling_features`
+   (`scripts/eval/feature_builders.py`) — into the **31-feature league-agnostic subset** of the MLS
+   feat_base (ELO + rolling xG/xGA + form + xg_diff/sum + is_playoff). The 6 MLS-only features
+   (`*_gk_z`, `*_avail_share`) are absent; `walk_forward` selects `feat = [c for c in feat_base if c
+   in df.columns]`, so the champion config runs with **zero model branching**.
+
+3. **Validation — `scripts/validate_league.py`.** Runs the walk-forward + naive baseline per league.
+   `--all --quick` for a directional sweep, `--bags 5` for gate-grade numbers. Big-5 results (2022–2025,
+   `n_bags=1`): La Liga 0.5863, EPL 0.5890, Bundesliga 0.5934, Serie A 0.5946, Ligue 1 0.6035 — all
+   beat the MLS champion's 0.6330 and beat naive by 6.8–9.7% (MLS only ~1.2%).
+
+4. **Dashboard data — `scripts/build_league_data.py`.** `--league <id>` emits `webapp/data/<id>.js`
+   with the **same payload schema** as the MLS build, but with single-table semantics: standings
+   outcomes Title / Top-4 (UCL) / Relegation, a season Monte-Carlo that simulates remaining fixtures
+   into one final table (no playoff bracket / cup), and a config-driven `outlook` block. Single source
+   (Understat matches+xG+fixtures); crests/colors from the ESPN coming-soon stubs. `OUTLOOK` dict holds
+   each league's `n`/`ucl`/`releg` counts. MLS's `build_dashboard_data.py` is untouched.
+
+5. **Webapp — `webapp/index.html`.** `isTable = (D.outlook||{}).mode==='table'` switches League
+   Projections to `renderTableOutlook()` (favorite cards from `outlook.cards` + a single `.tlad` ladder
+   with UCL/relegation cut-lines). All other tabs (Match Projections, Teams, Health) are already
+   league-agnostic. MLS keeps the conference + playoff + cup view.
+
+### Adding / rebuilding a European league
+
+```bash
+python -m data_pipeline.understat --league epl          # refresh the cache
+python scripts/validate_league.py --league epl --quick  # sanity Brier
+python scripts/build_league_data.py --league epl        # → webapp/data/epl.js
+# flip status to "live" in scripts/fetch_league_teams.py REGISTRY, then:
+python scripts/fetch_league_teams.py                    # regenerate leagues.js
+```
+
+### Caveat for the "looks wrong" table above
+
+The MLS heuristic **"Brier below 0.60 ⇒ leaked test data"** does NOT apply to European leagues. The
+big-5 legitimately score 0.586–0.604 because they carry far more capturable signal (lower parity →
+xG-visible hierarchies) than high-parity MLS. Sub-0.60 single-season Briers are normal there.
+
+### Timing note
+
+European 2025-26 seasons completed by May 2026, and 2026-27 starts in August 2026. A league built in
+this window shows a **finished final table** (sim outcomes resolved to 0/100%); probabilistic live
+projections + the interactive what-if simulator (currently MLS-only) resume when 2026-27 kicks off.

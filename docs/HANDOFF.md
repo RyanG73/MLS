@@ -12,6 +12,24 @@ A 13-iteration improvement loop (2026-06-09, recorded verdict-by-verdict in `doc
 
 ---
 
+## Update 2026-06-14 — Multi-league platform: big-5 European leagues live
+
+The platform now serves **EPL, La Liga, Serie A, Bundesliga, and Ligue 1** alongside MLS, behind the
+left sidebar. The model is **unchanged** — the MLS champion pipeline (ELO + Dixon-Coles + bagged XGBoost
++ capped-DC blend + temperature) transfers to European football with zero model branching, validated on
+all five (2022–2025 walk-forward, `n_bags=1`): La Liga 0.5863, EPL 0.5890, Bundesliga 0.5934, Serie A
+0.5946, Ligue 1 0.6035 — every one beats the MLS champion's 0.6330 and beats naive by 6.8–9.7% (MLS
+only ~1.2%), because European leagues carry far more capturable signal (lower parity).
+
+New components: `data_pipeline/understat.py` (per-match xG adapter, 2014+), `scripts/eval/league_features.py`
+(league-agnostic feature composition), `scripts/validate_league.py`, `scripts/build_league_data.py`
+(single-table dashboard builder: Title / Top-4 UCL / Relegation). The webapp branches on `outlook.mode`.
+See `docs/CODE_WALKTHROUGH.md` §11 for the full flow. The European 2025-26 seasons are complete, so the
+leagues launch as finished final tables; live projections resume when 2026-27 starts (Aug 2026).
+Everything below this note is the MLS-specific model history and remains current for the MLS league.
+
+---
+
 ## Project Goal and Context
 
 ### What the system predicts

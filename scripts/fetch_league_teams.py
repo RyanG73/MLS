@@ -37,15 +37,15 @@ REGISTRY = [
     ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "soon"),
     ("concacaf-league",     "Concacaf League",          "concacaf.league",  "Concacaf", "soon"),
     # UEFA
-    ("epl",                 "English Premier League",   "eng.1",            "UEFA", "soon"),
+    ("epl",                 "English Premier League",   "eng.1",            "UEFA", "live"),
     ("championship",        "EFL Championship",         "eng.2",            "UEFA", "soon"),
     ("league-one",          "EFL League One",           "eng.3",            "UEFA", "soon"),
     ("league-two",          "EFL League Two",           "eng.4",            "UEFA", "soon"),
-    ("bundesliga",          "Bundesliga",               "ger.1",            "UEFA", "soon"),
+    ("bundesliga",          "Bundesliga",               "ger.1",            "UEFA", "live"),
     ("bundesliga-2",        "2. Bundesliga",            "ger.2",            "UEFA", "soon"),
-    ("ligue-1",             "Ligue 1",                  "fra.1",            "UEFA", "soon"),
-    ("la-liga",             "La Liga",                  "esp.1",            "UEFA", "soon"),
-    ("serie-a",             "Serie A",                  "ita.1",            "UEFA", "soon"),
+    ("ligue-1",             "Ligue 1",                  "fra.1",            "UEFA", "live"),
+    ("la-liga",             "La Liga",                  "esp.1",            "UEFA", "live"),
+    ("serie-a",             "Serie A",                  "ita.1",            "UEFA", "live"),
     ("serie-b",             "Serie B",                  "ita.2",            "UEFA", "soon"),
     ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "soon"),
     ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "soon"),
@@ -89,7 +89,7 @@ def main():
         registry.append({"id": lid, "name": name, "confederation": conf,
                          "status": status, "logo": logo, "espn_code": code})
         if status == "live":
-            print(f"  {lid:18s} live   · logo {'ok' if logo else 'none'} (data from build_dashboard_data)")
+            print(f"  {lid:18s} live   · logo {'ok' if logo else 'none'} (data built separately: MLS→build_dashboard_data, others→build_league_data)")
             continue
         teams = _teams(code) if code else []
         stub = {"league": {"id": lid, "name": name, "logo": logo,

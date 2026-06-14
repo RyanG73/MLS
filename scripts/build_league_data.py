@@ -60,14 +60,26 @@ OUTLOOK = {
 
 
 def _stub_team_meta(league_id: str) -> dict[str, dict]:
-    """ESPN displayName → {logo, color} from the coming-soon stub (crests/colors)."""
+    """Team-name → {logo, color} for crest/color lookup.
+
+    Idempotent across rebuilds: reads the coming-soon stub's `teams[]` (keyed by
+    ESPN displayName) AND, when the file is already a live payload, its
+    `standings[]` (keyed by Understat title). The builder OVERWRITES this same
+    file, so without the standings fallback a second run would lose every crest.
+    """
     stub = Path(f"webapp/data/{league_id}.js")
     if not stub.exists():
         return {}
     txt = stub.read_text()
     payload = json.loads(txt[txt.index("=") + 1:].rstrip().rstrip(";"))
-    return {t["name"]: {"logo": t.get("logo"), "color": t.get("color")}
-            for t in payload.get("teams", [])}
+    meta: dict[str, dict] = {}
+    for t in payload.get("teams", []):          # coming-soon stub: ESPN displayName
+        if t.get("logo") or t.get("color"):
+            meta[t["name"]] = {"logo": t.get("logo"), "color": t.get("color")}
+    for s in payload.get("standings", []):      # live payload: Understat title
+        if s.get("logo") and s["team"] not in meta:
+            meta[s["team"]] = {"logo": s.get("logo"), "color": s.get("color")}
+    return meta
 
 
 def _stub_league_logo(league_id: str) -> str | None:
@@ -109,7 +121,7 @@ def main():
     stub_meta = _stub_team_meta(lid)
 
     def tmeta(title: str) -> dict:
-        return stub_meta.get(espn_name(lid, title), {})
+        return stub_meta.get(espn_name(lid, title)) or stub_meta.get(title) or {}
 
     def tname(title: str) -> str:
         return title  # display the Understat title (already clean club names)
