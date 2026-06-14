@@ -1,5 +1,23 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Multi-league platform (2026-06-12) — MLS becomes one league behind a left sidebar**
+> Pivot from single-league dashboard to a multi-league platform template (MLS live; ~18 Concacaf/UEFA
+> leagues scaffolded, models not built). Webapp + data-plumbing only — model/champion (0.6330) untouched.
+> - **Data:** `window.MLS_DATA`→`window.LEAGUE_DATA`, lazy-loaded per league via `?league=<id>`.
+>   `scripts/fetch_league_teams.py` pulls teams+crest+league logos from ESPN (19 leagues) → `webapp/leagues.js`
+>   registry + `webapp/data/<id>.js` coming-soon stubs. `build_dashboard_data.py` writes `webapp/data/mls.js`
+>   (full) + a `league` meta block (name/logo/`pct_complete`) + `perf_by_year` (model vs naive 2019,2022-2025
+>   via `research_model.walk_forward`, n_bags=1; 2020/2021 skipped — COVID cal gap).
+> - **UI:** permanent confederation-grouped sidebar (MLS live, rest "soon" with real teams/logos, no model);
+>   header = league name + ESPN league logo + "{season} is X% complete"; simplified accuracy card (no bars) +
+>   per-year readout. Tabs: League Projections (heading "League Table"), Match Projections (compact skimmable
+>   38px rows), **Teams** (Team Profile+History merged: interactive ELO mini-chart grid + hover tooltips + SVG
+>   trophy glyphs [MLS Cup/Shield/US Open Cup, conference dropped] + profile-below-on-select + table name
+>   cross-links), Model Health. Crest monogram hidden behind logos (`:has` fix); "Capped DC" footnote removed.
+> - Platform name "Pitchside" is a placeholder (sidebar brand) — easy to rename. Favorites boxes stay
+>   MLS-specific (Shield/East/West/Spoon); flagged league-configurable for future non-conference leagues.
+> - Verified in-browser (MLS full + EPL coming-soon, no console errors); tests 101 pass; data/mls.js 281 KB.
+
 > **Webapp round 2 (2026-06-12) — market-Brier, Team Profile, History tabs**
 > - **Market (opening-line) Brier comparison.** `build_dashboard_data` computes a de-vigged opening-line
 >   market Brier on played games that have a logged opener, shown in the header beside model & naive with the
