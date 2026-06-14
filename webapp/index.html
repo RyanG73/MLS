@@ -78,9 +78,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .acc-row .v{font-family:"Archivo";font-weight:700;color:var(--txt-1)} .acc-row .v.muted{color:var(--txt-3);font-weight:600}
 .acc-tracks{display:flex;flex-direction:column;gap:5px;border-left:1px solid var(--line-2);padding-left:var(--s3)}
 .acc-trk{display:flex;align-items:center;gap:9px}
-.acc-trk .acc-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--txt-3);width:46px;text-align:right;flex-shrink:0}
+.acc-trk .acc-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--txt-3);width:52px;text-align:right;flex-shrink:0;white-space:nowrap}
 .acc-trk .acc-cells{display:flex;gap:7px}
-.acc-trk .yr{display:flex;flex-direction:column;font-size:10.5px;font-weight:700;align-items:center;gap:1px;width:42px}
+.acc-trk .yr{display:flex;flex-direction:column;font-size:10.5px;font-weight:700;align-items:center;gap:1px;width:46px}
+.acc-trk .yr .blank{color:var(--txt-3);opacity:.4}
 .acc-trk .yr b{font-family:"Archivo";color:var(--txt-3);font-weight:700;font-size:8.5px;letter-spacing:.02em}
 .soon-badge{font-size:11px;color:var(--txt-3);border:1px dashed var(--line-3);border-radius:var(--r-sm);padding:6px 12px}
 /* coming-soon league view */
@@ -530,28 +531,29 @@ $('#sub').textContent = D.in_season
   // MLS: the in-progress season isn't a completed walk-forward fold, so add it.
   if(live.improve_pct!=null && !_yrCols.includes(D.season) && naiveMap[D.season]==null)
     naiveMap[D.season]=live.improve_pct;
-  // European seasons span two calendar years (start-year 2025 → "25-26"); MLS single.
-  const seasonLbl=y=>isTable?`${String(y).slice(2)}-${String(y+1).slice(2)}`:`${y}`;
-  const b3=v=>v==null?'—':(+v).toFixed(3);   // Brier scores to 3 decimals
-  const yrCells=(map)=>Object.keys(map).map(Number).filter(y=>y>=2022).sort((a,b)=>a-b)
-    .map(y=>`<span class="yr"><b>${String(y).slice(2)}</b><span style="color:${map[y]>=0?'var(--qualify)':'#e25f4f'}">${map[y]>0?'+':''}${map[y]}%</span></span>`).join('');
-  const track=(label,map)=>Object.keys(map).length
-    ? `<div class="acc-trk"><span class="acc-lbl">${label}</span><span class="acc-cells">${yrCells(map)}</span></div>` : '';
-  // Headline = the MOST RECENT season's figure, explicitly labeled with that season
-  // (vs market when available, else vs naive). The grid below shows the trend.
-  const hMap=Object.keys(mktMap).length?mktMap:naiveMap, hLbl=Object.keys(mktMap).length?'vs market':'vs naive';
-  const hYears=Object.keys(hMap).map(Number), hY=hYears.length?Math.max(...hYears):null;
-  const hV=hY!=null?hMap[hY]:null;
-  const headline = hV!=null
-    ? `<div class="delta" style="color:${hV>=0?'var(--qualify)':'#e25f4f'}">${hV>0?'+':''}${hV}%<small>${seasonLbl(hY)} ${hLbl}</small></div>` : '';
+  // Season label: leagues whose season spans two calendar years (isTable) are
+  // labelled "25-26" for EVERY season; MLS is single-year ("25").
+  const seasonLbl=y=>isTable?`${String(y).slice(2)}-${String(y+1).slice(2)}`:`${String(y).slice(2)}`;
+  const b3=v=>v==null?'—':(+v).toFixed(3);                      // Brier → 3 decimals
+  const pct=v=>v==null?null:`${v>0?'+':''}${(+v).toFixed(1)}%`; // percentages → nearest tenth
+  // Both rows share one column set (the naive track's years — the superset). The
+  // most recent season is just the rightmost column, same size as the rest. Years
+  // without a market comparison (e.g. all of MLS) render a blank market cell so
+  // the two rows stay column-aligned.
+  const years=Object.keys(naiveMap).map(Number).filter(y=>y>=2022).sort((a,b)=>a-b);
+  const row=(label,map)=>`<div class="acc-trk"><span class="acc-lbl">${label}</span><span class="acc-cells">`+
+    years.map(y=>{const v=pct(map[y]);
+      return `<span class="yr"><b>${seasonLbl(y)}</b>`+
+        (v==null?`<span class="blank">·</span>`
+               :`<span style="color:${map[y]>=0?'var(--qualify)':'#e25f4f'}">${v}</span>`)+`</span>`;}).join('')+
+    `</span></div>`;
   $('#acc').innerHTML=
     `<div class="acc-nums">
        <div class="acc-row"><span class="t">Model</span><span class="v">${b3(m)}</span></div>
-       ${mk!=null?`<div class="acc-row"><span class="t">Market</span><span class="v">${b3(mk)}</span></div>`:''}
+       <div class="acc-row"><span class="t">Market</span><span class="v">${b3(mk)}</span></div>
        <div class="acc-row"><span class="t">Naive</span><span class="v muted">${b3(n)}</span></div>
      </div>
-     <div class="acc-tracks">${track('vs naive',naiveMap)}${track('vs market',mktMap)}</div>
-     ${headline}`;
+     <div class="acc-tracks">${row('vs naive',naiveMap)}${row('vs market',mktMap)}</div>`;
 })();
 $('#foot').textContent='';
 
