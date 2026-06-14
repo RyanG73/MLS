@@ -145,6 +145,24 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .projc{font-family:"Archivo";font-weight:700;font-size:12.5px;text-align:center;color:var(--txt-2)}
 .heat{font-family:"Archivo";font-weight:700;font-size:11.5px;text-align:center;padding:5px 0;border-radius:5px;color:var(--txt-1)}
 .heat.z{color:var(--txt-3);font-weight:500;background:transparent!important}
+/* ── table-league outlook (European single table: Title / UCL / Relegation) ── */
+.favs.t3{grid-template-columns:repeat(3,1fr)}
+.fav.title::before{background:var(--hfa)} .fav.title .pct{color:var(--hfa)} .fav.title .sq{background:var(--hfa)}
+.fav.ucl::before{background:var(--qualify)} .fav.ucl .pct{color:var(--qualify)} .fav.ucl .sq{background:var(--qualify)}
+.fav.releg::before{background:#e25f4f} .fav.releg .pct{color:#e25f4f} .fav.releg .sq{background:#e25f4f}
+.tlad .thead,.tlad .trow{display:grid;grid-template-columns:24px minmax(0,1fr) 34px 46px 42px 48px 46px 48px;align-items:center;gap:5px;padding:8px var(--s3)}
+.tlad .thead{font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt-3);border-bottom:1px solid var(--line)}
+.tlad .thead .c{text-align:center;line-height:1.1}
+.tlad .trow{border-bottom:1px solid var(--line);position:relative;transition:background .12s}
+.tlad .trow:last-child{border-bottom:none}
+.tlad .trow:hover{background:var(--ink-2)}
+.tlad .trow.ucl{box-shadow:inset 3px 0 0 var(--qualify)}
+.tlad .trow.rz{box-shadow:inset 3px 0 0 #e25f4f}
+.ucl-line,.rz-line{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;padding:3px var(--s4);font-weight:600}
+.ucl-line{color:var(--qualify);border-top:1px dashed rgba(52,211,154,.4)}
+.rz-line{color:#e25f4f;border-top:1px dashed rgba(226,95,79,.4)}
+@media(max-width:620px){.tlad .thead .c-elo,.tlad .trow .eloc{display:none}
+  .tlad .thead,.tlad .trow{grid-template-columns:22px minmax(0,1fr) 30px 44px 46px 44px 46px;gap:4px}}
 /* playoff cut line (1–9 in, glowing) + wild-card divider (after 7) */
 .po-line,.wc-line{position:relative;height:0}
 .po-line .lab,.wc-line .lab{position:absolute;left:var(--s3);top:-8px;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;background:var(--ink-1);padding:0 6px}
@@ -430,6 +448,9 @@ document.write('<scr'+'ipt src="data/'+LID+'.js"></scr'+'ipt>');
 </script>
 <script>
 const D = window.LEAGUE_DATA, $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+// Outlook mode: 'table' = single-table league (European promotion/relegation);
+// otherwise the MLS conference + playoff + cup view. Set by the build's outlook block.
+const isTable = (D.outlook||{}).mode === 'table';
 // ── Sidebar: leagues grouped by confederation ──
 (()=>{
   const wrap=$('#sbLeagues'), groups={};
@@ -496,8 +517,11 @@ $('#sub').textContent = D.in_season
   const byYr={}; py.forEach(p=>byYr[p.year]=p.improve_pct);
   // year-by-year vs naive: 2022..2025, current season, and a 3-yr avg through 2025
   const cells=[];
-  [2022,2023,2024,2025].forEach(y=>{ if(byYr[y]!=null)cells.push([String(y).slice(2),byYr[y]]); });
-  if(live.improve_pct!=null)cells.push([String(D.season).slice(2),live.improve_pct]);
+  const _yrCols=[2022,2023,2024,2025];
+  _yrCols.forEach(y=>{ if(byYr[y]!=null)cells.push([String(y).slice(2),byYr[y]]); });
+  // live cell = the in-progress season; skip it when that season is already a
+  // walk-forward column (European complete seasons: in-season == latest fold).
+  if(live.improve_pct!=null && !_yrCols.includes(D.season))cells.push([String(D.season).slice(2),live.improve_pct]);
   const a3=[2023,2024,2025].map(y=>byYr[y]).filter(v=>v!=null);
   if(a3.length)cells.push(['3y avg',+(a3.reduce((s,v)=>s+v,0)/a3.length).toFixed(2)]);
   const yrCells=cells.map(([lab,v])=>`<span class="yr"><b>${lab}</b><span style="color:${v>=0?'var(--qualify)':'#e25f4f'}">${v>0?'+':''}${v}%</span></span>`).join('');
@@ -680,7 +704,44 @@ function renderOutlook(){
   renderFavs();
   const l=$('#ladders');l.innerHTML='';l.append(ladder('East'),ladder('West'));
 }
-renderOutlook();
+/* ── table-league outlook: config-driven favorite cards + single ladder ── */
+function tFavCard(card,t){
+  return `<div class="fav ${card.key}"><div class="lab"><span class="sq"></span>${card.label}</div>
+  <div class="teamrow">${crest(t.team,t.logo)}<div class="ftxt"><div class="team">${t.team}</div></div></div>
+  <div class="favstats"><span class="pct">${fmt(t[card.key])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts · <b>${t.proj_rank}</b> avg pos</span></div></div>`;
+}
+function tableLadder(){
+  const ol=D.outlook, teams=[...D.standings].sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
+  const mx={title:Math.max(...teams.map(s=>s.title),1),ucl:Math.max(...teams.map(s=>s.ucl),1),releg:Math.max(...teams.map(s=>s.releg),1)};
+  const RGBt={title:[246,181,63],ucl:[52,211,154],releg:[226,95,79]};
+  const hc=(v,k)=>v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGBt[k],mx[k])}">${v.toFixed(0)}</span>`;
+  const box=el('div','ladder tlad');
+  box.appendChild(el('div','ladder-h',`<span class="name">${ol.n_teams}-team table</span>`));
+  box.appendChild(el('div','thead',
+    `<span>#</span><span>Club</span><span class="c">Pts</span><span class="c c-proj">Proj</span>`+
+    `<span class="c c-elo">ELO</span><span class="c">Title</span><span class="c">UCL</span><span class="c">Releg</span>`));
+  teams.forEach((t,i)=>{
+    const rank=i+1, ucl=rank<=ol.ucl_slots, rz=rank>teams.length-ol.releg_slots;
+    const r=el('div','trow'+(ucl?' ucl':rz?' rz':''));
+    const sub=`${t.gp} GP · ${sgn(t.gd)} GD · ${sgnf(t.xgd)} xGD`;
+    r.innerHTML=`<span class="rank">${rank}</span>`+
+      `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname tlink" data-team="${t.team}">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
+      `<span class="pts">${t.pts}</span><span class="projc">${t.proj_pts}</span><span class="eloc">${t.elo}</span>`+
+      hc(t.title,'title')+hc(t.ucl,'ucl')+hc(t.releg,'releg');
+    box.appendChild(r);
+    if(rank===ol.ucl_slots) box.appendChild(el('div','ucl-line',`Champions League places (top ${ol.ucl_slots})`));
+    if(rank===teams.length-ol.releg_slots) box.appendChild(el('div','rz-line',`Relegation zone (bottom ${ol.releg_slots})`));
+  });
+  return box;
+}
+function renderTableOutlook(){
+  const ol=D.outlook, all=D.standings;
+  $('#favs').className='favs t3';
+  $('#favs').innerHTML=ol.cards.map(card=>tFavCard(card,[...all].sort((a,b)=>b[card.key]-a[card.key])[0])).join('');
+  $('#laddernote').textContent=`${ol.n_teams}-team single table · top ${ol.ucl_slots} → Champions League · bottom ${ol.releg_slots} relegated`;
+  const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='1fr';l.append(tableLadder());
+}
+(isTable?renderTableOutlook:renderOutlook)();
 $('#ladders').addEventListener('click',e=>{
   const tl=e.target.closest('.tlink');if(tl){openTeam(tl.dataset.team);return;}
   const b=e.target.closest('.wbox');if(!b)return;
@@ -695,7 +756,7 @@ $('#ladders').addEventListener('click',e=>{
   renderOutlook();
   scheduleSim();
 });
-$('#wreset').onclick=()=>{forced={};simVals=null;$('#wbanner').classList.remove('on');renderOutlook();};
+$('#wreset').onclick=()=>{forced={};simVals=null;$('#wbanner').classList.remove('on');(isTable?renderTableOutlook:renderOutlook)();};
 
 /* model health tab — card-based, digestible model dimensions */
 function renderHealth(){
