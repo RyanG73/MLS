@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))  # repo root on sys.path
 from data_pipeline.understat import BIG5, canonical_frame, espn_name
 from models.research_model import (
     bag_proba, blend, calibrate_temperature, dc_predict_batch, fit_capped_blend,
-    fit_dc, fit_xgb, walk_forward,
+    fit_dc, fit_xgb,
 )
 import models.research_model as rm
 from scripts.eval.elo import compute_elo
@@ -312,30 +312,57 @@ def main():
     games += upcoming_cards
     games.sort(key=lambda g: g["date"])
 
-    # ── Per-year model vs naive (walk-forward, n_bags=1 for build speed) ──────
+    # ── Per-year model vs naive vs market (walk-forward predictions + bookmaker odds) ──
+    # Per-match model probs let us score the model, the base-rate naive, AND the
+    # betting market on the SAME matched matches per season — a fair "are we beating
+    # the bookies?" read. Market odds from football-data.co.uk (Pinnacle/market-avg).
+    from models.research_model import walk_forward_predictions
+    from data_pipeline.football_data import DIV as _FD_DIV, attach_market
     perf_by_year = []
     try:
         _pyears = [y for y in (2017, 2019, 2021, 2022, 2023, 2024, 2025) if y in set(df["season"])]
-        _wf = walk_forward(df, feat, _pyears, n_bags=1)
+        _preds, _ = walk_forward_predictions(df, feat, _pyears, n_bags=1)
+        if lid in _FD_DIV and not _preds.empty:
+            _preds = attach_market(_preds, lid, _pyears)
+        _has_mkt = "mkt_home" in _preds.columns
         for _y in _pyears:
-            _mb = _wf["per_season"].get(str(_y))
-            _tr = df[df["season"] < _y - 1].dropna(subset=["label_result"])
-            _te = df[df["season"] == _y].dropna(subset=["label_result"])
-            if _mb is None or _tr.empty or _te.empty:
+            _g = _preds[_preds["season"] == _y]
+            if _g.empty:
                 continue
-            _fq = np.bincount(_tr["label_result"].values.astype(int), minlength=3) / len(_tr)
-            _yo = np.eye(3)[_te["label_result"].values.astype(int)]
-            _nb = float(np.mean(np.sum((np.tile(_fq, (len(_te), 1)) - _yo) ** 2, axis=1)))
-            perf_by_year.append({"year": _y, "model": round(_mb, 4), "naive": round(_nb, 4),
-                                 "improve_pct": round((_nb - _mb) / _nb * 100, 2)})
-        print(f"[{lid}] perf by year: {[(p['year'], p['model']) for p in perf_by_year]}")
+            _yoh = np.eye(3)[_g["label_result"].values.astype(int)]
+            _model_b = float(np.mean(np.sum(
+                (_g[["prob_home", "prob_draw", "prob_away"]].values - _yoh) ** 2, axis=1)))
+            _tr = df[df["season"] < _y - 1].dropna(subset=["label_result"])
+            _fq = np.bincount(_tr["label_result"].values.astype(int), minlength=3) / max(len(_tr), 1)
+            _nb = float(np.mean(np.sum((np.tile(_fq, (len(_g), 1)) - _yoh) ** 2, axis=1)))
+            _rec = {"year": _y, "model": round(_model_b, 4), "naive": round(_nb, 4),
+                    "improve_pct": round((_nb - _model_b) / _nb * 100, 2)}
+            if _has_mkt and int(_g["mkt_home"].notna().sum()) >= 20:
+                _gm = _g[_g["mkt_home"].notna()]
+                _ym = np.eye(3)[_gm["label_result"].values.astype(int)]
+                _mkt_b = float(np.mean(np.sum(
+                    (_gm[["mkt_home", "mkt_draw", "mkt_away"]].values - _ym) ** 2, axis=1)))
+                _mm = float(np.mean(np.sum(  # model on the SAME matched matches (fair)
+                    (_gm[["prob_home", "prob_draw", "prob_away"]].values - _ym) ** 2, axis=1)))
+                _rec["market"] = round(_mkt_b, 4)
+                _rec["edge_pct"] = round((_mkt_b - _mm) / _mkt_b * 100, 2)  # +ve = model beats market
+            perf_by_year.append(_rec)
+        print(f"[{lid}] perf by year: {[(p['year'], p['model'], p.get('market')) for p in perf_by_year]}")
     except Exception as _e:
+        import traceback
+        traceback.print_exc()
         print(f"[{lid}] perf_by_year failed: {_e}")
 
     # Headline league Brier = mean of the recent (2022+) walk-forward folds.
     _recent = [p for p in perf_by_year if p["year"] >= 2022]
     league_brier = round(float(np.mean([p["model"] for p in _recent])), 4) if _recent else None
     league_naive = round(float(np.mean([p["naive"] for p in _recent])), 4) if _recent else None
+    _recent_mkt = [p for p in _recent if p.get("market") is not None]
+    league_market = round(float(np.mean([p["market"] for p in _recent_mkt])), 4) if _recent_mkt else None
+    if _recent_mkt:
+        market_brier = {"status": "ok", "market": league_market, "model": league_brier,
+                        "edge_pct": round(float(np.mean([p["edge_pct"] for p in _recent_mkt])), 2),
+                        "n_years": len(_recent_mkt), "source": "football-data.co.uk (Pinnacle/avg)"}
 
     # ── Model-health block: league-agnostic feature families ──────────────────
     _FAMS = {"ELO": [c for c in feat if "elo" in c],
@@ -389,9 +416,10 @@ def main():
         "trophies": {},   # European trophy data is a future enhancement
         "health": health,
         "model_card": model_card,
-        "model": {"best_brier": league_brier, "naive": league_naive,
+        "model": {"best_brier": league_brier, "naive": league_naive, "market": league_market,
                   "improve_pct": round((league_naive - league_brier) / league_naive * 100, 2)
                   if league_brier and league_naive else None,
+                  "edge_pct": market_brier.get("edge_pct") if market_brier.get("status") == "ok" else None,
                   "cal_err": None, "name": "research_model", "metric": "brier_sum_form"},
         "n_sims": N,
         "standings": standings, "games": games,

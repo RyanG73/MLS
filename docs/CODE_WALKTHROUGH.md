@@ -638,8 +638,22 @@ multi-league work is entirely data-adapter + feature-composition + webapp genera
 
 5. **Webapp — `webapp/index.html`.** `isTable = (D.outlook||{}).mode==='table'` switches League
    Projections to `renderTableOutlook()` (favorite cards from `outlook.cards` + a single `.tlad` ladder
-   with UCL/relegation cut-lines). All other tabs (Match Projections, Teams, Health) are already
-   league-agnostic. MLS keeps the conference + playoff + cup view.
+   with UCL/relegation cut-lines) and the what-if engine to `runSimTable()` (single-table resim — Title/
+   UCL/Relegation; Next-5 force cells render only when the league has upcoming fixtures, so it is inert
+   until 2026-27). All other tabs (Match Projections, Teams, Health) are already league-agnostic. MLS
+   keeps the conference + playoff + cup view.
+
+### Market comparison (`data_pipeline/football_data.py`, Phase 2)
+
+European leagues carry a **betting-market benchmark** alongside naive. `football_data.py` fetches
+football-data.co.uk historical 1X2 odds (Pinnacle → market-avg → Bet365 fallback), de-vigs to implied
+[H,D,A], and merges to the canonical frame on **(season, home_team, away_team)** — unique in a double
+round-robin, so no date matching. `build_league_data.py` runs `walk_forward_predictions` (per-match
+probs) and scores **model / naive / market** Brier on the *same matched matches* per season, emitting
+`perf_by_year[].edge_pct` (`+` = model beats market) and a `market_brier` block. The webapp accuracy
+card renders two consistent tracks (vs naive, vs market). Result: the market scores ~0.57 vs the model's
+~0.59 — the model trails Pinnacle by ~2%, strong for a market-blind model. MLS is not on football-data;
+it keeps the forward-logging opening-odds path (`odds_log.py`).
 
 ### Adding / rebuilding a European league
 

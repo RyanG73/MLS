@@ -76,9 +76,12 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .acc-row{display:flex;align-items:baseline;gap:10px;font-size:11px}
 .acc-row .t{color:var(--txt-3);font-weight:600;width:42px}
 .acc-row .v{font-family:"Archivo";font-weight:700;color:var(--txt-1)} .acc-row .v.muted{color:var(--txt-3);font-weight:600}
-.acc-years{display:flex;gap:10px;border-left:1px solid var(--line-2);padding-left:var(--s3)}
-.acc-years .yr{display:flex;flex-direction:column;font-size:10.5px;font-weight:700;align-items:center;gap:2px}
-.acc-years .yr b{font-family:"Archivo";color:var(--txt-3);font-weight:700;font-size:9px;letter-spacing:.02em}
+.acc-tracks{display:flex;flex-direction:column;gap:5px;border-left:1px solid var(--line-2);padding-left:var(--s3)}
+.acc-trk{display:flex;align-items:center;gap:9px}
+.acc-trk .acc-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--txt-3);width:46px;text-align:right;flex-shrink:0}
+.acc-trk .acc-cells{display:flex;gap:9px}
+.acc-trk .yr{display:flex;flex-direction:column;font-size:10.5px;font-weight:700;align-items:center;gap:1px}
+.acc-trk .yr b{font-family:"Archivo";color:var(--txt-3);font-weight:700;font-size:8.5px;letter-spacing:.02em}
 .soon-badge{font-size:11px;color:var(--txt-3);border:1px dashed var(--line-3);border-radius:var(--r-sm);padding:6px 12px}
 /* coming-soon league view */
 .soon-view{margin-top:var(--s4)}
@@ -163,6 +166,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .rz-line{color:#e25f4f;border-top:1px dashed rgba(226,95,79,.4)}
 @media(max-width:620px){.tlad .thead .c-elo,.tlad .trow .eloc{display:none}
   .tlad .thead,.tlad .trow{grid-template-columns:22px minmax(0,1fr) 30px 44px 46px 44px 46px;gap:4px}}
+/* wider table grid when there are upcoming fixtures (what-if Next-5 column) */
+.tlad-w .thead,.tlad-w .trow{grid-template-columns:24px minmax(0,1fr) 32px 42px 38px 44px 42px 44px 86px}
+@media(max-width:620px){.tlad-w .thead .c-w5,.tlad-w .trow .wgroup,.tlad-w .thead .c-elo,.tlad-w .trow .eloc{display:none}
+  .tlad-w .thead,.tlad-w .trow{grid-template-columns:22px minmax(0,1fr) 30px 42px 44px 42px 44px}}
 /* playoff cut line (1–9 in, glowing) + wild-card divider (after 7) */
 .po-line,.wc-line{position:relative;height:0}
 .po-line .lab,.wc-line .lab{position:absolute;left:var(--s3);top:-8px;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;background:var(--ink-1);padding:0 6px}
@@ -512,31 +519,47 @@ const _pct=(D.league||{}).pct_complete;
 $('#sub').textContent = D.in_season
   ? `${D.season} season is ${_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
   : `${D.season} season projection`;
-(()=>{const m=D.model.best_brier,n=D.model.naive, live=D.in_season_brier||{}, mkt=D.market_brier||{};
+(()=>{const m=D.model.best_brier, n=D.model.naive, mk=D.model.market??(D.market_brier||{}).market;
+  const live=D.in_season_brier||{}, mkt=D.market_brier||{};
   const py=(D.perf_by_year||[]);
-  const byYr={}; py.forEach(p=>byYr[p.year]=p.improve_pct);
-  // year-by-year vs naive: 2022..2025, current season, and a 3-yr avg through 2025
-  const cells=[];
   const _yrCols=[2022,2023,2024,2025];
-  _yrCols.forEach(y=>{ if(byYr[y]!=null)cells.push([String(y).slice(2),byYr[y]]); });
-  // live cell = the in-progress season; skip it when that season is already a
-  // walk-forward column (European complete seasons: in-season == latest fold).
-  if(live.improve_pct!=null && !_yrCols.includes(D.season))cells.push([String(D.season).slice(2),live.improve_pct]);
-  const a3=[2023,2024,2025].map(y=>byYr[y]).filter(v=>v!=null);
-  if(a3.length)cells.push(['3y avg',+(a3.reduce((s,v)=>s+v,0)/a3.length).toFixed(2)]);
-  const yrCells=cells.map(([lab,v])=>`<span class="yr"><b>${lab}</b><span style="color:${v>=0?'var(--qualify)':'#e25f4f'}">${v>0?'+':''}${v}%</span></span>`).join('');
-  const primary = mkt.status==='ok'
-    ? `<div class="delta" style="color:${mkt.edge_pct>0?'var(--qualify)':'#e25f4f'}">${mkt.edge_pct>0?'+':''}${mkt.edge_pct}%<small>edge vs market</small></div>`
-    : `<div class="delta">+${D.model.improve_pct}%<small>vs naive</small></div>`;
+  // Two consistent tracks: per-year model-vs-naive and per-year model-vs-market.
+  // Each is its own baseline — no more mixing the champion-vs-uniform headline
+  // with the per-season base-rate grid (that was the confusing mismatch).
+  const naiveMap={}, mktMap={};
+  py.forEach(p=>{ if(p.improve_pct!=null)naiveMap[p.year]=p.improve_pct;
+                  if(p.edge_pct!=null)mktMap[p.year]=p.edge_pct; });
+  // MLS: the in-progress season isn't a completed walk-forward fold, so add it.
+  if(live.improve_pct!=null && !_yrCols.includes(D.season) && naiveMap[D.season]==null)
+    naiveMap[D.season]=live.improve_pct;
+  const yrCells=(map)=>{
+    const yrs=Object.keys(map).map(Number).filter(y=>y>=2022).sort((a,b)=>a-b);
+    const cells=yrs.map(y=>[String(y).slice(2),map[y]]);
+    const a3=[2023,2024,2025].map(y=>map[y]).filter(v=>v!=null);
+    if(a3.length>1)cells.push(['3y',+(a3.reduce((s,v)=>s+v,0)/a3.length).toFixed(2)]);
+    return cells.map(([lab,v])=>`<span class="yr"><b>${lab}</b><span style="color:${v>=0?'var(--qualify)':'#e25f4f'}">${v>0?'+':''}${v}%</span></span>`).join('');
+  };
+  const track=(label,map)=>Object.keys(map).length
+    ? `<div class="acc-trk"><span class="acc-lbl">${label}</span><span class="acc-cells">${yrCells(map)}</span></div>` : '';
+  // Headline = the average of the track it sits above (recent years), so the big
+  // number always reconciles with the grid. Prefer the betting-relevant vs-market
+  // edge when present; else the vs-naive improvement. (This retires the old
+  // champion-vs-uniform "+1.19%" that mismatched the per-season base-rate grid.)
+  const overall=map=>{const v=Object.keys(map).map(Number).filter(y=>y>=2022).map(y=>map[y]);
+    return v.length?+(v.reduce((s,x)=>s+x,0)/v.length).toFixed(2):null;};
+  const oMkt=overall(mktMap), oNaive=overall(naiveMap);
+  const headline = (oMkt!=null)
+    ? `<div class="delta" style="color:${oMkt>=0?'var(--qualify)':'#e25f4f'}">${oMkt>0?'+':''}${oMkt}%<small>vs market</small></div>`
+    : (oNaive!=null
+      ? `<div class="delta" style="color:${oNaive>=0?'var(--qualify)':'#e25f4f'}">${oNaive>0?'+':''}${oNaive}%<small>vs naive</small></div>` : '');
   $('#acc').innerHTML=
     `<div class="acc-nums">
        <div class="acc-row"><span class="t">Model</span><span class="v">${m}</span></div>
-       ${mkt.status==='ok'?`<div class="acc-row"><span class="t">Market</span><span class="v">${mkt.market.toFixed(4)}</span></div>`:''}
+       ${mk!=null?`<div class="acc-row"><span class="t">Market</span><span class="v">${(+mk).toFixed(4)}</span></div>`:''}
        <div class="acc-row"><span class="t">Naive</span><span class="v muted">${n}</span></div>
-       ${live.model?`<div class="acc-row"><span class="t">${D.season}</span><span class="v">${live.model.toFixed(4)}</span></div>`:''}
      </div>
-     ${yrCells?`<div class="acc-years">${yrCells}</div>`:''}
-     ${primary}`;
+     <div class="acc-tracks">${track('vs naive',naiveMap)}${track('vs market',mktMap)}</div>
+     ${headline}`;
 })();
 $('#foot').textContent='';
 
@@ -632,10 +655,10 @@ const vals=t=>simVals?Object.assign({},t,simVals[t.team]):t;
 let simTimer=null;
 function scheduleSim(){clearTimeout(simTimer);simTimer=setTimeout(()=>{
   const n=Object.keys(forced).length;
-  if(n===0){simVals=null;}else{simVals=runSim(10000);}
+  if(n===0){simVals=null;}else{simVals=(isTable?runSimTable:runSim)(10000);}
   $('#wbanner').classList.toggle('on',n>0);
   $('#wcount').textContent=n?`· ${n} result${n>1?'s':''} forced`:'';
-  renderOutlook();},150);}
+  (isTable?renderTableOutlook:renderOutlook)();},150);}
 
 /* favorites — four title races: Shield · Eastern Conf · Western Conf · Spoon */
 const favCard=(cls,lab,t,k)=>`<div class="fav ${cls}"><div class="lab"><span class="sq"></span>${lab}</div>
@@ -710,16 +733,51 @@ function tFavCard(card,t){
   <div class="teamrow">${crest(t.team,t.logo)}<div class="ftxt"><div class="team">${t.team}</div></div></div>
   <div class="favstats"><span class="pct">${fmt(t[card.key])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts · <b>${t.proj_rank}</b> avg pos</span></div></div>`;
 }
+// Single-table what-if Monte-Carlo (the table analog of MLS runSim): start from
+// current points, apply forced results, sample remaining via the pmatrix, rank
+// the one table → Title / Top-N (UCL) / bottom-M (relegation) frequencies.
+function runSimTable(N=10000){
+  const ol=D.outlook, uclN=ol.ucl_slots, relN=ol.releg_slots;
+  const acc={};SIM.teams.forEach(t=>acc[t]={proj:0,rank:0,title:0,ucl:0,releg:0});
+  const fixedPts=new Float64Array(NT),free=[];
+  for(let id=0;id<NF;id++){const f=forced[id];
+    if(f==='H')fixedPts[FH[id]]+=3;
+    else if(f==='D'){fixedPts[FH[id]]+=1;fixedPts[FA[id]]+=1;}
+    else if(f==='A')fixedPts[FA[id]]+=3;
+    else free.push(id);}
+  const pts=new Float64Array(NT),key=new Float64Array(NT),order=[...Array(NT).keys()];
+  for(let s=0;s<N;s++){
+    pts.set(basePts);for(let i=0;i<NT;i++)pts[i]+=fixedPts[i];
+    for(const id of free){const u=Math.random();
+      if(u<FPH[id])pts[FH[id]]+=3;
+      else if(u<FPHD[id]){pts[FH[id]]+=1;pts[FA[id]]+=1;}
+      else pts[FA[id]]+=3;}
+    for(let i=0;i<NT;i++)key[i]=pts[i]*10000+baseGd[i]*10+Math.random()*10;
+    order.sort((a,b)=>key[b]-key[a]);
+    acc[SIM.teams[order[0]]].title++;
+    for(let k=0;k<uclN;k++)acc[SIM.teams[order[k]]].ucl++;
+    for(let k=NT-relN;k<NT;k++)acc[SIM.teams[order[k]]].releg++;
+    for(let r=0;r<NT;r++)acc[SIM.teams[order[r]]].rank+=r+1;
+    for(let i=0;i<NT;i++)acc[SIM.teams[i]].proj+=pts[i];
+  }
+  const out={};
+  for(const t of SIM.teams){const a=acc[t];out[t]={proj_pts:+(a.proj/N).toFixed(1),
+    proj_rank:+(a.rank/N).toFixed(1),title:+(a.title/N*100).toFixed(1),
+    ucl:+(a.ucl/N*100).toFixed(1),releg:+(a.releg/N*100).toFixed(1)};}
+  return out;
+}
 function tableLadder(){
-  const ol=D.outlook, teams=[...D.standings].sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
+  const ol=D.outlook, hasUp=NF>0;
+  const teams=D.standings.map(vals).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
   const mx={title:Math.max(...teams.map(s=>s.title),1),ucl:Math.max(...teams.map(s=>s.ucl),1),releg:Math.max(...teams.map(s=>s.releg),1)};
   const RGBt={title:[246,181,63],ucl:[52,211,154],releg:[226,95,79]};
   const hc=(v,k)=>v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGBt[k],mx[k])}">${v.toFixed(0)}</span>`;
-  const box=el('div','ladder tlad');
+  const box=el('div','ladder tlad'+(hasUp?' tlad-w':''));
   box.appendChild(el('div','ladder-h',`<span class="name">${ol.n_teams}-team table</span>`));
   box.appendChild(el('div','thead',
     `<span>#</span><span>Club</span><span class="c">Pts</span><span class="c c-proj">Proj</span>`+
-    `<span class="c c-elo">ELO</span><span class="c">Title</span><span class="c">UCL</span><span class="c">Releg</span>`));
+    `<span class="c c-elo">ELO</span><span class="c">Title</span><span class="c">UCL</span><span class="c">Releg</span>`+
+    (hasUp?`<span class="c c-w5">Next 5</span>`:'')));
   teams.forEach((t,i)=>{
     const rank=i+1, ucl=rank<=ol.ucl_slots, rz=rank>teams.length-ol.releg_slots;
     const r=el('div','trow'+(ucl?' ucl':rz?' rz':''));
@@ -727,7 +785,8 @@ function tableLadder(){
     r.innerHTML=`<span class="rank">${rank}</span>`+
       `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname tlink" data-team="${t.team}">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
       `<span class="pts">${t.pts}</span><span class="projc">${t.proj_pts}</span><span class="eloc">${t.elo}</span>`+
-      hc(t.title,'title')+hc(t.ucl,'ucl')+hc(t.releg,'releg');
+      hc(t.title,'title')+hc(t.ucl,'ucl')+hc(t.releg,'releg')+
+      (hasUp?whatifCell(t.team):'');
     box.appendChild(r);
     if(rank===ol.ucl_slots) box.appendChild(el('div','ucl-line',`Champions League places (top ${ol.ucl_slots})`));
     if(rank===teams.length-ol.releg_slots) box.appendChild(el('div','rz-line',`Relegation zone (bottom ${ol.releg_slots})`));
@@ -735,10 +794,11 @@ function tableLadder(){
   return box;
 }
 function renderTableOutlook(){
-  const ol=D.outlook, all=D.standings;
+  const ol=D.outlook, all=D.standings.map(vals);
   $('#favs').className='favs t3';
   $('#favs').innerHTML=ol.cards.map(card=>tFavCard(card,[...all].sort((a,b)=>b[card.key]-a[card.key])[0])).join('');
-  $('#laddernote').textContent=`${ol.n_teams}-team single table · top ${ol.ucl_slots} → Champions League · bottom ${ol.releg_slots} relegated`;
+  $('#laddernote').textContent=`${ol.n_teams}-team single table · top ${ol.ucl_slots} → Champions League · bottom ${ol.releg_slots} relegated`
+    +(NF>0?` · click the Next-5 boxes to force results and resimulate`:'');
   const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='1fr';l.append(tableLadder());
 }
 (isTable?renderTableOutlook:renderOutlook)();
@@ -753,7 +813,7 @@ $('#ladders').addEventListener('click',e=>{
   if(nextPOV==null)delete forced[gid];
   else forced[gid]=nextPOV==='D'?'D':((nextPOV==='W')===homePOV?'H':'A');
   // immediate visual feedback on the clicked row before the debounced sim
-  renderOutlook();
+  (isTable?renderTableOutlook:renderOutlook)();
   scheduleSim();
 });
 $('#wreset').onclick=()=>{forced={};simVals=null;$('#wbanner').classList.remove('on');(isTable?renderTableOutlook:renderOutlook)();};

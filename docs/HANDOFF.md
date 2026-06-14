@@ -26,6 +26,15 @@ New components: `data_pipeline/understat.py` (per-match xG adapter, 2014+), `scr
 (single-table dashboard builder: Title / Top-4 UCL / Relegation). The webapp branches on `outlook.mode`.
 See `docs/CODE_WALKTHROUGH.md` §11 for the full flow. The European 2025-26 seasons are complete, so the
 leagues launch as finished final tables; live projections resume when 2026-27 starts (Aug 2026).
+
+**Phase 2 (same day):** added a real **betting-market benchmark** for the European leagues
+(`data_pipeline/football_data.py`, football-data.co.uk Pinnacle/market odds) — the accuracy card now
+shows two consistent tracks (model vs naive, model vs market) with a headline that averages the row
+beneath it (the old champion-vs-uniform "+1.19%" that didn't reconcile is retired). The model trails
+Pinnacle by ~2% Brier — strong for a market-blind model. Also: `scripts/build_all.sh` (seasonal rebuild
+of all live leagues), a single-table what-if simulator (`runSimTable`, inert until 2026-27), and a
+Phase-3 feasibility verdict (Liga MX viable via FBref; lower divisions need a goals-only variant).
+
 Everything below this note is the MLS-specific model history and remains current for the MLS league.
 
 ---
