@@ -6,6 +6,7 @@ data/*.csv
 data/*.rds
 data/raw/
 data/eval_cache/
+data/understat/
 logs/
 
 # Multi-agent experiment runner
