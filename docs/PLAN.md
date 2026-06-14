@@ -1,5 +1,35 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Big-5 European model program (2026-06-14) — first non-MLS leagues**
+> User decisions: build the **5 big European leagues in parallel** (EPL, La Liga, Serie A, Bundesliga,
+> Ligue 1), **Tier-1 scope** (league-table leagues with xG), **Understat first** (FBref leagues later).
+>
+> **Feasibility (verified 2026-06-14):** `understatapi` fetches per-match xG for all big-5 back to **2014**
+> (more history than MLS's 2017+); ASA covers MLS only; direct Understat scraping is walled but the library's
+> fetch path works. Model architecture (ELO + Dixon-Coles + bagged XGBoost on rolling xG/form) is
+> league-agnostic below the data-fetch layer (DataFrame-in), so the work is data-adapter + per-league
+> validation + webapp generalization for league-table semantics (promotion/relegation, no conferences/playoffs).
+>
+> **Work streams / phasing:**
+> 1. **Understat data adapter** (`data_pipeline/understat.py`): per-league fetch → canonical match frame
+>    (match_id, date, season, home/away_team, home/away_goals, home/away_xg) matching the ASA schema; cache;
+>    team-name → ESPN-name map for logos.
+> 2. **Per-league model validation:** parameterize the harness/research_model to load a league's frame; run
+>    walk-forward + promotion gate per league (start from the MLS champion config; tune if needed). European
+>    COVID note: 2019-20 + 2020-21 were played to completion (no MLS-style bubble) but behind closed doors —
+>    keep in training, flag the home-advantage dip. No conferences; single table.
+> 3. **Dashboard build generalization:** `build_dashboard_data.py` takes a league + source → `webapp/data/
+>    <id>.js` with the generic payload but league-appropriate outlook (Title / Top-4 UCL / Relegation, no
+>    playoff bracket; season sim = simulate remaining fixtures → final table odds). Per-league trophies.
+> 4. **Webapp generalization:** config-driven outlook boxes + table semantics (relegation zone vs playoff
+>    line) from a per-league `outlook` block; what-if sim generalized to table outcomes. Teams/History/Health
+>    already league-agnostic.
+> 5. Flip the 5 leagues `soon`→`live`; verify each in-browser.
+>
+> **Deferred (Phase 2+):** FBref leagues (Championship, 2.Bundesliga, Serie B, Ligue 2, Liga MX); goals-only
+> lower divisions (League One/Two, Canadian PL); cup competitions (UCL/Europa/Conference/Concacaf/Leagues Cup
+> — cross-league knockout models, a separate effort). Champion 0.6330 MLS model untouched.
+
 > **Multi-league platform (2026-06-12) — MLS becomes one league behind a left sidebar**
 > Pivot from single-league dashboard to a multi-league platform template (MLS live; ~18 Concacaf/UEFA
 > leagues scaffolded, models not built). Webapp + data-plumbing only — model/champion (0.6330) untouched.
