@@ -79,8 +79,8 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .acc-tracks{display:flex;flex-direction:column;gap:5px;border-left:1px solid var(--line-2);padding-left:var(--s3)}
 .acc-trk{display:flex;align-items:center;gap:9px}
 .acc-trk .acc-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--txt-3);width:46px;text-align:right;flex-shrink:0}
-.acc-trk .acc-cells{display:flex;gap:9px}
-.acc-trk .yr{display:flex;flex-direction:column;font-size:10.5px;font-weight:700;align-items:center;gap:1px}
+.acc-trk .acc-cells{display:flex;gap:7px}
+.acc-trk .yr{display:flex;flex-direction:column;font-size:10.5px;font-weight:700;align-items:center;gap:1px;width:42px}
 .acc-trk .yr b{font-family:"Archivo";color:var(--txt-3);font-weight:700;font-size:8.5px;letter-spacing:.02em}
 .soon-badge{font-size:11px;color:var(--txt-3);border:1px dashed var(--line-3);border-radius:var(--r-sm);padding:6px 12px}
 /* coming-soon league view */
@@ -520,43 +520,35 @@ $('#sub').textContent = D.in_season
   ? `${D.season} season is ${_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
   : `${D.season} season projection`;
 (()=>{const m=D.model.best_brier, n=D.model.naive, mk=D.model.market??(D.market_brier||{}).market;
-  const live=D.in_season_brier||{}, mkt=D.market_brier||{};
+  const live=D.in_season_brier||{};
   const py=(D.perf_by_year||[]);
   const _yrCols=[2022,2023,2024,2025];
-  // Two consistent tracks: per-year model-vs-naive and per-year model-vs-market.
-  // Each is its own baseline — no more mixing the champion-vs-uniform headline
-  // with the per-season base-rate grid (that was the confusing mismatch).
+  // Two consistent tracks: per-season model-vs-naive and model-vs-market.
   const naiveMap={}, mktMap={};
   py.forEach(p=>{ if(p.improve_pct!=null)naiveMap[p.year]=p.improve_pct;
                   if(p.edge_pct!=null)mktMap[p.year]=p.edge_pct; });
   // MLS: the in-progress season isn't a completed walk-forward fold, so add it.
   if(live.improve_pct!=null && !_yrCols.includes(D.season) && naiveMap[D.season]==null)
     naiveMap[D.season]=live.improve_pct;
-  const yrCells=(map)=>{
-    const yrs=Object.keys(map).map(Number).filter(y=>y>=2022).sort((a,b)=>a-b);
-    const cells=yrs.map(y=>[String(y).slice(2),map[y]]);
-    const a3=[2023,2024,2025].map(y=>map[y]).filter(v=>v!=null);
-    if(a3.length>1)cells.push(['3y',+(a3.reduce((s,v)=>s+v,0)/a3.length).toFixed(2)]);
-    return cells.map(([lab,v])=>`<span class="yr"><b>${lab}</b><span style="color:${v>=0?'var(--qualify)':'#e25f4f'}">${v>0?'+':''}${v}%</span></span>`).join('');
-  };
+  // European seasons span two calendar years (start-year 2025 → "25-26"); MLS single.
+  const seasonLbl=y=>isTable?`${String(y).slice(2)}-${String(y+1).slice(2)}`:`${y}`;
+  const b3=v=>v==null?'—':(+v).toFixed(3);   // Brier scores to 3 decimals
+  const yrCells=(map)=>Object.keys(map).map(Number).filter(y=>y>=2022).sort((a,b)=>a-b)
+    .map(y=>`<span class="yr"><b>${String(y).slice(2)}</b><span style="color:${map[y]>=0?'var(--qualify)':'#e25f4f'}">${map[y]>0?'+':''}${map[y]}%</span></span>`).join('');
   const track=(label,map)=>Object.keys(map).length
     ? `<div class="acc-trk"><span class="acc-lbl">${label}</span><span class="acc-cells">${yrCells(map)}</span></div>` : '';
-  // Headline = the average of the track it sits above (recent years), so the big
-  // number always reconciles with the grid. Prefer the betting-relevant vs-market
-  // edge when present; else the vs-naive improvement. (This retires the old
-  // champion-vs-uniform "+1.19%" that mismatched the per-season base-rate grid.)
-  const overall=map=>{const v=Object.keys(map).map(Number).filter(y=>y>=2022).map(y=>map[y]);
-    return v.length?+(v.reduce((s,x)=>s+x,0)/v.length).toFixed(2):null;};
-  const oMkt=overall(mktMap), oNaive=overall(naiveMap);
-  const headline = (oMkt!=null)
-    ? `<div class="delta" style="color:${oMkt>=0?'var(--qualify)':'#e25f4f'}">${oMkt>0?'+':''}${oMkt}%<small>vs market</small></div>`
-    : (oNaive!=null
-      ? `<div class="delta" style="color:${oNaive>=0?'var(--qualify)':'#e25f4f'}">${oNaive>0?'+':''}${oNaive}%<small>vs naive</small></div>` : '');
+  // Headline = the MOST RECENT season's figure, explicitly labeled with that season
+  // (vs market when available, else vs naive). The grid below shows the trend.
+  const hMap=Object.keys(mktMap).length?mktMap:naiveMap, hLbl=Object.keys(mktMap).length?'vs market':'vs naive';
+  const hYears=Object.keys(hMap).map(Number), hY=hYears.length?Math.max(...hYears):null;
+  const hV=hY!=null?hMap[hY]:null;
+  const headline = hV!=null
+    ? `<div class="delta" style="color:${hV>=0?'var(--qualify)':'#e25f4f'}">${hV>0?'+':''}${hV}%<small>${seasonLbl(hY)} ${hLbl}</small></div>` : '';
   $('#acc').innerHTML=
     `<div class="acc-nums">
-       <div class="acc-row"><span class="t">Model</span><span class="v">${m}</span></div>
-       ${mk!=null?`<div class="acc-row"><span class="t">Market</span><span class="v">${(+mk).toFixed(4)}</span></div>`:''}
-       <div class="acc-row"><span class="t">Naive</span><span class="v muted">${n}</span></div>
+       <div class="acc-row"><span class="t">Model</span><span class="v">${b3(m)}</span></div>
+       ${mk!=null?`<div class="acc-row"><span class="t">Market</span><span class="v">${b3(mk)}</span></div>`:''}
+       <div class="acc-row"><span class="t">Naive</span><span class="v muted">${b3(n)}</span></div>
      </div>
      <div class="acc-tracks">${track('vs naive',naiveMap)}${track('vs market',mktMap)}</div>
      ${headline}`;
