@@ -76,9 +76,9 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .acc-row{display:flex;align-items:baseline;gap:10px;font-size:11px}
 .acc-row .t{color:var(--txt-3);font-weight:600;width:42px}
 .acc-row .v{font-family:"Archivo";font-weight:700;color:var(--txt-1)} .acc-row .v.muted{color:var(--txt-3);font-weight:600}
-.acc-years{display:flex;gap:9px;border-left:1px solid var(--line-2);padding-left:var(--s3)}
-.acc-years .yr{display:flex;flex-direction:column;font-size:10.5px;color:var(--qualify);font-weight:600;align-items:center;gap:1px}
-.acc-years .yr b{font-family:"Archivo";color:var(--txt-3);font-weight:700;font-size:9px}
+.acc-years{display:flex;gap:10px;border-left:1px solid var(--line-2);padding-left:var(--s3)}
+.acc-years .yr{display:flex;flex-direction:column;font-size:10.5px;font-weight:700;align-items:center;gap:2px}
+.acc-years .yr b{font-family:"Archivo";color:var(--txt-3);font-weight:700;font-size:9px;letter-spacing:.02em}
 .soon-badge{font-size:11px;color:var(--txt-3);border:1px dashed var(--line-3);border-radius:var(--r-sm);padding:6px 12px}
 /* coming-soon league view */
 .soon-view{margin-top:var(--s4)}
@@ -136,8 +136,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .row.hfa .rank{color:var(--hfa)}
 .tcell{display:flex;align-items:center;gap:9px;min-width:0}
 .tcol{min-width:0;display:flex;flex-direction:column;gap:1px}
-.tname{display:block;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tname{display:block;font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tname.tlink{cursor:pointer} .tname.tlink:hover{color:var(--floodlight);text-decoration:underline}
+/* narrow screens: drop the team name/sub, show crest only */
+@media(max-width:620px){.ladder .tcol{display:none} .ladder .tcell{justify-content:center}}
 .tsub{display:block;font-size:10px;color:var(--txt-3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pts{font-family:"Archivo";font-weight:700;font-size:14px;text-align:center}
 .projc{font-family:"Archivo";font-weight:700;font-size:12.5px;text-align:center;color:var(--txt-2)}
@@ -179,6 +181,38 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .hv{font-family:"Archivo";font-weight:700;font-size:12px;text-align:right}
 .hhead{display:grid;grid-template-columns:130px 40px 1fr 56px 1fr 56px;gap:10px;padding:6px var(--s3);
   font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3)}
+/* health tab — redesigned */
+.h-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:var(--s3);margin-bottom:var(--s4)}
+.h-stat{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4)}
+.h-stat .h-k{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3)}
+.h-stat .h-big{font-family:"Archivo";font-weight:800;font-size:28px;line-height:1.1;margin:6px 0 3px}
+.h-stat .h-sub{font-size:11.5px;font-weight:600}
+.hgrid2{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--s3);margin-bottom:var(--s3)}
+@media(max-width:820px){.hgrid2{grid-template-columns:1fr}}
+.hcard2{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4);margin-bottom:var(--s3)}
+.hcard2 h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3);margin-bottom:var(--s3)}
+.pipe{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:var(--s4)}
+.pill{background:var(--ink-3);border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;font-size:11.5px;font-weight:600;color:var(--txt-1);white-space:nowrap}
+.parrow{color:var(--txt-3);font-size:12px}
+.cfg{display:flex;flex-wrap:wrap;gap:7px}
+.cfg-chip{font-size:11px;color:var(--txt-2);background:var(--ink-0);border:1px solid var(--line);border-radius:6px;padding:4px 9px}
+.cfg-chip i{color:var(--txt-3);font-style:normal;margin-right:4px}
+.pc-row{display:grid;grid-template-columns:72px 1fr 54px auto;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
+.pc-row:last-child{border-bottom:none}
+.pc-l{font-size:12.5px;font-weight:600}
+.pc-track{height:9px;border-radius:5px;background:rgba(150,180,220,.10);overflow:hidden}
+.pc-track>span{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--floodlight),var(--west))}
+.pc-v{font-family:"Archivo";font-weight:700;font-size:12.5px;text-align:right}
+.pc-n{font-size:10.5px;color:var(--txt-3)}
+.hhead2{display:grid;grid-template-columns:130px 36px 1fr 50px 1fr 50px;gap:10px;padding:0 0 8px;
+  font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3);border-bottom:1px solid var(--line)}
+.hrow2{display:grid;grid-template-columns:130px 36px 1fr 50px 1fr 50px;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.hrow2:last-child{border-bottom:none}
+.hrow2 .fam{font-weight:600;font-size:12.5px} .hrow2 .nc{font-size:11px;color:var(--txt-3);text-align:center}
+.hnote{font-size:11px;color:var(--txt-3);padding-top:10px}
+.h-fresh{display:flex;flex-wrap:wrap;gap:var(--s4);font-size:11px;color:var(--txt-3);margin-top:var(--s3);padding:var(--s3) var(--s4);
+  background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md)}
+.h-fresh b{font-family:"Archivo";color:var(--txt-2)}
 /* team profile */
 .prof-hd{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s4)}
 .prof-hd .crest{width:44px;height:44px}
@@ -215,16 +249,17 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .elo-card{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:10px;cursor:pointer;transition:.12s}
 .elo-card:hover{border-color:var(--line-3);background:var(--ink-2)}
 .elo-card.sel{border-color:var(--floodlight);box-shadow:0 0 0 1px var(--floodlight)}
-.elo-card-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.elo-card-h .crest{width:22px;height:22px}
-.elo-card-h .nm{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
-.elo-card-h .el{font-family:"Archivo";font-weight:700;font-size:12px;color:var(--txt-2);flex:none}
-.elo-svg{display:block;width:100%;height:60px}
+.elo-card-h{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.elo-card-h .crest{width:30px;height:30px}
+.elo-card-h .nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.elo-card-h .el{font-family:"Archivo";font-weight:800;font-size:13px;flex:none}
+.elo-svg{display:block;width:100%;height:56px}
 .elo-svg .eloline{fill:none;stroke:var(--floodlight);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.elo-svg.big .eloline{stroke-width:2}
 .elo-svg .grid{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
 .elo-svg .axis{fill:var(--txt-3);font-size:9px;font-family:"Inter"}
 .elo-empty{font-size:11px;color:var(--txt-3);padding:18px 0;text-align:center}
-.chart-wrap.big .elo-svg{height:200px;min-width:0}
+.chart-wrap.big .elo-svg{width:100%;height:auto}
 .chart-wrap.big{margin-bottom:var(--s4)}
 .elo-tip{position:fixed;z-index:60;display:none;pointer-events:none;background:var(--ink-3);border:1px solid var(--line-3);
   border-radius:6px;padding:4px 9px;font-size:11px;color:var(--txt-1);box-shadow:0 6px 20px rgba(0,0,0,.5)}
@@ -254,15 +289,16 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .grow.done{opacity:.92}
 .gr-team{display:flex;align-items:center;gap:8px;min-width:0}
 .gr-team.home{justify-content:flex-end;text-align:right}.gr-team.away{justify-content:flex-start}
-.gr-team .crest{width:22px;height:22px}
+.gr-team .crest{width:24px;height:24px}
 .gr-team .tn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gr-odds{font-family:"Archivo";font-weight:700;font-size:10.5px;color:var(--txt-3);flex:none;letter-spacing:.01em}
 .gr-mid{font-family:"Archivo";font-weight:700;font-size:14px;text-align:center;color:var(--txt-2)}
 .gr-mid b{color:var(--txt-1)}
-.cbar{display:flex;height:14px;border-radius:4px;overflow:hidden;border:1px solid var(--line);background:var(--ink-0)}
-.cbar>span{display:block}
+.cbar{display:flex;height:18px;border-radius:4px;overflow:hidden;border:1px solid var(--line);background:var(--ink-0)}
+.cbar>span{display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;font-family:"Archivo";overflow:hidden;min-width:0}
 .gr-end{text-align:right;font-size:11px}
 .gr-pick{font-family:"Archivo";font-weight:700;color:var(--txt-2);font-size:11.5px}
-@media(max-width:640px){.grow{grid-template-columns:minmax(0,1fr) 46px 70px minmax(0,1fr);gap:6px}.gr-end{display:none}}
+@media(max-width:640px){.grow{grid-template-columns:minmax(0,1fr) 44px 80px minmax(0,1fr);gap:6px}.gr-end{display:none}.gr-odds{display:none}}
 .g-top{display:flex;align-items:center;gap:var(--s3);margin-bottom:10px}
 .g-side{display:flex;align-items:center;gap:9px;flex:1;min-width:0}
 .g-side.away{flex-direction:row-reverse;text-align:right}
@@ -355,12 +391,8 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
   </section>
 
   <section id="view-health" class="hidden">
-    <div class="sec-h"><h2>Model &amp; data health</h2><span class="note">Input-variable quality over the current season — target 100%</span></div>
-    <div class="health-strip" id="hstrip"></div>
-    <div class="hhead"><span>Feature family</span><span style="text-align:center">Cols</span>
-      <span>Complete (non-null)</span><span style="text-align:right">%</span>
-      <span>Non-default (≠0)</span><span style="text-align:right">%</span></div>
-    <div id="hrows"></div>
+    <div class="sec-h"><h2>Model &amp; data health</h2><span class="note">How the model is built, how well it predicts, and how complete its inputs are</span></div>
+    <div id="healthBody"></div>
   </section>
 
   <section id="view-matches" class="hidden">
@@ -461,9 +493,14 @@ $('#sub').textContent = D.in_season
   : `${D.season} season projection`;
 (()=>{const m=D.model.best_brier,n=D.model.naive, live=D.in_season_brier||{}, mkt=D.market_brier||{};
   const py=(D.perf_by_year||[]);
-  // by-year mini list (replaces the static "2022-25" label)
-  const yrCells=py.map(p=>`<span class="yr"><b>${String(p.year).slice(2)}</b>${p.improve_pct>0?'+':''}${p.improve_pct}%</span>`).join('');
-  // primary delta: vs market if available, else champion vs naive
+  const byYr={}; py.forEach(p=>byYr[p.year]=p.improve_pct);
+  // year-by-year vs naive: 2022..2025, current season, and a 3-yr avg through 2025
+  const cells=[];
+  [2022,2023,2024,2025].forEach(y=>{ if(byYr[y]!=null)cells.push([String(y).slice(2),byYr[y]]); });
+  if(live.improve_pct!=null)cells.push([String(D.season).slice(2),live.improve_pct]);
+  const a3=[2023,2024,2025].map(y=>byYr[y]).filter(v=>v!=null);
+  if(a3.length)cells.push(['3y avg',+(a3.reduce((s,v)=>s+v,0)/a3.length).toFixed(2)]);
+  const yrCells=cells.map(([lab,v])=>`<span class="yr"><b>${lab}</b><span style="color:${v>=0?'var(--qualify)':'#e25f4f'}">${v>0?'+':''}${v}%</span></span>`).join('');
   const primary = mkt.status==='ok'
     ? `<div class="delta" style="color:${mkt.edge_pct>0?'var(--qualify)':'#e25f4f'}">${mkt.edge_pct>0?'+':''}${mkt.edge_pct}%<small>edge vs market</small></div>`
     : `<div class="delta">+${D.model.improve_pct}%<small>vs naive</small></div>`;
@@ -472,9 +509,9 @@ $('#sub').textContent = D.in_season
        <div class="acc-row"><span class="t">Model</span><span class="v">${m}</span></div>
        ${mkt.status==='ok'?`<div class="acc-row"><span class="t">Market</span><span class="v">${mkt.market.toFixed(4)}</span></div>`:''}
        <div class="acc-row"><span class="t">Naive</span><span class="v muted">${n}</span></div>
-       ${live.model?`<div class="acc-row"><span class="t">${D.season}</span><span class="v">${live.model.toFixed(4)}${mkt.status==='pending'?' · mkt: awaiting odds':''}</span></div>`:''}
+       ${live.model?`<div class="acc-row"><span class="t">${D.season}</span><span class="v">${live.model.toFixed(4)}</span></div>`:''}
      </div>
-     ${py.length?`<div class="acc-years">${yrCells}</div>`:''}
+     ${yrCells?`<div class="acc-years">${yrCells}</div>`:''}
      ${primary}`;
 })();
 $('#foot').textContent='';
@@ -660,22 +697,48 @@ $('#ladders').addEventListener('click',e=>{
 });
 $('#wreset').onclick=()=>{forced={};simVals=null;$('#wbanner').classList.remove('on');renderOutlook();};
 
-/* model health tab */
+/* model health tab — card-based, digestible model dimensions */
 function renderHealth(){
-  const h=D.health;if(!h)return;
-  $('#hstrip').innerHTML=
-    `<div class="hl-card">Feature frame: <b>${h.frame_file.split('/').pop()}</b> · ${h.frame_mtime}</div>`+
-    `<div class="hl-card">ESPN schedule: <b>${h.espn_ok?'OK':'FAILED'}</b> · ${h.espn_events} events</div>`+
-    `<div class="hl-card">Season rows: <b>${h.season_rows}</b> (${h.played_rows} played)</div>`+
-    `<div class="hl-card">Dashboard generated: <b>${D.generated}</b></div>`;
+  const h=D.health, m=D.model||{}, mc=D.model_card||{}, live=D.in_season_brier||{};
+  if(!h)return;
   const col=v=>v>=99?'var(--qualify)':v>=95?'var(--hfa)':'#e25f4f';
-  $('#hrows').innerHTML=h.features.map(f=>
-    `<div class="hrow"><span class="fam">${f.family}</span><span class="nc">${f.cols}</span>`+
-    `<span class="hbar"><span style="width:${f.complete_pct}%;background:${col(f.complete_pct)}"></span></span>`+
-    `<span class="hv" style="color:${col(f.complete_pct)}">${f.complete_pct}%</span>`+
-    `<span class="hbar"><span style="width:${f.nondefault_pct}%;background:${col(f.nondefault_pct)}"></span></span>`+
-    `<span class="hv" style="color:${col(f.nondefault_pct)}">${f.nondefault_pct}%</span></div>`).join('')+
-    `<div style="font-size:11px;color:var(--txt-3);padding:10px 2px">Non-default = share of values ≠ 0 (the fill value at predict time). is_playoff at 0% is expected during the regular season; Availability &lt;100% means roster data is missing for some matches.</div>`;
+  // hero stats
+  const cal=m.cal_err, calGood=cal!=null&&cal<0.05;
+  const stats=[
+    ['Champion Brier', m.best_brier, m.improve_pct!=null?`+${m.improve_pct}% vs naive`:'', 'var(--qualify)'],
+    ['Calibration error', cal!=null?cal.toFixed(4):'—', calGood?'well calibrated (<0.05)':'acceptable', calGood?'var(--qualify)':'var(--hfa)'],
+    ['Test matches', mc.n_test||'—', '2022–2025 walk-forward', 'var(--txt-3)'],
+    ['Live '+D.season, live.model?live.model.toFixed(4):'—', live.n_games?`${live.improve_pct>0?'+':''}${live.improve_pct}% vs naive · n=${live.n_games}`:'', live.improve_pct>=0?'var(--floodlight)':'#e25f4f'],
+  ];
+  const statRow=`<div class="h-stats">`+stats.map(([k,v,s,c])=>
+    `<div class="h-stat"><div class="h-k">${k}</div><div class="h-big">${v}</div><div class="h-sub" style="color:${c}">${s}</div></div>`).join('')+`</div>`;
+  // pipeline + config
+  const pipe=(mc.arch||[]).map(a=>`<span class="pill">${a}</span>`).join('<span class="parrow">→</span>');
+  const cfg=Object.entries(mc.config||{}).map(([k,v])=>`<span class="cfg-chip"><i>${k}</i> ${v}</span>`).join('');
+  const modelCard=`<div class="hcard2"><h3>Model pipeline</h3><div class="pipe">${pipe}</div>
+    <div class="cfg">${cfg}</div></div>`;
+  // per-class accuracy (Brier, lower=better; bars scaled to the worst class)
+  const pc=mc.per_class||{}; const pcMax=Math.max(pc.home||0,pc.draw||0,pc.away||0)||1;
+  const pcRow=(lab,v,note)=>`<div class="pc-row"><span class="pc-l">${lab}</span>
+     <span class="pc-track"><span style="width:${(v/pcMax*100).toFixed(0)}%"></span></span>
+     <span class="pc-v">${v?.toFixed(4)??'—'}</span><span class="pc-n">${note}</span></div>`;
+  const pcCard=Object.keys(pc).length?`<div class="hcard2"><h3>Brier contribution by outcome</h3>
+     ${pcRow('Home win',pc.home,'most probability mass')}
+     ${pcRow('Away win',pc.away,'')}
+     ${pcRow('Draw',pc.draw,'hardest to call')}
+     <div class="hnote">Per-class sums reflect each outcome's base rate, not skill ranking — home carries the most probability mass, draws are the hardest to predict.</div></div>`:'';
+  // feature completeness
+  const feat=`<div class="hcard2"><h3>Input completeness · ${D.season} season</h3>
+    <div class="hhead2"><span>Feature family</span><span>Cols</span><span>Complete</span><span>Active (≠0)</span></div>`+
+    h.features.map(f=>`<div class="hrow2"><span class="fam">${f.family}</span><span class="nc">${f.cols}</span>
+      <span class="hbar"><span style="width:${f.complete_pct}%;background:${col(f.complete_pct)}"></span></span><span class="hv" style="color:${col(f.complete_pct)}">${f.complete_pct}%</span>
+      <span class="hbar"><span style="width:${f.nondefault_pct}%;background:${col(f.nondefault_pct)}"></span></span><span class="hv" style="color:${col(f.nondefault_pct)}">${f.nondefault_pct}%</span></div>`).join('')+
+    `<div class="hnote">"Active" = share of values ≠ 0 (the neutral fill at predict time). is_playoff 0% is expected in the regular season; Availability &lt;100% = roster data missing for some matches.</div></div>`;
+  // freshness strip
+  const fresh=`<div class="h-fresh"><span>Feature frame <b>${h.frame_file.split('/').pop()}</b> · ${h.frame_mtime}</span>
+    <span>ESPN schedule <b style="color:${h.espn_ok?'var(--qualify)':'#e25f4f'}">${h.espn_ok?'OK':'FAILED'}</b> · ${h.espn_events} events</span>
+    <span>${h.season_rows} season rows (${h.played_rows} played)</span><span>Built ${D.generated}</span></div>`;
+  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+fresh;
 }
 
 /* matches */
@@ -703,29 +766,45 @@ function oddsRow(g){
     `<div class="oc"><span class="ol">${lab}</span><span class="op">${(p*100).toFixed(1)}%</span><span class="oa" style="color:${col}">${american(p)}</span></div>`).join('')+`</div>`;
 }
 function topPick(g){return [['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,s)=>s[1]>m[1]?s:m)[0];}
-function resultBadge(g){if(g.result==null)return'';const ok=topPick(g)===g.result;
-  return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${g.result==='H'?'Home':g.result==='D'?'Draw':'Away'}</span>`;}
+const _OL={H:'Home',D:'Draw',A:'Away'};
+// pick = biggest model edge over market (model_prob − market_prob) when a market
+// line is attached (g.mkt = [h,d,a]); else the model favorite. Returns
+// {k, label, val (signed %), isEdge}.
+function edgePick(g){
+  const mp=[g.pH,g.pD,g.pA], ks=['H','D','A'];
+  if(g.mkt && g.mkt.length===3){
+    const edges=mp.map((p,i)=>p-g.mkt[i]);
+    let bi=0;for(let i=1;i<3;i++)if(edges[i]>edges[bi])bi=i;
+    return {k:ks[bi],label:_OL[ks[bi]],val:Math.round(edges[bi]*100),isEdge:true};
+  }
+  let bi=0;for(let i=1;i<3;i++)if(mp[i]>mp[bi])bi=i;
+  return {k:ks[bi],label:_OL[ks[bi]],val:Math.round(mp[bi]*100),isEdge:false};
+}
+function resultBadge(g){if(g.result==null)return'';const ok=edgePick(g).k===g.result;
+  return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${_OL[g.result]}</span>`;}
 function renderGames(){
   let gs=D.games.filter(g=>{if(fTeam!=='All teams'&&g.home!==fTeam&&g.away!==fTeam)return false;
     if(fRes==='played'&&g.result==null)return false; if(fRes==='upcoming'&&g.result!=null)return false;
-    if(fRes==='hit'){if(g.result==null)return false;if(topPick(g)!==g.result)return false;} return true;});
+    if(fRes==='hit'){if(g.result==null)return false;if(edgePick(g).k!==g.result)return false;} return true;});
   $('#gcount').textContent=`${gs.length} match${gs.length!==1?'es':''}`;
   const list=$('#gameList');list.innerHTML='';let cur=null,grp=null;
   const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-  const cbar=g=>{const S=[[g.pH,vis(g.hcolor)],[g.pD,'var(--draw)'],[g.pA,vis(g.acolor)]];
-    return `<span class="cbar" title="H ${(g.pH*100).toFixed(0)}% · D ${(g.pD*100).toFixed(0)}% · A ${(g.pA*100).toFixed(0)}%">`+
-      S.map(([p,c])=>`<span style="width:${(p*100).toFixed(1)}%;background:${c}"></span>`).join('')+`</span>`;};
+  // probability bar with the % rendered INSIDE each segment (hidden if too thin)
+  const cbar=g=>{const S=[[g.pH,vis(g.hcolor),txtOn(g.hcolor)],[g.pD,'var(--draw)','#0a111e'],[g.pA,vis(g.acolor),txtOn(g.acolor)]];
+    return `<span class="cbar">`+S.map(([p,bg,fg])=>{const w=p*100;
+      return `<span style="width:${w.toFixed(1)}%;background:${bg};color:${fg}">${w>=12?w.toFixed(0)+'%':''}</span>`;}).join('')+`</span>`;};
   gs.forEach(g=>{if(g.date!==cur){cur=g.date;grp=el('div','daygrp');grp.appendChild(el('div','dayhead',fmtDay(g.date)));list.appendChild(grp);}
     const played=g.result!=null;
     const mid=played?`<b>${g.hg}–${g.ag}</b>`:(g.lam!=null?`${g.lam.toFixed(1)}–${g.mu.toFixed(1)}`:'vs');
-    const pk=topPick(g), pkp=Math.round(Math.max(g.pH,g.pD,g.pA)*100), pkL=pk==='H'?'Home':pk==='D'?'Draw':'Away';
-    const end=played?resultBadge(g):`<span class="gr-pick">${pkL} ${pkp}%</span>`;
+    const ep=edgePick(g);  // {k,label,val,isEdge}
+    const end=played?resultBadge(g)
+      :`<span class="gr-pick" title="${ep.isEdge?'biggest model edge vs market':'model favorite (no market odds yet)'}">${ep.label} ${ep.val>0?'+':''}${ep.val}%${ep.isEdge?' edge':''}</span>`;
     const row=el('div','grow'+(played?' done':''));
     row.innerHTML=
-      `<span class="gr-team home"><span class="tn">${g.home}</span>${crest(g.home,g.hlogo)}</span>`+
+      `<span class="gr-team home"><span class="tn">${g.home}</span><span class="gr-odds">${american(g.pH)}</span>${crest(g.home,g.hlogo)}</span>`+
       `<span class="gr-mid">${mid}</span>`+
       `<span class="gr-bar">${cbar(g)}</span>`+
-      `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="tn">${g.away}</span></span>`+
+      `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${american(g.pA)}</span><span class="tn">${g.away}</span></span>`+
       `<span class="gr-end">${end}</span>`;
     grp.appendChild(row);});
   if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
@@ -742,7 +821,7 @@ function trophyGlyph(kind,year,cx,cy,s){const t=TROPHY[kind];if(!t)return'';
 const eloTip=el('div','elo-tip'); document.body.appendChild(eloTip);
 
 // One ELO chart SVG (used for both grid minis and the larger profile chart)
-function eloChartSVG(team,W,H,big){
+function eloChartSVG(team,W,H,big,color){
   const series=(D.elo_history||{})[team]||[];
   const trophies=((D.trophies||{})[team]||[]).filter(t=>t.type!=='Conference');
   if(!series.length)return {svg:'<div class="elo-empty">no history</div>',x0:0,x1:0};
@@ -760,10 +839,17 @@ function eloChartSVG(team,W,H,big){
   const marks=trophies.map(tr=>{const t=Math.max(x0,Math.min(x1,new Date(tr.year,8,1).getTime()));
     let bi=0;for(let i=1;i<series.length;i++)if(Math.abs(xs[i]-t)<Math.abs(xs[bi]-t))bi=i;
     return trophyGlyph(tr.type,tr.year,X(t),Y(series[bi][1]),big?1.5:0.9);}).join('');
-  const svg=`<svg class="elo-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" data-team="${team}" data-x0="${x0}" data-x1="${x1}">
-      ${extra}<path class="eloline" d="${path}"/>${marks}</svg>`;
+  const pa=big?'xMidYMid meet':'none';   // big charts scale uniformly (crisp text)
+  const stroke=color?` style="stroke:${color}"`:'';
+  const svg=`<svg class="elo-svg${big?' big':''}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="${pa}" data-team="${team}" data-x0="${x0}" data-x1="${x1}">
+      ${extra}<path class="eloline" d="${path}"${stroke}/>${marks}</svg>`;
   return {svg,x0,x1};
 }
+// ELO tier color: top 25% green, bottom 25% red, middle neutral
+const _eloVals=D.standings.map(s=>s.elo||1500).sort((a,b)=>a-b);
+function eloTier(elo){const n=_eloVals.length;if(!n)return 'var(--floodlight)';
+  const q1=_eloVals[Math.floor(n*0.25)], q3=_eloVals[Math.floor(n*0.75)];
+  return elo>=q3?'var(--qualify)':elo<=q1?'#e25f4f':'#8aa0c0';}
 
 let _selTeam=null;
 function renderProfile(team,scroll){
@@ -775,7 +861,7 @@ function renderProfile(team,scroll){
   let w=0,d=0,l=0; gms.filter(g=>g.result).forEach(g=>{const h=g.home===team;
     if(g.result==='D')d++; else if((g.result==='H')===h)w++; else l++;});
   const fv=v=>v==null?'—':v;
-  const chart=eloChartSVG(team,720,200,true).svg;
+  const chart=eloChartSVG(team,760,210,true,eloTier(s.elo||1500)).svg;
   const troph=((D.trophies||{})[team]||[]).filter(t=>t.type!=='Conference');
   const chips=troph.length?troph.map(t=>`<span class="troph-chip"><b>${t.year}</b> ${t.type}</span>`).join(''):'<span style="color:var(--txt-3);font-size:12px">No major trophies 2013–present.</span>';
   const inputsCard=`<div class="pcard"><h3>Model inputs (current)</h3>
@@ -805,32 +891,36 @@ function renderProfile(team,scroll){
 }
 
 function renderTeams(){
-  const teams=[...D.standings].sort((a,b)=>(b.elo||0)-(a.elo||0));
+  const teams=[...D.standings].sort((a,b)=>a.team.localeCompare(b.team));   // alphabetical
   $('#eloGrid').innerHTML=teams.map(s=>{
-    const ch=eloChartSVG(s.team,210,66,false);
+    const tier=eloTier(s.elo||1500), ch=eloChartSVG(s.team,210,60,false,tier);
     const now=((D.elo_history||{})[s.team]||[]).slice(-1)[0];
     return `<div class="elo-card${s.team===_selTeam?' sel':''}" data-team="${s.team}">
-      <div class="elo-card-h">${crest(s.team,s.logo)}<span class="nm">${s.team}</span><span class="el">${now?now[1]:s.elo||''}</span></div>
+      <div class="elo-card-h">${crest(s.team,s.logo)}<span class="nm">${s.team}</span><span class="el" style="color:${tier}">${now?now[1]:s.elo||''}</span></div>
       ${ch.svg}</div>`;}).join('');
   if(!_selTeam)renderProfile(teams[0].team); else renderProfile(_selTeam);
 }
-// click a mini → profile; hover → ELO tooltip
-$('#eloGrid').addEventListener('click',e=>{const c=e.target.closest('.elo-card');if(c)renderProfile(c.dataset.team,true);});
-$('#eloGrid').addEventListener('mousemove',e=>{const svg=e.target.closest('.elo-svg');if(!svg){eloTip.style.display='none';return;}
+// shared ELO hover tooltip (works on grid minis AND the profile chart)
+function eloHover(e){const svg=e.target.closest('.elo-svg');if(!svg){eloTip.style.display='none';return;}
   const team=svg.dataset.team, series=(D.elo_history||{})[team]||[]; if(!series.length)return;
   const r=svg.getBoundingClientRect(), x0=+svg.dataset.x0, x1=+svg.dataset.x1;
+  // for big charts (preserveAspectRatio meet) the drawing may be inset; approximate with the rect
   const tt=x0+Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*(x1-x0);
   let bi=0;for(let i=1;i<series.length;i++)if(Math.abs(new Date(series[i][0]).getTime()-tt)<Math.abs(new Date(series[bi][0]).getTime()-tt))bi=i;
   eloTip.innerHTML=`<b>${series[bi][1]}</b> ELO · ${series[bi][0]}`;
-  eloTip.style.display='block';eloTip.style.left=(e.clientX+12)+'px';eloTip.style.top=(e.clientY-10)+'px';});
+  eloTip.style.display='block';eloTip.style.left=(e.clientX+12)+'px';eloTip.style.top=(e.clientY-10)+'px';}
+$('#eloGrid').addEventListener('click',e=>{const c=e.target.closest('.elo-card');if(c)renderProfile(c.dataset.team,true);});
+$('#eloGrid').addEventListener('mousemove',eloHover);
 $('#eloGrid').addEventListener('mouseleave',()=>eloTip.style.display='none');
+$('#teamProfile').addEventListener('mousemove',eloHover);
+$('#teamProfile').addEventListener('mouseleave',()=>eloTip.style.display='none');
 
 $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));
   const v=b.dataset.view;
   ['outlook','matches','teams','health'].forEach(x=>$('#view-'+x).classList.toggle('hidden',v!==x));
   if(v==='matches'&&!$('#gameList').children.length)renderGames();
   if(v==='teams'&&!$('#eloGrid').children.length)renderTeams();
-  if(v==='health'&&!$('#hrows').children.length)renderHealth();};
+  if(v==='health'&&!$('#healthBody').children.length)renderHealth();};
 // deep-link a team from the League Table → Teams tab
 function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfile(team,true);}
 }  /* end full-app (non-soon) block */

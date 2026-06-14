@@ -491,12 +491,21 @@ def main():
     # (a stale 0.6347 literal sat in this file across two promotions).
     _naive = 0.6406
     champ_brier, champ_cal, champ_run = None, None, "unknown"
+    model_card = {
+        "arch": ["Dixon-Coles", "Temperature", "XGBoost ×5 bag", "Capped-DC blend", "Temperature"],
+        "config": {"ELO K": 25, "Home adv": 80, "Season regress": "40%", "DC decay": "120d",
+                   "XGB weight ½-life": "6 seasons", "Seed bag": 5, "xG / form windows": "3 · 5 · 10 · 15"},
+        "per_class": {}, "n_test": None,
+    }
     try:
         _ptr = json.loads(Path("experiments/champion.json").read_text())
         _rep = json.loads(Path(_ptr["report"]).read_text())
         champ_brier = float(_rep["avg_brier"])
         champ_cal = _rep.get("max_decile_cal_error")
         champ_run = _ptr.get("run_id", "unknown")
+        _ov = _rep.get("overall", {})
+        model_card["per_class"] = {k: round(_ov.get(f"brier_{k}", 0), 4) for k in ("home", "draw", "away")}
+        model_card["n_test"] = _ov.get("n")
     except Exception as e:
         print(f"[warn] champion report unreadable ({e}); model card will lack metrics")
 
@@ -577,6 +586,7 @@ def main():
             "elo_history": _elo_hist,
             "trophies": _trophies,
             "health": health,
+            "model_card": model_card,
             "model": {"best_brier": round(champ_brier, 4) if champ_brier else None,
                       "naive": _naive,
                       "improve_pct": round((_naive - champ_brier) / _naive * 100, 2)
