@@ -820,8 +820,21 @@ function trophyGlyph(kind,year,cx,cy,s){const t=TROPHY[kind];if(!t)return'';
   return `<g transform="translate(${cx.toFixed(1)},${cy.toFixed(1)}) scale(${s})"><path d="${t.g==='cup'?_CUP:_SHIELD}" fill="${t.c}" stroke="#0a111e" stroke-width="0.6"/><title>${kind} ${year}</title></g>`;}
 const eloTip=el('div','elo-tip'); document.body.appendChild(eloTip);
 
-// One ELO chart SVG (used for both grid minis and the larger profile chart)
-function eloChartSVG(team,W,H,big,color){
+// League-wide ELO scale across ALL teams and all time — so a team's line is
+// colored by where it stood relative to the whole league at each point
+// (green = among the best, red = among the worst, neutral = mid-pack).
+const _allElo=Object.values(D.elo_history||{}).flat().map(p=>p[1]).sort((a,b)=>a-b);
+const _eloQ=q=>_allElo.length?_allElo[Math.floor(_allElo.length*q)]:1500;
+const ELO_HI=_eloQ(0.75), ELO_LO=_eloQ(0.25);   // top-25% / bottom-25% thresholds
+const ELO_GREEN='#34d39a', ELO_RED='#e25f4f', ELO_NEU='#8aa0c0';
+// current-standing tier (for the card's ELO number)
+function eloTier(elo){return elo>=ELO_HI?ELO_GREEN:elo<=ELO_LO?ELO_RED:ELO_NEU;}
+let _gradId=0;
+
+// One ELO chart SVG (used for both grid minis and the larger profile chart).
+// The line is stroked with a vertical gradient mapped to ELO value, so its
+// color rises into green (league-best) and dips into red (league-worst).
+function eloChartSVG(team,W,H,big){
   const series=(D.elo_history||{})[team]||[];
   const trophies=((D.trophies||{})[team]||[]).filter(t=>t.type!=='Conference');
   if(!series.length)return {svg:'<div class="elo-empty">no history</div>',x0:0,x1:0};
@@ -839,10 +852,18 @@ function eloChartSVG(team,W,H,big,color){
   const marks=trophies.map(tr=>{const t=Math.max(x0,Math.min(x1,new Date(tr.year,8,1).getTime()));
     let bi=0;for(let i=1;i<series.length;i++)if(Math.abs(xs[i]-t)<Math.abs(xs[bi]-t))bi=i;
     return trophyGlyph(tr.type,tr.year,X(t),Y(series[bi][1]),big?1.5:0.9);}).join('');
+  // vertical gradient mapped to ELO value: green above the league's top-25%
+  // line, red below the bottom-25% line, neutral in between — so the line's
+  // colour shows this team's highs and lows RELATIVE TO THE LEAGUE over time.
+  const id='eg'+(_gradId++);
+  const oHi=Math.max(0,Math.min(1,Y(ELO_HI)/H)), oLo=Math.max(0,Math.min(1,Y(ELO_LO)/H));
+  const grad=`<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${H}">`+
+    `<stop offset="0" stop-color="${ELO_GREEN}"/><stop offset="${oHi.toFixed(3)}" stop-color="${ELO_GREEN}"/>`+
+    `<stop offset="${oHi.toFixed(3)}" stop-color="${ELO_NEU}"/><stop offset="${oLo.toFixed(3)}" stop-color="${ELO_NEU}"/>`+
+    `<stop offset="${oLo.toFixed(3)}" stop-color="${ELO_RED}"/><stop offset="1" stop-color="${ELO_RED}"/></linearGradient></defs>`;
   const pa=big?'xMidYMid meet':'none';   // big charts scale uniformly (crisp text)
-  const stroke=color?` style="stroke:${color}"`:'';
   const svg=`<svg class="elo-svg${big?' big':''}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="${pa}" data-team="${team}" data-x0="${x0}" data-x1="${x1}">
-      ${extra}<path class="eloline" d="${path}"${stroke}/>${marks}</svg>`;
+      ${grad}${extra}<path class="eloline" d="${path}" style="stroke:url(#${id})"/>${marks}</svg>`;
   return {svg,x0,x1};
 }
 // ELO tier color: top 25% green, bottom 25% red, middle neutral
@@ -861,7 +882,7 @@ function renderProfile(team,scroll){
   let w=0,d=0,l=0; gms.filter(g=>g.result).forEach(g=>{const h=g.home===team;
     if(g.result==='D')d++; else if((g.result==='H')===h)w++; else l++;});
   const fv=v=>v==null?'—':v;
-  const chart=eloChartSVG(team,760,210,true,eloTier(s.elo||1500)).svg;
+  const chart=eloChartSVG(team,760,210,true).svg;
   const troph=((D.trophies||{})[team]||[]).filter(t=>t.type!=='Conference');
   const chips=troph.length?troph.map(t=>`<span class="troph-chip"><b>${t.year}</b> ${t.type}</span>`).join(''):'<span style="color:var(--txt-3);font-size:12px">No major trophies 2013–present.</span>';
   const inputsCard=`<div class="pcard"><h3>Model inputs (current)</h3>
@@ -893,7 +914,7 @@ function renderProfile(team,scroll){
 function renderTeams(){
   const teams=[...D.standings].sort((a,b)=>a.team.localeCompare(b.team));   // alphabetical
   $('#eloGrid').innerHTML=teams.map(s=>{
-    const tier=eloTier(s.elo||1500), ch=eloChartSVG(s.team,210,60,false,tier);
+    const tier=eloTier(s.elo||1500), ch=eloChartSVG(s.team,210,60,false);
     const now=((D.elo_history||{})[s.team]||[]).slice(-1)[0];
     return `<div class="elo-card${s.team===_selTeam?' sel':''}" data-team="${s.team}">
       <div class="elo-card-h">${crest(s.team,s.logo)}<span class="nm">${s.team}</span><span class="el" style="color:${tier}">${now?now[1]:s.elo||''}</span></div>
