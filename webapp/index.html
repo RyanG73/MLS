@@ -731,8 +731,8 @@ function tFavCard(card,t){
 // current points, apply forced results, sample remaining via the pmatrix, rank
 // the one table → Title / Top-N (UCL) / bottom-M (relegation) frequencies.
 function runSimTable(N=10000){
-  const ol=D.outlook, uclN=ol.ucl_slots, relN=ol.releg_slots;
-  const acc={};SIM.teams.forEach(t=>acc[t]={proj:0,rank:0,title:0,ucl:0,releg:0});
+  const ol=D.outlook, cols=ol.columns;
+  const acc={};SIM.teams.forEach(t=>{const a={proj:0,rank:0};cols.forEach(c=>a[c.key]=0);acc[t]=a;});
   const fixedPts=new Float64Array(NT),free=[];
   for(let id=0;id<NF;id++){const f=forced[id];
     if(f==='H')fixedPts[FH[id]]+=3;
@@ -748,42 +748,53 @@ function runSimTable(N=10000){
       else pts[FA[id]]+=3;}
     for(let i=0;i<NT;i++)key[i]=pts[i]*10000+baseGd[i]*10+Math.random()*10;
     order.sort((a,b)=>key[b]-key[a]);
-    acc[SIM.teams[order[0]]].title++;
-    for(let k=0;k<uclN;k++)acc[SIM.teams[order[k]]].ucl++;
-    for(let k=NT-relN;k<NT;k++)acc[SIM.teams[order[k]]].releg++;
+    cols.forEach(c=>{
+      let lo,hi;
+      if(c.top!==undefined){lo=0;hi=Math.min(c.top,NT);}
+      else if(c.bottom!==undefined){lo=Math.max(0,NT-c.bottom);hi=NT;}
+      else if(c.band!==undefined){lo=c.band[0]-1;hi=Math.min(c.band[1],NT);}
+      else return;
+      for(let k=lo;k<hi;k++)acc[SIM.teams[order[k]]][c.key]++;
+    });
     for(let r=0;r<NT;r++)acc[SIM.teams[order[r]]].rank+=r+1;
     for(let i=0;i<NT;i++)acc[SIM.teams[i]].proj+=pts[i];
   }
   const out={};
-  for(const t of SIM.teams){const a=acc[t];out[t]={proj_pts:+(a.proj/N).toFixed(1),
-    proj_rank:+(a.rank/N).toFixed(1),title:+(a.title/N*100).toFixed(1),
-    ucl:+(a.ucl/N*100).toFixed(1),releg:+(a.releg/N*100).toFixed(1)};}
+  for(const t of SIM.teams){const a=acc[t];const e={proj_pts:+(a.proj/N).toFixed(1),proj_rank:+(a.rank/N).toFixed(1)};
+    cols.forEach(c=>e[c.key]=+(a[c.key]/N*100).toFixed(1));out[t]=e;}
   return out;
 }
 function tableLadder(){
-  const ol=D.outlook, hasUp=NF>0;
+  const ol=D.outlook, cols=ol.columns, hasUp=NF>0;
   const teams=D.standings.map(vals).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
-  const mx={title:Math.max(...teams.map(s=>s.title),1),ucl:Math.max(...teams.map(s=>s.ucl),1),releg:Math.max(...teams.map(s=>s.releg),1)};
-  const RGBt={title:[246,181,63],ucl:[52,211,154],releg:[226,95,79]};
-  const hc=(v,k)=>v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGBt[k],mx[k])}">${v.toFixed(0)}</span>`;
+  const mx={};cols.forEach(c=>mx[c.key]=Math.max(...teams.map(s=>s[c.key]||0),1));
+  const BRGB={title:[246,181,63],promo:[246,181,63],ucl:[52,211,154],playoff:[52,211,154],releg:[226,95,79]};
+  const brgb=k=>BRGB[k]||[120,120,120];
+  const hc=(v,k)=>v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}">${v.toFixed(0)}</span>`;
   const box=el('div','ladder tlad'+(hasUp?' tlad-w':''));
   box.appendChild(el('div','ladder-h',`<span class="name">${ol.n_teams}-team table</span>`));
   box.appendChild(el('div','thead',
     `<span>#</span><span>Club</span><span class="c">Pts</span><span class="c c-proj">Proj</span>`+
-    `<span class="c c-elo">ELO</span><span class="c">Title</span><span class="c">UCL</span><span class="c">Releg</span>`+
+    `<span class="c c-elo">ELO</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
     (hasUp?`<span class="c c-w5">Next 5</span>`:'')));
   teams.forEach((t,i)=>{
-    const rank=i+1, ucl=rank<=ol.ucl_slots, rz=rank>teams.length-ol.releg_slots;
-    const r=el('div','trow'+(ucl?' ucl':rz?' rz':''));
-    const sub=`${t.gp} GP · ${sgn(t.gd)} GD · ${sgnf(t.xgd)} xGD`;
+    const rank=i+1;
+    const isGreen=ol.green_line&&rank<=ol.green_line;
+    const isRed=ol.red_line&&rank>teams.length-ol.red_line;
+    const r=el('div','trow'+(isGreen?' ucl':isRed?' rz':''));
+    const sub=ol.has_xg
+      ?`${t.gp} GP · ${sgn(t.gd)} GD · ${sgnf(t.xgd)} xGD`
+      :`${t.gp} GP · ${sgn(t.gd)} GD`;
     r.innerHTML=`<span class="rank">${rank}</span>`+
       `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname tlink" data-team="${t.team}">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
       `<span class="pts">${t.pts}</span><span class="projc">${t.proj_pts}</span><span class="eloc">${t.elo}</span>`+
-      hc(t.title,'title')+hc(t.ucl,'ucl')+hc(t.releg,'releg')+
+      cols.map(c=>hc(t[c.key]||0,c.key)).join('')+
       (hasUp?whatifCell(t.team):'');
     box.appendChild(r);
-    if(rank===ol.ucl_slots) box.appendChild(el('div','ucl-line',`Champions League places (top ${ol.ucl_slots})`));
-    if(rank===teams.length-ol.releg_slots) box.appendChild(el('div','rz-line',`Relegation zone (bottom ${ol.releg_slots})`));
+    if(ol.green_line&&rank===ol.green_line)
+      box.appendChild(el('div','ucl-line',`Qualify (top ${ol.green_line})`));
+    if(ol.red_line&&rank===teams.length-ol.red_line)
+      box.appendChild(el('div','rz-line',`Relegation zone (bottom ${ol.red_line})`));
   });
   return box;
 }
@@ -791,8 +802,11 @@ function renderTableOutlook(){
   const ol=D.outlook, all=D.standings.map(vals);
   $('#favs').className='favs t3';
   $('#favs').innerHTML=ol.cards.map(card=>tFavCard(card,[...all].sort((a,b)=>b[card.key]-a[card.key])[0])).join('');
-  $('#laddernote').textContent=`${ol.n_teams}-team single table · top ${ol.ucl_slots} → Champions League · bottom ${ol.releg_slots} relegated`
-    +(NF>0?` · click the Next-5 boxes to force results and resimulate`:'');
+  const gl=ol.green_line?`top ${ol.green_line} qualify`:null;
+  const rl=ol.red_line?`bottom ${ol.red_line} drop`:null;
+  const note=[gl,rl].filter(Boolean).join(' · ');
+  $('#laddernote').textContent=`${ol.n_teams}-team single table`+(note?` · ${note}`:'')+
+    (NF>0?` · click the Next-5 boxes to force results and resimulate`:'');
   const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='1fr';l.append(tableLadder());
 }
 (isTable?renderTableOutlook:renderOutlook)();

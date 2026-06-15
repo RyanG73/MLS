@@ -1,5 +1,36 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase 3A — 5 European 2nd-tier leagues (goals-only, 2026-06-14) ✅ COMPLETE**
+>
+> Added Championship, League One, League Two, 2.Bundesliga, Serie B as live leagues.
+> All 5 use football-data.co.uk goals-only + market odds (same CSV), same pipeline as big-5.
+>
+> **Key changes:**
+> - `data_pipeline/football_data.py`: `match_results()` adapter → canonical frame (xG=NaN, parquet-cached);
+>   `DIV` extended with E1/E2/E3/D2/I2. `data/football_data/` added to `.gitignore`.
+> - `scripts/build_league_data.py`: `OUTLOOK` dict with generic bucket system (`_TOP()` for top-flight,
+>   `_PROMO()` for 2nd tiers); source-routing via `_load_frame()`; `FD_ESPN` name maps (football-data→ESPN);
+>   Monte-Carlo generalized to arbitrary bucket keys; payload `outlook` block now dynamic (no hardcoded
+>   `ucl_slots`/`releg_slots`); `has_xg` flag conditionalizes xGD display.
+> - `webapp/index.html`: `tableLadder` renders columns from `ol.columns` (loop, not hardcoded Title/UCL/Releg);
+>   `runSimTable` generalized to bucket range spec in `ol.columns`; `renderTableOutlook` laddernote dynamic;
+>   xGD sub-line hidden when `ol.has_xg=false`; bucket colors extended for promo/playoff keys.
+> - `scripts/fetch_league_teams.py`: 5 leagues flipped `soon→live`; `leagues.js` regenerated (11 live).
+>
+> **Goals-only sanity gate (walk-forward 2022–2025):**
+> | League | Model | Naive | Market | Beat naive | Trail market |
+> |---|---|---|---|---|---|
+> | Championship | 0.647 | 0.652 | 0.630 | ✓ | as expected |
+> | League One | 0.632 | 0.650 | 0.613 | ✓ | as expected |
+> | League Two | 0.649 | 0.657 | 0.628 | ✓ | as expected |
+> | 2.Bundesliga | 0.657 | 0.659 | 0.627 | ✓ | as expected |
+> | Serie B | 0.658 | 0.662 | 0.634 | ✓ | as expected |
+>
+> Verified in-browser: PROMO/PLAYOFF/RELEG columns, top-6/bottom-3 cut-lines, no xGD on goals-only leagues,
+> MLS + big-5 regression-clean. 109/109 tests green.
+>
+> **Next: 3B Liga MX (FBref xG), 3C Canadian PL, 3D Cups, then Phase 4 betting/value layer.**
+
 > **Phase 2 — market comparison + operationalisation + league expansion (2026-06-14)**
 > After Phase 1 put the big-5 European leagues live, this phase adds the betting-market benchmark the
 > accuracy card was missing, operationalises the European builds for the 2026-27 season, and probes the

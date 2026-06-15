@@ -36,7 +36,8 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))  # repo root on sys.path
 
-from data_pipeline.understat import BIG5, canonical_frame, espn_name
+from data_pipeline.understat import canonical_frame, espn_name
+from data_pipeline.football_data import match_results
 from models.research_model import (
     bag_proba, blend, calibrate_temperature, dc_predict_batch, fit_capped_blend,
     fit_dc, fit_xgb,
@@ -45,18 +46,118 @@ import models.research_model as rm
 from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
 
-# ── Per-league outlook: competition structure for the single table ───────────
-# title = 1st; ucl = top `ucl` places (Champions League league phase); releg =
-# bottom `releg` places (relegation zone — Bundesliga/Ligue 1 fold their 16th-
-# place relegation playoff into the zone for a v1 outcome bucket). Counts are the
-# stable, widely-understood values; UEFA-coefficient extra spots are out of scope.
+# ── Per-league outlook: structure of each single-table league ────────────────
+# Each league declares its data `source`, team count `n`, and the outcome
+# `buckets` that the season Monte-Carlo tallies. A bucket is a rank range:
+#   {"top": N}      → ranks 1..N        (Title=top-1, UCL=top-4, Promotion=top-2)
+#   {"band":[lo,hi]}→ ranks lo..hi      (promotion Playoff places)
+#   {"bottom": M}   → ranks (n-M+1)..n  (relegation zone)
+# `label` is the favorite-card title, `col` the (shorter) table-column header.
+# `green_line`/`red_line` drive the table's qualification + relegation cut-lines.
+# 2nd-tier promotion/playoff/relegation counts are approximate (they vary by
+# country and year); top-flight UEFA-coefficient extra spots are out of scope.
+_TOP = lambda: [{"key": "title", "label": "Title", "col": "Title", "top": 1},
+                {"key": "ucl", "label": "Top 4 (UCL)", "col": "UCL", "top": 4},
+                {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": 3}]
+_PROMO = lambda promo, play, rel: [
+    {"key": "promo", "label": "Promotion", "col": "Promo", "top": promo},
+    {"key": "playoff", "label": "Playoff", "col": "Playoff", "band": play},
+    {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}]
+
 OUTLOOK = {
-    "epl":        {"name": "English Premier League", "n": 20, "ucl": 4, "releg": 3},
-    "la-liga":    {"name": "La Liga",                "n": 20, "ucl": 4, "releg": 3},
-    "serie-a":    {"name": "Serie A",                "n": 20, "ucl": 4, "releg": 3},
-    "bundesliga": {"name": "Bundesliga",             "n": 18, "ucl": 4, "releg": 3},
-    "ligue-1":    {"name": "Ligue 1",                "n": 18, "ucl": 4, "releg": 3},
+    # Big-5 top flights (Understat xG). buckets preserve the prior Title/UCL/Releg output.
+    "epl":        {"name": "English Premier League", "source": "understat", "n": 20,
+                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+    "la-liga":    {"name": "La Liga", "source": "understat", "n": 20,
+                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+    "serie-a":    {"name": "Serie A", "source": "understat", "n": 20,
+                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+    "bundesliga": {"name": "Bundesliga", "source": "understat", "n": 18,
+                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+    "ligue-1":    {"name": "Ligue 1", "source": "understat", "n": 18,
+                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+    # European 2nd tiers (football-data goals-only + market). Promotion/Playoff/Relegation.
+    "championship": {"name": "EFL Championship", "source": "footballdata", "n": 24,
+                     "buckets": _PROMO(2, [3, 6], 3), "green_line": 6, "red_line": 3},
+    "league-one":   {"name": "EFL League One", "source": "footballdata", "n": 24,
+                     "buckets": _PROMO(2, [3, 6], 4), "green_line": 6, "red_line": 4},
+    "league-two":   {"name": "EFL League Two", "source": "footballdata", "n": 24,
+                     "buckets": _PROMO(3, [4, 7], 2), "green_line": 7, "red_line": 2},
+    "bundesliga-2": {"name": "2. Bundesliga", "source": "footballdata", "n": 18,
+                     "buckets": _PROMO(2, [3, 3], 3), "green_line": 3, "red_line": 3},
+    "serie-b":      {"name": "Serie B", "source": "footballdata", "n": 20,
+                     "buckets": _PROMO(2, [3, 8], 3), "green_line": 8, "red_line": 3},
 }
+
+# football-data team name → ESPN displayName (for crest/display on goals-only
+# leagues; football-data uses abbreviated names). Only entries that differ from
+# the ESPN displayName; teams with exact-matching names need no entry.
+FD_ESPN: dict[str, dict[str, str]] = {
+    "championship": {
+        "Birmingham": "Birmingham City", "Blackburn": "Blackburn Rovers",
+        "Charlton": "Charlton Athletic", "Coventry": "Coventry City",
+        "Derby": "Derby County", "Hull": "Hull City",
+        "Ipswich": "Ipswich Town", "Leicester": "Leicester City",
+        "Norwich": "Norwich City", "Oxford": "Oxford United",
+        "Preston": "Preston North End", "QPR": "Queens Park Rangers",
+        "Sheffield Weds": "Sheffield Wednesday", "Stoke": "Stoke City",
+        "Swansea": "Swansea City", "West Brom": "West Bromwich Albion",
+    },
+    "league-one": {
+        "Bolton": "Bolton Wanderers", "Bradford": "Bradford City",
+        "Burton": "Burton Albion", "Cardiff": "Cardiff City",
+        "Doncaster": "Doncaster Rovers", "Exeter": "Exeter City",
+        "Huddersfield": "Huddersfield Town", "Lincoln": "Lincoln City",
+        "Luton": "Luton Town", "Mansfield": "Mansfield Town",
+        "Northampton": "Northampton Town", "Peterboro": "Peterborough United",
+        "Plymouth": "Plymouth Argyle", "Rotherham": "Rotherham United",
+        "Stockport": "Stockport County", "Wigan": "Wigan Athletic",
+        "Wycombe": "Wycombe Wanderers",
+    },
+    "league-two": {
+        "Accrington": "Accrington Stanley", "Bristol Rvs": "Bristol Rovers",
+        "Cambridge": "Cambridge United", "Cheltenham": "Cheltenham Town",
+        "Colchester": "Colchester United", "Crewe": "Crewe Alexandra",
+        "Grimsby": "Grimsby Town", "Harrogate": "Harrogate Town",
+        "Oldham": "Oldham Athletic", "Salford": "Salford City",
+        "Shrewsbury": "Shrewsbury Town", "Swindon": "Swindon Town",
+        "Tranmere": "Tranmere Rovers",
+    },
+    "bundesliga-2": {
+        "Bielefeld": "Arminia Bielefeld", "Bochum": "VfL Bochum",
+        "Braunschweig": "TSV Eintracht Braunschweig", "Darmstadt": "SV Darmstadt 98",
+        "Dresden": "Dynamo Dresden", "Elversberg": "SV 07 Elversberg",
+        "Fortuna Dusseldorf": "Fortuna Düsseldorf",
+        "Greuther Furth": "SpVgg Greuther Fürth", "Hannover": "Hannover 96",
+        "Hertha": "Hertha Berlin", "Karlsruhe": "Karlsruher SC",
+        "Magdeburg": "1. FC Magdeburg", "Nurnberg": "1. FC Nürnberg",
+        "Paderborn": "SC Paderborn 07",
+        "PreuÃ\x9fen MÃ¼nster": "Preußen Münster",
+    },
+    "serie-b": {
+        "Avellino": "US Avellino",
+    },
+}
+
+
+def _load_frame(league_id: str, source: str):
+    """Route a league to its canonical-frame source (Understat xG / football-data goals)."""
+    if source == "understat":
+        return canonical_frame(league_id)
+    if source == "footballdata":
+        return match_results(league_id)
+    raise ValueError(f"Unknown source '{source}' for league '{league_id}'")
+
+
+def _bucket_idx(bucket: dict, order, nT: int):
+    """Team indices (into `order`, best-first) that fall in a bucket's rank range."""
+    if "top" in bucket:
+        return order[:bucket["top"]]
+    if "bottom" in bucket:
+        return order[nT - bucket["bottom"]:]
+    if "band" in bucket:
+        return order[bucket["band"][0] - 1:bucket["band"][1]]
+    return order[:0]
 
 
 def _stub_team_meta(league_id: str) -> dict[str, dict]:
@@ -93,7 +194,7 @@ def _stub_league_logo(league_id: str) -> str | None:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--league", required=True, choices=BIG5)
+    ap.add_argument("--league", required=True, choices=list(OUTLOOK))
     ap.add_argument("--season", type=int, default=None,
                     help="target season (default: latest with played matches)")
     ap.add_argument("--sims", type=int, default=20000)
@@ -102,7 +203,7 @@ def main():
     cfg = OUTLOOK[lid]
 
     # ── Load + feature-build the full history (played only) ───────────────────
-    frame = canonical_frame(lid)
+    frame = _load_frame(lid, cfg["source"])
     played_all = frame[frame["is_result"]].copy()
     played_all["home_goals"] = played_all["home_goals"].astype(int)
     played_all["away_goals"] = played_all["away_goals"].astype(int)
@@ -119,12 +220,17 @@ def main():
     # Team-name resolution: model keys are Understat titles; ESPN crests keyed by
     # displayName. tname() = the display string; tmeta() = its logo/color.
     stub_meta = _stub_team_meta(lid)
+    _fd_map = FD_ESPN.get(lid, {}) if cfg["source"] == "footballdata" else {}
 
-    def tmeta(title: str) -> dict:
-        return stub_meta.get(espn_name(lid, title)) or stub_meta.get(title) or {}
+    def tmeta(key: str) -> dict:
+        if cfg["source"] == "understat":
+            return stub_meta.get(espn_name(lid, key)) or stub_meta.get(key) or {}
+        return stub_meta.get(_fd_map.get(key, key)) or {}
 
-    def tname(title: str) -> str:
-        return title  # display the Understat title (already clean club names)
+    def tname(key: str) -> str:
+        if cfg["source"] == "understat":
+            return key
+        return _fd_map.get(key, key)
 
     # ── Ensemble predictions for PLAYED games (in-season Brier + game cards) ───
     train = df[df["season"] < ts - 1].dropna(subset=["home_goals", "away_goals"])
@@ -193,6 +299,8 @@ def main():
         elif hg < ag: pts[a] = pts.get(a, 0) + 3
         else: pts[h] = pts.get(h, 0) + 1; pts[a] = pts.get(a, 0) + 1
 
+    has_xg = bool(played["home_xg"].notna().any())
+
     # ── Upcoming fixtures → game cards + remaining-sim inputs ──────────────────
     remaining, upcoming_cards = [], []
     for _, r in upcoming.sort_values("date").iterrows():
@@ -227,8 +335,8 @@ def main():
     RH = np.array([idx[h] for (h, a) in remaining], dtype=int)
     RA = np.array([idx[a] for (h, a) in remaining], dtype=int)
     N = args.sims
-    ucl_n, releg_n = cfg["ucl"], cfg["releg"]
-    title = np.zeros(nT); ucl = np.zeros(nT); releg = np.zeros(nT)
+    buckets = cfg["buckets"]
+    counts = {b["key"]: np.zeros(nT) for b in buckets}
     proj = np.zeros(nT); rank_sum = np.zeros(nT)
     print(f"[{lid}] simulating {N:,} seasons · {len(remaining)} remaining · {nT} teams...")
     for _ in range(N):
@@ -243,25 +351,24 @@ def main():
         # Final ranking: points → current real GD → random (tie jitter)
         key = p * 10000 + base_gd * 10 + rng.random(nT) * 10
         order = np.argsort(-key)  # best first
-        title[order[0]] += 1
-        ucl[order[:ucl_n]] += 1
-        releg[order[nT - releg_n:]] += 1
+        for b in buckets:
+            counts[b["key"]][_bucket_idx(b, order, nT)] += 1
         rank_sum[order] += np.arange(1, nT + 1)
 
     standings = []
     for t in tids:
         i = idx[t]
-        standings.append({"team": tname(t),
-                          "pts": int(base_pts[i]), "gp": gp.get(t, 0),
-                          "gd": int(round(gf.get(t, 0) - ga.get(t, 0))),
-                          "xgd": round(xgf.get(t, 0) - xga.get(t, 0), 1),
-                          "proj_pts": round(proj[i] / N, 1),
-                          "proj_rank": round(rank_sum[i] / N, 1),
-                          "title": round(title[i] / N * 100, 1),
-                          "ucl": round(ucl[i] / N * 100, 1),
-                          "releg": round(releg[i] / N * 100, 1),
-                          "elo": int(round(elo_now.get(t, 1500))),
-                          "logo": tmeta(t).get("logo"), "color": tmeta(t).get("color")})
+        row = {"team": tname(t),
+               "pts": int(base_pts[i]), "gp": gp.get(t, 0),
+               "gd": int(round(gf.get(t, 0) - ga.get(t, 0))),
+               "proj_pts": round(proj[i] / N, 1),
+               "proj_rank": round(rank_sum[i] / N, 1),
+               "elo": int(round(elo_now.get(t, 1500))),
+               "logo": tmeta(t).get("logo"), "color": tmeta(t).get("color")}
+        for b in buckets:
+            row[b["key"]] = round(counts[b["key"]][i] / N * 100, 1)
+        row["xgd"] = round(xgf.get(t, 0) - xga.get(t, 0), 1) if has_xg else None
+        standings.append(row)
     standings.sort(key=lambda s: (-s["pts"], -s["gd"], -s["proj_pts"]))
 
     # ── Per-team current model inputs (latest rolling snapshot) ───────────────
@@ -394,14 +501,14 @@ def main():
     data = {
         "league": {"id": lid, "name": cfg["name"], "logo": _stub_league_logo(lid),
                    "confederation": "UEFA", "status": "live", "pct_complete": pct},
-        "outlook": {"mode": "table", "n_teams": cfg["n"], "ucl_slots": ucl_n,
-                    "releg_slots": releg_n,
-                    "cards": [{"key": "title", "label": "Title"},
-                              {"key": "ucl", "label": f"Top {ucl_n} (UCL)"},
-                              {"key": "releg", "label": "Relegation"}],
-                    "columns": [{"key": "title", "label": "Title"},
-                                {"key": "ucl", "label": "UCL"},
-                                {"key": "releg", "label": "Releg"}]},
+        "outlook": {"mode": "table", "n_teams": cfg["n"],
+                    "green_line": cfg.get("green_line"),
+                    "red_line": cfg.get("red_line"),
+                    "has_xg": has_xg,
+                    "cards": [{"key": b["key"], "label": b["label"]} for b in buckets],
+                    "columns": [{"key": b["key"], "label": b.get("col", b["label"]),
+                                 **{k: b[k] for k in ("top", "bottom", "band") if k in b}}
+                                for b in buckets]},
         "perf_by_year": perf_by_year,
         "season": ts, "in_season": len(upcoming_cards) > 0,
         "played": len(games) - len(upcoming_cards), "upcoming": len(upcoming_cards),
@@ -434,9 +541,10 @@ def main():
     out.write_text("window.LEAGUE_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
     print(f"[{lid}] wrote {out} ({out.stat().st_size/1024:.0f} KB) · "
           f"{data['played']} played + {data['upcoming']} upcoming · {len(standings)} teams")
+    _bk0, _bkN = buckets[0]["key"], buckets[-1]["key"]
     for s in standings[:4]:
         print(f"    {s['team']:<22} {s['pts']}pts/{s['gp']}gp  proj {s['proj_pts']}  "
-              f"title {s['title']}%  UCL {s['ucl']}%")
+              f"{_bk0} {s[_bk0]}%  {_bkN} {s[_bkN]}%")
 
 
 if __name__ == "__main__":
