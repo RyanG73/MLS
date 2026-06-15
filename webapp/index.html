@@ -868,11 +868,23 @@ function renderHealth(){
       <span class="hbar"><span style="width:${f.complete_pct}%;background:${col(f.complete_pct)}"></span></span><span class="hv" style="color:${col(f.complete_pct)}">${f.complete_pct}%</span>
       <span class="hbar"><span style="width:${f.nondefault_pct}%;background:${col(f.nondefault_pct)}"></span></span><span class="hv" style="color:${col(f.nondefault_pct)}">${f.nondefault_pct}%</span></div>`).join('')+
     `<div class="hnote">"Active" = share of values ≠ 0 (the neutral fill at predict time). is_playoff 0% is expected in the regular season; Availability &lt;100% = roster data missing for some matches.</div></div>`;
+  // value edge backtest card
+  const bt=(D.value_layer||{}).backtest;
+  const _btG='display:grid;grid-template-columns:90px 64px 80px 80px;gap:8px;align-items:center';
+  const btCard=bt&&bt.n_bets>0?`<div class="hcard2"><h3>Value edge backtest · ≥${bt.threshold_pct}% model edge, flat stake</h3>
+    <div class="h-stats">
+      <div class="h-stat"><div class="h-k">Historical bets</div><div class="h-big">${bt.n_bets}</div><div class="h-sub" style="color:var(--txt-3)">${bt.avg_edge_pct}% avg edge</div></div>
+      <div class="h-stat"><div class="h-k">Hit rate</div><div class="h-big">${(bt.win_rate*100).toFixed(1)}%</div><div class="h-sub" style="color:var(--txt-3)">wins / bets placed</div></div>
+      <div class="h-stat"><div class="h-k">Flat ROI</div><div class="h-big" style="color:${bt.roi>=0?'var(--qualify)':'#e25f4f'}">${bt.roi>=0?'+':''}${(bt.roi*100).toFixed(1)}%</div><div class="h-sub" style="color:var(--txt-3)">per unit staked</div></div>
+    </div>
+    <div style="${_btG};padding:0 0 8px;border-bottom:1px solid var(--line);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3)"><span>Season</span><span>N bets</span><span>Hit rate</span><span>ROI</span></div>
+    ${bt.by_season.map(s=>`<div style="${_btG};padding:8px 0;border-bottom:1px solid var(--line)"><span style="font-weight:600;font-size:12.5px">${s.label}</span><span style="font-size:11px;color:var(--txt-3);text-align:center">${s.n_bets}</span><span style="font-size:11px;color:var(--txt-3);text-align:center">${(s.win_rate*100).toFixed(0)}%</span><span style="font-size:11px;text-align:center;color:${s.roi>=0?'var(--qualify)':'#e25f4f'}">${s.roi>=0?'+':''}${(s.roi*100).toFixed(1)}%</span></div>`).join('')}
+    <div class="hnote">${bt.note}</div></div>` : '';
   // freshness strip
-  const fresh=`<div class="h-fresh"><span>Feature frame <b>${h.frame_file.split('/').pop()}</b> · ${h.frame_mtime}</span>
-    <span>ESPN schedule <b style="color:${h.espn_ok?'var(--qualify)':'#e25f4f'}">${h.espn_ok?'OK':'FAILED'}</b> · ${h.espn_events} events</span>
+  const fresh=`<div class="h-fresh"><span>Feature frame <b>${h.frame_file.split('/').pop()}</b> · ${h.frame_mtime||''}</span>
+    <span>${h.espn_ok!=null?`ESPN schedule <b style="color:${h.espn_ok?'var(--qualify)':'#e25f4f'}">${h.espn_ok?'OK':'FAILED'}</b> · ${h.espn_events} events`:`Source <b>${h.frame_file.split(':')[0]}</b>`}</span>
     <span>${h.season_rows} season rows (${h.played_rows} played)</span><span>Built ${D.generated}</span></div>`;
-  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+fresh;
+  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+btCard+fresh;
 }
 
 /* matches */
@@ -906,8 +918,11 @@ const _OL={H:'Home',D:'Draw',A:'Away'};
 // {k, label, val (signed %), isEdge}.
 function edgePick(g){
   const mp=[g.pH,g.pD,g.pA], ks=['H','D','A'];
-  if(g.mkt && g.mkt.length===3){
-    const edges=mp.map((p,i)=>p-g.mkt[i]);
+  // Accept both legacy g.mkt=[h,d,a] array and new g.mkt_home/draw/away separate fields
+  const mkt = g.mkt && g.mkt.length===3 ? g.mkt :
+               (g.mkt_home!=null ? [g.mkt_home,g.mkt_draw,g.mkt_away] : null);
+  if(mkt){
+    const edges=mp.map((p,i)=>p-mkt[i]);
     let bi=0;for(let i=1;i<3;i++)if(edges[i]>edges[bi])bi=i;
     return {k:ks[bi],label:_OL[ks[bi]],val:Math.round(edges[bi]*100),isEdge:true};
   }

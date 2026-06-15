@@ -410,6 +410,23 @@ def main():
         elo_hist[tname(t)] = [[d.strftime("%Y-%m-%d"), int(round(e))]
                               for d, e in zip(_ser["date"].iloc[::_step], _ser["elo"].iloc[::_step])]
 
+    # ── Market prob lookup for per-game edge display (football-data + understat leagues) ─
+    from models.research_model import walk_forward_predictions
+    from data_pipeline.football_data import DIV as _FD_DIV, attach_market
+    _game_mkt: dict[tuple[str, str], dict] = {}
+    if lid in _FD_DIV:
+        try:
+            _mkt_frame = attach_market(
+                played[["season", "home_team", "away_team"]].copy(), lid, [ts])
+            for _, _mr in _mkt_frame[_mkt_frame["mkt_home"].notna()].iterrows():
+                _game_mkt[(_mr["home_team"], _mr["away_team"])] = {
+                    "mkt_home": float(_mr["mkt_home"]),
+                    "mkt_draw": float(_mr["mkt_draw"]),
+                    "mkt_away": float(_mr["mkt_away"]),
+                }
+        except Exception as _e:
+            print(f"[{lid}] game market lookup failed: {_e}")
+
     # ── Game cards: played (ensemble if available, else DC) + upcoming ────────
     games = []
     for i, r in played.iterrows():
@@ -420,12 +437,19 @@ def main():
             pH, pD, pA = float(pe[i, 0]), float(pe[i, 1]), float(pe[i, 2])
         else:
             pH, pD, pA = dc_probs(h, a)
+        _mg = _game_mkt.get((h, a), {})
         games.append({"date": r["date"].strftime("%Y-%m-%d"), "home": tname(h), "away": tname(a),
                       "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
                       "lam": round(_lam, 2), "mu": round(_mu, 2),
                       "hg": int(r["home_goals"]), "ag": int(r["away_goals"]), "result": res,
                       "hlogo": tmeta(h).get("logo"), "alogo": tmeta(a).get("logo"),
-                      "hcolor": tmeta(h).get("color"), "acolor": tmeta(a).get("color")})
+                      "hcolor": tmeta(h).get("color"), "acolor": tmeta(a).get("color"),
+                      "mkt_home": round(_mg["mkt_home"], 3) if "mkt_home" in _mg else None,
+                      "mkt_draw": round(_mg["mkt_draw"], 3) if "mkt_draw" in _mg else None,
+                      "mkt_away": round(_mg["mkt_away"], 3) if "mkt_away" in _mg else None,
+                      "edge_home": round((pH - _mg["mkt_home"]) * 100, 1) if "mkt_home" in _mg else None,
+                      "edge_draw": round((pD - _mg["mkt_draw"]) * 100, 1) if "mkt_draw" in _mg else None,
+                      "edge_away": round((pA - _mg["mkt_away"]) * 100, 1) if "mkt_away" in _mg else None})
     games += upcoming_cards
     games.sort(key=lambda g: g["date"])
 
@@ -433,9 +457,8 @@ def main():
     # Per-match model probs let us score the model, the base-rate naive, AND the
     # betting market on the SAME matched matches per season — a fair "are we beating
     # the bookies?" read. Market odds from football-data.co.uk (Pinnacle/market-avg).
-    from models.research_model import walk_forward_predictions
-    from data_pipeline.football_data import DIV as _FD_DIV, attach_market
     perf_by_year = []
+    backtest = None
     try:
         # ESPN leagues use sequential season IDs (1-N), not calendar years.
         # Use last 8 seasons for eval (skip first 2 which lack enough training history).
@@ -478,10 +501,57 @@ def main():
                 _rec["edge_pct"] = round((_mkt_b - _mm) / _mkt_b * 100, 2)
             perf_by_year.append(_rec)
         print(f"[{lid}] perf by year: {[(p['label'], p['model'], p.get('market')) for p in perf_by_year]}")
+
+        # ── Edge backtest: flat-bet ROI for matches where model edge ≥ threshold ──
+        # Uses walk-forward held-out predictions + de-vigged market probs.
+        # "Fair odds" = 1/mkt_p (conservative: de-vigged, ~3-5% better than real Pinnacle).
+        _THRESH = 8.0
+        backtest = None
+        if _has_mkt and not _preds.empty:
+            _br = []
+            for _, _r in _preds[_preds["mkt_home"].notna()].iterrows():
+                for _oc, _mp, _mkp in [
+                    ("home", float(_r["prob_home"]), float(_r["mkt_home"])),
+                    ("draw", float(_r["prob_draw"]), float(_r["mkt_draw"])),
+                    ("away", float(_r["prob_away"]), float(_r["mkt_away"])),
+                ]:
+                    if _mkp <= 0:
+                        continue
+                    _edge = (_mp - _mkp) * 100
+                    if _edge < _THRESH:
+                        continue
+                    _won = int(_r["label_result"]) == {"home": 0, "draw": 1, "away": 2}[_oc]
+                    _fair_odds = 1.0 / _mkp
+                    _lbl = liga_mx_label(int(_r["season"])) if cfg["source"] == "espn" else str(int(_r["season"]))
+                    _br.append({"season": int(_r["season"]), "label": _lbl,
+                                 "outcome": _oc, "edge": _edge,
+                                 "won": _won, "pnl": (_fair_odds - 1.0) if _won else -1.0})
+            if _br:
+                _bdf = pd.DataFrame(_br)
+                _n = len(_bdf)
+                _by_s = [
+                    {"year": int(_sy),
+                     "label": _bdf[_bdf["season"] == _sy]["label"].iloc[0],
+                     "n_bets": len(_sg := _bdf[_bdf["season"] == _sy]),
+                     "win_rate": round(float(_sg["won"].mean()), 3),
+                     "roi": round(float(_sg["pnl"].sum() / len(_sg)), 3)}
+                    for _sy in sorted(_bdf["season"].unique())
+                ]
+                backtest = {
+                    "threshold_pct": _THRESH,
+                    "n_bets": _n,
+                    "win_rate": round(float(_bdf["won"].mean()), 3),
+                    "roi": round(float(_bdf["pnl"].sum() / _n), 3),
+                    "avg_edge_pct": round(float(_bdf["edge"].mean()), 1),
+                    "by_season": _by_s,
+                    "note": "flat-stake ROI at fair (de-vigged) odds; ~3-5% conservative vs. Pinnacle"}
+                print(f"[{lid}] edge backtest: {_n} bets, "
+                      f"win_rate={backtest['win_rate']:.3f}, roi={backtest['roi']:+.3f}")
     except Exception as _e:
         import traceback
         traceback.print_exc()
-        print(f"[{lid}] perf_by_year failed: {_e}")
+        print(f"[{lid}] perf_by_year/backtest failed: {_e}")
+        backtest = None
 
     # Headline league Brier = mean of the recent walk-forward folds.
     # ESPN leagues: recent = last 8 torneos (4 years). Others: 2022+.
@@ -558,6 +628,10 @@ def main():
                   "edge_pct": market_brier.get("edge_pct") if market_brier.get("status") == "ok" else None,
                   "cal_err": None, "name": "research_model", "metric": "brier_sum_form"},
         "n_sims": N,
+        "value_layer": {
+            "backtest": backtest,
+            "value_bets": [],  # upcoming matches with edge >= threshold; requires live odds
+        },
         "standings": standings, "games": games,
         "generated": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC"),
         "provenance": {"git_commit": git_commit, "model_file": "models/research_model.py",

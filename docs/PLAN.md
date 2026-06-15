@@ -63,6 +63,30 @@
 > top 8 qualify", cut-line between 8th and 9th, team logos loaded, no console errors.
 > MLS + big-5 regression-clean. 109/109 tests green.
 
+> **Phase 4 — Betting/value layer (2026-06-14) 🔄 IN PROGRESS**
+>
+> Adds per-match edge display and a walk-forward edge backtest to all 10 European leagues (where
+> historical betting market data exists via football-data.co.uk).
+>
+> **Key changes:**
+> - `scripts/build_league_data.py`: imports `walk_forward_predictions` + `attach_market`; computes
+>   `_game_mkt` lookup for the current season (per-match `mkt_home/draw/away`); adds edge fields
+>   (`edge_home/draw/away`) to each game card entry; runs edge backtest (≥8% model edge, flat stake,
+>   fair/de-vigged odds) over all walk-forward seasons; `value_layer.backtest` + `value_layer.value_bets`
+>   added to payload.
+> - `webapp/index.html`: `edgePick()` updated to accept both legacy `g.mkt=[h,d,a]` and new
+>   `g.mkt_home/draw/away` separate fields; `renderHealth()` gains a "Value edge backtest" card showing
+>   N bets / hit rate / flat ROI + per-season breakdown when `D.value_layer.backtest` is present.
+>
+> **Design decisions:**
+> - Fair odds = `1/mkt_p` (de-vigged, ~3-5% more conservative than real Pinnacle decimal odds).
+>   Actual ROI vs. Pinnacle would be slightly better.
+> - Edge threshold: 8% (established project gate, same as live betting threshold).
+> - `value_bets` field reserved for upcoming matches with live odds (empty until live odds pipeline added).
+> - Backtest uses walk-forward held-out predictions — no look-ahead bias.
+>
+> **Pending:** rebuild all 10 European league .js files with Phase 4 code; verify in-browser.
+
 > **Phase 2 — market comparison + operationalisation + league expansion (2026-06-14)**
 > After Phase 1 put the big-5 European leagues live, this phase adds the betting-market benchmark the
 > accuracy card was missing, operationalises the European builds for the 2026-27 season, and probes the
