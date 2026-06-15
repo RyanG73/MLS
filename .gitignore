@@ -8,6 +8,7 @@ data/raw/
 data/eval_cache/
 data/understat/
 data/football_data/
+data/espn_soccer/
 logs/
 
 # Multi-agent experiment runner

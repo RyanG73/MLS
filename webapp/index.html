@@ -525,22 +525,27 @@ $('#sub').textContent = D.in_season
   const py=(D.perf_by_year||[]);
   const _yrCols=[2022,2023,2024,2025];
   // Two consistent tracks: per-season model-vs-naive and model-vs-market.
-  const naiveMap={}, mktMap={};
+  const naiveMap={}, mktMap={}, labelMap={};
   py.forEach(p=>{ if(p.improve_pct!=null)naiveMap[p.year]=p.improve_pct;
-                  if(p.edge_pct!=null)mktMap[p.year]=p.edge_pct; });
+                  if(p.edge_pct!=null)mktMap[p.year]=p.edge_pct;
+                  if(p.label!=null)labelMap[p.year]=p.label; });
   // MLS: the in-progress season isn't a completed walk-forward fold, so add it.
   if(live.improve_pct!=null && !_yrCols.includes(D.season) && naiveMap[D.season]==null)
     naiveMap[D.season]=live.improve_pct;
-  // Season label: leagues whose season spans two calendar years (isTable) are
-  // labelled "25-26" for EVERY season; MLS is single-year ("25").
-  const seasonLbl=y=>isTable?`${String(y).slice(2)}-${String(y+1).slice(2)}`:`${String(y).slice(2)}`;
+  // Season label: prefer p.label from payload (e.g. "Cl.2026" for Liga MX);
+  // fall back to two-year "25-26" for European table leagues, or "25" for MLS.
+  const seasonLbl=y=>labelMap[y]??( isTable?`${String(y).slice(2)}-${String(y+1).slice(2)}`:`${String(y).slice(2)}` );
   const b3=v=>v==null?'—':(+v).toFixed(3);                      // Brier → 3 decimals
   const pct=v=>v==null?null:`${v>0?'+':''}${(+v).toFixed(1)}%`; // percentages → nearest tenth
   // Both rows share one column set (the naive track's years — the superset). The
   // most recent season is just the rightmost column, same size as the rest. Years
   // without a market comparison (e.g. all of MLS) render a blank market cell so
   // the two rows stay column-aligned.
-  const years=Object.keys(naiveMap).map(Number).filter(y=>y>=2022).sort((a,b)=>a-b);
+  // For sequential-ID leagues (Liga MX: IDs 1-19), filter to the last 8 instead
+  // of the >=2022 guard (which is meaningless for non-calendar-year IDs).
+  const _allYrs=Object.keys(naiveMap).map(Number).sort((a,b)=>a-b);
+  const _useCalYr=_allYrs.some(y=>y>=2022);
+  const years=_useCalYr?_allYrs.filter(y=>y>=2022):_allYrs.slice(-8);
   const row=(label,map)=>`<div class="acc-trk"><span class="acc-lbl">${label}</span><span class="acc-cells">`+
     years.map(y=>{const v=pct(map[y]);
       return `<span class="yr"><b>${seasonLbl(y)}</b>`+
@@ -768,7 +773,7 @@ function tableLadder(){
   const ol=D.outlook, cols=ol.columns, hasUp=NF>0;
   const teams=D.standings.map(vals).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
   const mx={};cols.forEach(c=>mx[c.key]=Math.max(...teams.map(s=>s[c.key]||0),1));
-  const BRGB={title:[246,181,63],promo:[246,181,63],ucl:[52,211,154],playoff:[52,211,154],releg:[226,95,79]};
+  const BRGB={title:[246,181,63],promo:[246,181,63],liguilla:[246,181,63],ucl:[52,211,154],playoff:[52,211,154],releg:[226,95,79]};
   const brgb=k=>BRGB[k]||[120,120,120];
   const hc=(v,k)=>v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}">${v.toFixed(0)}</span>`;
   const box=el('div','ladder tlad'+(hasUp?' tlad-w':''));

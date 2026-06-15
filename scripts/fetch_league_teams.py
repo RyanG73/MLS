@@ -31,7 +31,7 @@ _HDR = {"User-Agent": "Mozilla/5.0"}
 REGISTRY = [
     # Concacaf
     ("mls",                 "Major League Soccer",      "usa.1",            "Concacaf", "live"),
-    ("liga-mx",             "Liga MX",                  "mex.1",            "Concacaf", "soon"),
+    ("liga-mx",             "Liga MX",                  "mex.1",            "Concacaf", "live"),
     ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "soon"),
     ("leagues-cup",         "Leagues Cup",              None,               "Concacaf", "soon"),
     ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "soon"),

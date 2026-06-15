@@ -29,7 +29,39 @@
 > Verified in-browser: PROMO/PLAYOFF/RELEG columns, top-6/bottom-3 cut-lines, no xGD on goals-only leagues,
 > MLS + big-5 regression-clean. 109/109 tests green.
 >
-> **Next: 3B Liga MX (FBref xG), 3C Canadian PL, 3D Cups, then Phase 4 betting/value layer.**
+> **Next: Phase 4 betting/value layer (now unblocked — historical odds in all 10 European leagues).**
+
+> **Phase 3B — Liga MX (ESPN goals-only, 2026-06-14) ✅ COMPLETE**
+>
+> FBref/soccerdata only covers the Big 5 + tournaments (Selenium + Chrome required; Liga MX not in
+> available_leagues). Pivoted to ESPN free scoreboard API (mex.1) — same goals-only approach as
+> European 2nd tiers, no model changes needed.
+>
+> **Key changes:**
+> - `data_pipeline/espn_soccer.py` (new): ESPN goals-only adapter for Liga MX. Season encoding:
+>   sequential integers (Clausura 2017=1, Apertura 2017=2, …, Clausura 2026=19) via
+>   `(year-2017)*2 + (1 if clausura else 2)`. Parquet-cached. 2,767 matches across 18 torneos fetched.
+>   Clausura 2020 excluded (COVID cancellation). `season_label(sid)` → "Cl.2026" / "Ap.2025".
+> - `scripts/build_league_data.py`: added `_LIGUILLA()` bucket (top-8 of 18); `"liga-mx"` entry in
+>   OUTLOOK (`source="espn"`, `confederation="Concacaf"`, `eval_seasons=None`); `_load_frame` handles
+>   `source=="espn"`; `_pyears` is now dynamic for ESPN leagues (all torneos from index 2 onward);
+>   `perf_by_year` records now carry a `label` field for human-readable accuracy card columns;
+>   `confederation` and `data_source` pulled from `cfg` (not hardcoded "UEFA").
+> - `webapp/index.html`: `BRGB` extended with `liguilla` (same gold as `promo`); accuracy card builds
+>   `labelMap` from `p.label` and uses `seasonLbl=y=>labelMap[y]??...` — Liga MX shows "Ap.2022",
+>   "Cl.2023", etc.; year filter generalized (`>=2022` for calendar leagues, last-8 for sequential-ID).
+> - `scripts/fetch_league_teams.py`: `liga-mx` flipped `soon→live`; `leagues.js` regenerated (12 live).
+> - `.gitignore`: `data/espn_soccer/` added.
+>
+> **Goals-only sanity gate (sequential walk-forward, all torneos):**
+> | Torneo | Model | Naive | Beat naive |
+> |---|---|---|---|
+> | Current (Cl.2026) | 0.6161 | 0.6453 | ✓ (+4.5%) |
+> | Range Ap.2018–Cl.2026 | 0.57–0.67 | 0.63–0.65 | ✓ mostly |
+>
+> Verified in-browser: "LIGUILLA" card in gold, accuracy card shows torneo labels, "18-team table ·
+> top 8 qualify", cut-line between 8th and 9th, team logos loaded, no console errors.
+> MLS + big-5 regression-clean. 109/109 tests green.
 
 > **Phase 2 — market comparison + operationalisation + league expansion (2026-06-14)**
 > After Phase 1 put the big-5 European leagues live, this phase adds the betting-market benchmark the

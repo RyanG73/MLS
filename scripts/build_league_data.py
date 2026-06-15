@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))  # repo root on sys.path
 
 from data_pipeline.understat import canonical_frame, espn_name
 from data_pipeline.football_data import match_results
+from data_pipeline.espn_soccer import liga_mx_frame, season_label as liga_mx_label
 from models.research_model import (
     bag_proba, blend, calibrate_temperature, dc_predict_batch, fit_capped_blend,
     fit_dc, fit_xgb,
@@ -63,6 +64,8 @@ _PROMO = lambda promo, play, rel: [
     {"key": "promo", "label": "Promotion", "col": "Promo", "top": promo},
     {"key": "playoff", "label": "Playoff", "col": "Playoff", "band": play},
     {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}]
+_LIGUILLA = lambda: [
+    {"key": "liguilla", "label": "Liguilla", "col": "Liguilla", "top": 8}]
 
 OUTLOOK = {
     # Big-5 top flights (Understat xG). buckets preserve the prior Title/UCL/Releg output.
@@ -87,6 +90,11 @@ OUTLOOK = {
                      "buckets": _PROMO(2, [3, 3], 3), "green_line": 3, "red_line": 3},
     "serie-b":      {"name": "Serie B", "source": "footballdata", "n": 20,
                      "buckets": _PROMO(2, [3, 8], 3), "green_line": 8, "red_line": 3},
+    # Concacaf — ESPN goals-only (no xG, no market odds)
+    # eval_seasons=None → derived dynamically from frame's season integers
+    "liga-mx":      {"name": "Liga MX", "source": "espn", "n": 18, "confederation": "Concacaf",
+                     "buckets": _LIGUILLA(), "green_line": 8, "red_line": None,
+                     "eval_seasons": None},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only
@@ -141,11 +149,13 @@ FD_ESPN: dict[str, dict[str, str]] = {
 
 
 def _load_frame(league_id: str, source: str):
-    """Route a league to its canonical-frame source (Understat xG / football-data goals)."""
+    """Route a league to its canonical-frame source."""
     if source == "understat":
         return canonical_frame(league_id)
     if source == "footballdata":
         return match_results(league_id)
+    if source == "espn" and league_id == "liga-mx":
+        return liga_mx_frame()
     raise ValueError(f"Unknown source '{source}' for league '{league_id}'")
 
 
@@ -427,7 +437,17 @@ def main():
     from data_pipeline.football_data import DIV as _FD_DIV, attach_market
     perf_by_year = []
     try:
-        _pyears = [y for y in (2017, 2019, 2021, 2022, 2023, 2024, 2025) if y in set(df["season"])]
+        # ESPN leagues use sequential season IDs (1-N), not calendar years.
+        # Use last 8 seasons for eval (skip first 2 which lack enough training history).
+        # European leagues keep the curated year list (intentionally skips 2018/2020).
+        if cfg["source"] == "espn":
+            _all_sids = sorted(set(df["season"]))
+            _pyears = _all_sids[2:]  # skip first 2 torneos (insufficient training data)
+        elif cfg.get("eval_seasons") is not None:
+            _pyears = [y for y in cfg["eval_seasons"] if y in set(df["season"])]
+        else:
+            _pyears = [y for y in (2017, 2019, 2021, 2022, 2023, 2024, 2025)
+                       if y in set(df["season"])]
         _preds, _ = walk_forward_predictions(df, feat, _pyears, n_bags=1)
         if lid in _FD_DIV and not _preds.empty:
             _preds = attach_market(_preds, lid, _pyears)
@@ -442,7 +462,10 @@ def main():
             _tr = df[df["season"] < _y - 1].dropna(subset=["label_result"])
             _fq = np.bincount(_tr["label_result"].values.astype(int), minlength=3) / max(len(_tr), 1)
             _nb = float(np.mean(np.sum((np.tile(_fq, (len(_g), 1)) - _yoh) ** 2, axis=1)))
-            _rec = {"year": _y, "model": round(_model_b, 4), "naive": round(_nb, 4),
+            # label: human-readable for accuracy card (ESPN uses torneo labels, others use year)
+            _label = liga_mx_label(_y) if cfg["source"] == "espn" else str(_y)
+            _rec = {"year": _y, "label": _label,
+                    "model": round(_model_b, 4), "naive": round(_nb, 4),
                     "improve_pct": round((_nb - _model_b) / _nb * 100, 2)}
             if _has_mkt and int(_g["mkt_home"].notna().sum()) >= 20:
                 _gm = _g[_g["mkt_home"].notna()]
@@ -452,16 +475,21 @@ def main():
                 _mm = float(np.mean(np.sum(  # model on the SAME matched matches (fair)
                     (_gm[["prob_home", "prob_draw", "prob_away"]].values - _ym) ** 2, axis=1)))
                 _rec["market"] = round(_mkt_b, 4)
-                _rec["edge_pct"] = round((_mkt_b - _mm) / _mkt_b * 100, 2)  # +ve = model beats market
+                _rec["edge_pct"] = round((_mkt_b - _mm) / _mkt_b * 100, 2)
             perf_by_year.append(_rec)
-        print(f"[{lid}] perf by year: {[(p['year'], p['model'], p.get('market')) for p in perf_by_year]}")
+        print(f"[{lid}] perf by year: {[(p['label'], p['model'], p.get('market')) for p in perf_by_year]}")
     except Exception as _e:
         import traceback
         traceback.print_exc()
         print(f"[{lid}] perf_by_year failed: {_e}")
 
-    # Headline league Brier = mean of the recent (2022+) walk-forward folds.
-    _recent = [p for p in perf_by_year if p["year"] >= 2022]
+    # Headline league Brier = mean of the recent walk-forward folds.
+    # ESPN leagues: recent = last 8 torneos (4 years). Others: 2022+.
+    if cfg["source"] == "espn" and perf_by_year:
+        _cutoff = sorted(p["year"] for p in perf_by_year)[-8] if len(perf_by_year) >= 8 else 0
+        _recent = [p for p in perf_by_year if p["year"] >= _cutoff]
+    else:
+        _recent = [p for p in perf_by_year if p["year"] >= 2022]
     league_brier = round(float(np.mean([p["model"] for p in _recent])), 4) if _recent else None
     league_naive = round(float(np.mean([p["naive"] for p in _recent])), 4) if _recent else None
     _recent_mkt = [p for p in _recent if p.get("market") is not None]
@@ -477,7 +505,7 @@ def main():
              "Form": [c for c in feat if "form" in c],
              "is_playoff": [c for c in feat if c == "is_playoff"]}
     _rows = df[df["season"] == ts]
-    health = {"frame_file": f"understat:{lid}", "espn_ok": bool(stub_meta),
+    health = {"frame_file": f"{cfg['source']}:{lid}", "espn_ok": bool(stub_meta),
               "season_rows": int(len(_rows)), "played_rows": int(len(played)),
               "features": [{"family": fam, "cols": len(cols),
                             "complete_pct": round(float(_rows[cols].notna().mean().mean() * 100), 1),
@@ -500,7 +528,8 @@ def main():
     pct = round(len([g for g in games if g["result"]]) / max(1, len(games)) * 100)
     data = {
         "league": {"id": lid, "name": cfg["name"], "logo": _stub_league_logo(lid),
-                   "confederation": "UEFA", "status": "live", "pct_complete": pct},
+                   "confederation": cfg.get("confederation", "UEFA"),
+                   "status": "live", "pct_complete": pct},
         "outlook": {"mode": "table", "n_teams": cfg["n"],
                     "green_line": cfg.get("green_line"),
                     "red_line": cfg.get("red_line"),
@@ -532,7 +561,7 @@ def main():
         "standings": standings, "games": games,
         "generated": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC"),
         "provenance": {"git_commit": git_commit, "model_file": "models/research_model.py",
-                       "data_source": f"understat:{lid}",
+                       "data_source": f"{cfg['source']}:{lid}",
                        "metric_convention": "brier_sum_form (range 0-2; random ~0.64); "
                                             "league avg = recent walk-forward folds"}}
 
