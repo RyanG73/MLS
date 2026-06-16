@@ -12,6 +12,48 @@ A 13-iteration improvement loop (2026-06-09, recorded verdict-by-verdict in `doc
 
 ---
 
+## Update 2026-06-15 — Phase 3 (10 leagues live) + Phase 4 (value/edge layer)
+
+**12 leagues now live** in the sidebar: MLS, the Big-5 (EPL, La Liga, Serie A, Bundesliga, Ligue 1),
+5 European second-tier (Championship, League One, League Two, 2.Bundesliga, Serie B), and Liga MX.
+
+**Phase 3A (European 2nd-tier):** Championship/League One/League Two use football-data.co.uk goals-only
+CSVs — same pipeline as big-5, `xG=NaN` triggers the goals-only fallback in `add_rolling_features`.
+Walk-forward 2022–2025 Brier: 0.632–0.658, all beat naive by 2–3%. PROMO/PLAYOFF/RELEG bucket system
+generalized via `OUTLOOK` dict + `_TOP()` / `_PROMO()` helpers in `build_league_data.py`.
+
+**Phase 3B (Liga MX):** FBref/soccerdata only covers the Big-5; pivoted to ESPN scoreboard API
+(`site.api.espn.com/…/mex.1/scoreboard`). Season encoding: sequential integers via
+`(year-2017)*2 + (1 if clausura else 2)` — Clausura 2017=1 through Clausura 2026=19, skipping 7
+(Clausura 2020 cancelled). `data_pipeline/espn_soccer.py` fetches 2,767 matches across 18 torneos.
+The accuracy card uses `labelMap` from `perf_by_year[].label` to show "Ap.2025"/"Cl.2026" columns
+rather than season integers. Liguilla bucket: top 8 of 18.
+
+**Phase 4 (value/edge layer):** All 10 European leagues gain per-match market edge fields
+(`mkt_home/draw/away`, `edge_home/draw/away`) and a `value_layer.backtest` block. The build script
+runs `walk_forward_predictions` + `attach_market` (football-data.co.uk), then flat-bet simulates
+all matches where `model_edge ≥ 8%` at fair (de-vigged) odds. EPL result: 1,085 bets over 7 seasons,
+hit rate 28.7%, ROI −5.8% — the model finds apparent edges but Pinnacle's pricing is sharp enough
+to make them unprofitable at fair odds. Honest and expected. The Health tab gains a backtest card.
+`edgePick()` now renders real edge percentages (e.g. "+12% H") when market data is present.
+
+**Pending (before next session):** rebuild 9 leagues (la-liga through serie-b) with Phase 4 code:
+```bash
+for league in la-liga serie-a bundesliga ligue-1 championship league-one league-two bundesliga-2 serie-b; do
+  venv/bin/python scripts/build_league_data.py --league $league --sims 5000
+done
+```
+Then `git add webapp/data/*.js && git commit`.
+
+**Next priority tracks:**
+1. Liga MX Apertura 2026 (~July 2026): add torneo window to `_LIGA_MX_WINDOWS` in `espn_soccer.py`.
+2. European 2026-27 rollover (August 2026): fresh Understat fetch per league; `build_league_data`
+   auto-detects new fixtures.
+3. Live `value_bets`: populate `value_layer.value_bets` for upcoming matches — football-data.co.uk
+   publishes current-season CSVs that can feed the same de-vig pipeline.
+
+---
+
 ## Update 2026-06-14 — Multi-league platform: big-5 European leagues live
 
 The platform now serves **EPL, La Liga, Serie A, Bundesliga, and Ligue 1** alongside MLS, behind the

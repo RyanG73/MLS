@@ -63,7 +63,7 @@
 > top 8 qualify", cut-line between 8th and 9th, team logos loaded, no console errors.
 > MLS + big-5 regression-clean. 109/109 tests green.
 
-> **Phase 4 — Betting/value layer (2026-06-14) 🔄 IN PROGRESS**
+> **Phase 4 — Betting/value layer (2026-06-14) ✅ COMPLETE (code); data rebuild pending**
 >
 > Adds per-match edge display and a walk-forward edge backtest to all 10 European leagues (where
 > historical betting market data exists via football-data.co.uk).
@@ -85,7 +85,40 @@
 > - `value_bets` field reserved for upcoming matches with live odds (empty until live odds pipeline added).
 > - Backtest uses walk-forward held-out predictions — no look-ahead bias.
 >
-> **Pending:** rebuild all 10 European league .js files with Phase 4 code; verify in-browser.
+> **EPL verified (2026-06-15):** 1,085 backtest bets, win_rate=0.287, roi=−0.058 at fair odds.
+> The model identifies apparent edges but they don't clear the bar vs. Pinnacle's sharp closing line —
+> honest and expected for a market-blind model. Per-game `mkt_home/draw/away` and `edge_*` fields
+> populate the match card "Pick" column with real edge percentages for EPL.
+>
+> **Pending data rebuild:** la-liga, serie-a, bundesliga, ligue-1, championship, league-one,
+> league-two, bundesliga-2, serie-b need `build_league_data.py --sims 5000` run to pick up Phase 4
+> fields. Command:
+> ```bash
+> for league in la-liga serie-a bundesliga ligue-1 championship league-one league-two bundesliga-2 serie-b; do
+>   venv/bin/python scripts/build_league_data.py --league $league --sims 5000
+> done
+> ```
+>
+> **Next: Phase 5 — 2026-27 season rollover + live value_bets (see below)**
+
+> **Phase 5 — Open roadmap (not yet started)**
+>
+> Three tracks in priority order:
+>
+> **Track A — Data rebuild (immediate):** Rebuild 9 European leagues with Phase 4 code (see command above).
+> Once done, commit the 9 rebuilt `.js` files. ~3–4 hours sequential CPU.
+>
+> **Track B — 2026-27 season rollover (Aug 2026):** European leagues restart in August 2026. The
+> Understat cache needs a fresh fetch (per-league `python -m data_pipeline.understat --league <id>`)
+> once the 2026-27 season begins. `build_league_data.py` will auto-detect new fixtures vs. completed
+> matches. Liga MX Apertura 2026 starts ~July 2026 and is already handled by the ESPN adapter
+> (add Apertura 2026 torneo window to `_LIGA_MX_WINDOWS` in `data_pipeline/espn_soccer.py`).
+>
+> **Track C — Live value_bets:** Populate `value_layer.value_bets` for upcoming matches where model
+> edge ≥ 8%. Requires a live odds source. football-data.co.uk publishes upcoming-season opening odds
+> (downloadable CSV) — the same adapter already used for historical odds. The build script would
+> fetch the current-season CSV, de-vig, and filter upcoming matches by edge threshold. This is the
+> only remaining step to make Phase 4 actionable for real-time betting decisions.
 
 > **Phase 2 — market comparison + operationalisation + league expansion (2026-06-14)**
 > After Phase 1 put the big-5 European leagues live, this phase adds the betting-market benchmark the

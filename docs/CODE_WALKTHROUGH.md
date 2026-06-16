@@ -676,3 +676,66 @@ xG-visible hierarchies) than high-parity MLS. Sub-0.60 single-season Briers are 
 European 2025-26 seasons completed by May 2026, and 2026-27 starts in August 2026. A league built in
 this window shows a **finished final table** (sim outcomes resolved to 0/100%); probabilistic live
 projections + the interactive what-if simulator (currently MLS-only) resume when 2026-27 kicks off.
+
+---
+
+### Phase 3A extension — Goals-only leagues (2nd-tier European + Liga MX)
+
+The five European 2nd-tier leagues (Championship, League One, League Two, 2.Bundesliga, Serie B) use
+`data_pipeline/football_data.py` as their data source (goals + market odds CSVs from football-data.co.uk,
+no xG). When `xG=NaN`, `add_rolling_features` falls back to goals for the rolling xG features. This
+is handled transparently — no model branching. The `OUTLOOK` dict in `build_league_data.py` holds each
+league's `source`, `n` (team count), `buckets` (promotion/playoff/relegation zones), and `green_line`/
+`red_line` for the table cut-lines. Helpers `_TOP()`, `_PROMO()`, `_LIGUILLA()` build the bucket lists.
+
+```python
+# build_league_data.py OUTLOOK sample
+"championship": {
+    "name": "EFL Championship", "source": "football_data", "n": 24,
+    "buckets": _PROMO() + _TOP(3, key="playoff", label="Playoff") + ...,
+    "green_line": 2, "red_line": 21
+}
+```
+
+### Phase 3B — Liga MX (ESPN adapter)
+
+`data_pipeline/espn_soccer.py` fetches Liga MX results from ESPN's free scoreboard API
+(`site.api.espn.com/apis/site/v2/sports/soccer/mex.1/scoreboard`). Key design points:
+
+- **Season encoding:** sequential integers `(year-2017)*2 + (1 if clausura else 2)`. Clausura 2017=1,
+  Apertura 2017=2, …, Clausura 2026=19. Skips 7 (Clausura 2020 cancelled). Sequential IDs maintain
+  temporal order and support `ts - 1` calibration arithmetic.
+- **`_LIGA_MX_WINDOWS`:** list of `(year, is_clausura, date_from, date_to)` tuples, one per torneo.
+  Each fetched separately (ESPN slug changes year to year; substring match `"torneo-clausura" in slug`).
+- **`season_label(sid)`:** reverse-maps integer → `"Cl.2026"` / `"Ap.2025"` for the accuracy card.
+- **Liguilla:** top 8 of 18 qualify; regular-season slug matches only (`"torneo-clausura"` /
+  `"torneo-apertura"` — liguilla slugs like `"clausura---quarterfinals"` are excluded).
+- Adding Apertura 2026 (July 2026): add one entry to `_LIGA_MX_WINDOWS` in `espn_soccer.py`, then
+  rebuild: `venv/bin/python scripts/build_league_data.py --league liga-mx --sims 20000`.
+
+### Phase 4 — Value/edge layer
+
+**Per-match market fields (build_league_data.py):** for all 10 European leagues, the build script
+fetches `attach_market(played, lid, [ts])` → joins football-data.co.uk odds for the current season →
+stores `mkt_home`, `mkt_draw`, `mkt_away` (de-vigged implied probs) and `edge_home/draw/away` (in %)
+on each game card. These display in the webapp's match "Pick" column as e.g. `+12% H` when an edge ≥8%
+exists, or just the highest model probability when no market data is available.
+
+**`edgePick(g)`** (webapp/index.html): accepts both legacy `g.mkt=[h,d,a]` array format (MLS) and the
+new separate `g.mkt_home/draw/away` fields (European leagues). Union-handled: the array wins if present.
+
+**`value_layer.backtest`** (build_league_data.py): walks all walk-forward held-out seasons, collects
+every bet where `model_prob - mkt_prob ≥ 8%`, computes flat-stake P&L at fair odds (`1/mkt_p`).
+Fields: `n_bets`, `win_rate`, `roi`, `avg_edge_pct`, `by_season[]`. EPL result: 1,085 bets, 28.7%
+hit rate, −5.8% ROI — honest signal that Pinnacle's line is sharp.
+
+**`value_layer.value_bets`:** reserved as `[]` for now. Will be populated with upcoming matches where
+model edge ≥ 8% once a live odds source is wired in (football-data.co.uk publishes current-season CSVs).
+
+**`renderHealth()` backtest card:** rendered only when `D.value_layer.backtest?.n_bets > 0`. Uses
+inline 4-column grid (`_btG` const) rather than the existing 6-column `.hrow2` class (which is designed
+for the feature completeness table's bar+pct dual columns).
+
+**What would look wrong:** `value_layer.backtest` is `None` for a European league → the build's
+`attach_market` call failed or the league is not in `_FD_DIV`. Liga MX `value_layer.backtest` is
+always `None` (correct — no market data source).
