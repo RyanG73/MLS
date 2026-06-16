@@ -49,6 +49,7 @@ BIG5 = ["epl", "la-liga", "serie-a", "bundesliga", "ligue-1"]
 GOALS_ONLY = ["championship", "league-one", "league-two", "bundesliga-2", "serie-b"]
 
 _RESULTS_CACHE_DIR = Path("data/football_data")
+_RAW_CACHE_DIR = _RESULTS_CACHE_DIR / "raw"
 
 _BASE = "https://www.football-data.co.uk/mmz4281"
 _HDR = {"User-Agent": "Mozilla/5.0"}
@@ -90,10 +91,26 @@ def _season_code(start_year: int) -> str:
 
 
 def _fetch_csv(div: str, start_year: int) -> pd.DataFrame | None:
+    """Fetch one season's football-data CSV, disk-cached as raw text.
+
+    The raw CSV is cached under data/football_data/raw/ so repeat callers
+    (match_results AND market_probs) read from disk instead of re-downloading.
+    On a network failure the cached copy is used as a fallback, so a stalled
+    football-data.co.uk never blocks a build whose data already exists locally.
+    """
+    raw_path = _RAW_CACHE_DIR / f"{div}-{_season_code(start_year)}.csv"
+    if raw_path.exists():
+        try:
+            return pd.read_csv(raw_path)
+        except Exception:
+            pass  # corrupt cache → re-fetch below
+
     url = f"{_BASE}/{_season_code(start_year)}/{div}.csv"
     try:
-        r = requests.get(url, headers=_HDR, timeout=25)
+        r = requests.get(url, headers=_HDR, timeout=(10, 30))
         r.raise_for_status()
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+        raw_path.write_text(r.text)
         return pd.read_csv(io.StringIO(r.text))
     except Exception as e:
         logger.warning("football-data %s %s fetch failed (%s)", div, start_year, e)

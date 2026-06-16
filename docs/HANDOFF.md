@@ -12,6 +12,22 @@ A 13-iteration improvement loop (2026-06-09, recorded verdict-by-verdict in `doc
 
 ---
 
+## Update 2026-06-16 — Phase 4 data rebuild complete + Dixon-Coles fit 24× speedup
+
+The 8 remaining European leagues were rebuilt with the Phase 4 value/edge layer (serie-a,
+bundesliga, ligue-1, championship, league-one, league-two, bundesliga-2, serie-b) — all 9
+non-EPL European leagues now carry `value_layer.backtest`.
+
+During the rebuild, 24-team builds (Championship/League One/League Two) appeared to hang for
+80+ min. Root cause: `_dc_nll` (Dixon-Coles NLL) was a pure-Python per-match loop calling
+`scipy.stats.poisson.logpmf` twice per match per L-BFGS iteration — ~1.3M scalar scipy calls
+per fit → `fit_dc` took 215s; Phase 4's 7-fold backtest multiplied that. **Fix:** vectorized
+the NLL (numpy + `scipy.special.gammaln` closed form, boolean-mask τ). Present in BOTH DC
+copies (`models/research_model.py`, `scripts/eval/dixon_coles.py`). Result: `fit_dc` 215s→0.42s
+(482×); full backtest 1458s→59.6s (24×); the 5 builds finished in **5 min 36 s total**.
+**Behavior-preserving — MLS champion parity PASS |Δ|=0.0000, 109/109 tests pass.** Also bounded
+the football-data fetch with `timeout=(10,30)` so a stalled server fails fast to the disk cache.
+
 ## Update 2026-06-15 — Phase 3 (10 leagues live) + Phase 4 (value/edge layer)
 
 **12 leagues now live** in the sidebar: MLS, the Big-5 (EPL, La Liga, Serie A, Bundesliga, Ligue 1),

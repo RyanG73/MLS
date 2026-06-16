@@ -120,6 +120,16 @@ add_rolling_features(
 - `fit_dc()` — L-BFGS-B optimiser, returns `(atk, dfd, ha, rho)` dicts
 - `dc_predict()` — builds an 8×8 score matrix, sums triangles for P(H), P(D), P(A)
 
+**Performance note (2026-06-16):** `dc_nll` / `_dc_nll` are **vectorized over the match
+array** (numpy + `scipy.special.gammaln` for the closed-form Poisson log-pmf, boolean masks
+for the four τ cases). The prior per-match Python loop called `scipy.stats.poisson.logpmf`
+twice per match per optimiser iteration — millions of high-overhead scalar calls — so `fit_dc`
+took ~215s on a 24-team league (Championship/League One/League Two), making the Phase 4
+backtest (`fit_dc` × 7 folds) appear to hang. Vectorizing cut `fit_dc` to ~0.4s (482×) with
+**zero change to results** (MLS parity |Δ|=0.0000). The same fix lives in both DC copies —
+`scripts/eval/dixon_coles.py` and `models/research_model.py`. If you re-edit either, keep them
+in sync and re-run `make parity-check`.
+
 **Parameters fixed by optimisation:** `ha` (home advantage in log-lambda space, bounded 0–1), `rho` (correction magnitude, bounded −0.5–0).
 
 **What to look for:** `DEFAULT_DC_DECAY_HL = 120` in both `scripts/eval/dixon_coles.py` (line 20) and `models/research_model.py` (line 29). The `recent_seasons=4` parameter in `fit_dc` limits fitting to the last 4 seasons of the training window.

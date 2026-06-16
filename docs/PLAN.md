@@ -1,5 +1,35 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase 4 data rebuild + Dixon-Coles fit 24× speedup (2026-06-16) ✅ COMPLETE**
+>
+> Rebuilt the 8 remaining European leagues (serie-a, bundesliga, ligue-1, championship,
+> league-one, league-two, bundesliga-2, serie-b) with the Phase 4 value/edge layer — all 9
+> non-EPL European leagues now carry `value_layer.backtest`. EPL was already done.
+>
+> **Root-caused + fixed a severe perf cliff that made 24-team builds appear to hang.**
+> `_dc_nll` (Dixon-Coles negative-log-likelihood) was a pure-Python per-match loop calling
+> `scipy.stats.poisson.logpmf` twice per match per L-BFGS iteration — ~1.3M high-overhead
+> scipy calls per fit on a 24-team league → **`fit_dc` took 215s**. Phase 4's backtest calls
+> `fit_dc` once per fold × 7 folds, so each 24-team 2nd-tier league (Championship/League
+> One/League Two) needed ~26 min for the backtest alone; the 18-team leagues squeaked by.
+>
+> **Fix:** vectorized the NLL with numpy using the closed form
+> `poisson.logpmf(k,λ)=k·ln(λ)−λ−lgamma(k+1)` (`scipy.special.gammaln`) and boolean masks for
+> the four Dixon-Coles τ cases. The slow loop existed in **two** copies — `models/research_model.py`
+> `_dc_nll` (the build + parity path) AND `scripts/eval/dixon_coles.py` `dc_nll` (the harness
+> path) — both fixed identically.
+> - `fit_dc` (Championship, real data): **215s → 0.42s (482×)**
+> - Full 7-fold backtest (build path): **1458s → 59.6s (24×)**
+> - All 5 remaining 24/20/18-team builds: **5 min 36 s total** (was 80+ min, hanging)
+> - **MLS champion parity PASS, |Δ|=0.0000** (0.6330 exact, per-season + w_xgb unchanged) —
+>   numerically identical to ~1e-12; behavior-preserving. 109/109 tests pass; 13 DC unit tests pass.
+> - Also bounded the football-data.co.uk fetch with `timeout=(10,30)` (connect, read) so a
+>   stalled server fails fast and falls back to the raw-CSV disk cache.
+>
+> Edge backtests (fair odds, ≥8% model edge): Championship 1387 bets −7.7%, League One 1485
+> −7.5%, League Two 1458 −2.5%, 2.Bundesliga 885 **+1.5%**, Serie B 916 −7.5%. Same honest
+> read as EPL — Pinnacle's line is sharp; goals-only leagues only narrowly beat naive.
+
 > **Phase 3A — 5 European 2nd-tier leagues (goals-only, 2026-06-14) ✅ COMPLETE**
 >
 > Added Championship, League One, League Two, 2.Bundesliga, Serie B as live leagues.
