@@ -35,3 +35,25 @@ def test_modeled_league_but_missing_team_falls_back_observably(caplog):
         s = cl.team_strength("Porto", "epl", {"Arsenal": 1650.0})
     assert s == cl.co.club_strength("Porto")  # 1780.0, not the 1450 baseline
     assert "falling back" in caplog.text
+
+
+class TestMatchModel:
+    def test_equal_strength_neutral_is_symmetric(self):
+        ph, pd_, pa = cl.match_probs(1700, 1700, neutral=True)
+        assert abs(ph - pa) < 1e-9
+        assert ph + pd_ + pa == pytest.approx(1.0)
+
+    def test_home_advantage_favors_home(self):
+        ph_n, _, _ = cl.match_probs(1700, 1700, neutral=True)
+        ph_h, _, _ = cl.match_probs(1700, 1700, neutral=False)
+        assert ph_h > ph_n
+
+    def test_stronger_team_more_likely_to_win(self):
+        ph_weak, _, _ = cl.match_probs(1600, 1700, neutral=True)
+        ph_strong, _, _ = cl.match_probs(1800, 1700, neutral=True)
+        assert ph_strong > ph_weak
+
+    def test_lambdas_increase_with_strength_gap(self):
+        lh1, la1 = cl.match_lambdas(1700, 1700, neutral=True)
+        lh2, la2 = cl.match_lambdas(1900, 1700, neutral=True)
+        assert lh2 > lh1 and la2 < la1
