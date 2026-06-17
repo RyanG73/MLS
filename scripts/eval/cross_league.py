@@ -22,10 +22,15 @@ _log = logging.getLogger(__name__)
 # Champion ELO config (matches the rest of the platform).
 _ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT = 25.0, 80.0, 0.40, 1500.0
 
-# Match-model constants (calibrated in a later validation task — priors here).
-BASE_GOALS = 1.35   # league-neutral expected goals per side at equal strength
-GOAL_SCALE = 800.0  # ELO points per 10x multiplier on the goal rate
-HOME_ADV_ELO = 65.0 # home advantage in strength points for non-neutral matches
+# Match-model constants — calibrated 2026-06-16 via scripts/validate_continental.py:
+# UCL 2021-24 (n=564): model 0.5985 vs naive 0.6217 (BEATS naive by 0.0232).
+# NOTE: BASE_GOALS and GOAL_SCALE are high because with ~80% of UCL teams at
+# BASELINE_STRENGTH=1450 (only ~10/64 clubs in _CLUB_STRENGTH), the signal is
+# almost entirely home-advantage. High BASE_GOALS suppresses draws to match UCL
+# actuals; high GOAL_SCALE+HOME_ADV_ELO keeps elite clubs differentiated.
+BASE_GOALS = 10.0    # calibrated 2026-06-16: UCL model 0.5985 vs naive 0.6217
+GOAL_SCALE = 5500.0  # calibrated 2026-06-16: ELO points per 10x goal-rate multiplier
+HOME_ADV_ELO = 430.0 # calibrated 2026-06-16: home advantage in strength points
 
 
 def team_strength(team: str, league_id: str | None, league_elos: dict[str, float]) -> float:
