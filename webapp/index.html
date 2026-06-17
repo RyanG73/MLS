@@ -465,7 +465,9 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 // League selected via ?league=<id> (default mls). Synchronous document.write so
 // window.LEAGUE_DATA is set before the main render script runs.
 const LID=new URLSearchParams(location.search).get('league')||'mls';
-document.write('<scr'+'ipt src="data/'+LID+'.js"></scr'+'ipt>');
+// Cache-bust the per-league data file: it's small and rebuilt frequently (e.g. when a
+// competition concludes or a season rolls over), so a stale cached copy must never win.
+document.write('<scr'+'ipt src="data/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
 const D = window.LEAGUE_DATA, $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
