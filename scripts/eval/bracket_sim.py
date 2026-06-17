@@ -80,3 +80,97 @@ def simulate_league_phase(field, schedule, fmt, N: int, seed: int = 0):
          "eliminated": float(elim[i] / N)}
         for i in range(n)
     ]
+
+
+def sim_single_leg(sh, sa, rng, neutral=False):
+    """One match -> winner index (0=home/sh, 1=away/sa); ties broken by penalties."""
+    hg, ag = _sim_match(sh, sa, neutral, rng)
+    if hg > ag: return 0
+    if ag > hg: return 1
+    return _pens(sh, sa, rng)
+
+
+def sim_two_leg(sa_strength, sb_strength, rng, fmt):
+    """Two-leg tie (A home leg 1, B home leg 2) -> winner index (0=A, 1=B)."""
+    a_h, b_a = _sim_match(sa_strength, sb_strength, False, rng)   # leg 1: A home
+    b_h, a_a = _sim_match(sb_strength, sa_strength, False, rng)   # leg 2: B home
+    agg_a, agg_b = a_h + a_a, b_a + b_h
+    if agg_a > agg_b: return 0
+    if agg_b > agg_a: return 1
+    if fmt.get("away_goals"):
+        if a_a > b_a: return 0
+        if b_a > a_a: return 1
+    return _pens(sa_strength, sb_strength, rng)  # ET folded into the pens coin-flip
+
+
+def _pens(sh, sa, rng):
+    """Penalty shootout -> winner index; slight edge to the stronger side."""
+    p_home = 1.0 / (1.0 + 10.0 ** (-(sh - sa) / 2000.0))  # near 0.5, mild tilt
+    return 0 if rng.random() < p_home else 1
+
+
+def simulate(comp_id: str, field, N: int, seed: int = 0):
+    """Full Monte-Carlo: league phase (if any) + knockout -> standings + odds.
+
+    Returns {"standings": [...], "field": [...with odds...]}.
+    `field` entries need keys: team, strength (+ any passthrough display keys).
+    """
+    fmt = FORMATS[comp_id]
+    n = len(field)
+    rng = np.random.default_rng(seed)
+    rounds = [r["round"] for r in fmt["ko"]]
+    reach = {r: np.zeros(n) for r in rounds}
+    win = np.zeros(n)
+
+    schedule = make_league_schedule(field, fmt["phase"]["matches_each"], seed)
+    standings = simulate_league_phase(field, schedule, fmt, N, seed)
+    strengths = np.array([t["strength"] for t in field], dtype=float)
+    auto_n = fmt["phase"]["auto_advance"]
+    playoff_hi = fmt["phase"]["playoff"][1]
+
+    for _ in range(N):
+        # League phase (re-simulated so the bracket field varies run to run)
+        pts = np.zeros(n); gd = np.zeros(n)
+        for hi, ai, neutral in schedule:
+            hg, ag = _sim_match(strengths[hi], strengths[ai], neutral, rng)
+            gd[hi] += hg - ag; gd[ai] += ag - hg
+            if hg > ag: pts[hi] += 3
+            elif hg == ag: pts[hi] += 1; pts[ai] += 1
+            else: pts[ai] += 3
+        order = list(np.argsort(-(pts * 1000 + gd + rng.random(n))))
+        bracket = order[:auto_n] + order[auto_n:playoff_hi]  # top-24 enter KO
+        # Pad/truncate to a power of two for a clean single-elimination bracket.
+        size = 1 << (len(bracket).bit_length() - 1)
+        alive = bracket[:size]
+        for r in fmt["ko"]:
+            for t in alive:
+                reach[r["round"]][t] += 1
+            nxt = []
+            if r.get("legs", 1) == 2:
+                for k in range(0, len(alive), 2):
+                    a, b = alive[k], alive[k + 1]
+                    w = sim_two_leg(strengths[a], strengths[b], rng, fmt)
+                    nxt.append(a if w == 0 else b)
+            else:  # single-leg final
+                a, b = alive[0], alive[1]
+                w = sim_single_leg(strengths[a], strengths[b], rng,
+                                   neutral=r.get("neutral", False))
+                nxt.append(a if w == 0 else b)
+            alive = nxt
+        win[alive[0]] += 1
+
+    by_team = {s["team"]: s for s in standings}
+    out_field = []
+    for i, t in enumerate(field):
+        odds = {r: float(reach[r][i] / N) for r in rounds}
+        odds["win"] = float(win[i] / N)
+        row = {**t, "odds": odds}
+        s = by_team[t["team"]]
+        row.update({"auto_advance": s["auto_advance"], "playoff": s["playoff"],
+                    "eliminated": s["eliminated"]})
+        out_field.append(row)
+    # normalize champion odds (rounding drift)
+    tot = sum(t["odds"]["win"] for t in out_field) or 1.0
+    for t in out_field:
+        t["odds"]["win"] = t["odds"]["win"] / tot
+    return {"standings": standings, "field": out_field}

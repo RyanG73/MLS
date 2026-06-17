@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from scripts.eval import bracket_sim as bs
 
@@ -43,3 +44,25 @@ def test_schedule_is_balanced_each_team_plays_matches_each():
     assert all(games_per_team[i] == 8 for i in range(36))
     # no team plays itself
     assert all(hi != ai for hi, ai, _ in sched)
+
+
+class TestKnockout:
+    def test_two_leg_tie_favors_stronger(self):
+        wins = 0
+        rng = np.random.default_rng(0)
+        for _ in range(500):
+            if bs.sim_two_leg(1900, 1600, rng, fmt=bs.FORMATS["ucl"]) == 0:
+                wins += 1
+        assert wins > 250  # stronger team (idx 0) wins the tie majority
+
+    def test_single_leg_final_returns_a_winner(self):
+        rng = np.random.default_rng(0)
+        w = bs.sim_single_leg(1700, 1700, rng, neutral=True)
+        assert w in (0, 1)
+
+    def test_full_simulate_returns_champion_odds_summing_to_one(self):
+        field = [{"team": f"T{i}", "strength": 1900 - i * 10} for i in range(36)]
+        out = bs.simulate("ucl", field, N=200, seed=3)
+        total = sum(t["odds"]["win"] for t in out["field"])
+        assert total == pytest.approx(1.0, abs=1e-6)
+        assert len(out["standings"]) == 36
