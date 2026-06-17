@@ -2,7 +2,9 @@
 
 UEFA league (country) coefficients place modeled leagues on a common scale;
 UEFA club coefficients give unmodeled continental entrants a strength estimate.
-Both are mapped to ELO points by the single slope _K_COEFF.
+League (country) coefficients are scaled to ELO offsets via _K_COEFF (see
+league_offset()); club coefficients are stored pre-resolved as ELO-point
+strengths and are used directly without any further scaling.
 
 Sources (refresh ~annually after the season ends):
   - League coefficients: UEFA 5-year country ranking
