@@ -22,15 +22,16 @@ _log = logging.getLogger(__name__)
 # Champion ELO config (matches the rest of the platform).
 _ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT = 25.0, 80.0, 0.40, 1500.0
 
-# Match-model constants — calibrated 2026-06-16 via scripts/validate_continental.py:
-# UCL 2021-24 (n=564): model 0.5985 vs naive 0.6217 (BEATS naive by 0.0232).
-# NOTE: BASE_GOALS and GOAL_SCALE are high because with ~80% of UCL teams at
-# BASELINE_STRENGTH=1450 (only ~10/64 clubs in _CLUB_STRENGTH), the signal is
-# almost entirely home-advantage. High BASE_GOALS suppresses draws to match UCL
-# actuals; high GOAL_SCALE+HOME_ADV_ELO keeps elite clubs differentiated.
-BASE_GOALS = 10.0    # calibrated 2026-06-16: UCL model 0.5985 vs naive 0.6217
-GOAL_SCALE = 5500.0  # calibrated 2026-06-16: ELO points per 10x goal-rate multiplier
-HOME_ADV_ELO = 430.0 # calibrated 2026-06-16: home advantage in strength points
+# Physically-grounded priors (NOT optimizer-fit). The Task-7 validator is
+# coefficient-only: ~48% of UCL matches have both teams at BASELINE_STRENGTH (no
+# strength signal), and UCL's low 0.19 draw rate comes from strength mismatches the
+# coefficient table can't see — so fitting these constants to that validator's 1X2
+# Brier corrupts the goals model (it pushed BASE_GOALS to 10). These values keep
+# scorelines realistic; a true edge-vs-naive calibration needs ELO-wired validation
+# (a follow-on). The coefficient-only validator below is a sanity FLOOR, not a fit.
+BASE_GOALS = 1.35    # expected goals per side at equal strength (UCL avg ~2.7/game)
+GOAL_SCALE = 3000.0  # ELO points per 10x goal-rate multiplier; ~400-ELO gap => ~1.35x goal ratio
+HOME_ADV_ELO = 80.0  # home advantage in strength points (matches the platform's ELO home_adv)
 
 
 def team_strength(team: str, league_id: str | None, league_elos: dict[str, float]) -> float:
