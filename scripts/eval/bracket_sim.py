@@ -18,6 +18,22 @@ FORMATS: dict[str, dict] = {
                {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
         "away_goals": False, "extra_time": True, "pens": True,
     },
+    # Europa League — same 2024-25 format as UCL (36-team league phase, 8 games each).
+    "europa": {
+        "phase": {"type": "league", "teams": 36, "matches_each": 8,
+                  "auto_advance": 8, "playoff": (9, 24)},
+        "ko": [{"round": "R16", "legs": 2}, {"round": "QF", "legs": 2},
+               {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
+        "away_goals": False, "extra_time": True, "pens": True,
+    },
+    # Conference League — same structure but each side plays only 6 league-phase games.
+    "conference": {
+        "phase": {"type": "league", "teams": 36, "matches_each": 6,
+                  "auto_advance": 8, "playoff": (9, 24)},
+        "ko": [{"round": "R16", "legs": 2}, {"round": "QF", "legs": 2},
+               {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
+        "away_goals": False, "extra_time": True, "pens": True,
+    },
 }
 
 

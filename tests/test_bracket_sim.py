@@ -66,3 +66,12 @@ class TestKnockout:
         total = sum(t["odds"]["win"] for t in out["field"])
         assert total == pytest.approx(1.0, abs=1e-6)
         assert len(out["standings"]) == 36
+
+
+def test_europa_conference_formats():
+    assert bs.FORMATS["europa"]["phase"]["matches_each"] == 8
+    assert bs.FORMATS["conference"]["phase"]["matches_each"] == 6
+    for c in ("europa", "conference"):
+        assert bs.FORMATS[c]["phase"]["auto_advance"] == 8
+        assert bs.FORMATS[c]["phase"]["playoff"] == (9, 24)
+        assert [r["round"] for r in bs.FORMATS[c]["ko"]] == ["R16", "QF", "SF", "Final"]
