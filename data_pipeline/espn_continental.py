@@ -26,7 +26,7 @@ _CACHE_DIR = Path("data/espn_continental")
 SLUGS = {
     "ucl": "uefa.champions", "europa": "uefa.europa",
     "conference": "uefa.europa.conf", "concacaf-champions": "concacaf.champions",
-    "concacaf-league": "concacaf.league",
+    "leagues-cup": "concacaf.leagues.cup",
 }
 
 
