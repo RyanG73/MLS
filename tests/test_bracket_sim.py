@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 from scripts.eval import bracket_sim as bs
 
@@ -31,3 +30,16 @@ def test_stronger_teams_advance_more_often():
     standings = bs.simulate_league_phase(field, schedule, bs.FORMATS["ucl"], N=300, seed=2)
     by_team = {r["team"]: r for r in standings}
     assert by_team["T0"]["auto_advance"] > by_team["T35"]["auto_advance"]
+
+
+def test_schedule_is_balanced_each_team_plays_matches_each():
+    from collections import Counter
+    field = _field(36)
+    sched = bs.make_league_schedule(field, matches_each=8, seed=5)
+    games_per_team = Counter()
+    for hi, ai, _ in sched:
+        games_per_team[hi] += 1
+        games_per_team[ai] += 1
+    assert all(games_per_team[i] == 8 for i in range(36))
+    # no team plays itself
+    assert all(hi != ai for hi, ai, _ in sched)

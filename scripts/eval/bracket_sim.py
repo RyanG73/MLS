@@ -22,18 +22,24 @@ FORMATS: dict[str, dict] = {
 
 
 def make_league_schedule(field, matches_each: int, seed: int = 0):
-    """Build a (home_idx, away_idx, neutral) schedule: each team plays `matches_each`.
+    """Build a (home_idx, away_idx, neutral) schedule where every team plays exactly
+    `matches_each` games — half home, half away — against distinct opponents.
 
-    A simple round-robin-style pairing (not the real UEFA draw — sufficient for odds).
+    Teams are placed on a randomized circle (seed-controlled); each team hosts the
+    next `matches_each//2` teams clockwise and visits the previous `matches_each//2`.
+    This is a balanced approximation of the real draw (not the actual UEFA pairing),
+    which is what the standings odds need. Requires matches_each < len(field).
     """
     rng = np.random.default_rng(seed)
     n = len(field)
+    half = matches_each // 2
+    perm = rng.permutation(n)
     games = []
-    for i in range(n):
-        opps = [j for j in range(n) if j != i]
-        rng.shuffle(opps)
-        for j in opps[: matches_each // 2]:
-            games.append((i, j, False))  # i home, j away
+    for pos in range(n):
+        i = int(perm[pos])
+        for d in range(1, half + 1):
+            j = int(perm[(pos + d) % n])
+            games.append((i, j, False))  # i home vs j; j thereby gets an away game
     return games
 
 
@@ -59,11 +65,14 @@ def simulate_league_phase(field, schedule, fmt, N: int, seed: int = 0):
             if hg > ag: pts[hi] += 3
             elif hg == ag: pts[hi] += 1; pts[ai] += 1
             else: pts[ai] += 3
-        order = np.argsort(-(pts * 1000 + gd + rng.random(n)))  # rank, tie jitter
+        # 1000 >> max plausible GD over the phase, so points dominate, GD breaks ties.
+        order = np.argsort(-(pts * 1000 + gd + rng.random(n)))
         rank = np.empty(n, dtype=int); rank[order] = np.arange(1, n + 1)
-        auto += rank <= auto_n
-        playoff += (rank > auto_n) & (rank <= playoff_hi)
-        elim += rank > playoff_hi
+        auto_mask = rank <= auto_n
+        playoff_mask = (rank >= playoff_lo) & (rank <= playoff_hi)
+        auto += auto_mask
+        playoff += playoff_mask
+        elim += ~(auto_mask | playoff_mask)  # exactly one bucket per team per sim
 
     return [
         {"team": field[i]["team"], "strength": float(strengths[i]),
