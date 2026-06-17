@@ -171,6 +171,13 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .tlad-w .thead,.tlad-w .trow{grid-template-columns:24px minmax(0,1fr) 32px 42px 38px 44px 42px 44px 86px}
 @media(max-width:620px){.tlad-w .thead .c-w5,.tlad-w .trow .wgroup,.tlad-w .thead .c-elo,.tlad-w .trow .eloc{display:none}
   .tlad-w .thead,.tlad-w .trow{grid-template-columns:22px minmax(0,1fr) 30px 42px 44px 42px 44px}}
+/* ── knockout-view sub-tabs (UEFA Champions League etc.) ── */
+.ko-subtabs{display:flex;gap:6px;margin-bottom:10px}
+.ko-tab{padding:6px 12px;border:1px solid #2a2f3a;background:#161a22;color:#9aa4b2;border-radius:6px;cursor:pointer;font-size:13px}
+.ko-tab.on{background:#222836;color:#fff}
+.ko-pane.off{display:none}
+.ko-line td{color:#52d39a;font-size:11px;text-align:center;background:#10141b}
+.ko-coef{color:#e2a23f;font-weight:700}
 /* playoff cut line (1–9 in, glowing) + wild-card divider (after 7) */
 .po-line,.wc-line{position:relative;height:0}
 .po-line .lab,.wc-line .lab{position:absolute;left:var(--s3);top:-8px;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;background:var(--ink-1);padding:0 6px}
@@ -459,6 +466,7 @@ const D = window.LEAGUE_DATA, $=s=>document.querySelector(s), el=(t,c,h)=>{const
 // Outlook mode: 'table' = single-table league (European promotion/relegation);
 // otherwise the MLS conference + playoff + cup view. Set by the build's outlook block.
 const isTable = (D.outlook||{}).mode === 'table';
+const isKnockout = (D.outlook||{}).mode === 'knockout';
 // ── Sidebar: leagues grouped by confederation ──
 (()=>{
   const wrap=$('#sbLeagues'), groups={};
@@ -657,7 +665,7 @@ function scheduleSim(){clearTimeout(simTimer);simTimer=setTimeout(()=>{
   if(n===0){simVals=null;}else{simVals=(isTable?runSimTable:runSim)(10000);}
   $('#wbanner').classList.toggle('on',n>0);
   $('#wcount').textContent=n?`· ${n} result${n>1?'s':''} forced`:'';
-  (isTable?renderTableOutlook:renderOutlook)();},150);}
+  (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();},150);}
 
 /* favorites — four title races: Shield · Eastern Conf · Western Conf · Spoon */
 const favCard=(cls,lab,t,k)=>`<div class="fav ${cls}"><div class="lab"><span class="sq"></span>${lab}</div>
@@ -814,7 +822,44 @@ function renderTableOutlook(){
     (NF>0?` · click the Next-5 boxes to force results and resimulate`:'');
   const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='1fr';l.append(tableLadder());
 }
-(isTable?renderTableOutlook:renderOutlook)();
+function renderKnockout(){
+  const el=$('#ladders'); if(!el) return;
+  const phases=(D.outlook.phases||['knockout']);
+  const rounds=D.outlook.rounds||[];
+  let h='<div class="ko-subtabs">';
+  if(phases.includes('league')) h+='<button class="ko-tab on" data-k="league">League Phase</button>';
+  h+='<button class="ko-tab'+(phases.includes('league')?'':' on')+'" data-k="ko">Knockout</button></div>';
+  if(phases.includes('league')){
+    h+='<div class="ko-pane" data-pane="league"><table class="tlad"><thead><tr>'+
+       '<th>#</th><th>Team</th><th>Adv</th><th>Playoff</th><th>Out</th></tr></thead><tbody>';
+    const st=[...D.standings].sort((a,b)=>b.auto_advance-a.auto_advance);
+    st.forEach((s,i)=>{h+='<tr><td>'+(i+1)+'</td><td>'+s.team+'</td>'+
+      '<td>'+(s.auto_advance*100).toFixed(0)+'%</td>'+
+      '<td>'+(s.playoff*100).toFixed(0)+'%</td>'+
+      '<td>'+(s.eliminated*100).toFixed(0)+'%</td></tr>';
+      if(i===7) h+='<tr class="ko-line"><td colspan="5">auto-advance line (top 8)</td></tr>';
+      if(i===23) h+='<tr class="ko-line"><td colspan="5">knockout-playoff line (top 24)</td></tr>';});
+    h+='</tbody></table></div>';
+  }
+  h+='<div class="ko-pane'+(phases.includes('league')?' off':'')+'" data-pane="ko">'+
+     '<table class="tlad"><thead><tr><th>Team</th>'+
+     rounds.map(r=>'<th>'+r+'</th>').join('')+'<th>Win</th></tr></thead><tbody>';
+  const fld=[...D.field].sort((a,b)=>b.odds.win-a.odds.win);
+  fld.forEach(t=>{h+='<tr><td>'+t.team+(t.modeled?'':' <span class="ko-coef">~</span>')+'</td>'+
+    rounds.map(r=>'<td>'+((t.odds[r]||0)*100).toFixed(0)+'%</td>').join('')+
+    '<td><b>'+(t.odds.win*100).toFixed(1)+'%</b></td></tr>';});
+  h+='</tbody></table></div>';
+  el.innerHTML=h;
+  el.querySelectorAll('.ko-tab').forEach(btn=>btn.onclick=()=>{
+    el.querySelectorAll('.ko-tab').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    el.querySelectorAll('.ko-pane').forEach(p=>p.classList.toggle('off',
+      p.getAttribute('data-pane')!==btn.getAttribute('data-k')));
+  });
+  const note=$('#laddernote'); if(note) note.textContent=
+    D.outlook.format_label+' · ~ marks teams estimated from coefficients (not fully modeled)';
+}
+(isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();
 $('#ladders').addEventListener('click',e=>{
   const tl=e.target.closest('.tlink');if(tl){openTeam(tl.dataset.team);return;}
   const b=e.target.closest('.wbox');if(!b)return;
@@ -826,10 +871,10 @@ $('#ladders').addEventListener('click',e=>{
   if(nextPOV==null)delete forced[gid];
   else forced[gid]=nextPOV==='D'?'D':((nextPOV==='W')===homePOV?'H':'A');
   // immediate visual feedback on the clicked row before the debounced sim
-  (isTable?renderTableOutlook:renderOutlook)();
+  (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();
   scheduleSim();
 });
-$('#wreset').onclick=()=>{forced={};simVals=null;$('#wbanner').classList.remove('on');(isTable?renderTableOutlook:renderOutlook)();};
+$('#wreset').onclick=()=>{forced={};simVals=null;$('#wbanner').classList.remove('on');(isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();};
 
 /* model health tab — card-based, digestible model dimensions */
 function renderHealth(){
