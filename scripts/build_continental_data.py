@@ -15,6 +15,8 @@ from data_pipeline.understat import canonical_frame
 from scripts.eval import bracket_sim as bs
 from scripts.eval import cross_league as cl
 
+_LEAGUE_PHASE_ROUND = "league-phase"  # ESPN season.slug for the UCL/Europa group/league phase
+
 # Comp metadata for the payload header.
 META = {
     "ucl": {"name": "UEFA Champions League", "confederation": "UEFA",
@@ -25,6 +27,7 @@ META = {
 # that league's Understat frame).
 # Keys are EXACT ESPN displayNames from the 2024-25 UCL league-phase field (36 teams).
 # Values use EXACT Understat team keys verified against canonical_frame() outputs.
+# To extend for other comps (Europa, Conference, Concacaf): add entries mapping each ESPN displayName -> (modeled league_id, that league's exact Understat team key).
 _ESPN_TO_MODELED: dict[str, tuple[str, str]] = {
     # EPL
     "Arsenal": ("epl", "Arsenal"),
@@ -82,11 +85,12 @@ def _resolve_field(comp_id: str, season: int):
     (32 teams); if no league-phase rows are found for the requested season we
     fall back to all teams in that season.
     """
+    # NOTE: continental_results returns ALL cached seasons on a cache hit (ignores the range); the season + round filter below is REQUIRED to isolate this season's field.
     df = continental_results(comp_id, range(season, season + 1))
     if df.empty:
         return []
     # Prefer the league-phase round (new 36-team UCL format) if present in this season.
-    lp = df[(df["season"] == season) & (df["round"] == "league-phase")]
+    lp = df[(df["season"] == season) & (df["round"] == _LEAGUE_PHASE_ROUND)]
     if not lp.empty:
         teams = sorted(set(lp["home_team"]) | set(lp["away_team"]))
     else:
@@ -102,7 +106,13 @@ def _resolve_field(comp_id: str, season: int):
         else:
             strength = cl.team_strength(t, None, {})
             field.append({"team": t, "league": None, "strength": strength, "modeled": False})
-    return field[: bs.FORMATS[comp_id]["phase"]["teams"]]
+    expected = bs.FORMATS[comp_id]["phase"]["teams"]
+    if len(field) > expected:
+        import logging
+        logging.getLogger(__name__).warning(
+            "_resolve_field: %d teams resolved for %s but format expects %d; "
+            "truncating (check for duplicate/variant team names)", len(field), comp_id, expected)
+    return field[:expected]
 
 
 def build(comp_id: str, season: int, sims: int):
@@ -111,7 +121,7 @@ def build(comp_id: str, season: int, sims: int):
         print(f"[{comp_id}] only {len(field)} teams resolved — field not yet drawn; "
               f"emitting completed-bracket placeholder.")
     result = bs.simulate(comp_id, field, N=sims)
-    champ = sorted(({"team": t["team"], "win_pct": round(t["odds"]["win"] * 100, 1)}
+    champ = sorted(({"team": t["team"], "win_pct": round(t["odds"]["win"] * 100, 1)}  # per-team rounding; the underlying odds["win"] sum to exactly 1.0
                     for t in result["field"]), key=lambda x: -x["win_pct"])
     data = {
         "league": {"name": META[comp_id]["name"],
