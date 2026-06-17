@@ -34,6 +34,13 @@ FORMATS: dict[str, dict] = {
                {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
         "away_goals": False, "extra_time": True, "pens": True,
     },
+    # Concacaf Champions Cup — 27-team pure-knockout; top-5 seeds bye to R16.
+    "concacaf-champions": {
+        "phase": {"type": "bracket", "teams": 27, "byes": 5, "round_one": "RoundOne"},
+        "ko": [{"round": "R16", "legs": 2}, {"round": "QF", "legs": 2},
+               {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
+        "away_goals": False, "extra_time": True, "pens": True,
+    },
 }
 
 
@@ -125,6 +132,72 @@ def _pens(sh, sa, rng):
     return 0 if rng.random() < p_home else 1
 
 
+def _run_ko(alive, fmt, strengths, rng, reach, win):
+    """Run the knockout rounds over `alive` (the entry field, a power of two).
+    Mutates reach[round] (teams alive at the start of each round) and win[champion].
+    Returns the champion index."""
+    for r in fmt["ko"]:
+        for t in alive:
+            reach[r["round"]][t] += 1
+        nxt = []
+        if r.get("legs", 1) == 2:
+            for k in range(0, len(alive), 2):
+                a, b = alive[k], alive[k + 1]
+                w = sim_two_leg(strengths[a], strengths[b], rng, fmt)
+                nxt.append(a if w == 0 else b)
+        else:
+            a, b = alive[0], alive[1]
+            w = sim_single_leg(strengths[a], strengths[b], rng, neutral=r.get("neutral", False))
+            nxt.append(a if w == 0 else b)
+        alive = nxt
+    win[alive[0]] += 1
+    return alive[0]
+
+
+def _simulate_bracket(comp_id, field, N, seed=0):
+    fmt = FORMATS[comp_id]
+    n = len(field)
+    rng = np.random.default_rng(seed)
+    rounds = [r["round"] for r in fmt["ko"]]
+    byes = fmt["phase"]["byes"]
+    ro = fmt["phase"].get("round_one", "RoundOne")
+    reach = {r: np.zeros(n) for r in rounds}
+    reach[ro] = np.zeros(n)
+    win = np.zeros(n)
+    strengths = np.array([t["strength"] for t in field], dtype=float)
+    # Fixed seeding by strength: top `byes` skip Round One; the rest are paired
+    # strongest-vs-weakest (standard bracket seeding). Seeding is fixed across runs;
+    # only match outcomes vary.
+    seed_order = list(np.argsort(-strengths))
+    bye_set = set(int(x) for x in seed_order[:byes])
+    r1 = seed_order[byes:]
+    for _ in range(N):
+        for t in r1:
+            reach[ro][t] += 1
+        winners = []
+        lo, hi = 0, len(r1) - 1
+        while lo < hi:
+            a, b = r1[lo], r1[hi]
+            w = sim_two_leg(strengths[a], strengths[b], rng, fmt)
+            winners.append(a if w == 0 else b)
+            lo += 1; hi -= 1
+        if lo == hi:                      # odd leftover -> free pass
+            winners.append(r1[lo])
+        r16 = list(seed_order[:byes]) + winners
+        size = 1 << (len(r16).bit_length() - 1)   # truncate to power of two (16)
+        _run_ko(r16[:size], fmt, strengths, rng, reach, win)
+    all_rounds = [ro] + rounds
+    out_field = []
+    for i, t in enumerate(field):
+        odds = {r: float(reach[r][i] / N) for r in all_rounds}
+        odds["win"] = float(win[i] / N)
+        out_field.append({**t, "odds": odds, "bye": i in bye_set})
+    tot = sum(t["odds"]["win"] for t in out_field) or 1.0
+    for t in out_field:
+        t["odds"]["win"] /= tot
+    return {"standings": [], "field": out_field}
+
+
 def simulate(comp_id: str, field, N: int, seed: int = 0):
     """Full Monte-Carlo: league phase (if any) + knockout -> standings + odds.
 
@@ -132,6 +205,9 @@ def simulate(comp_id: str, field, N: int, seed: int = 0):
     `field` entries need keys: team, strength (+ any passthrough display keys).
     """
     fmt = FORMATS[comp_id]
+    if fmt["phase"]["type"] == "bracket":
+        return _simulate_bracket(comp_id, field, N, seed)
+
     n = len(field)
     rng = np.random.default_rng(seed)
     rounds = [r["round"] for r in fmt["ko"]]
@@ -158,22 +234,7 @@ def simulate(comp_id: str, field, N: int, seed: int = 0):
         # Pad/truncate to a power of two for a clean single-elimination bracket.
         size = 1 << (len(bracket).bit_length() - 1)
         alive = bracket[:size]
-        for r in fmt["ko"]:
-            for t in alive:
-                reach[r["round"]][t] += 1
-            nxt = []
-            if r.get("legs", 1) == 2:
-                for k in range(0, len(alive), 2):
-                    a, b = alive[k], alive[k + 1]
-                    w = sim_two_leg(strengths[a], strengths[b], rng, fmt)
-                    nxt.append(a if w == 0 else b)
-            else:  # single-leg final
-                a, b = alive[0], alive[1]
-                w = sim_single_leg(strengths[a], strengths[b], rng,
-                                   neutral=r.get("neutral", False))
-                nxt.append(a if w == 0 else b)
-            alive = nxt
-        win[alive[0]] += 1
+        _run_ko(alive, fmt, strengths, rng, reach, win)
 
     by_team = {s["team"]: s for s in standings}
     out_field = []

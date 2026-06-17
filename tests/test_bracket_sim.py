@@ -75,3 +75,22 @@ def test_europa_conference_formats():
         assert bs.FORMATS[c]["phase"]["auto_advance"] == 8
         assert bs.FORMATS[c]["phase"]["playoff"] == (9, 24)
         assert [r["round"] for r in bs.FORMATS[c]["ko"]] == ["R16", "QF", "SF", "Final"]
+
+
+class TestPureKnockout:
+    def test_concacaf_cc_format(self):
+        f = bs.FORMATS["concacaf-champions"]
+        assert f["phase"]["type"] == "bracket"
+        assert f["phase"]["teams"] == 27
+        assert f["phase"]["byes"] == 5
+
+    def test_pure_knockout_simulate(self):
+        field = [{"team": f"T{i}", "strength": 1700 - i * 8} for i in range(27)]
+        out = bs.simulate("concacaf-champions", field, N=400, seed=1)
+        assert abs(sum(t["odds"]["win"] for t in out["field"]) - 1.0) < 1e-6
+        byt = {t["team"]: t for t in out["field"]}
+        assert byt["T0"]["odds"]["win"] > byt["T26"]["odds"]["win"]  # top seed favored
+        assert out["standings"] == []                                # no league table
+        # the 5 byes never play Round One; the rest do
+        assert sum(1 for t in out["field"] if t.get("bye")) == 5
+        assert byt["T0"].get("bye") is True                          # strongest gets a bye
