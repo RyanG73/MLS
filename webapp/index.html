@@ -178,6 +178,9 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .ko-pane.off{display:none}
 .ko-line td{color:#52d39a;font-size:11px;text-align:center;background:#10141b}
 .ko-coef{color:#e2a23f;font-weight:700}
+.ko-done{background:#16241b;border:1px solid #2c5e3f;color:#cdeedd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:14px}
+.ko-done b{color:#7ee0a8}
+.ko-donesub{color:#8aa698;font-size:12px}
 .ko-twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .ko-tblh{font-weight:700;margin:2px 0 6px;color:#cdd5e0;font-size:13px}
 @media(max-width:760px){.ko-twocol{grid-template-columns:1fr}}
@@ -529,7 +532,9 @@ else {
 /* header: % complete + simplified model-vs-naive accuracy card */
 const _pct=(D.league||{}).pct_complete;
 $('#sub').textContent = isKnockout
-  ? ((D.outlook||{}).format_label || 'Tournament projection')
+  ? ((D.outlook||{}).concluded
+      ? `${D.outlook.season_label} · Completed${D.outlook.champion?' · Champion: '+D.outlook.champion:''}`
+      : ((D.outlook||{}).format_label || 'Tournament projection'))
   : D.in_season
     ? `${D.season} season is ${_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
     : `${D.season} season projection`;
@@ -838,6 +843,12 @@ function renderKnockout(){
   const PHASE_LABEL={league:'League Phase', group:'Group Stage', knockout:'Knockout'};
   const paneKey=p=>p==='knockout'?'ko':p;
   let h='';
+  // Concluded edition: a result banner, not a live projection.
+  if(D.outlook.concluded){
+    h+='<div class="ko-done">🏆 <b>'+(D.outlook.champion||'—')+'</b> won the '+
+       (D.outlook.season_label||'')+' '+(D.league&&D.league.name?D.league.name:'')+
+       ' <span class="ko-donesub">· final result, not a projection</span></div>';
+  }
   if(phases.length>1){
     h+='<div class="ko-subtabs">'+phases.map((p,i)=>
       '<button class="ko-tab'+(i===0?' on':'')+'" data-k="'+paneKey(p)+'">'+(PHASE_LABEL[p]||p)+'</button>'
@@ -877,7 +888,7 @@ function renderKnockout(){
   h+='<div class="ko-pane'+off()+'" data-pane="ko"><table class="tlad"><thead><tr><th>Team</th>'+
      rounds.map(r=>'<th>'+r+'</th>').join('')+'<th>Win</th></tr></thead><tbody>';
   const fld=[...D.field].sort((a,b)=>b.odds.win-a.odds.win);
-  fld.forEach(t=>{h+='<tr><td>'+t.team+(t.modeled?'':' <span class="ko-coef">~</span>')+'</td>'+
+  fld.forEach(t=>{h+='<tr><td>'+t.team+((D.outlook.concluded||t.modeled)?'':' <span class="ko-coef">~</span>')+'</td>'+
     rounds.map(r=>'<td>'+((t.odds[r]||0)*100).toFixed(0)+'%</td>').join('')+
     '<td><b>'+(t.odds.win*100).toFixed(1)+'%</b></td></tr>';});
   h+='</tbody></table></div>';
@@ -888,8 +899,9 @@ function renderKnockout(){
     el.querySelectorAll('.ko-pane').forEach(p=>p.classList.toggle('off',
       p.getAttribute('data-pane')!==btn.getAttribute('data-k')));
   });
-  const note=$('#laddernote'); if(note) note.textContent=
-    D.outlook.format_label+' · ~ marks teams estimated from coefficients (not fully modeled)';
+  const note=$('#laddernote'); if(note) note.textContent= D.outlook.concluded
+    ? `${D.outlook.season_label} final result · figures show how far each team actually reached`
+    : D.outlook.format_label+' · ~ marks teams estimated from coefficients (not fully modeled)';
 }
 (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();
 $('#ladders').addEventListener('click',e=>{

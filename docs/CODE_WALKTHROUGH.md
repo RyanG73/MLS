@@ -854,6 +854,14 @@ since you can't infer a UEFA club's league from its name but Concacaf teams are 
 side-by-side tables, Leagues Cup), `knockout` (champion-odds leaderboard, all). A single-phase comp
 (Concacaf CC: `["knockout"]`) shows no sub-tab bar.
 
+**Concluded editions (2026-06-17):** `build_continental_data` defaults to the latest cached edition and
+checks `_is_concluded` (a played `final` + no upcoming fixtures). If finished, it calls `_resolve_actual`
+— champion from the final's `winner` (ESPN's flag, so penalty finals resolve), each team's actual
+furthest round, and the real final league/group table — and emits `outlook.concluded/champion/season_label`
+instead of a projection. The webapp shows a "🏆 X won …" banner and suppresses the `~` marker. Projections
+resume automatically when the next edition's fixtures appear. `continental_results(comp, seasons=None)`
+filters to the requested season(s); `latest_season(comp)` returns the newest cached edition.
+
 **What would look wrong (expansion):** a Central-American minnow leading the Concacaf CC champion odds
 (coefficient scale drifted above the MLS/Liga MX modeled range); a `team_strength` "falling back" WARNING
 for an MLS/Liga MX club during the Concacaf build (a missing alias — the team should be modeled); the

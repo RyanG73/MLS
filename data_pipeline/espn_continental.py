@@ -79,31 +79,59 @@ def _parse(events: list[dict], season: int, completed_only: bool) -> list[dict]:
                 rec["away_goals"] = int(float(away.get("score") or 0))
             except (ValueError, TypeError):
                 continue
+            # ESPN sets `winner` on the advancing side, including penalty shootouts —
+            # the only reliable way to resolve a level (PK-decided) tie/final.
+            if home.get("winner"):
+                rec["winner"] = ht
+            elif away.get("winner"):
+                rec["winner"] = at
+            elif rec["home_goals"] != rec["away_goals"]:
+                rec["winner"] = ht if rec["home_goals"] > rec["away_goals"] else at
+            else:
+                rec["winner"] = None
         else:
             rec["home_goals"] = np.nan
             rec["away_goals"] = np.nan
+            rec["winner"] = None
         rec["is_result"] = bool(done)
         rows.append(rec)
     return rows
 
 
-def continental_results(comp_id: str, seasons: range, use_cache: bool = True) -> pd.DataFrame:
-    """Completed continental matches for `comp_id` across `seasons` (start years)."""
+def continental_results(comp_id: str, seasons: range | None = None,
+                        use_cache: bool = True) -> pd.DataFrame:
+    """Completed continental matches for `comp_id`, filtered to `seasons` (start years).
+
+    On a cache hit the full cache is loaded then FILTERED to `seasons` (None = all
+    cached seasons). The filter is required: the cache may hold several editions, and
+    a caller that wants one edition must not receive a season mix. A cache miss (or
+    `use_cache=False`) fetches `seasons` (defaulting to 2018..current) and OVERWRITES
+    the cache with that range.
+    """
     slug = SLUGS[comp_id]
     cache = _CACHE_DIR / f"{comp_id}.parquet"
     if use_cache and cache.exists():
-        return pd.read_parquet(cache)
-    frames = []
-    for y in seasons:
-        rows = _parse(_fetch(slug, y, y + 1), y, completed_only=True)
-        if rows:
-            frames.append(pd.DataFrame(rows))
-        time.sleep(0.25)
-    df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-    if not df.empty:
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        df.to_parquet(cache, index=False)
+        df = pd.read_parquet(cache)
+    else:
+        frames = []
+        for y in (seasons if seasons is not None else range(2018, 2027)):
+            rows = _parse(_fetch(slug, y, y + 1), y, completed_only=True)
+            if rows:
+                frames.append(pd.DataFrame(rows))
+            time.sleep(0.25)
+        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if not df.empty:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            df.to_parquet(cache, index=False)
+    if seasons is not None and not df.empty:
+        df = df[df["season"].isin(list(seasons))].reset_index(drop=True)
     return df
+
+
+def latest_season(comp_id: str) -> int | None:
+    """Most recent season (start year) present in the cached results, or None."""
+    df = continental_results(comp_id)
+    return int(df["season"].max()) if not df.empty else None
 
 
 def continental_fixtures(comp_id: str, season: int) -> pd.DataFrame:

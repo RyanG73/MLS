@@ -1,5 +1,24 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Fix — Continental "concluded edition" handling (2026-06-17) ✅**
+>
+> Bug: the continental build always ran a fresh Monte-Carlo projection, so finished editions showed
+> live-style champion odds (e.g. "Arsenal 7.6%") when the tournament was long over. Root causes:
+> `continental_results` returned the whole cache (season-mix risk); the build hardcoded `--season 2024`;
+> and there was no concluded detection. Fix (matches the European leagues' finished-season pattern):
+> - `espn_continental`: `continental_results` now **filters to the requested season(s)** and `seasons`
+>   defaults to None=all; added `latest_season()`; `_parse` now captures the ESPN `winner` flag so
+>   **penalty-decided finals resolve** (UCL PSG, Concacaf CC Toluca). UCL cache refreshed to 2025-26.
+> - `build_continental_data`: defaults to the **latest** cached edition; `_is_concluded` (final played +
+>   no upcoming fixtures) → `_resolve_actual` emits the **real result** — champion + each team's actual
+>   furthest round, and the actual final league/group table (real points) — instead of a projection.
+> - `webapp`: a green "🏆 X won the YYYY-YY <comp> · final result, not a projection" banner +
+>   "Completed · Champion" subtitle; the `~` coefficient marker is suppressed for finished editions.
+> - Rebuilt all 5 live continental comps as concluded with verified champions: UCL 2025-26 **PSG**,
+>   Europa 2025-26 **Aston Villa**, Conference 2025-26 **Crystal Palace**, Concacaf CC 2026 **Toluca**,
+>   Leagues Cup 2025 **Seattle Sounders**. Projections resume automatically when the next edition is drawn
+>   (build flips back to the Monte-Carlo path once fixtures appear). 137 tests pass; parity |Δ|=0.0000.
+
 > **Phase 7 — Continental expansion: Europa / Conference / Concacaf CC / Leagues Cup (2026-06-17) ✅ COMPLETE**
 >
 > Generalized the UCL vertical slice to the four remaining active continental comps, each with a

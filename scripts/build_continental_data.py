@@ -11,7 +11,8 @@ import json
 import logging
 from pathlib import Path
 
-from data_pipeline.espn_continental import continental_results
+from data_pipeline.espn_continental import (
+    continental_results, continental_fixtures, latest_season)
 from data_pipeline.understat import canonical_frame
 from scripts.eval import bracket_sim as bs
 from scripts.eval import cross_league as cl
@@ -19,6 +20,18 @@ from scripts.eval import cross_league as cl
 logger = logging.getLogger(__name__)
 
 _LEAGUE_PHASE_ROUND = "league-phase"  # ESPN season.slug for the UCL/Europa group/league phase
+
+# ESPN round slug → (display-round name, ordinal). Higher ordinal = further in the
+# competition. Used to resolve a finished edition's actual bracket from results.
+_ESPN_ROUND = {
+    "league-phase": ("league", 0), "group-stage": ("league", 0),
+    "knockout-round-playoffs": ("Playoff", 1),
+    "round-one": ("RoundOne", 1),
+    "round-of-16": ("R16", 2),
+    "quarterfinals": ("QF", 3),
+    "semifinals": ("SF", 4),
+    "final": ("Final", 5),
+}
 
 # Comp metadata for the payload header.
 META = {
@@ -268,7 +281,126 @@ def _resolve_field(comp_id: str, season: int):
     return field[:expected]
 
 
-def build(comp_id: str, season: int, sims: int):
+def _season_label(comp_id: str, played) -> str:
+    """Human edition label, derived from the final's date (reliable across seasons)."""
+    fin = played[played["round"] == "final"]
+    src = fin if not fin.empty else played
+    yr = int(src["date"].max().year)
+    if META[comp_id]["confederation"] == "UEFA":
+        return f"{yr - 1}-{str(yr)[2:]}"   # Sep–May, spans two calendar years
+    return str(yr)                          # single calendar-year comps
+
+
+def _is_concluded(comp_id: str, season: int, played) -> bool:
+    """True if this edition has a played final and no upcoming fixtures."""
+    if played.empty or played[played["round"] == "final"].empty:
+        return False
+    try:
+        return continental_fixtures(comp_id, season).empty
+    except Exception:
+        return True   # no fixtures reachable → treat the played edition as final
+
+
+def _actual_standings(comp_id, played):
+    """Real final table from league/group-phase results, with resolved 0/1 buckets."""
+    import collections
+    phase_type = bs.FORMATS[comp_id]["phase"]["type"]
+    if phase_type == "bracket":
+        return []                                   # pure knockout — no table
+    lp = played[played["round"].isin(["league-phase", "group-stage"])]
+    if lp.empty:
+        return []
+    teams = set(lp["home_team"]) | set(lp["away_team"])
+    pts = collections.Counter(); gd = collections.Counter()
+    for _, r in lp.iterrows():
+        h, a, hg, ag = r["home_team"], r["away_team"], r["home_goals"], r["away_goals"]
+        gd[h] += hg - ag; gd[a] += ag - hg
+        if hg > ag: pts[h] += 3
+        elif ag > hg: pts[a] += 3
+        else: pts[h] += 1; pts[a] += 1
+    if phase_type == "two_table":
+        caches = {"mls": _league_elos("mls"), "liga-mx": _league_elos("liga-mx")}
+        rows = [{"team": t, "table": _resolve_one(t, comp_id, caches)["league"] or "other",
+                 "pts": pts[t], "gd": gd[t]} for t in teams]
+        for r in rows:
+            r["league"] = r["table"]
+        adv = bs.FORMATS[comp_id]["phase"]["advance_per_table"]
+        for tk in set(r["table"] for r in rows):
+            grp = sorted([r for r in rows if r["table"] == tk], key=lambda r: (-r["pts"], -r["gd"]))
+            for i, r in enumerate(grp):
+                r["advance"] = 1.0 if i < adv else 0.0
+        return rows
+    # UEFA single league phase
+    auto = bs.FORMATS[comp_id]["phase"]["auto_advance"]
+    _, phi = bs.FORMATS[comp_id]["phase"]["playoff"]
+    order = sorted(teams, key=lambda t: (-pts[t], -gd[t]))
+    return [{"team": t, "pts": pts[t], "gd": gd[t],
+             "auto_advance": 1.0 if i < auto else 0.0,
+             "playoff": 1.0 if auto <= i < phi else 0.0,
+             "eliminated": 1.0 if i >= phi else 0.0}
+            for i, t in enumerate(order)]
+
+
+def _resolve_actual(comp_id: str, played):
+    """Resolved payload for a FINISHED edition — actual champion + each team's furthest
+    round reached (no projection). Returns {standings, field, champion}."""
+    fmt = bs.FORMATS[comp_id]
+    ko_rounds = [r["round"] for r in fmt["ko"]]
+    ord_of = {name: o for (name, o) in _ESPN_ROUND.values()}
+    teams = sorted(set(played["home_team"]) | set(played["away_team"]))
+    far = {t: 0 for t in teams}
+    for _, r in played.iterrows():
+        _, o = _ESPN_ROUND.get(r["round"], ("?", 0))
+        for t in (r["home_team"], r["away_team"]):
+            if o > far[t]:
+                far[t] = o
+    fin = played[played["round"] == "final"].sort_values("date")
+    champion = fin.iloc[-1]["winner"] if not fin.empty else None
+    field = []
+    for t in teams:
+        odds = {rd: (1.0 if far[t] >= ord_of.get(rd, 99) else 0.0) for rd in ko_rounds}
+        odds["win"] = 1.0 if t == champion else 0.0
+        field.append({"team": t, "odds": odds, "is_champion": t == champion})
+    return {"standings": _actual_standings(comp_id, played),
+            "field": field, "champion": champion}
+
+
+def build(comp_id: str, season: int | None, sims: int):
+    if season is None:
+        season = latest_season(comp_id)
+        if season is None:
+            raise SystemExit(f"[{comp_id}] no cached results — run the ESPN adapter first.")
+    played = continental_results(comp_id, range(season, season + 1))
+
+    # Finished edition → show the actual result, not a projection.
+    if _is_concluded(comp_id, season, played):
+        res = _resolve_actual(comp_id, played)
+        label = _season_label(comp_id, played)
+        champ_sorted = sorted(res["field"], key=lambda t: -t["odds"]["win"])
+        data = {
+            "league": {"name": META[comp_id]["name"],
+                       "confederation": META[comp_id]["confederation"]},
+            "outlook": {
+                "mode": "knockout",
+                "confederation": META[comp_id]["confederation"],
+                "format_label": META[comp_id]["format_label"],
+                "phases": META[comp_id]["phases"],
+                "rounds": [r["round"] for r in bs.FORMATS[comp_id]["ko"]],
+                "concluded": True, "champion": res["champion"], "season_label": label,
+            },
+            "standings": res["standings"],
+            "field": res["field"],
+            "champion_odds": [{"team": t["team"], "win_pct": round(t["odds"]["win"] * 100, 1)}
+                              for t in champ_sorted],
+            "games": [],
+        }
+        out = Path(f"webapp/data/{comp_id}.js")
+        out.write_text("window.LEAGUE_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
+        print(f"[{comp_id}] wrote {out} ({out.stat().st_size // 1024} KB) · "
+              f"CONCLUDED {label} · champion {res['champion']} · {len(res['field'])} teams")
+        return
+
+    # In-progress / drawn edition → Monte-Carlo projection (original path).
     field = _resolve_field(comp_id, season)
     if len(field) < bs.FORMATS[comp_id]["phase"]["teams"]:
         print(f"[{comp_id}] only {len(field)} teams resolved — field not yet drawn; "
@@ -308,7 +440,8 @@ def build(comp_id: str, season: int, sims: int):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--comp", default="ucl")
-    ap.add_argument("--season", type=int, default=2024)
+    ap.add_argument("--season", type=int, default=None,
+                    help="edition start year; default = latest cached season")
     ap.add_argument("--sims", type=int, default=20000)
     a = ap.parse_args()
     build(a.comp, a.season, a.sims)
