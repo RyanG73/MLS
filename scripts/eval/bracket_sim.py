@@ -41,6 +41,14 @@ FORMATS: dict[str, dict] = {
                {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
         "away_goals": False, "extra_time": True, "pens": True,
     },
+    # Leagues Cup — 18 MLS + 18 Liga MX; two parallel tables; top 4 per table -> 8-team KO.
+    "leagues-cup": {
+        "phase": {"type": "two_table", "teams": 36, "games_each": 3,
+                  "advance_per_table": 4, "no_draws": True},
+        "ko": [{"round": "QF", "legs": 1}, {"round": "SF", "legs": 1},
+               {"round": "Final", "legs": 1, "neutral": True}],
+        "extra_time": True, "pens": True,
+    },
 }
 
 
@@ -145,10 +153,11 @@ def _run_ko(alive, fmt, strengths, rng, reach, win):
                 a, b = alive[k], alive[k + 1]
                 w = sim_two_leg(strengths[a], strengths[b], rng, fmt)
                 nxt.append(a if w == 0 else b)
-        else:
-            a, b = alive[0], alive[1]
-            w = sim_single_leg(strengths[a], strengths[b], rng, neutral=r.get("neutral", False))
-            nxt.append(a if w == 0 else b)
+        else:  # single-leg round(s) — loop pairs (a 2-team final is the degenerate case)
+            for k in range(0, len(alive), 2):
+                a, b = alive[k], alive[k + 1]
+                w = sim_single_leg(strengths[a], strengths[b], rng, neutral=r.get("neutral", False))
+                nxt.append(a if w == 0 else b)
         alive = nxt
     win[alive[0]] += 1
     return alive[0]
@@ -198,6 +207,67 @@ def _simulate_bracket(comp_id, field, N, seed=0):
     return {"standings": [], "field": out_field}
 
 
+def _simulate_two_table(comp_id, field, N, seed=0):
+    fmt = FORMATS[comp_id]
+    n = len(field)
+    rng = np.random.default_rng(seed)
+    rounds = [r["round"] for r in fmt["ko"]]
+    reach = {r: np.zeros(n) for r in rounds}
+    win = np.zeros(n)
+    advance = np.zeros(n)                       # P(top-`adv_per` in own table)
+    strengths = np.array([t["strength"] for t in field], dtype=float)
+    adv_per = fmt["phase"]["advance_per_table"]
+    games_each = fmt["phase"]["games_each"]
+    # two tables, keyed by league
+    tables = {}
+    for i, t in enumerate(field):
+        tables.setdefault(t.get("league"), []).append(i)
+    tkeys = list(tables.keys())
+    if len(tkeys) != 2:
+        raise ValueError(f"two_table expects exactly 2 leagues, got {tkeys}")
+    A, B = tables[tkeys[0]], tables[tkeys[1]]
+
+    for _ in range(N):
+        pts = np.zeros(n); gd = np.zeros(n)
+        # each club plays `games_each` cross-league games (rotated pairing, alt home)
+        for gi in range(games_each):
+            for k in range(len(A)):
+                a = A[k]; b = B[(k + gi) % len(B)]
+                hi, ai = (a, b) if gi % 2 == 0 else (b, a)
+                hg, ag = _sim_match(strengths[hi], strengths[ai], False, rng)
+                gd[hi] += hg - ag; gd[ai] += ag - hg
+                if hg > ag: pts[hi] += 3
+                elif ag > hg: pts[ai] += 3
+                else:                              # no draws -> PK decides, winner +3
+                    pts[hi if _pens(strengths[hi], strengths[ai], rng) == 0 else ai] += 3
+        # rank each table; top adv_per advance
+        seeded = {}
+        for tk in tkeys:
+            order = sorted(tables[tk], key=lambda i: -(pts[i]*1000 + gd[i] + rng.random()))
+            seeded[tk] = order[:adv_per]
+            for i in order[:adv_per]:
+                advance[i] += 1
+        # cross-seed the 8-team bracket: A1 vs B4, A2 vs B3, ... so _run_ko pairs them
+        sa, sb = seeded[tkeys[0]], seeded[tkeys[1]]
+        alive = []
+        for k in range(adv_per):
+            alive.append(sa[k]); alive.append(sb[adv_per - 1 - k])
+        _run_ko(alive, fmt, strengths, rng, reach, win)
+
+    out_field = []
+    for i, t in enumerate(field):
+        odds = {r: float(reach[r][i] / N) for r in rounds}
+        odds["win"] = float(win[i] / N)
+        out_field.append({**t, "odds": odds, "advance": float(advance[i] / N)})
+    tot = sum(t["odds"]["win"] for t in out_field) or 1.0
+    for t in out_field:
+        t["odds"]["win"] /= tot
+    standings = [{"team": t["team"], "league": t.get("league"), "table": t.get("league"),
+                  "strength": float(strengths[i]), "advance": float(advance[i] / N)}
+                 for i, t in enumerate(field)]
+    return {"standings": standings, "field": out_field}
+
+
 def simulate(comp_id: str, field, N: int, seed: int = 0):
     """Full Monte-Carlo: league phase (if any) + knockout -> standings + odds.
 
@@ -207,6 +277,8 @@ def simulate(comp_id: str, field, N: int, seed: int = 0):
     fmt = FORMATS[comp_id]
     if fmt["phase"]["type"] == "bracket":
         return _simulate_bracket(comp_id, field, N, seed)
+    if fmt["phase"]["type"] == "two_table":
+        return _simulate_two_table(comp_id, field, N, seed)
 
     n = len(field)
     rng = np.random.default_rng(seed)

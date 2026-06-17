@@ -94,3 +94,22 @@ class TestPureKnockout:
         # the 5 byes never play Round One; the rest do
         assert sum(1 for t in out["field"] if t.get("bye")) == 5
         assert byt["T0"].get("bye") is True                          # strongest gets a bye
+
+
+class TestTwoTableGroup:
+    def test_leagues_cup_format(self):
+        f = bs.FORMATS["leagues-cup"]
+        assert f["phase"]["type"] == "two_table"
+        assert f["phase"]["advance_per_table"] == 4
+
+    def test_leagues_cup_simulate(self):
+        field = ([{"team": f"MLS{i}", "league": "mls", "strength": 1600 - i*5} for i in range(18)] +
+                 [{"team": f"MX{i}", "league": "liga-mx", "strength": 1620 - i*5} for i in range(18)])
+        out = bs.simulate("leagues-cup", field, N=400, seed=2)
+        assert abs(sum(t["odds"]["win"] for t in out["field"]) - 1.0) < 1e-6
+        assert len(out["standings"]) == 36
+        assert {s.get("table") for s in out["standings"]} == {"mls", "liga-mx"}
+        # every field entry has an advance prob and QF/SF/Final/win odds
+        for t in out["field"]:
+            for k in ("QF","SF","Final","win"): assert k in t["odds"]
+            assert 0.0 <= t["advance"] <= 1.0
