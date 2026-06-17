@@ -1,0 +1,76 @@
+"""Cross-league strength + match model for continental competitions.
+
+A team's strength is a single number on a common ELO-point scale:
+    modeled:   domestic ELO (compute_elo) + league_offset (coefficients)
+    unmodeled: club_strength (coefficients), no ELO term
+
+team_strength() is the seam: Approach C (bridge-regression offsets) replaces only
+how the offset is derived, with no change to the match model or simulator.
+"""
+from __future__ import annotations
+
+import math
+
+import numpy as np
+
+from data_pipeline import coefficients as co
+from scripts.eval.elo import compute_elo
+
+# Champion ELO config (matches the rest of the platform).
+_ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT = 25.0, 80.0, 0.40, 1500.0
+
+# Match-model constants (calibrated in a later validation task — priors here).
+BASE_GOALS = 1.35   # league-neutral expected goals per side at equal strength
+GOAL_SCALE = 800.0  # ELO points per 10x multiplier on the goal rate
+HOME_ADV_ELO = 65.0 # home advantage in strength points for non-neutral matches
+
+
+def team_strength(team: str, league_id: str | None, league_elos: dict[str, float]) -> float:
+    """Cross-league strength (ELO points) for a team.
+
+    Args:
+        team:        team display key.
+        league_id:   modeled-league id (e.g. 'epl') or None for unmodeled.
+        league_elos: {team: current_elo} for that league (empty if unmodeled).
+    """
+    if league_id and team in league_elos:
+        return league_elos[team] + co.league_offset(league_id)
+    return co.club_strength(team)
+
+
+def match_lambdas(strength_home: float, strength_away: float,
+                  neutral: bool = False) -> tuple[float, float]:
+    """Expected goals (lambda_home, lambda_away) from cross-league strengths."""
+    ha = 0.0 if neutral else HOME_ADV_ELO
+    diff = strength_home - strength_away
+    lam_home = BASE_GOALS * 10.0 ** ((diff + ha) / GOAL_SCALE)
+    lam_away = BASE_GOALS * 10.0 ** ((-diff) / GOAL_SCALE)
+    return lam_home, lam_away
+
+
+def match_probs(strength_home: float, strength_away: float,
+                neutral: bool = False, max_g: int = 10) -> tuple[float, float, float]:
+    """(P_home, P_draw, P_away) via independent Poisson score matrix."""
+    lam_h, lam_a = match_lambdas(strength_home, strength_away, neutral)
+    ph = _poisson_pmf(np.arange(max_g + 1), lam_h)
+    pa = _poisson_pmf(np.arange(max_g + 1), lam_a)
+    M = np.outer(ph, pa)
+    home = float(np.tril(M, -1).sum())
+    draw = float(np.diag(M).sum())
+    away = float(np.triu(M, 1).sum())
+    t = home + draw + away
+    return home / t, draw / t, away / t
+
+
+def _poisson_pmf(ks: np.ndarray, lam: float) -> np.ndarray:
+    # exp(-lam) * lam^k / k!  — vectorized, no scipy import needed for this size.
+    return np.exp(-lam) * lam ** ks / np.array([math.factorial(int(k)) for k in ks])
+
+
+def league_elos(frame, K: float = _ELO_K, home_adv: float = _ELO_HA) -> dict[str, float]:
+    """Current {team: elo} for a modeled league, champion config."""
+    df = frame.sort_values("date")
+    _, ratings = compute_elo(df, K=K, home_adv=home_adv,
+                             regress=_ELO_REGRESS, initial=_ELO_INIT,
+                             return_ratings=True)
+    return ratings
