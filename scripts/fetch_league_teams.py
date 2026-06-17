@@ -47,7 +47,7 @@ REGISTRY = [
     ("la-liga",             "La Liga",                  "esp.1",            "UEFA", "live"),
     ("serie-a",             "Serie A",                  "ita.1",            "UEFA", "live"),
     ("serie-b",             "Serie B",                  "ita.2",            "UEFA", "live"),
-    ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "soon"),
+    ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "live"),
     ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "soon"),
     ("conference",          "UEFA Conference League",   "uefa.europa.conf", "UEFA", "soon"),
 ]

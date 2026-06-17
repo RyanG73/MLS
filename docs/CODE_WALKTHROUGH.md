@@ -749,3 +749,73 @@ for the feature completeness table's bar+pct dual columns).
 **What would look wrong:** `value_layer.backtest` is `None` for a European league → the build's
 `attach_market` call failed or the league is not in `_FD_DIV`. Liga MX `value_layer.backtest` is
 always `None` (correct — no market data source).
+
+---
+
+## 12. Continental competitions (cross-league knockouts)
+
+As of 2026-06-17 the platform serves the **UEFA Champions League** — the first cross-league knockout
+competition. Unlike the single-table leagues, a UCL tie pits teams from different leagues whose
+domestic ELOs are each anchored to 1500 independently, so they are not directly comparable. The model
+is otherwise reused: ELO and Poisson goals are the same primitives. Design spec:
+`docs/superpowers/specs/2026-06-16-continental-competitions-design.md`.
+
+### The cross-league strength scale (`scripts/eval/cross_league.py`)
+
+Every team is reduced to one number on a common ELO-point scale:
+```
+strength = domestic_ELO + league_offset      # modeled big-5 teams
+strength = club_coefficient_on_elo_scale     # unmodeled entrants (fallback)
+```
+- `team_strength(team, league_id, league_elos)` is the **seam**: a future bridge-regression (Approach
+  C) replaces only how `league_offset` is derived, with no change to the simulator or webapp. It logs
+  a WARNING if a team is mapped to a modeled league but missing from that league's ELO map (so a
+  name-map mismatch fails loudly instead of silently taking the baseline).
+- `league_offset` (`data_pipeline/coefficients.py`) = `_K_COEFF·(UEFA_league_coeff − EPL_coeff)`; EPL
+  anchors at 0. `_CLUB_STRENGTH` holds unmodeled clubs on the SAME ELO scale (recalibrated so they sit
+  below the modeled big-5 elite — an early bug had them above, making Benfica the favorite).
+- The Poisson match model: `match_lambdas` / `match_probs` turn a strength difference into expected
+  goals and 1X2 probs. Three constants — **BASE_GOALS=1.35, GOAL_SCALE=3000, HOME_ADV_ELO=80** — are
+  physically grounded (an earlier 1X2-Brier "optimization" drove BASE_GOALS to 10, producing 10-goal
+  scorelines; reverted). `compute_league_elos(frame)` runs the champion-config ELO on a league frame.
+
+### The bracket simulator (`scripts/eval/bracket_sim.py`)
+
+A declarative `FORMATS` dict describes each comp; one Monte-Carlo engine handles all:
+- `make_league_schedule` builds a **balanced circulant** schedule (every team plays exactly
+  `matches_each` games, half home/half away — a bug fix; the naive version left away-counts unbalanced).
+- `simulate_league_phase` → standings with `auto_advance`/`playoff`/`eliminated` bucket probabilities.
+- `sim_two_leg` (aggregate + away-goals/ET/pens), `sim_single_leg` (neutral final), and `simulate()`
+  which ties league phase + bracket into per-team `odds` (R16/QF/SF/Final/win) + champion odds.
+
+### Data + build + webapp
+
+- `data_pipeline/espn_continental.py` — `continental_results`/`continental_fixtures` via the ESPN
+  scoreboard slug (`uefa.champions`). Date window is `{y}0701-{y+1}0630` (the `0701` end-date 400s).
+  Parquet-cached under `data/espn_continental/` (gitignored).
+- `scripts/build_continental_data.py --comp ucl` → `webapp/data/ucl.js`. `_ESPN_TO_MODELED` maps each
+  ESPN displayName → (modeled league id, that league's Understat key); modeled teams get real ELO, the
+  rest the coefficient fallback. `_LEAGUE_PHASE_ROUND` isolates the current field. `_league_elos` drops
+  NaN-goals rows before ELO (incomplete fixtures otherwise poison every rating via the MoV log term).
+- `webapp/index.html` — `outlook.mode==='knockout'` → `renderKnockout()`, a two-sub-tab container
+  (League Phase table + Knockout bracket/champion-odds leaderboard; `~` marks coefficient-only teams).
+  Because the knockout payload is minimal (no `D.model`/`D.sim`/per-team season stats), the
+  MLS/table-assuming top-level script is guarded: the accuracy card early-returns when `!D.model`, the
+  what-if SIM falls back to empty stubs when `!D.sim`, and `sgn`/`sgnf` are null-safe.
+
+### Validation (`scripts/validate_continental.py`)
+
+The MLS promotion gate does NOT apply. Instead a coefficient-only walk-forward scores model 1X2 Brier
+vs a base-rate naive on historical continental results (UCL 2021–24, n=564: **0.5998 vs naive
+0.6217**). It is a sanity FLOOR, not a full calibration — ~48% of matches are baseline-vs-baseline
+(only ~15 elite clubs are in the coefficient table), so it can't see most strength. The build itself
+uses real ELO for big-5 teams.
+
+### What would look wrong
+
+- Champion odds favorite is an *unmodeled* club (e.g. Benfica above Real Madrid) → the `_CLUB_STRENGTH`
+  scale has drifted above the modeled ELO range again.
+- Equal-strength `match_lambdas` returning ~10 goals/side → the match-model constants were re-broken.
+- `webapp/data/ucl.js` favorite at ~7.6% is EXPECTED (v1 under-confidence, Approach-A coarseness); real
+  UCL favorites run ~15–20%. The bracket also skips the explicit playoff round, inflating mid-table
+  **R16** odds ~1.5× (champion odds unaffected) — both are documented v1 limitations, not bugs.

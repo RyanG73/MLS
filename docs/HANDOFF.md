@@ -12,6 +12,29 @@ A 13-iteration improvement loop (2026-06-09, recorded verdict-by-verdict in `doc
 
 ---
 
+## Update 2026-06-17 — UEFA Champions League live (first continental knockout comp)
+
+The platform now serves **13 leagues**: MLS, big-5, 5 European 2nd-tier, Liga MX, and the **UEFA
+Champions League** — the first cross-league knockout competition. The MLS champion is untouched
+(parity |Δ|=0.0000; 130 tests pass).
+
+The hard problem these comps pose: a UCL tie pits teams from different leagues whose domestic ELOs
+are each anchored to 1500 independently and so aren't comparable. Solution (Approach A): one
+common ELO-point **cross-league strength** scale — modeled big-5 teams = domestic ELO + a per-league
+UEFA-coefficient offset; unmodeled entrants = UEFA club coefficient on the same scale.
+`scripts/eval/cross_league.team_strength()` is the seam where a future bridge-regression upgrade
+(Approach C) drops in. A format-spec Monte-Carlo (`scripts/eval/bracket_sim.py`) simulates the
+36-team league phase + two-leg knockout into advance/champion odds. New ESPN adapter
+(`data_pipeline/espn_continental.py`), coefficient tables (`data_pipeline/coefficients.py`), build
+(`scripts/build_continental_data.py --comp ucl`), and a two-sub-tab webapp knockout view.
+
+Coefficient-only walk-forward (UCL 2021–24, n=564): model 0.5998 vs naive 0.6217 (beats naive).
+Champion-odds favorites are the modeled big-5 elite (Arsenal/Bayern 7.6%). Known v1 limitations
+(flat champion odds, the playoff-round-skip inflating mid-table R16 odds, coefficient-only validation)
+are documented in `docs/PLAN.md` and the design spec. Built subagent-driven from
+`docs/superpowers/plans/2026-06-16-continental-ucl-vertical-slice.md`. Next: generalize to the other
+5 continental comps; Approach C; live odds at the next draw.
+
 ## Update 2026-06-16 — Phase 4 data rebuild complete + Dixon-Coles fit 24× speedup
 
 The 8 remaining European leagues were rebuilt with the Phase 4 value/edge layer (serie-a,

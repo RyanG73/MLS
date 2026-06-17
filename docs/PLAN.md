@@ -1,5 +1,48 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase 6 — UEFA Champions League continental vertical slice (2026-06-17) ✅ COMPLETE (UCL live)**
+>
+> First cross-league knockout competition on the platform. Design spec:
+> `docs/superpowers/specs/2026-06-16-continental-competitions-design.md`; implementation plan:
+> `docs/superpowers/plans/2026-06-16-continental-ucl-vertical-slice.md`. Built subagent-driven
+> (10 TDD tasks, two-stage review each). The MLS champion is UNTOUCHED (parity |Δ|=0.0000).
+>
+> **Approach (A — external-coefficient anchor, C-ready seam):** every team gets one cross-league
+> strength on a common ELO-point scale. Modeled big-5 entrants = domestic ELO + per-league offset
+> (`Δ_league = k·(UEFA_coeff − EPL_coeff)`); unmodeled entrants = UEFA club coefficient mapped to the
+> same scale. `team_strength()` is the seam where a future bridge-regression (Approach C) swaps in.
+>
+> **New components (all new files except the webapp branch + registry flip):**
+> - `data_pipeline/coefficients.py` — UEFA league/club anchor tables → ELO points.
+> - `scripts/eval/cross_league.py` — `team_strength`, Poisson `match_lambdas`/`match_probs`,
+>   `compute_league_elos`. Calibrated constants: BASE_GOALS=1.35, GOAL_SCALE=3000, HOME_ADV_ELO=80.
+> - `scripts/eval/bracket_sim.py` — format-spec engine: balanced circulant league phase + two-leg KO
+>   (away-goals/ET/pens) + neutral final → standings + advance/champion odds.
+> - `data_pipeline/espn_continental.py` — ESPN results/fixtures adapter (slug `uefa.champions`).
+> - `scripts/validate_continental.py` — walk-forward Brier vs naive (calibration harness).
+> - `scripts/build_continental_data.py` — `--comp ucl` → `webapp/data/ucl.js` (modeled ELO + fallback).
+> - `webapp/index.html` — `outlook.mode==='knockout'` → `renderKnockout()` two sub-tabs
+>   (League Phase table + Knockout bracket/champion-odds), plus robustness guards so the minimal
+>   knockout payload doesn't trip the MLS/table-assuming top-level script.
+>
+> **Validation:** coefficient-only walk-forward (UCL 2021–24, n=564): model **0.5998 vs naive 0.6217**
+> (BEATS naive). 130 tests pass (10 new across coefficients/cross_league/bracket_sim). In-browser
+> verified: UCL live in sidebar; both sub-tabs render (Bayern/Arsenal lead the league phase; Arsenal
+> 7.6% / Bayern 7.6% / Barcelona 7.0% champion odds; ~ marks the 14 coefficient-only clubs); all 4
+> tabs error-free; MLS + 12 leagues regression-clean.
+>
+> **Known v1 limitations (documented, deferred to follow-on):**
+> - Champion odds are flat (favorite ~7.6%) — Approach-A coarseness + moderate strength spread; real
+>   UCL favorites run ~15–20%. Honest under-confidence, not a bug.
+> - The bracket skips the explicit knockout-playoff round (top-24 → top-16 directly), inflating
+>   mid-table **R16** advance odds ~1.5×; champion odds are unaffected.
+> - Validation is coefficient-only (~48% of matches are baseline-vs-baseline); a true edge demonstration
+>   needs ELO-wired validation. The build itself DOES use real ELO for big-5 teams.
+>
+> **Next (separate plan):** generalize to Europa/Conference (same UEFA format + coefficients) and the
+> Concacaf comps (Concacaf index; resolve the Leagues Cup ESPN slug); Approach C bridge regression;
+> live `games` cards + edges from `continental_fixtures` once a draw exists; vectorize `bracket_sim`.
+
 > **Phase 4 data rebuild + Dixon-Coles fit 24× speedup (2026-06-16) ✅ COMPLETE**
 >
 > Rebuilt the 8 remaining European leagues (serie-a, bundesliga, ligue-1, championship,
