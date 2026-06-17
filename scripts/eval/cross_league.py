@@ -9,12 +9,15 @@ how the offset is derived, with no change to the match model or simulator.
 """
 from __future__ import annotations
 
+import logging
 import math
 
 import numpy as np
 
 from data_pipeline import coefficients as co
 from scripts.eval.elo import compute_elo
+
+_log = logging.getLogger(__name__)
 
 # Champion ELO config (matches the rest of the platform).
 _ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT = 25.0, 80.0, 0.40, 1500.0
@@ -32,9 +35,17 @@ def team_strength(team: str, league_id: str | None, league_elos: dict[str, float
         team:        team display key.
         league_id:   modeled-league id (e.g. 'epl') or None for unmodeled.
         league_elos: {team: current_elo} for that league (empty if unmodeled).
+
+    If `league_id` is given but `team` is absent from `league_elos` (e.g. a
+    name-map mismatch), this falls back to the coefficient strength and logs a
+    WARNING — the fallback is intentional (the build still completes) but must be
+    visible so a mis-mapped modeled team is not silently rated at the baseline.
     """
     if league_id and team in league_elos:
         return league_elos[team] + co.league_offset(league_id)
+    if league_id and team not in league_elos:
+        _log.warning("team_strength: %r mapped to modeled league %r but absent from "
+                     "its ELO map; falling back to coefficient strength", team, league_id)
     return co.club_strength(team)
 
 
@@ -43,6 +54,8 @@ def match_lambdas(strength_home: float, strength_away: float,
     """Expected goals (lambda_home, lambda_away) from cross-league strengths."""
     ha = 0.0 if neutral else HOME_ADV_ELO
     diff = strength_home - strength_away
+    # Home advantage is modeled as a home-side boost only (added to the home rate,
+    # mirroring ELO's home_adv); the away rate intentionally omits it.
     lam_home = BASE_GOALS * 10.0 ** ((diff + ha) / GOAL_SCALE)
     lam_away = BASE_GOALS * 10.0 ** ((-diff) / GOAL_SCALE)
     return lam_home, lam_away
@@ -67,7 +80,7 @@ def _poisson_pmf(ks: np.ndarray, lam: float) -> np.ndarray:
     return np.exp(-lam) * lam ** ks / np.array([math.factorial(int(k)) for k in ks])
 
 
-def league_elos(frame, K: float = _ELO_K, home_adv: float = _ELO_HA) -> dict[str, float]:
+def compute_league_elos(frame, K: float = _ELO_K, home_adv: float = _ELO_HA) -> dict[str, float]:
     """Current {team: elo} for a modeled league, champion config."""
     df = frame.sort_values("date")
     _, ratings = compute_elo(df, K=K, home_adv=home_adv,

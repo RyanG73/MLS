@@ -3,6 +3,7 @@ from scripts.eval import cross_league as cl
 
 
 def test_modeled_team_strength_is_elo_plus_offset():
+    assert cl.co.league_offset("epl") == 0.0  # EPL anchors the scale at 0
     elos = {"Arsenal": 1650.0}
     # EPL offset is 0, so strength == domestic ELO.
     s = cl.team_strength("Arsenal", "epl", elos)
@@ -24,3 +25,13 @@ def test_unmodeled_team_uses_club_strength_fallback():
 def test_unknown_unmodeled_team_uses_baseline():
     s = cl.team_strength("FC Nowhere", None, {})
     assert s == cl.co.BASELINE_STRENGTH
+
+
+def test_modeled_league_but_missing_team_falls_back_observably(caplog):
+    # Mapped to a modeled league but absent from its ELO dict -> observable fallback
+    # to coefficient strength (a WARNING), never a silent baseline mis-rating.
+    import logging
+    with caplog.at_level(logging.WARNING):
+        s = cl.team_strength("Porto", "epl", {"Arsenal": 1650.0})
+    assert s == cl.co.club_strength("Porto")  # 1780.0, not the 1450 baseline
+    assert "falling back" in caplog.text
