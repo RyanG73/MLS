@@ -25,3 +25,14 @@ def test_club_strength_maps_coefficient_to_elo_scale():
 def test_unknown_club_strength_returns_baseline():
     # Unknown club -> conservative baseline, never a crash.
     assert co.club_strength("FC Nonexistent") == co.BASELINE_STRENGTH
+
+
+def test_concacaf_offsets_are_relative_not_uefa_scale():
+    assert co.league_offset("mls") == 0.0
+    assert co.league_offset("liga-mx") > co.league_offset("mls")
+    assert co.league_offset("liga-mx") <= 60  # modest, not a UEFA-sized gap
+
+
+def test_concacaf_club_strength_below_modeled_top():
+    # An unmodeled Central-American club sits well below the MLS/Liga MX modeled range.
+    assert co.club_strength("Alajuelense") < 1550

@@ -6,6 +6,11 @@ League (country) coefficients are scaled to ELO offsets via _K_COEFF (see
 league_offset()); club coefficients are stored pre-resolved as ELO-point
 strengths and are used directly without any further scaling.
 
+Concacaf-internal league offsets (MLS/Liga MX/Central American) are stored in
+a separate dict (_CONCACAF_OFFSET) and are RELATIVE only — Concacaf teams never
+meet UEFA teams and match_lambdas uses strength differences, so the absolute
+anchor is irrelevant. MLS is the Concacaf reference (0).
+
 Sources (refresh ~annually after the season ends):
   - League coefficients: UEFA 5-year country ranking
     https://www.uefa.com/nationalassociations/uefarankings/country/
@@ -32,6 +37,15 @@ _LEAGUE_COEFF: dict[str, float] = {
     "ligue-1": 67.0,
 }
 
+# Concacaf-internal league offsets (ELO points). These are RELATIVE only — Concacaf
+# teams never meet UEFA teams and match_lambdas uses strength differences, so the
+# absolute anchor is irrelevant. MLS is the reference (0); Liga MX carries a modest
+# edge reflecting recent near-parity in Concacaf Champions Cup play.
+_CONCACAF_OFFSET: dict[str, float] = {
+    "mls": 0.0,
+    "liga-mx": 30.0,
+}
+
 # Cross-league strength (ELO points) for clubs, on the SAME scale as the modeled
 # domestic-ELO+offset ratings (which span ~1388-1711 for the UCL field). The big-5
 # elite entries are used only by the coefficient-only validator (the dashboard build
@@ -51,15 +65,44 @@ _CLUB_STRENGTH: dict[str, float] = {
     # Mid / weaker qualifiers.
     "Dinamo Zagreb": 1495.0, "Red Star Belgrade": 1485.0, "Young Boys": 1470.0,
     "Sparta Prague": 1465.0, "SK Sturm Graz": 1455.0, "Slovan Bratislava": 1425.0,
+    # --- Europa/Conference unmodeled entrants ---
+    # Non-big-5 clubs that appear regularly in UEL/UECL; big-5 clubs excluded
+    # (they are resolved via real domestic ELO). Values on the same ELO scale as
+    # the modeled domestic leagues (~1450-1620 for this tier).
+    "Galatasaray": 1575.0, "Fenerbahce": 1585.0, "Olympiacos": 1560.0,
+    "Braga": 1560.0, "Slavia Prague": 1540.0, "Rangers": 1545.0,
+    "PAOK": 1500.0, "Ferencvaros": 1490.0, "Anderlecht": 1520.0,
+    "AZ Alkmaar": 1540.0, "Real Betis": 1590.0, "Fiorentina": 1590.0,
+    "Viktoria Plzen": 1480.0, "Legia Warsaw": 1470.0, "Molde": 1450.0,
+    # --- Concacaf unmodeled clubs ---
+    # Central American / Caribbean clubs appearing in Concacaf Champions Cup and
+    # Leagues Cup; MLS and Liga MX clubs are resolved via their domestic ELO.
+    # Values ~1380-1500, RELATIVE to the Concacaf internal scale.
+    "Alajuelense": 1490.0, "Saprissa": 1485.0, "Herediano": 1470.0,
+    "Olimpia": 1460.0, "Motagua": 1450.0, "Real Espana": 1440.0,
+    "Cavalier": 1390.0, "Forge FC": 1430.0, "Violette": 1385.0,
+    "Robinhood": 1380.0, "Antigua GFC": 1400.0, "Real Esteli": 1420.0,
+    "Sporting San Miguelito": 1400.0,
 }
 
 
 def league_offset(league_id: str) -> float:
     """Per-league additive ELO offset onto the common cross-league scale.
 
-    EPL (the strongest modeled league) anchors at 0; weaker leagues are negative.
-    Unknown leagues return 0 (no offset) rather than raising.
+    Two independent regimes:
+
+    * **UEFA leagues** (_LEAGUE_COEFF): EPL anchors at 0; weaker leagues are
+      negative. Offset = _K_COEFF * (coeff - EPL_coeff).
+    * **Concacaf leagues** (_CONCACAF_OFFSET): MLS anchors at 0; offsets are
+      RELATIVE only — Concacaf and UEFA teams never meet, and match_lambdas
+      uses strength differences, so these values are not comparable to the
+      UEFA-derived offsets above.
+
+    Concacaf leagues are checked first; if not found there the UEFA path is
+    tried; unknown leagues return 0.0 rather than raising.
     """
+    if league_id in _CONCACAF_OFFSET:
+        return _CONCACAF_OFFSET[league_id]
     if league_id not in _LEAGUE_COEFF:
         return 0.0
     return _K_COEFF * (_LEAGUE_COEFF[league_id] - _LEAGUE_COEFF[_REF_LEAGUE])
