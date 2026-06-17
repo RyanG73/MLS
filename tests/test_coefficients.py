@@ -19,7 +19,7 @@ def test_unknown_league_offset_is_zero_with_no_crash():
 
 def test_club_strength_maps_coefficient_to_elo_scale():
     # A top club coefficient maps to a strength near a strong domestic ELO.
-    assert co.club_strength("Real Madrid") == 2000.0
+    assert co.club_strength("Real Madrid") == 1720.0
 
 
 def test_unknown_club_strength_returns_baseline():

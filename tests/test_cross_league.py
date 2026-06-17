@@ -19,7 +19,7 @@ def test_modeled_team_in_weaker_league_shifts_down():
 def test_unmodeled_team_uses_club_strength_fallback():
     # Team not in the elos dict and league None -> coefficient fallback.
     s = cl.team_strength("Porto", None, {})
-    assert s == 1780.0  # from _CLUB_STRENGTH
+    assert s == 1620.0  # from _CLUB_STRENGTH
 
 
 def test_unknown_unmodeled_team_uses_baseline():

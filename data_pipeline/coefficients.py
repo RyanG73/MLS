@@ -32,14 +32,25 @@ _LEAGUE_COEFF: dict[str, float] = {
     "ligue-1": 67.0,
 }
 
-# UEFA 5-year club coefficients for common unmodeled UCL entrants, expressed
-# directly in ELO points to keep the table legible.
+# Cross-league strength (ELO points) for clubs, on the SAME scale as the modeled
+# domestic-ELO+offset ratings (which span ~1388-1711 for the UCL field). The big-5
+# elite entries are used only by the coefficient-only validator (the dashboard build
+# resolves big-5 teams via real ELO); non-big-5 clubs are the actual build fallback.
+# Tiers: big-5 elite ~1660-1720; strong non-big-5 UCL regulars ~1540-1635; weaker
+# qualifiers ~1425-1500. Calibrated 2026-06-16 against the observed modeled scale.
 _CLUB_STRENGTH: dict[str, float] = {
-    "Real Madrid": 2000.0, "Bayern Munich": 1980.0, "Manchester City": 1990.0,
-    "Paris Saint-Germain": 1940.0, "Inter Milan": 1900.0, "Porto": 1780.0,
-    "Benfica": 1800.0, "Sporting CP": 1760.0, "PSV Eindhoven": 1740.0,
-    "Feyenoord": 1720.0, "Ajax": 1730.0, "Club Brugge": 1690.0,
-    "Celtic": 1660.0, "Shakhtar Donetsk": 1700.0, "Red Bull Salzburg": 1710.0,
+    # Big-5 elite (validator only).
+    "Real Madrid": 1720.0, "Manchester City": 1715.0, "Bayern Munich": 1710.0,
+    "Arsenal": 1700.0, "Barcelona": 1695.0, "Liverpool": 1675.0,
+    "Internazionale": 1670.0, "Paris Saint-Germain": 1660.0,
+    # Strong non-big-5 UCL regulars — good but below the big-5 elite.
+    "Benfica": 1635.0, "Porto": 1620.0, "Sporting CP": 1615.0,
+    "Ajax": 1590.0, "PSV Eindhoven": 1585.0, "Feyenoord Rotterdam": 1565.0,
+    "Shakhtar Donetsk": 1560.0, "Club Brugge": 1545.0, "Celtic": 1540.0,
+    "RB Salzburg": 1535.0,
+    # Mid / weaker qualifiers.
+    "Dinamo Zagreb": 1495.0, "Red Star Belgrade": 1485.0, "Young Boys": 1470.0,
+    "Sparta Prague": 1465.0, "SK Sturm Graz": 1455.0, "Slovan Bratislava": 1425.0,
 }
 
 
