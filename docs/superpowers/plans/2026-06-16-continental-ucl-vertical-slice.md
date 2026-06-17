@@ -972,7 +972,7 @@ _ELO_CACHE: dict[str, dict[str, float]] = {}
 
 def _league_elos(league_id: str) -> dict[str, float]:
     if league_id not in _ELO_CACHE:
-        _ELO_CACHE[league_id] = cl.league_elos(canonical_frame(league_id))
+        _ELO_CACHE[league_id] = cl.compute_league_elos(canonical_frame(league_id))
     return _ELO_CACHE[league_id]
 
 
