@@ -525,10 +525,13 @@ if((D.league||{}).status==='soon'){ renderSoonView(); }
 else {
 /* header: % complete + simplified model-vs-naive accuracy card */
 const _pct=(D.league||{}).pct_complete;
-$('#sub').textContent = D.in_season
-  ? `${D.season} season is ${_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
-  : `${D.season} season projection`;
-(()=>{const m=D.model.best_brier, n=D.model.naive, mk=D.model.market??(D.market_brier||{}).market;
+$('#sub').textContent = isKnockout
+  ? ((D.outlook||{}).format_label || 'Tournament projection')
+  : D.in_season
+    ? `${D.season} season is ${_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
+    : `${D.season} season projection`;
+(()=>{if(!D.model)return;  // knockout leagues (UCL) carry no model-vs-naive Brier card
+  const m=D.model.best_brier, n=D.model.naive, mk=D.model.market??(D.market_brier||{}).market;
   const live=D.in_season_brier||{};
   const py=(D.perf_by_year||[]);
   const _yrCols=[2022,2023,2024,2025];
@@ -585,7 +588,10 @@ $('#foot').textContent='';
       MLS Cup hosted by the finalist with the higher seeding key.
    4. All pairing probs from the same 30x30 pmatrix (row = host).
    5. Acceptance: unforced JS@10k within ±1.5pp of server@20k. */
-const SIM=D.sim, nameIdx=new Map(SIM.teams.map((t,i)=>[t,i])), NT=SIM.teams.length;
+// Knockout leagues (e.g. UCL) carry no D.sim / pmatrix and no per-game UPCOMING — the
+// what-if simulator below is inert for them. Fall back to safe empty stubs so this
+// MLS/table-only setup doesn't throw and halt before the render dispatch.
+const SIM=D.sim||{teams:[],pmatrix:[]}, nameIdx=new Map((SIM.teams||[]).map((t,i)=>[t,i])), NT=(SIM.teams||[]).length;
 const STAND=new Map(D.standings.map(s=>[s.team,s]));
 const UPCOMING=D.games.filter(g=>g.result==null);
 const NF=UPCOMING.length;
@@ -689,8 +695,8 @@ const MAX={po:Math.max(...D.standings.map(s=>s.playoff),1),hfa:Math.max(...D.sta
   cup:Math.max(...D.standings.map(s=>s.cup),1)};
 RGB.cup=[86,210,255];
 function hcell(v,key){return v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGB[key],MAX[key])}">${v.toFixed(0)}</span>`;}
-const sgn=v=>(v>0?'+':'')+v;
-const sgnf=v=>(v>0?'+':'')+v.toFixed(1);
+const sgn=v=>v==null?'–':(v>0?'+':'')+v;
+const sgnf=v=>v==null?'–':(v>0?'+':'')+v.toFixed(1);
 const NEXT5=new Map();   // team -> next 5 upcoming games (date order)
 D.standings.forEach(s=>NEXT5.set(s.team,UPCOMING.filter(g=>g.home===s.team||g.away===s.team).slice(0,5)));
 function whatifCell(team){
