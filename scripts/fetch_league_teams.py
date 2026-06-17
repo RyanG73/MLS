@@ -33,9 +33,9 @@ REGISTRY = [
     ("mls",                 "Major League Soccer",      "usa.1",            "Concacaf", "live"),
     ("liga-mx",             "Liga MX",                  "mex.1",            "Concacaf", "live"),
     ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "soon"),
-    ("leagues-cup",         "Leagues Cup",              None,               "Concacaf", "soon"),
-    ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "soon"),
-    ("concacaf-league",     "Concacaf League",          "concacaf.league",  "Concacaf", "soon"),
+    ("leagues-cup",         "Leagues Cup",              "concacaf.leagues.cup","Concacaf", "live"),
+    ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "live"),
+    # Concacaf League removed 2026-06-17 — discontinued after 2023 (absorbed into the Champions Cup).
     # UEFA
     ("epl",                 "English Premier League",   "eng.1",            "UEFA", "live"),
     ("championship",        "EFL Championship",         "eng.2",            "UEFA", "live"),
@@ -48,8 +48,8 @@ REGISTRY = [
     ("serie-a",             "Serie A",                  "ita.1",            "UEFA", "live"),
     ("serie-b",             "Serie B",                  "ita.2",            "UEFA", "live"),
     ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "live"),
-    ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "soon"),
-    ("conference",          "UEFA Conference League",   "uefa.europa.conf", "UEFA", "soon"),
+    ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "live"),
+    ("conference",          "UEFA Conference League",   "uefa.europa.conf", "UEFA", "live"),
 ]
 
 

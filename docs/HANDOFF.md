@@ -12,6 +12,24 @@ A 13-iteration improvement loop (2026-06-09, recorded verdict-by-verdict in `doc
 
 ---
 
+## Update 2026-06-17 (later) — Continental expansion: 17 leagues live
+
+Extended the UCL slice to the four remaining active continental comps; the defunct **Concacaf League**
+(absorbed into the Champions Cup after 2023) was removed from the sidebar. The key point: their current
+formats genuinely differ, so two needed new `bracket_sim` paths:
+- **Europa / Conference** (UEFA): config-only on the league-phase engine (8 / 6 games each).
+- **Concacaf Champions Cup**: new **pure-knockout** path — 27 teams, top-5 byes, Round One two-leg ties,
+  R16/QF/SF two-leg + single-leg Final, no league phase.
+- **Leagues Cup**: new **two-table group** path — 18 MLS + 18 Liga MX in two parallel tables, 3
+  cross-league games, no draws (PK), top-4 per table → 8-team single-elim. The shared `_run_ko` helper
+  was generalized (backward-compatibly) to single-leg multi-team rounds.
+
+Concacaf uses internal league offsets (MLS=0, Liga MX +30; relative-only). MLS ELO comes from
+`parity_frame` (ASA hashes → names via `asa.get_teams`), Liga MX from `liga_mx_frame()`; Concacaf fields
+auto-resolve modeled teams by ELO-dict membership. All verified in-browser (two-table Leagues Cup view,
+27-team Concacaf bracket, UEFA league+knockout); 137 tests pass; parity |Δ|=0.0000. Plan:
+`docs/superpowers/plans/2026-06-17-continental-expansion.md`.
+
 ## Update 2026-06-17 — UEFA Champions League live (first continental knockout comp)
 
 The platform now serves **13 leagues**: MLS, big-5, 5 European 2nd-tier, Liga MX, and the **UEFA

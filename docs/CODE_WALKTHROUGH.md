@@ -819,3 +819,42 @@ uses real ELO for big-5 teams.
 - `webapp/data/ucl.js` favorite at ~7.6% is EXPECTED (v1 under-confidence, Approach-A coarseness); real
   UCL favorites run ~15–20%. The bracket also skips the explicit playoff round, inflating mid-table
   **R16** odds ~1.5× (champion odds unaffected) — both are documented v1 limitations, not bugs.
+
+### Expansion (2026-06-17) — the other four continental comps
+
+`bracket_sim.simulate()` branches on `fmt["phase"]["type"]`, so one engine serves three structures:
+- **`"league"`** (UCL, Europa, Conference): the original 36-team league phase → top-24 bracket. Europa
+  clones UCL (8 games each); Conference uses `matches_each: 6`.
+- **`"bracket"`** (`_simulate_bracket`, Concacaf Champions Cup): pure knockout, no league phase. 27 teams
+  seeded by strength; top `byes` (5) skip to R16; the rest play Round One (strongest-vs-weakest two-leg
+  ties); winners + byes = 16 → the shared `_run_ko`. Returns `standings=[]`; field entries carry a `bye`
+  flag and a `RoundOne` reach.
+- **`"two_table"`** (`_simulate_two_table`, Leagues Cup): two parallel league tables split by `t["league"]`
+  (MLS, Liga MX); each club plays `games_each` (3) cross-league games with **no draws** (a level game is a
+  PK coin-flip for the 3 points); top `advance_per_table` (4) per table cross-seed an 8-team single-elim.
+  Standings rows carry a `table` key and an `advance` prob.
+
+`_run_ko(alive, fmt, strengths, rng, reach, win)` is the shared knockout core for all three; its
+single-leg branch loops pairs, so it handles single-leg QF/SF (Leagues Cup) and the 2-team final
+identically. **Invariant** (verify if changing the engine): per round, the sum of `reach[round]` across
+teams equals that round's entrant count (UCL R16=16/QF=8/SF=4/Final=2; CC RoundOne=22; Leagues Cup
+advance=8/QF=8/SF=4).
+
+**Concacaf strength (`coefficients.py`):** Concacaf comps use `_CONCACAF_OFFSET` (MLS=0 ref, Liga MX +30),
+checked BEFORE the UEFA `_K_COEFF` path in `league_offset`. These are RELATIVE-only — Concacaf and UEFA
+teams never meet, and `match_lambdas` uses strength *differences*, so the absolute anchor is irrelevant.
+
+**Build routing (`build_continental_data._league_elos`):** big-5 → `canonical_frame` (Understat);
+`liga-mx` → `liga_mx_frame()` (ESPN names); `mls` → `parity_frame.parquet` ELO with ASA hash ids remapped
+to names via `asa.get_teams()`. UEFA fields resolve modeled teams via the hand `_ESPN_TO_MODELED` map;
+Concacaf fields **auto-resolve** by membership in the MLS/Liga MX ELO dicts (+ a small MLS alias map),
+since you can't infer a UEFA club's league from its name but Concacaf teams are all MLS/Liga MX.
+
+**Webapp:** `renderKnockout` builds sub-tabs from `outlook.phases`: `league` (single table), `group` (two
+side-by-side tables, Leagues Cup), `knockout` (champion-odds leaderboard, all). A single-phase comp
+(Concacaf CC: `["knockout"]`) shows no sub-tab bar.
+
+**What would look wrong (expansion):** a Central-American minnow leading the Concacaf CC champion odds
+(coefficient scale drifted above the MLS/Liga MX modeled range); a `team_strength` "falling back" WARNING
+for an MLS/Liga MX club during the Concacaf build (a missing alias — the team should be modeled); the
+defunct `concacaf-league` reappearing in `leagues.js` (it was intentionally removed 2026-06-17).

@@ -1,5 +1,39 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Phase 7 — Continental expansion: Europa / Conference / Concacaf CC / Leagues Cup (2026-06-17) ✅ COMPLETE**
+>
+> Generalized the UCL vertical slice to the four remaining active continental comps, each with a
+> genuinely different current format (researched, not assumed). **17 leagues now live.** The defunct
+> **Concacaf League** (last edition 2023, absorbed into the Champions Cup) was **removed** from the
+> registry. MLS champion untouched (parity |Δ|=0.0000); 137 tests pass. Plan:
+> `docs/superpowers/plans/2026-06-17-continental-expansion.md`. Built subagent-driven (8 tasks).
+>
+> **Formats + engine work:**
+> - **Europa / Conference (UEFA):** config-only on the existing league-phase engine. Europa = UCL clone
+>   (8 league games each); Conference = 6 games each. Same R16/QF/SF/Final knockout.
+> - **Concacaf Champions Cup:** **new pure-knockout `bracket_sim` path** — 27 teams, top-5 by strength
+>   bye to R16, the other 22 play Round One (two-leg), then R16/QF/SF two-leg + single-leg Final. No
+>   league phase (`standings=[]`). Round-size invariant exact (RoundOne=22, R16=16, QF=8, SF=4, Final=2).
+> - **Leagues Cup:** **new two-table group `bracket_sim` path** — 18 MLS + 18 Liga MX in two parallel
+>   league tables, 3 cross-league games each, NO DRAWS (PK), top-4 per table → 8-team single-elim. The
+>   shared `_run_ko` helper was generalized to single-leg multi-team rounds (backward-compatible).
+>
+> **Strength:** UEFA comps reuse the UEFA coefficient anchor. Concacaf comps use Concacaf-INTERNAL league
+> offsets (MLS=0 ref, Liga MX +30) — relative-only (the two confederations never meet; match_lambdas uses
+> differences). MLS ELO loads from `data/parity_frame.parquet` (ASA hashes remapped to names via
+> `asa.get_teams`); Liga MX from `espn_soccer.liga_mx_frame()`. Concacaf fields auto-resolve modeled teams
+> by membership in the MLS/Liga MX ELO dicts (+ a 4-entry MLS alias map); UEFA comps use the hand `_ESPN_TO_MODELED`.
+>
+> **Verified in-browser (all 4):** Leagues Cup shows two side-by-side MLS/Liga MX tables + knockout
+> (favorites Cruz Azul/Inter Miami/LAFC); Concacaf CC a 27-team bracket leaderboard, no sub-tabs
+> (Vancouver/Inter Miami/Pumas); Europa/Conference the League Phase + Knockout layout (Man Utd/Roma,
+> Real Betis/Chelsea). Champion odds sum to 1.0; coefficient-only clubs marked `~`; MLS/UCL/table leagues
+> regression-clean; no console errors.
+>
+> **Known v1 limitations carry over** (flat champion odds from Approach-A coarseness; playoff-skip
+> inflating mid-table R16 on the UEFA comps; Europa/Conference modeled ratios are low — 28%/11% — because
+> most entrants are non-big-5 leagues we don't model, so they lean on the coarser coefficient anchor).
+
 > **Phase 6 — UEFA Champions League continental vertical slice (2026-06-17) ✅ COMPLETE (UCL live)**
 >
 > First cross-league knockout competition on the platform. Design spec:
