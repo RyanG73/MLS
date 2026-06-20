@@ -232,6 +232,98 @@ def _resolve_one(
             return {"team": team, "league": None, "strength": strength, "modeled": False}
 
 
+def _build_games(comp_id: str, played, caches: dict | None = None) -> list[dict]:
+    """Build per-match game-card dicts for the Match Projections tab.
+
+    For each played match resolves both teams' cross-league strengths via
+    _resolve_one, runs match_probs (confederation-aware), and attaches
+    actual result. Market fields (mkt_*, edge_*) are always None — there is
+    no continental odds source (football-data.co.uk is domestic-only).
+
+    Args:
+        comp_id: competition id (e.g. 'ucl').
+        played:  DataFrame from continental_results — all played rows for the
+                 season.  Rows with NaN goals (postponed/incomplete) are skipped.
+        caches:  Concacaf ELO caches {'mls': ..., 'liga-mx': ...} or None for UEFA.
+
+    Returns list of game-card dicts sorted by date ascending.
+    """
+    conf = META[comp_id]["confederation"]
+    games: list[dict] = []
+
+    # Drop rows where goals are unavailable (shouldn't occur in completed_only
+    # results, but guard defensively).
+    df = played.dropna(subset=["home_goals", "away_goals"]).copy()
+    # Ensure date is a plain Python string.
+    df["date_str"] = df["date"].apply(
+        lambda d: d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)[:10]
+    )
+
+    for _, row in df.iterrows():
+        home_name = row["home_team"]
+        away_name = row["away_team"]
+
+        h_info = _resolve_one(home_name, comp_id, caches)
+        a_info = _resolve_one(away_name, comp_id, caches)
+
+        sh = h_info["strength"]
+        sa = a_info["strength"]
+        neutral = bool(row.get("neutral", False))
+
+        ph, pd_, pa = cl.match_probs(sh, sa, neutral=neutral, conf=conf)
+
+        hg = int(row["home_goals"])
+        ag = int(row["away_goals"])
+        if hg > ag:
+            result = "H"
+        elif hg < ag:
+            result = "A"
+        else:
+            result = "D"
+
+        _, round_ordinal = _ESPN_ROUND.get(row["round"], (row["round"], 0))
+        display_round, _ = _ESPN_ROUND.get(row["round"], (row["round"], 0))
+
+        games.append({
+            "date": row["date_str"],
+            "round": display_round,
+            "home": home_name,
+            "away": away_name,
+            "pH": round(ph, 4),
+            "pD": round(pd_, 4),
+            "pA": round(pa, 4),
+            "hg": hg,
+            "ag": ag,
+            "result": result,
+            "modeled": h_info["modeled"] and a_info["modeled"],
+            "mkt_home": None,
+            "mkt_draw": None,
+            "mkt_away": None,
+            "edge_home": None,
+            "edge_draw": None,
+            "edge_away": None,
+        })
+
+    games.sort(key=lambda g: g["date"])
+    return games
+
+
+def _value_layer_scaffold() -> dict:
+    """Empty value-layer scaffold — no continental odds source exists.
+
+    football-data.co.uk is domestic-only; a continental odds feed would be
+    required to compute model-minus-market edge.
+    """
+    return {
+        "backtest": None,
+        "value_bets": [],
+        "note": (
+            "No continental odds source — model−market edge unavailable "
+            "(domestic-only football-data); requires a continental odds feed."
+        ),
+    }
+
+
 def _resolve_field(comp_id: str, season: int):
     """Latest field for the comp -> [{team, league, strength, modeled, ...}].
 
@@ -377,6 +469,15 @@ def build(comp_id: str, season: int | None, sims: int):
         res = _resolve_actual(comp_id, played)
         label = _season_label(comp_id, played)
         champ_sorted = sorted(res["field"], key=lambda t: -t["odds"]["win"])
+        # Build Concacaf caches if needed for _build_games.
+        confederation = META[comp_id]["confederation"]
+        caches_for_games: dict | None = None
+        if confederation == "Concacaf":
+            caches_for_games = {
+                "mls": _league_elos("mls"),
+                "liga-mx": _league_elos("liga-mx"),
+            }
+        games = _build_games(comp_id, played, caches_for_games)
         data = {
             "league": {"name": META[comp_id]["name"],
                        "confederation": META[comp_id]["confederation"]},
@@ -392,12 +493,14 @@ def build(comp_id: str, season: int | None, sims: int):
             "field": res["field"],
             "champion_odds": [{"team": t["team"], "win_pct": round(t["odds"]["win"] * 100, 1)}
                               for t in champ_sorted],
-            "games": [],
+            "games": games,
+            "value_layer": _value_layer_scaffold(),
         }
         out = Path(f"webapp/data/{comp_id}.js")
         out.write_text("window.LEAGUE_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
         print(f"[{comp_id}] wrote {out} ({out.stat().st_size // 1024} KB) · "
-              f"CONCLUDED {label} · champion {res['champion']} · {len(res['field'])} teams")
+              f"CONCLUDED {label} · champion {res['champion']} · {len(res['field'])} teams · "
+              f"{len(games)} games")
         return
 
     # In-progress / drawn edition → Monte-Carlo projection (original path).
@@ -411,6 +514,54 @@ def build(comp_id: str, season: int | None, sims: int):
          for t in result["field"]),
         key=lambda x: -x["win_pct"],
     )
+    # Build game cards for played matches (results) + upcoming (result=None, probs only).
+    confederation = META[comp_id]["confederation"]
+    caches_for_games: dict | None = None
+    if confederation == "Concacaf":
+        caches_for_games = {
+            "mls": _league_elos("mls"),
+            "liga-mx": _league_elos("liga-mx"),
+        }
+    games = _build_games(comp_id, played, caches_for_games)
+    # Append upcoming fixtures (result=None, probs only).
+    try:
+        upcoming = continental_fixtures(comp_id, season)
+        if not upcoming.empty:
+            for _, row in upcoming.iterrows():
+                home_name = row["home_team"]
+                away_name = row["away_team"]
+                h_info = _resolve_one(home_name, comp_id, caches_for_games)
+                a_info = _resolve_one(away_name, comp_id, caches_for_games)
+                ph, pd_, pa = cl.match_probs(
+                    h_info["strength"], a_info["strength"],
+                    neutral=bool(row.get("neutral", False)),
+                    conf=confederation,
+                )
+                date_str = (row["date"].strftime("%Y-%m-%d")
+                            if hasattr(row["date"], "strftime") else str(row["date"])[:10])
+                display_round, _ = _ESPN_ROUND.get(row["round"], (row["round"], 0))
+                games.append({
+                    "date": date_str,
+                    "round": display_round,
+                    "home": home_name,
+                    "away": away_name,
+                    "pH": round(ph, 4),
+                    "pD": round(pd_, 4),
+                    "pA": round(pa, 4),
+                    "hg": None,
+                    "ag": None,
+                    "result": None,
+                    "modeled": h_info["modeled"] and a_info["modeled"],
+                    "mkt_home": None,
+                    "mkt_draw": None,
+                    "mkt_away": None,
+                    "edge_home": None,
+                    "edge_draw": None,
+                    "edge_away": None,
+                })
+            games.sort(key=lambda g: g["date"])
+    except Exception:
+        pass  # fixtures not reachable — played-only games are fine
     data = {
         "league": {"name": META[comp_id]["name"],
                    "confederation": META[comp_id]["confederation"]},
@@ -424,7 +575,8 @@ def build(comp_id: str, season: int | None, sims: int):
         "standings": result["standings"],
         "field": result["field"],
         "champion_odds": champ,
-        "games": [],
+        "games": games,
+        "value_layer": _value_layer_scaffold(),
     }
     out = Path(f"webapp/data/{comp_id}.js")
     out.write_text("window.LEAGUE_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
@@ -433,7 +585,8 @@ def build(comp_id: str, season: int | None, sims: int):
     print(
         f"[{comp_id}] wrote {out} ({out.stat().st_size // 1024} KB) · "
         f"{total} teams · modeled {modeled}/{total} · "
-        f"champion favorite {champ[0]['team']} {champ[0]['win_pct']}%"
+        f"champion favorite {champ[0]['team']} {champ[0]['win_pct']}% · "
+        f"{len(games)} games"
     )
 
 
