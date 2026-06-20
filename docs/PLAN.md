@@ -1,5 +1,23 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Season rollover + roadmap round 2 (2026-06-20) ▶ IN PROGRESS**
+>
+> Full detail: `docs/superpowers/plans/2026-06-20-season-rollover-roadmap.md`. Trigger: EPL's 2026-27
+> schedule launched. **Key fact:** Understat has no 2026-27 data yet (publishes ~Aug); ESPN has the
+> official schedule (20 teams incl. promoted Coventry City). So the flip = ESPN fixtures + carry-over
+> ELO + promoted-team seeding + a pre-season projection mode. 10 steps:
+> 1. ESPN European fixtures adapter (next-season schedule when Understat lacks it).
+> 2. Carry-over ELO + promoted-team seeding (continuing teams regress; promoted seed at a baseline).
+> 3. Pre-season projection mode (target latest season with ANY fixtures; 0-played → full-season DC sim).
+> 4. **Flip EPL to 2026-27** + verify in-browser.
+> 5. Generalize rollover to the other big-5 / 2nd tiers (auto-detect per league).
+> 6. Pre-season UI treatment (banner, promoted/relegated badges, prior-season finish).
+> 7. Historical-ELO-as-of-date for Approach C (the R2 deferred lever; validate-before-adopt).
+> 8. Continental odds feed (Odds API) → value_bets (the R3/R5 blocker; build path, may be partial).
+> 9. Model report-card view (summarize the games retrospective: hit rate / Brier-vs-naive / calibration).
+> 10. Rollover test coverage (lock pre-season state + seeding + fixtures parsing).
+> Verdicts appended per step.
+
 > **Improvement roadmap — model / viz / performance / efficiency (2026-06-19) ✅ COMPLETE (8/8)**
 >
 > Full detail: `docs/superpowers/plans/2026-06-19-improvement-roadmap.md`. All 8 executed
