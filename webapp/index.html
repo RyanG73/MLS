@@ -549,9 +549,11 @@ $('#sub').textContent = isKnockout
   ? ((D.outlook||{}).concluded
       ? `${D.outlook.season_label} · Completed${D.outlook.champion?' · Champion: '+D.outlook.champion:''}`
       : ((D.outlook||{}).format_label || 'Tournament projection'))
-  : D.in_season
-    ? `${D.season} season is ${_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
-    : `${D.season} season projection`;
+  : (D.outlook||{}).preseason
+    ? `${D.outlook.season_label} · pre-season projection · schedule out, no matches played yet`
+    : D.in_season
+      ? `${D.season} season is ${_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
+      : `${D.season} season projection`;
 (()=>{if(!D.model)return;  // knockout leagues (UCL) carry no model-vs-naive Brier card
   const m=D.model.best_brier, n=D.model.naive, mk=D.model.market??(D.market_brier||{}).market;
   const live=D.in_season_brier||{};
