@@ -22,16 +22,38 @@ _log = logging.getLogger(__name__)
 # Champion ELO config (matches the rest of the platform).
 _ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT = 25.0, 80.0, 0.40, 1500.0
 
-# Physically-grounded priors (NOT optimizer-fit). The Task-7 validator is
-# coefficient-only: ~48% of UCL matches have both teams at BASELINE_STRENGTH (no
-# strength signal), and UCL's low 0.19 draw rate comes from strength mismatches the
-# coefficient table can't see — so fitting these constants to that validator's 1X2
-# Brier corrupts the goals model (it pushed BASE_GOALS to 10). These values keep
-# scorelines realistic; a true edge-vs-naive calibration needs ELO-wired validation
-# (a follow-on). The coefficient-only validator below is a sanity FLOOR, not a fit.
-BASE_GOALS = 1.35    # expected goals per side at equal strength (UCL avg ~2.7/game)
-GOAL_SCALE = 3000.0  # ELO points per 10x goal-rate multiplier; ~400-ELO gap => ~1.35x goal ratio
-HOME_ADV_ELO = 80.0  # home advantage in strength points (matches the platform's ELO home_adv)
+# Confederation-aware match constants. Sweep-calibrated via validate_continental.py
+# (ELO-wired backtest). Hard bounds: base_goals 1.2–1.7, goal_scale 2000–3500,
+# home_adv_elo 40–110 (physically-sane per the T7 lesson; insane values auto-rejected).
+_CONF_CONST: dict[str, dict[str, float]] = {
+    # UEFA: physically-grounded priors (UCL avg ~2.7 goals/game, ~400-ELO gap => ~1.35× rate).
+    # Validation: UCL BEATS naive (see validate_continental.py).
+    "UEFA": {
+        "base_goals": 1.35,
+        "goal_scale": 3000.0,
+        "home_adv_elo": 80.0,
+    },
+    # Concacaf: calibrated by grid-sweep on ELO-wired validator (2018-2024).
+    # Sweep: base_goals ∈ {1.2–1.7}, goal_scale ∈ {2000–3500}, home_adv_elo ∈ {40–110}.
+    # No sane set beats naive for either Concacaf comp (CC n=51 too small; 58.8% home-win
+    # rate makes naive baseline very strong; LC also trails at all grid points).
+    # Best sane set by combined excess over naive (total_excess=0.0300):
+    #   CC:  model=0.5716 vs naive=0.5644 (TRAILS by 0.0072)
+    #   LC:  model=0.6698 vs naive=0.6470 (TRAILS by 0.0228)
+    # Lower goal_scale (2000) makes ELO gaps matter more (steeper rate multiplier),
+    # reducing draw probability; higher home_adv_elo (110) boosts home-win rate
+    # to better match Concacaf's empirically strong home advantage.
+    "Concacaf": {
+        "base_goals": 1.30,
+        "goal_scale": 2000.0,
+        "home_adv_elo": 110.0,
+    },
+}
+
+# Module-level aliases — kept for backward compatibility with any direct references.
+BASE_GOALS: float    = _CONF_CONST["UEFA"]["base_goals"]
+GOAL_SCALE: float    = _CONF_CONST["UEFA"]["goal_scale"]
+HOME_ADV_ELO: float  = _CONF_CONST["UEFA"]["home_adv_elo"]
 
 
 def team_strength(team: str, league_id: str | None, league_elos: dict[str, float]) -> float:
@@ -56,21 +78,36 @@ def team_strength(team: str, league_id: str | None, league_elos: dict[str, float
 
 
 def match_lambdas(strength_home: float, strength_away: float,
-                  neutral: bool = False) -> tuple[float, float]:
-    """Expected goals (lambda_home, lambda_away) from cross-league strengths."""
-    ha = 0.0 if neutral else HOME_ADV_ELO
+                  neutral: bool = False,
+                  conf: str = "UEFA") -> tuple[float, float]:
+    """Expected goals (lambda_home, lambda_away) from cross-league strengths.
+
+    Args:
+        conf: confederation key into _CONF_CONST ("UEFA" or "Concacaf").
+              Defaults to "UEFA" so all existing callers are unaffected.
+    """
+    c = _CONF_CONST.get(conf, _CONF_CONST["UEFA"])
+    base_goals   = c["base_goals"]
+    goal_scale   = c["goal_scale"]
+    home_adv_elo = c["home_adv_elo"]
+    ha = 0.0 if neutral else home_adv_elo
     diff = strength_home - strength_away
     # Home advantage is modeled as a home-side boost only (added to the home rate,
     # mirroring ELO's home_adv); the away rate intentionally omits it.
-    lam_home = BASE_GOALS * 10.0 ** ((diff + ha) / GOAL_SCALE)
-    lam_away = BASE_GOALS * 10.0 ** ((-diff) / GOAL_SCALE)
+    lam_home = base_goals * 10.0 ** ((diff + ha) / goal_scale)
+    lam_away = base_goals * 10.0 ** ((-diff) / goal_scale)
     return lam_home, lam_away
 
 
 def match_probs(strength_home: float, strength_away: float,
-                neutral: bool = False, max_g: int = 10) -> tuple[float, float, float]:
-    """(P_home, P_draw, P_away) via independent Poisson score matrix."""
-    lam_h, lam_a = match_lambdas(strength_home, strength_away, neutral)
+                neutral: bool = False, max_g: int = 10,
+                conf: str = "UEFA") -> tuple[float, float, float]:
+    """(P_home, P_draw, P_away) via independent Poisson score matrix.
+
+    Args:
+        conf: confederation key ("UEFA" or "Concacaf"). Defaults to "UEFA".
+    """
+    lam_h, lam_a = match_lambdas(strength_home, strength_away, neutral, conf=conf)
     ph = _poisson_pmf(np.arange(max_g + 1), lam_h)
     pa = _poisson_pmf(np.arange(max_g + 1), lam_a)
     M = np.outer(ph, pa)

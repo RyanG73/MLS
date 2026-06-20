@@ -1,6 +1,9 @@
+import collections
+
 import numpy as np
 import pytest
 from scripts.eval import bracket_sim as bs
+from scripts.eval.cross_league import _CONF_CONST, match_lambdas
 
 
 def _field(n):
@@ -75,6 +78,126 @@ def test_europa_conference_formats():
         assert bs.FORMATS[c]["phase"]["auto_advance"] == 8
         assert bs.FORMATS[c]["phase"]["playoff"] == (9, 24)
         assert [r["round"] for r in bs.FORMATS[c]["ko"]] == ["R16", "QF", "SF", "Final"]
+
+
+# ---------------------------------------------------------------------------
+# Part A: confederation-aware match constants
+# ---------------------------------------------------------------------------
+
+class TestConfederationConstants:
+    def test_conf_const_has_both_confederations(self):
+        assert "UEFA" in _CONF_CONST
+        assert "Concacaf" in _CONF_CONST
+
+    def test_uefa_const_values(self):
+        c = _CONF_CONST["UEFA"]
+        assert c["base_goals"] == pytest.approx(1.35)
+        assert c["goal_scale"] == pytest.approx(3000.0)
+        assert c["home_adv_elo"] == pytest.approx(80.0)
+
+    def test_concacaf_const_within_sane_bounds(self):
+        c = _CONF_CONST["Concacaf"]
+        # Physically-sane bounds: base_goals 1.2-1.7, goal_scale 2000-3500, home_adv 40-110
+        assert 1.2 <= c["base_goals"] <= 1.7
+        assert 2000.0 <= c["goal_scale"] <= 3500.0
+        assert 40.0 <= c["home_adv_elo"] <= 110.0
+
+    def test_module_aliases_match_uefa(self):
+        from scripts.eval.cross_league import BASE_GOALS, GOAL_SCALE, HOME_ADV_ELO
+        assert BASE_GOALS == _CONF_CONST["UEFA"]["base_goals"]
+        assert GOAL_SCALE == _CONF_CONST["UEFA"]["goal_scale"]
+        assert HOME_ADV_ELO == _CONF_CONST["UEFA"]["home_adv_elo"]
+
+    def test_match_lambdas_default_is_uefa(self):
+        # Default (no conf arg) should equal explicit "UEFA"
+        sh, sa = 1700.0, 1600.0
+        lh_default, la_default = match_lambdas(sh, sa)
+        lh_uefa, la_uefa = match_lambdas(sh, sa, conf="UEFA")
+        assert lh_default == pytest.approx(lh_uefa)
+        assert la_default == pytest.approx(la_uefa)
+
+    def test_concacaf_lambdas_differ_from_uefa(self):
+        # Different constants → different lambdas
+        sh, sa = 1700.0, 1600.0
+        lh_uefa, la_uefa = match_lambdas(sh, sa, conf="UEFA")
+        lh_cc, la_cc = match_lambdas(sh, sa, conf="Concacaf")
+        assert lh_uefa != pytest.approx(lh_cc)  # should differ
+
+    def test_formats_have_conf_keys(self):
+        for comp_id in ("ucl", "europa", "conference"):
+            assert bs.FORMATS[comp_id].get("conf") == "UEFA"
+        for comp_id in ("concacaf-champions", "leagues-cup"):
+            assert bs.FORMATS[comp_id].get("conf") == "Concacaf"
+
+
+# ---------------------------------------------------------------------------
+# Part B: explicit knockout-playoff round (UCL league path)
+# ---------------------------------------------------------------------------
+
+class TestKOPlayoffRound:
+    def test_ucl_simulate_has_koplayout_key(self):
+        field = _field(36)
+        out = bs.simulate("ucl", field, N=200, seed=5)
+        for t in out["field"]:
+            assert "KOplayoff" in t["odds"], f"KOplayoff missing for {t['team']}"
+
+    def test_round_size_invariant(self):
+        """KOplayoff=16, R16=16, QF=8, SF=4, Final=2, win=1."""
+        field = [{"team": f"T{i}", "strength": 1750 - i * 8} for i in range(36)]
+        out = bs.simulate("ucl", field, N=2000, seed=7)
+        totals = collections.defaultdict(float)
+        for t in out["field"]:
+            for r, v in t["odds"].items():
+                totals[r] += v
+        assert totals["KOplayoff"] == pytest.approx(16.0, abs=0.1)
+        assert totals["R16"]       == pytest.approx(16.0, abs=0.1)
+        assert totals["QF"]        == pytest.approx(8.0,  abs=0.1)
+        assert totals["SF"]        == pytest.approx(4.0,  abs=0.1)
+        assert totals["Final"]     == pytest.approx(2.0,  abs=0.1)
+        assert totals["win"]       == pytest.approx(1.0,  abs=1e-6)
+
+    def test_auto_advancers_have_zero_koplayout(self):
+        """Auto-advancers (top-8) skip KOplayoff — so KOplayoff ≤ P(rank 9-24).
+        Weak teams (guaranteed to finish 25-36) never reach KOplayoff either."""
+        # Equal-strength field: every team has ~P(auto)=8/36, P(playoff)=16/36, P(elim)=12/36.
+        # The weakest 12 teams (by construction) should have low KOplayoff odds.
+        # Easier to test: the sum of KOplayoff across all 36 teams should be exactly 16.
+        field = _field(36)
+        out = bs.simulate("ucl", field, N=1000, seed=9)
+        total_kop = sum(t["odds"]["KOplayoff"] for t in out["field"])
+        # KOplayoff should sum to 16 (16 teams enter the KO-playoff each sim).
+        assert total_kop == pytest.approx(16.0, abs=0.2)
+        # Auto-advance and KOplayoff are mutually exclusive: a team's (auto + KOplayoff)
+        # should not exceed 1 (it can't be in both).
+        for t in out["field"]:
+            auto = t.get("auto_advance", 0.0)
+            kop = t["odds"]["KOplayoff"]
+            assert auto + kop <= 1.01, (
+                f"{t['team']}: auto={auto:.3f} + KOplayoff={kop:.3f} > 1")
+
+    def test_koplayout_teams_also_have_r16_odds(self):
+        """Teams deep in the mid-table are almost always in the KO-playoff zone,
+        so their KOplayoff odds dominate their auto-advance odds.
+        For teams near rank 16-24 (well inside the 9-24 band), KOplayoff > auto_advance."""
+        field = _field(36)
+        out = bs.simulate("ucl", field, N=1000, seed=11)
+        by_name = {t["team"]: t for t in out["field"]}
+        # Teams T15..T23 are deep in the playoff band; should have KOplayoff > auto_advance.
+        for i in range(15, 24):
+            t = by_name[f"T{i}"]
+            kop = t["odds"]["KOplayoff"]
+            auto = t.get("auto_advance", 0.0)
+            assert kop > auto, (
+                f"T{i}: KOplayoff={kop:.3f} should exceed auto_advance={auto:.3f}")
+
+    def test_europa_conference_also_have_koplayout(self):
+        """Europa/Conference use same league format; should also have KOplayoff."""
+        for comp_id in ("europa", "conference"):
+            field = _field(36)
+            out = bs.simulate(comp_id, field, N=200, seed=13)
+            for t in out["field"]:
+                assert "KOplayoff" in t["odds"], (
+                    f"{comp_id}: KOplayoff missing for {t['team']}")
 
 
 class TestPureKnockout:

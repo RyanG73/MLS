@@ -17,6 +17,7 @@ FORMATS: dict[str, dict] = {
         "ko": [{"round": "R16", "legs": 2}, {"round": "QF", "legs": 2},
                {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
         "away_goals": False, "extra_time": True, "pens": True,
+        "conf": "UEFA",
     },
     # Europa League — same 2024-25 format as UCL (36-team league phase, 8 games each).
     "europa": {
@@ -25,6 +26,7 @@ FORMATS: dict[str, dict] = {
         "ko": [{"round": "R16", "legs": 2}, {"round": "QF", "legs": 2},
                {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
         "away_goals": False, "extra_time": True, "pens": True,
+        "conf": "UEFA",
     },
     # Conference League — same structure but each side plays only 6 league-phase games.
     "conference": {
@@ -33,6 +35,7 @@ FORMATS: dict[str, dict] = {
         "ko": [{"round": "R16", "legs": 2}, {"round": "QF", "legs": 2},
                {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
         "away_goals": False, "extra_time": True, "pens": True,
+        "conf": "UEFA",
     },
     # Concacaf Champions Cup — 27-team pure-knockout; top-5 seeds bye to R16.
     "concacaf-champions": {
@@ -40,6 +43,7 @@ FORMATS: dict[str, dict] = {
         "ko": [{"round": "R16", "legs": 2}, {"round": "QF", "legs": 2},
                {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
         "away_goals": False, "extra_time": True, "pens": True,
+        "conf": "Concacaf",
     },
     # Leagues Cup — 18 MLS + 18 Liga MX; two parallel tables; top 4 per table -> 8-team KO.
     "leagues-cup": {
@@ -48,6 +52,7 @@ FORMATS: dict[str, dict] = {
         "ko": [{"round": "QF", "legs": 1}, {"round": "SF", "legs": 1},
                {"round": "Final", "legs": 1, "neutral": True}],
         "extra_time": True, "pens": True,
+        "conf": "Concacaf",
     },
 }
 
@@ -74,12 +79,12 @@ def make_league_schedule(field, matches_each: int, seed: int = 0):
     return games
 
 
-def _sim_match(sh, sa, neutral, rng):
-    lam_h, lam_a = match_lambdas(sh, sa, neutral)
+def _sim_match(sh, sa, neutral, rng, conf: str = "UEFA"):
+    lam_h, lam_a = match_lambdas(sh, sa, neutral, conf=conf)
     return int(rng.poisson(lam_h)), int(rng.poisson(lam_a))
 
 
-def _sim_league_vectorized(schedule, strengths, N, rng):
+def _sim_league_vectorized(schedule, strengths, N, rng, conf: str = "UEFA"):
     """Vectorize the league/group phase across all N simulations at once.
 
     Returns:
@@ -96,7 +101,7 @@ def _sim_league_vectorized(schedule, strengths, N, rng):
     home_idx = np.empty(n_matches, dtype=int)
     away_idx = np.empty(n_matches, dtype=int)
     for m, (hi, ai, neutral) in enumerate(schedule):
-        lam_h[m], lam_a[m] = match_lambdas(strengths[hi], strengths[ai], neutral)
+        lam_h[m], lam_a[m] = match_lambdas(strengths[hi], strengths[ai], neutral, conf=conf)
         home_idx[m] = hi
         away_idx[m] = ai
 
@@ -163,18 +168,18 @@ def simulate_league_phase(field, schedule, fmt, N: int, seed: int = 0):
     ]
 
 
-def sim_single_leg(sh, sa, rng, neutral=False):
+def sim_single_leg(sh, sa, rng, neutral=False, conf: str = "UEFA"):
     """One match -> winner index (0=home/sh, 1=away/sa); ties broken by penalties."""
-    hg, ag = _sim_match(sh, sa, neutral, rng)
+    hg, ag = _sim_match(sh, sa, neutral, rng, conf=conf)
     if hg > ag: return 0
     if ag > hg: return 1
     return _pens(sh, sa, rng)
 
 
-def sim_two_leg(sa_strength, sb_strength, rng, fmt):
+def sim_two_leg(sa_strength, sb_strength, rng, fmt, conf: str = "UEFA"):
     """Two-leg tie (A home leg 1, B home leg 2) -> winner index (0=A, 1=B)."""
-    a_h, b_a = _sim_match(sa_strength, sb_strength, False, rng)   # leg 1: A home
-    b_h, a_a = _sim_match(sb_strength, sa_strength, False, rng)   # leg 2: B home
+    a_h, b_a = _sim_match(sa_strength, sb_strength, False, rng, conf=conf)   # leg 1: A home
+    b_h, a_a = _sim_match(sb_strength, sa_strength, False, rng, conf=conf)   # leg 2: B home
     agg_a, agg_b = a_h + a_a, b_a + b_h
     if agg_a > agg_b: return 0
     if agg_b > agg_a: return 1
@@ -190,7 +195,7 @@ def _pens(sh, sa, rng):
     return 0 if rng.random() < p_home else 1
 
 
-def _run_ko(alive, fmt, strengths, rng, reach, win):
+def _run_ko(alive, fmt, strengths, rng, reach, win, conf: str = "UEFA"):
     """Run the knockout rounds over `alive` (the entry field, a power of two).
     Mutates reach[round] (teams alive at the start of each round) and win[champion].
     Returns the champion index."""
@@ -201,12 +206,13 @@ def _run_ko(alive, fmt, strengths, rng, reach, win):
         if r.get("legs", 1) == 2:
             for k in range(0, len(alive), 2):
                 a, b = alive[k], alive[k + 1]
-                w = sim_two_leg(strengths[a], strengths[b], rng, fmt)
+                w = sim_two_leg(strengths[a], strengths[b], rng, fmt, conf=conf)
                 nxt.append(a if w == 0 else b)
         else:  # single-leg round(s) — loop pairs (a 2-team final is the degenerate case)
             for k in range(0, len(alive), 2):
                 a, b = alive[k], alive[k + 1]
-                w = sim_single_leg(strengths[a], strengths[b], rng, neutral=r.get("neutral", False))
+                w = sim_single_leg(strengths[a], strengths[b], rng,
+                                   neutral=r.get("neutral", False), conf=conf)
                 nxt.append(a if w == 0 else b)
         alive = nxt
     win[alive[0]] += 1
@@ -215,6 +221,7 @@ def _run_ko(alive, fmt, strengths, rng, reach, win):
 
 def _simulate_bracket(comp_id, field, N, seed=0):
     fmt = FORMATS[comp_id]
+    conf = fmt.get("conf", "UEFA")
     n = len(field)
     rng = np.random.default_rng(seed)
     rounds = [r["round"] for r in fmt["ko"]]
@@ -237,14 +244,14 @@ def _simulate_bracket(comp_id, field, N, seed=0):
         lo, hi = 0, len(r1) - 1
         while lo < hi:
             a, b = r1[lo], r1[hi]
-            w = sim_two_leg(strengths[a], strengths[b], rng, fmt)
+            w = sim_two_leg(strengths[a], strengths[b], rng, fmt, conf=conf)
             winners.append(a if w == 0 else b)
             lo += 1; hi -= 1
         if lo == hi:                      # odd leftover -> free pass
             winners.append(r1[lo])
         r16 = list(seed_order[:byes]) + winners
         size = 1 << (len(r16).bit_length() - 1)   # truncate to power of two (16)
-        _run_ko(r16[:size], fmt, strengths, rng, reach, win)
+        _run_ko(r16[:size], fmt, strengths, rng, reach, win, conf=conf)
     all_rounds = [ro] + rounds
     out_field = []
     for i, t in enumerate(field):
@@ -259,6 +266,7 @@ def _simulate_bracket(comp_id, field, N, seed=0):
 
 def _simulate_two_table(comp_id, field, N, seed=0):
     fmt = FORMATS[comp_id]
+    conf = fmt.get("conf", "UEFA")
     n = len(field)
     rng = np.random.default_rng(seed)
     rounds = [r["round"] for r in fmt["ko"]]
@@ -284,7 +292,7 @@ def _simulate_two_table(comp_id, field, N, seed=0):
             for k in range(len(A)):
                 a = A[k]; b = B[(k + gi) % len(B)]
                 hi, ai = (a, b) if gi % 2 == 0 else (b, a)
-                hg, ag = _sim_match(strengths[hi], strengths[ai], False, rng)
+                hg, ag = _sim_match(strengths[hi], strengths[ai], False, rng, conf=conf)
                 gd[hi] += hg - ag; gd[ai] += ag - hg
                 if hg > ag: pts[hi] += 3
                 elif ag > hg: pts[ai] += 3
@@ -302,7 +310,7 @@ def _simulate_two_table(comp_id, field, N, seed=0):
         alive = []
         for k in range(adv_per):
             alive.append(sa[k]); alive.append(sb[adv_per - 1 - k])
-        _run_ko(alive, fmt, strengths, rng, reach, win)
+        _run_ko(alive, fmt, strengths, rng, reach, win, conf=conf)
 
     out_field = []
     for i, t in enumerate(field):
@@ -323,6 +331,12 @@ def simulate(comp_id: str, field, N: int, seed: int = 0):
 
     Returns {"standings": [...], "field": [...with odds...]}.
     `field` entries need keys: team, strength (+ any passthrough display keys).
+
+    For "league" phase comps (UCL/Europa/Conference): implements the real
+    knockout-playoff structure — top `auto_advance` (8) go straight to R16;
+    teams ranked `playoff[0]`..`playoff[1]` (9-24, 16 teams) play a two-leg
+    knockout-playoff (8 ties → 8 winners); R16 = 8 auto + 8 playoff winners.
+    A "KOplayoff" reach counter is tracked for the 16 playoff teams.
     """
     fmt = FORMATS[comp_id]
     if fmt["phase"]["type"] == "bracket":
@@ -330,23 +344,25 @@ def simulate(comp_id: str, field, N: int, seed: int = 0):
     if fmt["phase"]["type"] == "two_table":
         return _simulate_two_table(comp_id, field, N, seed)
 
+    conf = fmt.get("conf", "UEFA")
     n = len(field)
     rng = np.random.default_rng(seed)
     rounds = [r["round"] for r in fmt["ko"]]
-    reach = {r: np.zeros(n) for r in rounds}
+    # KOplayoff is a pre-R16 round for the 9-24 ranked teams.
+    reach = {"KOplayoff": np.zeros(n)}
+    reach.update({r: np.zeros(n) for r in rounds})
     win = np.zeros(n)
 
     schedule = make_league_schedule(field, fmt["phase"]["matches_each"], seed)
     strengths = np.array([t["strength"] for t in field], dtype=float)
     auto_n = fmt["phase"]["auto_advance"]
-    playoff_hi = fmt["phase"]["playoff"][1]
+    playoff_lo, playoff_hi = fmt["phase"]["playoff"]
 
     # --- Vectorized league phase: draw all goals for all N sims at once ---
-    _, _, order_arr = _sim_league_vectorized(schedule, strengths, N, rng)
+    _, _, order_arr = _sim_league_vectorized(schedule, strengths, N, rng, conf=conf)
     # order_arr: (N, n) — team indices sorted best-to-worst per sim row.
 
     # Standings: reuse simulate_league_phase logic but from the order array.
-    playoff_lo = fmt["phase"]["playoff"][0]
     rank_arr = np.empty((N, n), dtype=int)
     row_idx = np.arange(N)[:, None]
     rank_arr[row_idx, order_arr] = np.arange(1, n + 1)[None, :]
@@ -365,18 +381,37 @@ def simulate(comp_id: str, field, N: int, seed: int = 0):
         for i in range(n)
     ]
 
-    # --- Per-sim knockout: loop over N using already-computed order rows ---
+    # --- Per-sim knockout: explicit KO-playoff then R16→Final ---
     for s in range(N):
         order = list(order_arr[s])
-        bracket = order[:auto_n] + order[auto_n:playoff_hi]
-        size = 1 << (len(bracket).bit_length() - 1)
-        alive = bracket[:size]
-        _run_ko(alive, fmt, strengths, rng, reach, win)
+        # top auto_n (rank 1-8) go straight to R16
+        auto_slots = order[:auto_n]
+        # rank 9-24 (playoff_lo-1 to playoff_hi-1 in 0-based) play KO-playoff
+        ko_playoff_teams = order[auto_n:playoff_hi]  # 16 teams
+
+        # Record KOplayoff reach for these 16 teams (auto-advancers skip it).
+        for t in ko_playoff_teams:
+            reach["KOplayoff"][t] += 1
+
+        # Pair them: seed 9 vs seed 24, seed 10 vs seed 23, ..., seed 16 vs seed 17
+        # (best vs worst in the playoff pool — standard seeding).
+        ko_lo, ko_hi = 0, len(ko_playoff_teams) - 1
+        ko_winners = []
+        while ko_lo < ko_hi:
+            a, b = ko_playoff_teams[ko_lo], ko_playoff_teams[ko_hi]
+            w = sim_two_leg(strengths[a], strengths[b], rng, fmt, conf=conf)
+            ko_winners.append(a if w == 0 else b)
+            ko_lo += 1; ko_hi -= 1
+
+        # R16 field: 8 auto-advancers + 8 KO-playoff winners = 16 teams
+        r16_field = auto_slots + ko_winners
+        _run_ko(r16_field, fmt, strengths, rng, reach, win, conf=conf)
 
     by_team = {s["team"]: s for s in standings}
     out_field = []
+    all_rounds = ["KOplayoff"] + rounds
     for i, t in enumerate(field):
-        odds = {r: float(reach[r][i] / N) for r in rounds}
+        odds = {r: float(reach[r][i] / N) for r in all_rounds}
         odds["win"] = float(win[i] / N)
         row = {**t, "odds": odds}
         s = by_team[t["team"]]

@@ -61,6 +61,7 @@ def validate(comp_id: str, seasons: range) -> dict:
     df = continental_results(comp_id, seasons)
     df = df[df["is_result"]].dropna(subset=["home_goals", "away_goals"])
     resolve_pair, _ = _strength_resolver(comp_id)
+    confederation = META[comp_id]["confederation"]
     outcomes = np.where(df["home_goals"] > df["away_goals"], 0,
                         np.where(df["home_goals"] == df["away_goals"], 1, 2))
     base = np.array([(outcomes == k).mean() for k in (0, 1, 2)])
@@ -70,7 +71,8 @@ def validate(comp_id: str, seasons: range) -> dict:
         sh, sa, both_modeled = resolve_pair(r["home_team"], r["away_team"])
         if both_modeled:
             both_modeled_count += 1
-        p = cl.match_probs(sh, sa, neutral=bool(r.get("neutral", False)))
+        p = cl.match_probs(sh, sa, neutral=bool(r.get("neutral", False)),
+                           conf=confederation)
         model_b.append(_brier(p, oc))
         naive_b.append(_brier(base, oc))
     n = len(df)
