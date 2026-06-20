@@ -3,7 +3,21 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.eval.season_state import season_state, BETWEEN, IN_PROGRESS, CONCLUDED
+from scripts.eval.season_state import season_state, BETWEEN, PRESEASON, IN_PROGRESS, CONCLUDED
+
+
+# ── PRESEASON ────────────────────────────────────────────────────────────────
+
+def test_preseason_zero_played_upcoming_present():
+    # Schedule published but nothing played yet → PRESEASON
+    assert season_state(0, 5) == PRESEASON
+
+def test_preseason_zero_played_many_upcoming():
+    # Full 380-match EPL schedule with 0 played → PRESEASON
+    assert season_state(0, 380) == PRESEASON
+
+def test_preseason_single_upcoming():
+    assert season_state(0, 1) == PRESEASON
 
 
 # ── BETWEEN ─────────────────────────────────────────────────────────────────
@@ -11,12 +25,8 @@ from scripts.eval.season_state import season_state, BETWEEN, IN_PROGRESS, CONCLU
 def test_between_nothing_played():
     assert season_state(0, 0) == BETWEEN
 
-def test_between_no_played_upcoming_present():
-    # upcoming > 0 but played == 0 → still BETWEEN (season not started)
-    assert season_state(0, 5) == BETWEEN
-
 def test_between_negative_played():
-    # guard: negative played treated as not started
+    # guard: negative played treated as not started, no upcoming → BETWEEN
     assert season_state(-1, 0) == BETWEEN
 
 

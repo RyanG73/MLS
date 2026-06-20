@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))  # repo root on sys.path
 from data_pipeline.understat import canonical_frame, espn_name
 from data_pipeline.football_data import match_results
 from data_pipeline.espn_soccer import liga_mx_frame, season_label as liga_mx_label
+from data_pipeline.espn_fixtures import european_fixtures
 from models.research_model import (
     bag_proba, blend, calibrate_temperature, dc_predict_batch, fit_capped_blend,
     fit_dc, fit_xgb,
@@ -46,7 +47,7 @@ from models.research_model import (
 import models.research_model as rm
 from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
-from scripts.eval.season_state import season_state, IN_PROGRESS
+from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON
 
 # ── Per-league outlook: structure of each single-table league ────────────────
 # Each league declares its data `source`, team count `n`, and the outcome
@@ -219,14 +220,53 @@ def main():
     played_all["home_goals"] = played_all["home_goals"].astype(int)
     played_all["away_goals"] = played_all["away_goals"].astype(int)
     played_all["label_result"] = played_all["label_result"].astype(int)
-    ts = args.season or int(played_all["season"].max())
+    max_played_season = int(played_all["season"].max())
+    ts = args.season or max_played_season
     df = build_league_features(played_all)
     feat = [c for c in LEAGUE_FEAT_BASE if c in df.columns]
 
+    # ── Pre-season detection: check for ESPN next-season fixtures (understat leagues only) ──
+    # When the next season (max_played+1) has a published ESPN schedule but Understat
+    # has no rows for it yet, flip to pre-season mode: ts = next season, upcoming from ESPN.
+    is_preseason = False
+    espn_upcoming = None
+    if cfg["source"] == "understat" and args.season is None:
+        _next = max_played_season + 1
+        try:
+            _espn = european_fixtures(lid, _next)
+            _espn_scheduled = _espn[~_espn["is_result"]]
+            _understat_has_next = int((frame["season"] == _next).sum()) > 0
+            if len(_espn_scheduled) > 0 and not _understat_has_next:
+                ts = _next
+                espn_upcoming = _espn_scheduled.copy()
+                is_preseason = True
+                print(f"[{lid}] pre-season mode: ts={ts}, "
+                      f"{len(espn_upcoming)} ESPN fixtures found, Understat has no {ts} data yet")
+        except Exception as _espn_err:
+            print(f"[{lid}] ESPN next-season check failed (staying on {ts}): {_espn_err}")
+    elif cfg["source"] == "understat" and args.season is not None:
+        # Honor explicit --season; detect pre-season when that season has 0 played in Understat
+        _understat_played_ts = int((played_all["season"] == ts).sum())
+        if _understat_played_ts == 0:
+            try:
+                _espn = european_fixtures(lid, ts)
+                _espn_scheduled = _espn[~_espn["is_result"]]
+                if len(_espn_scheduled) > 0:
+                    espn_upcoming = _espn_scheduled.copy()
+                    is_preseason = True
+                    print(f"[{lid}] pre-season mode (explicit --season {ts}): "
+                          f"{len(espn_upcoming)} ESPN fixtures")
+            except Exception as _espn_err:
+                print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
+
     played = df[df["season"] == ts].dropna(subset=["home_goals", "away_goals"]).copy()
-    upcoming = frame[(frame["season"] == ts) & (~frame["is_result"])].copy()
+    if is_preseason and espn_upcoming is not None:
+        upcoming = espn_upcoming
+    else:
+        upcoming = frame[(frame["season"] == ts) & (~frame["is_result"])].copy()
     print(f"[{lid}] season {ts}: {len(played)} played, {len(upcoming)} upcoming, "
-          f"{len(df)} historical matches, {len(feat)} features")
+          f"{len(df)} historical matches, {len(feat)} features"
+          + (" [PRE-SEASON]" if is_preseason else ""))
 
     # Team-name resolution: model keys are Understat titles; ESPN crests keyed by
     # displayName. tname() = the display string; tmeta() = its logo/color.
@@ -244,6 +284,8 @@ def main():
         return _fd_map.get(key, key)
 
     # ── Ensemble predictions for PLAYED games (in-season Brier + game cards) ───
+    # Pre-season: train on ts-2 and earlier; cal on ts-1 (last completed season).
+    # The split below uses ts-1 as the cal fold in all cases (pre-season or not).
     train = df[df["season"] < ts - 1].dropna(subset=["home_goals", "away_goals"])
     cal = df[df["season"] == ts - 1].dropna(subset=["home_goals", "away_goals"])
     pe = None
@@ -281,8 +323,40 @@ def main():
                     "note": "Understat-forecast baseline not yet wired."}
 
     # ── Dixon-Coles on ALL played-through-now (forward projection + pmatrix) ───
+    # For pre-season mode: fit on all historical data (through ts-1). The DC params
+    # are used for the upcoming ESPN fixtures; promoted teams (not in prior season)
+    # are seeded with 15th-percentile attack/defence so they project near relegation
+    # rather than defaulting to league-average (0 in log-space = exp(0)=1.0 = average).
     allplayed = df.dropna(subset=["home_goals", "away_goals"])
     atk, dfd, ha, rho = fit_dc(allplayed)
+
+    if is_preseason:
+        # Identify teams from the prior season (ts-1) as the "established" set.
+        _prior_season = df[df["season"] == ts - 1]["home_team"].tolist() + \
+                        df[df["season"] == ts - 1]["away_team"].tolist()
+        _prior_teams = set(_prior_season)
+        # Identify all teams in the upcoming fixtures.
+        _upcoming_teams = set(upcoming["home_team"].tolist() + upcoming["away_team"].tolist())
+        # Promoted teams = in upcoming but NOT in the prior season.
+        _promoted_teams = _upcoming_teams - _prior_teams
+        if _promoted_teams:
+            # Compute 15th-percentile of fitted attack and defence parameters.
+            # atk/dfd use log-space: lower atk = weaker attack; higher dfd = weaker defence.
+            # Established teams are those with fitted parameters.
+            _fitted_teams = set(atk.keys()) | set(dfd.keys())
+            _atk_vals = sorted(atk.get(t, 0.0) for t in _fitted_teams)
+            _dfd_vals = sorted(dfd.get(t, 0.0) for t in _fitted_teams)
+            _p15_idx = max(0, int(len(_atk_vals) * 0.15) - 1)
+            _p85_idx = min(len(_dfd_vals) - 1, int(len(_dfd_vals) * 0.85))
+            # 15th-pct attack (below-average scorer); 85th-pct defence (concedes more)
+            _atk_prior = _atk_vals[_p15_idx] if _atk_vals else -0.2
+            _dfd_prior = _dfd_vals[_p85_idx] if _dfd_vals else 0.2
+            for _pt in _promoted_teams:
+                atk[_pt] = _atk_prior
+                dfd[_pt] = _dfd_prior
+            print(f"[{lid}] promoted teams seeded at atk={_atk_prior:.3f} "
+                  f"dfd={_dfd_prior:.3f} (15th/85th pct): {sorted(_promoted_teams)}")
+            # Future: seed from 2nd-tier historical strength via cross-league DC offset.
 
     def dc_probs(h, a):
         return rm._dc_predict(h, a, atk, dfd, ha, rho)
@@ -310,7 +384,7 @@ def main():
         elif hg < ag: pts[a] = pts.get(a, 0) + 3
         else: pts[h] = pts.get(h, 0) + 1; pts[a] = pts.get(a, 0) + 1
 
-    has_xg = bool(played["home_xg"].notna().any())
+    has_xg = bool(len(played) > 0 and played["home_xg"].notna().any())
 
     # ── Upcoming fixtures → game cards + remaining-sim inputs ──────────────────
     remaining, upcoming_cards = [], []
@@ -597,6 +671,8 @@ def main():
         git_commit = "unknown"
 
     pct = round(len([g for g in games if g["result"]]) / max(1, len(games)) * 100)
+    _sstate = season_state(len(played), len(upcoming))
+    _season_label = f"{ts}-{str(ts + 1)[2:]}" if is_preseason else None
     data = {
         "league": {"id": lid, "name": cfg["name"], "logo": _stub_league_logo(lid),
                    "confederation": cfg.get("confederation", "UEFA"),
@@ -605,12 +681,14 @@ def main():
                     "green_line": cfg.get("green_line"),
                     "red_line": cfg.get("red_line"),
                     "has_xg": has_xg,
+                    "preseason": True if is_preseason else None,
+                    "season_label": _season_label,
                     "cards": [{"key": b["key"], "label": b["label"]} for b in buckets],
                     "columns": [{"key": b["key"], "label": b.get("col", b["label"]),
                                  **{k: b[k] for k in ("top", "bottom", "band") if k in b}}
                                 for b in buckets]},
         "perf_by_year": perf_by_year,
-        "season": ts, "in_season": season_state(len(played), len(upcoming)) == IN_PROGRESS,
+        "season": ts, "in_season": _sstate == IN_PROGRESS,
         "played": len(games) - len(upcoming_cards), "upcoming": len(upcoming_cards),
         "sim": {"teams": [tname(t) for t in tids],
                 "pmatrix": [[None if hi == ai else
