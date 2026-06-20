@@ -9,13 +9,13 @@ Two INDEPENDENT fits are run because the confederations are DISCONNECTED graphs
   * UEFA  — {epl, la-liga, serie-a, bundesliga, ligue-1}, anchor EPL = 0
   * Concacaf — {mls, liga-mx}, anchor MLS = 0
 
-IMPORTANT NOTE — ELO timing:
-    This implementation uses each team's CURRENT domestic ELO as the strength
-    proxy. Historical ELO-as-of-match-date is a future refinement: it would
-    require replaying the ELO sequence to a point-in-time rating, which the
-    `_league_elos` cache does not currently support.  Current ELO is a reasonable
-    proxy for completed continental competitions because the field changes slowly
-    relative to seasonal ELO drift.
+ELO timing — as-of-date (Refinement R2 → R3):
+    Each continental match uses the team's domestic ELO AS OF the match date,
+    computed by replaying the domestic-league ELO sequence (compute_elo) and
+    looking up each team's most recent pre-match rating strictly before the
+    continental match date.  If the team has no prior domestic match before
+    that date (e.g. a newly-entered team) we fall back to the league initial
+    ELO (1500.0).  Champion ELO config: K=25, home_adv=80, regress=0.40.
 
 Validation gate:
     A 70/30 train/test split (stratified by confederation, fixed seed) compares
@@ -31,6 +31,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import logging
 import math
@@ -38,6 +39,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import numpy as np
+import pandas as pd
 from scipy.optimize import minimize
 
 from data_pipeline import coefficients as co
@@ -45,9 +47,16 @@ from data_pipeline.espn_continental import continental_results
 from scripts.build_continental_data import (
     _ESPN_TO_MODELED, _CONCACAF_ALIAS, META, _league_elos,
 )
-from scripts.eval.cross_league import match_probs
+from scripts.eval.cross_league import match_probs, _ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT
+from scripts.eval.elo import compute_elo
 
 _log = logging.getLogger(__name__)
+
+# ── champion ELO config (must match cross_league.py constants) ────────────────
+_K       = _ELO_K       # 25.0
+_HA      = _ELO_HA      # 80.0
+_REGRESS = _ELO_REGRESS  # 0.40
+_INIT    = _ELO_INIT    # 1500.0
 
 # ── confederations and their anchor/free leagues ──────────────────────────────
 _UEFA_LEAGUES = ["epl", "la-liga", "serie-a", "bundesliga", "ligue-1"]
@@ -66,19 +75,111 @@ _OFFSETS_JSON = Path("experiments/league_offsets.json")
 # Sanity bound: reject fit if any offset deviates more than this from its prior
 _MAX_DELTA_FROM_PRIOR = 150.0
 
+# ── ELO history cache: {league_id: (sorted_dates, {team: [sorted_dates], {team: [elos]}})}
+# We store per-team parallel arrays (dates, elos) sorted ascending.
+_ELO_HISTORY_CACHE: dict[str, dict[str, tuple[list, list]]] = {}
+
+
+def _build_elo_history(league_id: str) -> dict[str, tuple[list, list]]:
+    """Build per-team ELO history for a league: {team: ([dates], [pre_match_elos])}.
+
+    Walks domestic matches in date order via compute_elo and records each
+    team's pre-match ELO (i.e. the rating BEFORE that match is played).
+    The lists are sorted ascending by date.  Used by elo_asof().
+    """
+    if league_id in _ELO_HISTORY_CACHE:
+        return _ELO_HISTORY_CACHE[league_id]
+
+    # Load the domestic frame for this league (mirrors _league_elos routing).
+    if league_id == "mls":
+        df = _load_mls_frame()
+    elif league_id == "liga-mx":
+        from data_pipeline.espn_soccer import liga_mx_frame
+        df = liga_mx_frame().dropna(subset=["home_goals", "away_goals"])
+    else:
+        from data_pipeline.understat import canonical_frame
+        df = canonical_frame(league_id).dropna(subset=["home_goals", "away_goals"])
+
+    df = df.sort_values("date").reset_index(drop=True)
+
+    # compute_elo writes home_elo / away_elo as pre-match ratings.
+    rated = compute_elo(df, K=_K, home_adv=_HA, regress=_REGRESS, initial=_INIT)
+
+    # Build per-team (dates, elos) parallel lists.
+    history: dict[str, tuple[list, list]] = {}
+    for _, row in rated.iterrows():
+        d = row["date"]
+        if pd.isna(d):
+            continue
+        d = pd.Timestamp(d)
+        for team, elo_col in [(row["home_team"], row["home_elo"]),
+                               (row["away_team"], row["away_elo"])]:
+            if team not in history:
+                history[team] = ([], [])
+            history[team][0].append(d)
+            history[team][1].append(float(elo_col))
+
+    _ELO_HISTORY_CACHE[league_id] = history
+    _log.info("_build_elo_history: %s → %d teams", league_id, len(history))
+    return history
+
+
+def _load_mls_frame() -> pd.DataFrame:
+    """Load and name-remap MLS parity frame (mirrors build_continental_data._mls_elos)."""
+    from itscalledsoccer.client import AmericanSoccerAnalysis
+    df = pd.read_parquet("data/parity_frame.parquet")
+    # Remap ASA hash IDs to team names (home_team / away_team columns).
+    asa = AmericanSoccerAnalysis()
+    try:
+        asa.session.verify = False
+    except Exception:
+        pass
+    id2name = {r.team_id: r.team_name for r in asa.get_teams(leagues="mls").itertuples()}
+    df = df.copy()
+    df["home_team"] = df["home_team"].map(lambda h: id2name.get(h, h))
+    df["away_team"] = df["away_team"].map(lambda a: id2name.get(a, a))
+    return df.dropna(subset=["home_goals", "away_goals"])
+
+
+def elo_asof(league_id: str, team: str, before_date: pd.Timestamp) -> float:
+    """Return the team's most recent pre-match domestic ELO strictly before before_date.
+
+    Falls back to _INIT (1500.0) if the team has no recorded domestic match
+    prior to before_date (e.g. a team making its continental debut before
+    any domestic results are stored).
+
+    Args:
+        league_id:    Domestic league id (e.g. 'epl', 'mls').
+        team:         Team key as it appears in the domestic frame.
+        before_date:  The continental match date; we want the most recent
+                      domestic ELO STRICTLY BEFORE this date.
+    """
+    history = _build_elo_history(league_id)
+    if team not in history:
+        return _INIT
+    dates, elos = history[team]
+    # bisect_left gives the insertion point for before_date.
+    # All entries with index < insertion point have date < before_date.
+    idx = bisect.bisect_left(dates, before_date)
+    if idx == 0:
+        return _INIT  # no domestic match before this date
+    return elos[idx - 1]
+
+
 # ── data collection ───────────────────────────────────────────────────────────
 
 class _Match(NamedTuple):
     home_league: str
     away_league: str
-    home_elo: float    # domestic ELO (no offset applied yet)
+    home_elo: float    # domestic ELO as-of-date (no offset applied yet)
     away_elo: float
     neutral: bool
     outcome: int       # 0=home win, 1=draw, 2=away win
+    match_date: object = None  # pd.Timestamp (None for backward-compat synthetic matches)
 
 
 def _resolve_elo(team: str, league_id: str) -> float | None:
-    """Return domestic ELO for a modeled team, or None on miss."""
+    """Return current domestic ELO for a modeled team, or None on miss."""
     cache = _league_elos(league_id)
     return cache.get(team)
 
@@ -111,7 +212,10 @@ def _collect_matches(confederation: str) -> list[_Match]:
 
 
 def _collect_uefa(df, comp: str) -> list[_Match]:
-    """Extract cross-modeled-league matches from a UEFA competition frame."""
+    """Extract cross-modeled-league matches from a UEFA competition frame.
+
+    Uses ELO as-of the continental match date (not current ELO).
+    """
     out: list[_Match] = []
     for _, row in df.iterrows():
         ht, at = row["home_team"], row["away_team"]
@@ -124,11 +228,13 @@ def _collect_uefa(df, comp: str) -> list[_Match]:
         if h_lid == a_lid:
             continue  # same league — no cross-league signal
 
-        h_elo = _resolve_elo(h_key, h_lid)
-        a_elo = _resolve_elo(a_key, a_lid)
-        if h_elo is None or a_elo is None:
-            _log.debug("UEFA ELO miss: %s/%s or %s/%s", ht, h_lid, at, a_lid)
+        match_date = pd.Timestamp(row["date"]) if pd.notna(row.get("date")) else None
+        if match_date is None:
+            _log.debug("UEFA: no date for %s vs %s — skipping", ht, at)
             continue
+
+        h_elo = elo_asof(h_lid, h_key, match_date)
+        a_elo = elo_asof(a_lid, a_key, match_date)
 
         hg, ag = int(row["home_goals"]), int(row["away_goals"])
         if hg > ag:
@@ -139,39 +245,50 @@ def _collect_uefa(df, comp: str) -> list[_Match]:
             outcome = 2
 
         neutral = bool(row.get("neutral", False))
-        out.append(_Match(h_lid, a_lid, h_elo, a_elo, neutral, outcome))
+        out.append(_Match(h_lid, a_lid, h_elo, a_elo, neutral, outcome, match_date))
     return out
 
 
 def _collect_concacaf(df, comp: str) -> list[_Match]:
-    """Extract cross-modeled-league matches from a Concacaf competition frame."""
-    out: list[_Match] = []
-    mls_elos = _league_elos("mls")
-    mx_elos = _league_elos("liga-mx")
+    """Extract cross-modeled-league matches from a Concacaf competition frame.
 
-    def _get(team: str) -> tuple[str, float] | None:
-        """(league_id, elo) for a team, or None if unmodeled."""
+    Uses ELO as-of the continental match date (not current ELO).
+    """
+    out: list[_Match] = []
+
+    def _resolve_team(team: str) -> tuple[str, str] | None:
+        """(league_id, frame_key) for a Concacaf team, or None if unmodeled."""
+        mls_elos = _league_elos("mls")
+        mx_elos = _league_elos("liga-mx")
         if team in mls_elos:
-            return ("mls", mls_elos[team])
+            return ("mls", team)
         if team in mx_elos:
-            return ("liga-mx", mx_elos[team])
+            return ("liga-mx", team)
         if team in _CONCACAF_ALIAS:
             lid, frame_key = _CONCACAF_ALIAS[team]
             cache = mls_elos if lid == "mls" else mx_elos
-            elo = cache.get(frame_key)
-            return (lid, elo) if elo is not None else None
+            if frame_key in cache:
+                return (lid, frame_key)
         return None
 
     for _, row in df.iterrows():
         ht, at = row["home_team"], row["away_team"]
-        h_res = _get(ht)
-        a_res = _get(at)
+        h_res = _resolve_team(ht)
+        a_res = _resolve_team(at)
         if h_res is None or a_res is None:
             continue  # at least one unmodeled
-        h_lid, h_elo = h_res
-        a_lid, a_elo = a_res
+        h_lid, h_key = h_res
+        a_lid, a_key = a_res
         if h_lid == a_lid:
             continue  # same league
+
+        match_date = pd.Timestamp(row["date"]) if pd.notna(row.get("date")) else None
+        if match_date is None:
+            _log.debug("Concacaf: no date for %s vs %s — skipping", ht, at)
+            continue
+
+        h_elo = elo_asof(h_lid, h_key, match_date)
+        a_elo = elo_asof(a_lid, a_key, match_date)
 
         hg, ag = int(row["home_goals"]), int(row["away_goals"])
         if hg > ag:
@@ -182,7 +299,7 @@ def _collect_concacaf(df, comp: str) -> list[_Match]:
             outcome = 2
 
         neutral = bool(row.get("neutral", False))
-        out.append(_Match(h_lid, a_lid, h_elo, a_elo, neutral, outcome))
+        out.append(_Match(h_lid, a_lid, h_elo, a_elo, neutral, outcome, match_date))
     return out
 
 
@@ -300,12 +417,14 @@ def _fit_group(
 # ── main entry point ──────────────────────────────────────────────────────────
 
 def fit_offsets(lam: float = 0.01, seed: int = 42) -> dict[str, float]:
-    """Fit cross-league ELO offsets from continental results (Approach C).
+    """Fit cross-league ELO offsets from continental results (Approach C, as-of-date ELO).
 
-    Runs two independent fits (UEFA and Concacaf) with validation.  If the
-    fitted offsets improve held-out Brier and are within sanity bounds, they
-    are written to `experiments/league_offsets.json`.  Otherwise, the priors
-    are written (or the file is left unchanged) and a report is printed.
+    Runs two independent fits (UEFA and Concacaf) with validation.  Each team's
+    domestic ELO is taken AS OF the continental match date (historical replay),
+    not the current end-of-history rating.  If the fitted offsets improve
+    held-out Brier and are within sanity bounds, they are written to
+    `experiments/league_offsets.json`.  Otherwise, priors are written and the
+    reason is reported.
 
     Returns the adopted offsets dict {league_id: offset}.
     """

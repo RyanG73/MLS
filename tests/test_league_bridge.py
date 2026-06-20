@@ -1,10 +1,11 @@
 """Tests for scripts/eval/league_bridge.py and coefficients.py JSON wire-in.
 
-Tests are structured into three groups:
-1. Anchors — anchored leagues must always be exactly 0.
-2. Synthetic fit — a small contrived dataset with known offset direction must
+Tests are structured into four groups:
+1. elo_asof — historical ELO-as-of-date lookup: fallback, before-first, correct index.
+2. Anchors — anchored leagues must always be exactly 0.
+3. Synthetic fit — a small contrived dataset with known offset direction must
    be recovered by the optimizer.
-3. JSON wire-in — coefficients.league_offset() prefers the fitted JSON when
+4. JSON wire-in — coefficients.league_offset() prefers the fitted JSON when
    present (monkeypatched path), and falls back to priors when absent.
 """
 from __future__ import annotations
@@ -15,12 +16,103 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
+import pandas as pd
 import pytest
 
 
-# ── 1. Anchor offsets are exactly 0 ──────────────────────────────────────────
+# ── 1. elo_asof — as-of-date ELO lookup ──────────────────────────────────────
 
-class TestAnchors:
+class TestEloAsof:
+    """Unit tests for elo_asof() — historical ELO point-in-time lookup.
+
+    We monkeypatch _build_elo_history to inject a controlled time series so
+    tests run without touching the real domestic data frames.
+    """
+
+    def _patch_history(self, monkeypatch, league_id: str, team: str, entries: list[tuple]):
+        """Inject a synthetic history: entries = [(date_str, elo), ...]."""
+        from scripts.eval import league_bridge as lb
+        dates = [pd.Timestamp(d) for d, _ in entries]
+        elos  = [float(e) for _, e in entries]
+        fake_history = {team: (dates, elos)}
+        monkeypatch.setitem(lb._ELO_HISTORY_CACHE, league_id, fake_history)
+
+    def test_fallback_to_init_when_team_unknown(self, monkeypatch):
+        """Team with no history at all returns _INIT (1500.0)."""
+        from scripts.eval import league_bridge as lb
+        # Inject an empty history for the league (team absent).
+        monkeypatch.setitem(lb._ELO_HISTORY_CACHE, "test-lg", {})
+        result = lb.elo_asof("test-lg", "Ghost FC", pd.Timestamp("2023-10-01"))
+        assert result == lb._INIT, f"Expected {lb._INIT}, got {result}"
+
+    def test_fallback_before_first_match(self, monkeypatch):
+        """A date before the team's first domestic match returns _INIT."""
+        from scripts.eval import league_bridge as lb
+        self._patch_history(monkeypatch, "test-lg", "Alpha FC", [
+            ("2023-03-01", 1520.0),
+            ("2023-06-15", 1535.0),
+        ])
+        # Query date before 2023-03-01 — no prior entry.
+        result = lb.elo_asof("test-lg", "Alpha FC", pd.Timestamp("2023-01-01"))
+        assert result == lb._INIT, f"Expected {lb._INIT}, got {result}"
+
+    def test_returns_last_entry_before_date(self, monkeypatch):
+        """Returns the most recent ELO strictly before the query date."""
+        from scripts.eval import league_bridge as lb
+        self._patch_history(monkeypatch, "test-lg", "Beta FC", [
+            ("2023-03-01", 1510.0),
+            ("2023-06-15", 1530.0),
+            ("2023-09-20", 1550.0),
+        ])
+        # Query 2023-07-01 → last entry before it is 2023-06-15 → 1530.0
+        result = lb.elo_asof("test-lg", "Beta FC", pd.Timestamp("2023-07-01"))
+        assert result == pytest.approx(1530.0), f"Expected 1530.0, got {result}"
+
+    def test_exact_date_not_included(self, monkeypatch):
+        """A query date equal to a match date returns the PREVIOUS entry (strictly before)."""
+        from scripts.eval import league_bridge as lb
+        self._patch_history(monkeypatch, "test-lg", "Gamma FC", [
+            ("2023-03-01", 1510.0),
+            ("2023-06-15", 1530.0),
+        ])
+        # Query exactly 2023-06-15 — strictly before means we get the 2023-03-01 entry.
+        result = lb.elo_asof("test-lg", "Gamma FC", pd.Timestamp("2023-06-15"))
+        assert result == pytest.approx(1510.0), f"Expected 1510.0, got {result}"
+
+    def test_returns_latest_when_date_after_all(self, monkeypatch):
+        """A query date after all matches returns the most recent ELO."""
+        from scripts.eval import league_bridge as lb
+        self._patch_history(monkeypatch, "test-lg", "Delta FC", [
+            ("2023-03-01", 1510.0),
+            ("2023-06-15", 1530.0),
+            ("2023-09-20", 1550.0),
+        ])
+        # Query 2025-01-01 — after all entries, returns last: 1550.0
+        result = lb.elo_asof("test-lg", "Delta FC", pd.Timestamp("2025-01-01"))
+        assert result == pytest.approx(1550.0), f"Expected 1550.0, got {result}"
+
+    def test_single_entry_history_before_returns_init(self, monkeypatch):
+        """Single-entry history: query before the entry returns _INIT."""
+        from scripts.eval import league_bridge as lb
+        self._patch_history(monkeypatch, "test-lg", "Epsilon FC", [
+            ("2023-06-01", 1600.0),
+        ])
+        result = lb.elo_asof("test-lg", "Epsilon FC", pd.Timestamp("2023-05-01"))
+        assert result == lb._INIT
+
+    def test_single_entry_history_after_returns_elo(self, monkeypatch):
+        """Single-entry history: query after the entry returns that ELO."""
+        from scripts.eval import league_bridge as lb
+        self._patch_history(monkeypatch, "test-lg", "Epsilon FC", [
+            ("2023-06-01", 1600.0),
+        ])
+        result = lb.elo_asof("test-lg", "Epsilon FC", pd.Timestamp("2023-07-01"))
+        assert result == pytest.approx(1600.0)
+
+
+# ── 2. Anchor offsets are exactly 0 ──────────────────────────────────────────
+
+class TestAnchors:  # group 2
     def test_epl_anchor_zero(self):
         """UEFA anchor (EPL) must always be 0 in the fitted output."""
         from scripts.eval.league_bridge import _fit_group, _collect_matches, _UEFA_LEAGUES, _UEFA_ANCHOR
@@ -46,7 +138,7 @@ class TestAnchors:
         )
 
 
-# ── 2. Synthetic fit — recovers a known offset direction ──────────────────────
+# ── 3. Synthetic fit — recovers a known offset direction ──────────────────────
 
 class TestSyntheticFit:
     """Construct a small dataset where league B teams consistently beat league A
@@ -139,7 +231,7 @@ class TestSyntheticFit:
         )
 
 
-# ── 3. coefficients.league_offset JSON wire-in ───────────────────────────────
+# ── 4. coefficients.league_offset JSON wire-in ───────────────────────────────
 
 class TestJsonWireIn:
     """Test that coefficients.league_offset() reads from the JSON when present."""
