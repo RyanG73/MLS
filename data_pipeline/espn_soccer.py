@@ -65,6 +65,7 @@ _LIGA_MX_WINDOWS: list[tuple[int, str, str, bool]] = [
     (2025, "0101", "0630", True),
     (2025, "0701", "1231", False),
     (2026, "0101", "0630", True),
+    (2026, "0701", "1231", False),  # Apertura 2026 — Jul–Dec
 ]
 
 

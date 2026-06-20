@@ -1,16 +1,19 @@
 #!/bin/bash
-# Rebuild ALL live leagues — MLS + the big-5 European leagues.
+# Rebuild ALL live surfaces — MLS, big-5, 5 second-tier European leagues,
+# Liga MX, and all 5 continental competitions.
 #
-# The seasonal / scheduled entry point for the multi-league platform. European
-# builds auto-detect the latest *started* season (data_pipeline.understat
-# _default_seasons), so this picks up 2026-27 automatically once it begins
-# (~Aug 2026); until then the European leagues correctly show completed 2025-26
-# final tables. Idempotent and safe to re-run.
+# European league builds auto-detect the latest *started* season via
+# data_pipeline.understat (_default_seasons), so this picks up 2026-27
+# automatically once it begins (~Aug 2026). Idempotent and safe to re-run.
+#
+# Continental builds:
+#   1. Refresh the current-season cache (MERGE — history is never dropped).
+#   2. Rebuild the .js (auto-detects concluded vs. in-progress; no manual state needed).
 #
 # Per-league data is regenerated into webapp/data/<id>.js. The MLS path is
-# unchanged (build_dashboard_data.py); the European path uses build_league_data.py
-# (Understat matches+xG + football-data.co.uk market odds).
-set -uo pipefail   # not -e: one league failing must not abort the rest
+# unchanged (build_dashboard_data.py); European / Liga MX use build_league_data.py;
+# continental comps use build_continental_data.py.
+set -uo pipefail   # not -e: one surface failing must not abort the rest
 
 REPO_DIR="${MLS_REPO_DIR:-/Users/ryangerda/Development/MLS}"
 cd "$REPO_DIR"
@@ -18,17 +21,55 @@ cd "$REPO_DIR"
 PY="$REPO_DIR/venv/bin/python"
 [ -x "$PY" ] || PY="$(command -v python3)"
 
-echo "=== $(date '+%Y-%m-%d %H:%M:%S') build_all start ==="
+# Current season start year (e.g. 2026).  Used for continental cache refresh.
+CUR=$(date +%Y)
+PREV=$((CUR - 1))
 
-# 1. MLS — opening-line odds log (non-fatal) + dashboard data
-"$PY" -m data_pipeline.odds_log || echo "odds_log step failed (non-fatal)"
-"$PY" scripts/build_dashboard_data.py || echo "MLS build failed"
+echo "=== $(date '+%Y-%m-%d %H:%M:%S') build_all start (CUR=$CUR) ==="
 
-# 2. Big-5 European leagues (Understat cache + football-data market refresh
-#    happen inside each build via the adapters)
+# ── 1. MLS ───────────────────────────────────────────────────────────────────
+echo "--- MLS: odds log ---"
+PYTHONPATH="$REPO_DIR" "$PY" -m data_pipeline.odds_log \
+  || echo "  [WARN] odds_log step failed (non-fatal)"
+echo "--- MLS: dashboard data ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_dashboard_data.py \
+  && echo "  [OK] mls" \
+  || echo "  [WARN] MLS build failed (non-fatal)"
+
+# ── 2. Big-5 European leagues ────────────────────────────────────────────────
 for L in epl la-liga serie-a bundesliga ligue-1; do
-  echo "--- building $L ---"
-  "$PY" scripts/build_league_data.py --league "$L" || echo "$L build failed (non-fatal)"
+  echo "--- $L ---"
+  PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league "$L" \
+    && echo "  [OK] $L" \
+    || echo "  [WARN] $L build failed (non-fatal)"
+done
+
+# ── 3. 5 second-tier European leagues ────────────────────────────────────────
+for L in championship league-one league-two bundesliga-2 serie-b; do
+  echo "--- $L ---"
+  PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league "$L" \
+    && echo "  [OK] $L" \
+    || echo "  [WARN] $L build failed (non-fatal)"
+done
+
+# ── 4. Liga MX ───────────────────────────────────────────────────────────────
+echo "--- liga-mx ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league liga-mx \
+  && echo "  [OK] liga-mx" \
+  || echo "  [WARN] liga-mx build failed (non-fatal)"
+
+# ── 5. Continental competitions ───────────────────────────────────────────────
+# For each comp: (a) merge-refresh the current season's ESPN cache,
+#               (b) rebuild the .js (auto-detects concluded vs. in-progress).
+for C in ucl europa conference concacaf-champions leagues-cup; do
+  echo "--- continental: $C (cache refresh $PREV-$CUR) ---"
+  PYTHONPATH="$REPO_DIR" "$PY" -m data_pipeline.espn_continental \
+      --comp "$C" --from-year "$PREV" --to-year "$CUR" \
+    || echo "  [WARN] $C cache refresh failed (non-fatal)"
+  echo "--- continental: $C (rebuild) ---"
+  PYTHONPATH="$REPO_DIR" "$PY" scripts/build_continental_data.py --comp "$C" \
+    && echo "  [OK] $C" \
+    || echo "  [WARN] $C build failed (non-fatal)"
 done
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') build_all done ==="

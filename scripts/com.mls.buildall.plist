@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd agent: full platform rebuild (all leagues + continental comps) daily at 06:00 local.
+
+  BEFORE INSTALLING: edit the repo path below if your checkout is not at
+  /Users/ryangerda/Development/MLS. All four occurrences must be updated.
+
+  Install:
+    cp scripts/com.mls.buildall.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.mls.buildall.plist
+
+  Run once immediately (without waiting for 06:00):
+    launchctl start com.mls.buildall
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/com.mls.buildall.plist
+    rm ~/Library/LaunchAgents/com.mls.buildall.plist
+
+  Logs land in logs/build_all.{out,err}.log under the repo (auto-created).
+  The job runs build_all.sh which covers: MLS, big-5, 5 second-tier European
+  leagues, Liga MX, and all 5 continental competitions (cache refresh + rebuild).
+  Each surface is non-fatal; one failing league will not abort the rest.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.mls.buildall</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/ryangerda/Development/MLS/scripts/build_all.sh</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>6</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/ryangerda/Development/MLS</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/ryangerda/Development/MLS/logs/build_all.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/ryangerda/Development/MLS/logs/build_all.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

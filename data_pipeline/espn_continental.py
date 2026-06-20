@@ -104,25 +104,47 @@ def continental_results(comp_id: str, seasons: range | None = None,
 
     On a cache hit the full cache is loaded then FILTERED to `seasons` (None = all
     cached seasons). The filter is required: the cache may hold several editions, and
-    a caller that wants one edition must not receive a season mix. A cache miss (or
-    `use_cache=False`) fetches `seasons` (defaulting to 2018..current) and OVERWRITES
-    the cache with that range.
+    a caller that wants one edition must not receive a season mix.
+
+    When `use_cache=False`, fetches `seasons` (defaulting to 2018..current) and MERGES
+    the fresh rows into any existing cache: old seasons not in the refetch window are
+    retained, and the newly-fetched seasons replace their old counterparts (dedup on
+    match_id keeping the fresh copy). This allows periodic "refresh current season" runs
+    without dropping historical seasons from the cache.
     """
     slug = SLUGS[comp_id]
     cache = _CACHE_DIR / f"{comp_id}.parquet"
     if use_cache and cache.exists():
         df = pd.read_parquet(cache)
     else:
+        fetch_range = seasons if seasons is not None else range(2018, 2027)
         frames = []
-        for y in (seasons if seasons is not None else range(2018, 2027)):
+        for y in fetch_range:
             rows = _parse(_fetch(slug, y, y + 1), y, completed_only=True)
             if rows:
                 frames.append(pd.DataFrame(rows))
             time.sleep(0.25)
-        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        fresh = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+        # Merge with existing cache: keep all old seasons NOT in the refetch window,
+        # then append the freshly-fetched rows, deduplicating on match_id (fresh wins).
+        if cache.exists():
+            existing = pd.read_parquet(cache)
+            refetch_season_set = set(fetch_range)
+            old_kept = existing[~existing["season"].isin(refetch_season_set)]
+            if not fresh.empty:
+                combined = pd.concat([old_kept, fresh], ignore_index=True)
+                # Dedup on match_id: keep last occurrence (fresh rows were appended last).
+                df = combined.drop_duplicates(subset=["match_id"], keep="last").reset_index(drop=True)
+            else:
+                df = old_kept.reset_index(drop=True)
+        else:
+            df = fresh
+
         if not df.empty:
             cache.parent.mkdir(parents=True, exist_ok=True)
             df.to_parquet(cache, index=False)
+
     if seasons is not None and not df.empty:
         df = df[df["season"].isin(list(seasons))].reset_index(drop=True)
     return df
