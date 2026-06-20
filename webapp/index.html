@@ -184,6 +184,18 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .ko-twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .ko-tblh{font-weight:700;margin:2px 0 6px;color:#cdd5e0;font-size:13px}
 @media(max-width:760px){.ko-twocol{grid-template-columns:1fr}}
+/* ── knockout bracket (round-column layout) ── */
+.br-wrap{display:flex;gap:0;overflow-x:auto;margin-bottom:18px;padding-bottom:6px}
+.br-col{display:flex;flex-direction:column;min-width:140px;max-width:160px;flex:0 0 auto;padding:0 6px}
+.br-col-hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9aa4b2;text-align:center;padding:4px 0 8px;border-bottom:1px solid #2a2f3a;margin-bottom:6px}
+.br-spacer{flex:1}
+.br-tie{background:#161a22;border:1px solid #2a2f3a;border-radius:7px;padding:6px 8px;margin:3px 0;font-size:12px;line-height:1.5}
+.br-team{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cdd5e0;display:flex;justify-content:space-between;gap:4px}
+.br-team.br-winner{color:#7ee0a8;font-weight:700}
+.br-score{color:#9aa4b2;font-size:11px;flex:none}
+.br-trophy{font-size:13px;margin-left:3px}
+.br-pk{color:#e2a23f;font-size:10px;flex:none}
+.br-prob{color:#9aa4b2;font-size:10px;flex:none}
 /* playoff cut line (1–9 in, glowing) + wild-card divider (after 7) */
 .po-line,.wc-line{position:relative;height:0}
 .po-line .lab,.wc-line .lab{position:absolute;left:var(--s3);top:-8px;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;background:var(--ink-1);padding:0 6px}
@@ -838,6 +850,88 @@ function renderTableOutlook(){
     (NF>0?` · click the Next-5 boxes to force results and resimulate`:'');
   const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='1fr';l.append(tableLadder());
 }
+const KO_ROUND_ORDER=['RoundOne','KOplayoff','Playoff','R16','QF','SF','Final'];
+function bracketTree(){
+  if(!D||!D.games||!D.games.length) return '';
+  // Collect only KO-phase games (exclude league/group rounds)
+  const koGames=D.games.filter(g=>{
+    const r=g.round||'';
+    return KO_ROUND_ORDER.includes(r);
+  });
+  if(!koGames.length) return '';
+  // Determine which rounds are present, in canonical order
+  const presentRounds=KO_ROUND_ORDER.filter(r=>koGames.some(g=>g.round===r));
+  if(!presentRounds.length) return '';
+  const champion=(D.outlook||{}).champion||null;
+  // Build tie cards per round: group by unordered team pair
+  function tieKey(home,away){return [home,away].sort().join('||');}
+  let html='<div class="br-wrap">';
+  presentRounds.forEach(round=>{
+    const rGames=koGames.filter(g=>g.round===round);
+    // Group into ties by unordered pair
+    const tieMap={};
+    rGames.forEach(g=>{
+      const k=tieKey(g.home||'',g.away||'');
+      if(!tieMap[k]) tieMap[k]={home:g.home||'',away:g.away||'',legs:[]};
+      tieMap[k].legs.push(g);
+    });
+    const ties=Object.values(tieMap);
+    const ROUND_LABEL={RoundOne:'Round 1',KOplayoff:'KO Playoff',Playoff:'Playoff',R16:'Round of 16',QF:'Quarterfinal',SF:'Semifinal',Final:'Final'};
+    html+='<div class="br-col"><div class="br-col-hd">'+(ROUND_LABEL[round]||round)+'</div>';
+    ties.forEach(tie=>{
+      const {home,away,legs}=tie;
+      // Determine if concluded (any leg has a result)
+      const concluded=legs.some(g=>g.result!=null);
+      if(concluded){
+        // Sum goals for each team across all legs
+        let hGoals=0, aGoals=0;
+        legs.forEach(g=>{
+          // Each game: g.home and g.away may be swapped between legs
+          // We track goals relative to the canonical home/away of the tie
+          const hg=g.hg!=null?+g.hg:null;
+          const ag=g.ag!=null?+g.ag:null;
+          if(hg==null||ag==null) return;
+          if(g.home===home){
+            hGoals+=hg; aGoals+=ag;
+          } else {
+            // legs are home/away swapped
+            hGoals+=ag; aGoals+=hg;
+          }
+        });
+        const hScore=hGoals, aScore=aGoals;
+        const level=hScore===aScore;
+        // Determine winner from result field if aggregate is level (PK)
+        // For each leg where result is set, the winner of that specific leg
+        // For aggregate, if level we can check who advanced via the last leg result
+        // but that's not reliable for PK — just show (PK)
+        let hWin=false, aWin=false;
+        if(!level){hWin=hScore>aScore; aWin=aScore>hScore;}
+        const isChampFinal=(round==='Final');
+        const hIsChamp=isChampFinal&&hWin&&champion&&home===champion;
+        const aIsChamp=isChampFinal&&aWin&&champion&&away===champion;
+        html+='<div class="br-tie">';
+        html+='<div class="br-team'+(hWin?' br-winner':'')+'"><span>'+home+(hIsChamp?'<span class="br-trophy">🏆</span>':'')+'</span>';
+        html+='<span class="br-score'+(level?' br-pk':'')+'">'+(level?'(PK)':hScore)+'</span></div>';
+        html+='<div class="br-team'+(aWin?' br-winner':'')+'"><span>'+away+(aIsChamp?'<span class="br-trophy">🏆</span>':'')+'</span>';
+        html+='<span class="br-score'+(level?' br-pk':'')+'">'+aScore+'</span></div>';
+        html+='</div>';
+      } else {
+        // Live / not yet played — show model win probabilities if available
+        // For a two-legged tie, use first leg probs; for single-leg, same
+        const refGame=legs[0]||{};
+        const pH=refGame.pH!=null?refGame.pH:null;
+        const pA=refGame.pA!=null?refGame.pA:null;
+        html+='<div class="br-tie">';
+        html+='<div class="br-team"><span>'+home+'</span>'+(pH!=null?'<span class="br-prob">'+(pH*100).toFixed(0)+'%</span>':'')+'</div>';
+        html+='<div class="br-team"><span>'+away+'</span>'+(pA!=null?'<span class="br-prob">'+(pA*100).toFixed(0)+'%</span>':'')+'</div>';
+        html+='</div>';
+      }
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+  return html;
+}
 function renderKnockout(){
   const el=$('#ladders'); if(!el) return;
   const phases=(D.outlook.phases||['knockout']);
@@ -886,8 +980,8 @@ function renderKnockout(){
     });
     h+='</div></div>';
   }
-  // Knockout — champion-odds leaderboard (all comps)
-  h+='<div class="ko-pane'+off()+'" data-pane="ko"><table class="tlad"><thead><tr><th>Team</th>'+
+  // Knockout — bracket visualization + champion-odds leaderboard
+  h+='<div class="ko-pane'+off()+'" data-pane="ko">'+bracketTree()+'<table class="tlad"><thead><tr><th>Team</th>'+
      rounds.map(r=>'<th>'+r+'</th>').join('')+'<th>Win</th></tr></thead><tbody>';
   const fld=[...D.field].sort((a,b)=>b.odds.win-a.odds.win);
   fld.forEach(t=>{h+='<tr><td>'+t.team+((D.outlook.concluded||t.modeled)?'':' <span class="ko-coef">~</span>')+'</td>'+
