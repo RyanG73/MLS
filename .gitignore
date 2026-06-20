@@ -10,6 +10,7 @@ data/understat/
 data/football_data/
 data/espn_soccer/
 data/espn_continental/
+data/espn_fixtures/
 logs/
 
 # Multi-agent experiment runner
