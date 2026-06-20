@@ -79,6 +79,58 @@ def _sim_match(sh, sa, neutral, rng):
     return int(rng.poisson(lam_h)), int(rng.poisson(lam_a))
 
 
+def _sim_league_vectorized(schedule, strengths, N, rng):
+    """Vectorize the league/group phase across all N simulations at once.
+
+    Returns:
+        pts:   (N, n) int array — points earned by each team in each sim.
+        gd:    (N, n) int array — goal difference for each team in each sim.
+        order: (N, n) int array — team indices sorted best-to-worst per sim.
+    """
+    n = len(strengths)
+    n_matches = len(schedule)
+
+    # Precompute lambda arrays for each scheduled match (fixed across sims).
+    lam_h = np.empty(n_matches)
+    lam_a = np.empty(n_matches)
+    home_idx = np.empty(n_matches, dtype=int)
+    away_idx = np.empty(n_matches, dtype=int)
+    for m, (hi, ai, neutral) in enumerate(schedule):
+        lam_h[m], lam_a[m] = match_lambdas(strengths[hi], strengths[ai], neutral)
+        home_idx[m] = hi
+        away_idx[m] = ai
+
+    # Draw all goals at once: shape (N, n_matches).
+    hg = rng.poisson(lam_h, size=(N, n_matches))  # home goals
+    ag = rng.poisson(lam_a, size=(N, n_matches))  # away goals
+
+    # Goal difference contributions per match.
+    delta = hg - ag  # (N, n_matches); positive = home advantage
+
+    # Scatter into per-team pts and gd arrays.
+    pts = np.zeros((N, n), dtype=int)
+    gd  = np.zeros((N, n), dtype=int)
+
+    home_win = hg > ag   # (N, n_matches) bool
+    away_win = ag > hg
+    draw     = ~home_win & ~away_win
+
+    # Points: vectorized scatter using np.add.at over the match axis.
+    # We iterate over matches (n_matches ~144) rather than N, so this is fast.
+    for m in range(n_matches):
+        hi = home_idx[m]; ai = away_idx[m]
+        pts[:, hi] += home_win[:, m] * 3 + draw[:, m]
+        pts[:, ai] += away_win[:, m] * 3 + draw[:, m]
+        gd[:, hi]  +=  delta[:, m]
+        gd[:, ai]  += -delta[:, m]
+
+    # Per-sim tiebreaker: points dominate, then GD, then random noise.
+    key = -(pts * 1000 + gd).astype(float) + rng.random((N, n))
+    order = np.argsort(key, axis=1)  # (N, n) — best team first in each row
+
+    return pts, gd, order
+
+
 def simulate_league_phase(field, schedule, fmt, N: int, seed: int = 0):
     """Monte-Carlo the league phase -> standings rows with bucket probabilities."""
     n = len(field)
@@ -87,23 +139,21 @@ def simulate_league_phase(field, schedule, fmt, N: int, seed: int = 0):
     playoff_lo, playoff_hi = fmt["phase"]["playoff"]
     rng = np.random.default_rng(seed)
 
-    auto = np.zeros(n); playoff = np.zeros(n); elim = np.zeros(n)
-    for _ in range(N):
-        pts = np.zeros(n); gd = np.zeros(n)
-        for hi, ai, neutral in schedule:
-            hg, ag = _sim_match(strengths[hi], strengths[ai], neutral, rng)
-            gd[hi] += hg - ag; gd[ai] += ag - hg
-            if hg > ag: pts[hi] += 3
-            elif hg == ag: pts[hi] += 1; pts[ai] += 1
-            else: pts[ai] += 3
-        # 1000 >> max plausible GD over the phase, so points dominate, GD breaks ties.
-        order = np.argsort(-(pts * 1000 + gd + rng.random(n)))
-        rank = np.empty(n, dtype=int); rank[order] = np.arange(1, n + 1)
-        auto_mask = rank <= auto_n
-        playoff_mask = (rank >= playoff_lo) & (rank <= playoff_hi)
-        auto += auto_mask
-        playoff += playoff_mask
-        elim += ~(auto_mask | playoff_mask)  # exactly one bucket per team per sim
+    # Vectorized: simulate all N reps at once.
+    _, _, order = _sim_league_vectorized(schedule, strengths, N, rng)
+
+    # order[:, r] gives the team index at rank r+1 for each sim.
+    # rank[s, i] = 1-based rank of team i in sim s.
+    rank = np.empty((N, n), dtype=int)
+    row_idx = np.arange(N)[:, None]
+    rank[row_idx, order] = np.arange(1, n + 1)[None, :]
+
+    auto_mask    = rank <= auto_n                           # (N, n)
+    playoff_mask = (rank >= playoff_lo) & (rank <= playoff_hi)
+
+    auto    = auto_mask.sum(axis=0).astype(float)
+    playoff = playoff_mask.sum(axis=0).astype(float)
+    elim    = (~(auto_mask | playoff_mask)).sum(axis=0).astype(float)
 
     return [
         {"team": field[i]["team"], "strength": float(strengths[i]),
@@ -287,23 +337,38 @@ def simulate(comp_id: str, field, N: int, seed: int = 0):
     win = np.zeros(n)
 
     schedule = make_league_schedule(field, fmt["phase"]["matches_each"], seed)
-    standings = simulate_league_phase(field, schedule, fmt, N, seed)
     strengths = np.array([t["strength"] for t in field], dtype=float)
     auto_n = fmt["phase"]["auto_advance"]
     playoff_hi = fmt["phase"]["playoff"][1]
 
-    for _ in range(N):
-        # League phase (re-simulated so the bracket field varies run to run)
-        pts = np.zeros(n); gd = np.zeros(n)
-        for hi, ai, neutral in schedule:
-            hg, ag = _sim_match(strengths[hi], strengths[ai], neutral, rng)
-            gd[hi] += hg - ag; gd[ai] += ag - hg
-            if hg > ag: pts[hi] += 3
-            elif hg == ag: pts[hi] += 1; pts[ai] += 1
-            else: pts[ai] += 3
-        order = list(np.argsort(-(pts * 1000 + gd + rng.random(n))))
-        bracket = order[:auto_n] + order[auto_n:playoff_hi]  # top-24 enter KO
-        # Pad/truncate to a power of two for a clean single-elimination bracket.
+    # --- Vectorized league phase: draw all goals for all N sims at once ---
+    _, _, order_arr = _sim_league_vectorized(schedule, strengths, N, rng)
+    # order_arr: (N, n) — team indices sorted best-to-worst per sim row.
+
+    # Standings: reuse simulate_league_phase logic but from the order array.
+    playoff_lo = fmt["phase"]["playoff"][0]
+    rank_arr = np.empty((N, n), dtype=int)
+    row_idx = np.arange(N)[:, None]
+    rank_arr[row_idx, order_arr] = np.arange(1, n + 1)[None, :]
+
+    auto_mask    = rank_arr <= auto_n
+    playoff_mask = (rank_arr >= playoff_lo) & (rank_arr <= playoff_hi)
+    auto_counts    = auto_mask.sum(axis=0).astype(float)
+    playoff_counts = playoff_mask.sum(axis=0).astype(float)
+    elim_counts    = (~(auto_mask | playoff_mask)).sum(axis=0).astype(float)
+
+    standings = [
+        {"team": field[i]["team"], "strength": float(strengths[i]),
+         "auto_advance": float(auto_counts[i] / N),
+         "playoff": float(playoff_counts[i] / N),
+         "eliminated": float(elim_counts[i] / N)}
+        for i in range(n)
+    ]
+
+    # --- Per-sim knockout: loop over N using already-computed order rows ---
+    for s in range(N):
+        order = list(order_arr[s])
+        bracket = order[:auto_n] + order[auto_n:playoff_hi]
         size = 1 << (len(bracket).bit_length() - 1)
         alive = bracket[:size]
         _run_ko(alive, fmt, strengths, rng, reach, win)
