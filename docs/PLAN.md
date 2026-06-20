@@ -1,5 +1,26 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Improvement roadmap — model / viz / performance / efficiency (2026-06-19) ▶ IN PROGRESS**
+>
+> Full detail: `docs/superpowers/plans/2026-06-19-improvement-roadmap.md`. Eight steps, sequenced
+> 1→4 (accuracy spine), 5→6 (betting-edge + viz), 7→8 (operations). Guardrails every step: MLS parity
+> |Δ|=0.0000, full suite green, in-browser regression-clean.
+> 1. **Vectorize `bracket_sim`** (perf) — batch the Poisson draws; ≥10× build speedup (enables the rest).
+> 2. **Approach C** (model, keystone) — fit cross-league `Δ_league` offsets from real continental
+>    results, shrunk to the coefficient prior; swaps only `team_strength()` (the seam).
+> 3. **ELO-wired continental validation + market benchmark** (model) — validates #2; calibration harness.
+> 4. **Tournament calibration + explicit knockout-playoff round** (model) — fix flat champion odds +
+>    the ~1.5× mid-table R16 inflation.
+> 5. **Continental value/edge layer + live odds** (mission) — per-tie `model−market` edge, backtest,
+>    `value_bets` at draws; fill the `games` array.
+> 6. **Bracket-tree visualization + per-tie match cards** (viz) — replace the leaderboard with a real
+>    knockout tree.
+> 7. **Automated rebuild/refresh pipeline** (efficiency, time-sensitive) — Liga MX Apertura ~Jul 2026,
+>    European 2026-27 + Leagues Cup ~Aug 2026.
+> 8. **Unified season-state detector** (efficiency) — shared in-progress/concluded/between logic across
+>    league + continental builds.
+> Verdicts appended per step as completed.
+
 > **Fix — Continental "concluded edition" handling (2026-06-17) ✅**
 >
 > Bug: the continental build always ran a fresh Monte-Carlo projection, so finished editions showed
