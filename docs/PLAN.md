@@ -6,8 +6,11 @@
 > 1→4 (accuracy spine), 5→6 (betting-edge + viz), 7→8 (operations). Guardrails every step: MLS parity
 > |Δ|=0.0000, full suite green, in-browser regression-clean.
 > 1. **Vectorize `bracket_sim`** (perf) — batch the Poisson draws; ≥10× build speedup (enables the rest).
-> 2. **Approach C** (model, keystone) — fit cross-league `Δ_league` offsets from real continental
->    results, shrunk to the coefficient prior; swaps only `team_strength()` (the seam).
+> 2. **Approach C** (model, keystone) ✅ — fit cross-league `Δ_league` offsets from real continental
+>    results, shrunk to the coefficient prior; swaps only `team_strength()` (the seam). COMPLETED 2026-06-19.
+>    Result: UEFA fitted offsets ADOPTED (corrections ≤0.5 ELO, Brier improvement ~0.00004 held-out);
+>    Concacaf REJECTED (robustness 40% < 70% threshold, signal too noisy with 130 matches).
+>    Continental odds effectively unchanged (max offset correction 0.5 ELO = sub-noise).
 > 3. **ELO-wired continental validation + market benchmark** (model) — validates #2; calibration harness.
 > 4. **Tournament calibration + explicit knockout-playoff round** (model) — fix flat champion odds +
 >    the ~1.5× mid-table R16 inflation.
@@ -20,6 +23,33 @@
 > 8. **Unified season-state detector** (efficiency) — shared in-progress/concluded/between logic across
 >    league + continental builds.
 > Verdicts appended per step as completed.
+
+> **Approach C — Bridge-Regression Cross-League Offsets (2026-06-19) ✅**
+>
+> Implemented `scripts/eval/league_bridge.py` — `fit_offsets()` collects cross-modeled-league
+> continental matches, fits per-league ELO offsets minimizing NLL + ridge penalty toward priors,
+> validates with 70/30 train/test split + 10-seed robustness check, and writes
+> `experiments/league_offsets.json` only if fitted offsets beat prior held-out Brier AND pass
+> the robustness gate. `data_pipeline/coefficients.league_offset()` now lazy-reads the JSON
+> (Approach C values when present; prior fallback otherwise). No import cycles; read-only wire-in.
+>
+> **Results (λ=0.0001, seed=42, 10 robustness seeds):**
+>
+> | League | Prior | Fitted | Δ |
+> |--------|-------|--------|---|
+> | EPL (anchor) | 0.0 | 0.0 | +0.0 |
+> | La Liga | -45.0 | -45.0 | +0.0 |
+> | Serie A | -54.0 | -54.4 | -0.4 |
+> | Bundesliga | -60.0 | -60.5 | -0.5 |
+> | Ligue-1 | -81.0 | -80.8 | +0.2 |
+> | MLS (anchor) | 0.0 | 0.0 | +0.0 |
+> | Liga MX | 30.0 | 30.0 (prior, rejected) | -0.8 (unstable) |
+>
+> UEFA: 263 matches, fitted ADOPTED (7/10 seeds, Brier Δ=-0.00004).
+> Concacaf: 130 matches, fitted REJECTED (4/10 seeds < 70% threshold — signal too noisy).
+> MLS parity |Δ|=0.0000; 147 tests pass (10 new in `tests/test_league_bridge.py`).
+> Continental odds effectively unchanged: max fitted correction = 0.5 ELO (sub-noise).
+> Future: historical ELO-as-of-match-date would sharpen the signal (noted in docstring).
 
 > **Fix — Continental "concluded edition" handling (2026-06-17) ✅**
 >

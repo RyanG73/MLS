@@ -19,6 +19,31 @@ Sources (refresh ~annually after the season ends):
 Values below captured 2026-06 (2025-26 season end).
 """
 from __future__ import annotations
+import json
+from pathlib import Path
+
+# ── fitted-offset JSON (Approach C) ──────────────────────────────────────────
+# Lazy-loaded once on first call to league_offset(); absent file ⇒ fallback to
+# prior logic below.  This module MUST NOT import league_bridge or
+# build_continental_data (cycle risk) — it only reads a pre-built JSON file.
+_FITTED_OFFSETS: dict[str, float] | None = None
+_FITTED_OFFSETS_LOADED: bool = False
+
+_FITTED_JSON = Path(__file__).parent.parent / "experiments" / "league_offsets.json"
+
+
+def _load_fitted() -> dict[str, float] | None:
+    """Lazy-load experiments/league_offsets.json exactly once."""
+    global _FITTED_OFFSETS, _FITTED_OFFSETS_LOADED
+    if _FITTED_OFFSETS_LOADED:
+        return _FITTED_OFFSETS
+    _FITTED_OFFSETS_LOADED = True
+    try:
+        _FITTED_OFFSETS = json.loads(_FITTED_JSON.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        _FITTED_OFFSETS = None
+    return _FITTED_OFFSETS
+
 
 # ELO points per UEFA-coefficient point (calibrated in validate_continental.py,
 # a later task; this is the starting prior).
@@ -89,7 +114,12 @@ _CLUB_STRENGTH: dict[str, float] = {
 def league_offset(league_id: str) -> float:
     """Per-league additive ELO offset onto the common cross-league scale.
 
-    Two independent regimes:
+    When ``experiments/league_offsets.json`` exists (built by
+    ``scripts.eval.league_bridge.fit_offsets``), that file's value is returned
+    for any league it covers (Approach C — bridge-regression offsets).  For
+    leagues absent from the file the prior logic below applies as a fallback.
+
+    Prior logic — two independent regimes:
 
     * **UEFA leagues** (_LEAGUE_COEFF): EPL anchors at 0; weaker leagues are
       negative. Offset = _K_COEFF * (coeff - EPL_coeff).
@@ -98,9 +128,14 @@ def league_offset(league_id: str) -> float:
       uses strength differences, so these values are not comparable to the
       UEFA-derived offsets above.
 
-    Concacaf leagues are checked first; if not found there the UEFA path is
-    tried; unknown leagues return 0.0 rather than raising.
+    Concacaf leagues are checked first (within the prior path); if not found
+    there the UEFA path is tried; unknown leagues return 0.0 rather than
+    raising.
     """
+    fitted = _load_fitted()
+    if fitted is not None and league_id in fitted:
+        return float(fitted[league_id])
+    # Prior fallback
     if league_id in _CONCACAF_OFFSET:
         return _CONCACAF_OFFSET[league_id]
     if league_id not in _LEAGUE_COEFF:

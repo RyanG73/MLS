@@ -20,6 +20,8 @@ experiments/*.json
 !experiments/champion.json
 !experiments/champion.report.json
 !experiments/champion-4fold.report.json
+# Track the Approach C bridge-regression fitted offsets (small, deterministic output)
+!experiments/league_offsets.json
 # Probe blend cache (large, regenerable)
 experiments/_referee_blends.pkl
 
