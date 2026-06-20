@@ -907,13 +907,16 @@ function bracketTree(){
         let hWin=false, aWin=false;
         if(!level){hWin=hScore>aScore; aWin=aScore>hScore;}
         const isChampFinal=(round==='Final');
-        const hIsChamp=isChampFinal&&hWin&&champion&&home===champion;
-        const aIsChamp=isChampFinal&&aWin&&champion&&away===champion;
+        // A level (penalty-decided) FINAL: the known champion is the winner.
+        if(level&&isChampFinal&&champion){ if(home===champion)hWin=true; else if(away===champion)aWin=true; }
+        const hIsChamp=isChampFinal&&champion&&home===champion;
+        const aIsChamp=isChampFinal&&champion&&away===champion;
+        const pk=level?'<span class="br-pk"> pk</span>':'';
         html+='<div class="br-tie">';
         html+='<div class="br-team'+(hWin?' br-winner':'')+'"><span>'+home+(hIsChamp?'<span class="br-trophy">🏆</span>':'')+'</span>';
-        html+='<span class="br-score'+(level?' br-pk':'')+'">'+(level?'(PK)':hScore)+'</span></div>';
+        html+='<span class="br-score">'+hScore+'</span></div>';
         html+='<div class="br-team'+(aWin?' br-winner':'')+'"><span>'+away+(aIsChamp?'<span class="br-trophy">🏆</span>':'')+'</span>';
-        html+='<span class="br-score'+(level?' br-pk':'')+'">'+aScore+'</span></div>';
+        html+='<span class="br-score">'+aScore+pk+'</span></div>';
         html+='</div>';
       } else {
         // Live / not yet played — show model win probabilities if available
