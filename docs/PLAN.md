@@ -1,28 +1,34 @@
 # MLS Prediction Dashboard — Implementation Plan
 
-> **Improvement roadmap — model / viz / performance / efficiency (2026-06-19) ▶ IN PROGRESS**
+> **Improvement roadmap — model / viz / performance / efficiency (2026-06-19) ✅ COMPLETE (8/8)**
 >
-> Full detail: `docs/superpowers/plans/2026-06-19-improvement-roadmap.md`. Eight steps, sequenced
-> 1→4 (accuracy spine), 5→6 (betting-edge + viz), 7→8 (operations). Guardrails every step: MLS parity
-> |Δ|=0.0000, full suite green, in-browser regression-clean.
-> 1. **Vectorize `bracket_sim`** (perf) — batch the Poisson draws; ≥10× build speedup (enables the rest).
-> 2. **Approach C** (model, keystone) ✅ — fit cross-league `Δ_league` offsets from real continental
->    results, shrunk to the coefficient prior; swaps only `team_strength()` (the seam). COMPLETED 2026-06-19.
->    Result: UEFA fitted offsets ADOPTED (corrections ≤0.5 ELO, Brier improvement ~0.00004 held-out);
->    Concacaf REJECTED (robustness 40% < 70% threshold, signal too noisy with 130 matches).
->    Continental odds effectively unchanged (max offset correction 0.5 ELO = sub-noise).
-> 3. **ELO-wired continental validation + market benchmark** (model) — validates #2; calibration harness.
-> 4. **Tournament calibration + explicit knockout-playoff round** (model) — fix flat champion odds +
->    the ~1.5× mid-table R16 inflation.
-> 5. **Continental value/edge layer + live odds** (mission) — per-tie `model−market` edge, backtest,
->    `value_bets` at draws; fill the `games` array.
-> 6. **Bracket-tree visualization + per-tie match cards** (viz) — replace the leaderboard with a real
->    knockout tree.
-> 7. **Automated rebuild/refresh pipeline** (efficiency, time-sensitive) — Liga MX Apertura ~Jul 2026,
->    European 2026-27 + Leagues Cup ~Aug 2026.
-> 8. **Unified season-state detector** (efficiency) — shared in-progress/concluded/between logic across
->    league + continental builds.
-> Verdicts appended per step as completed.
+> Full detail: `docs/superpowers/plans/2026-06-19-improvement-roadmap.md`. All 8 executed
+> subagent-driven; MLS parity |Δ|=0.0000 throughout; 171 tests pass. **Verdicts:**
+> 1. **Vectorize bracket_sim — DONE.** Batched the league/group Poisson draws → **8.5×** (UCL 20k sims
+>    5.73s→0.67s); round-size invariants exact; champion odds within MC noise.
+> 2. **Approach C — DONE, honest NULL.** Validate-before-adopt: fitted offsets barely move from the
+>    coefficient prior (max 0.5 ELO UEFA, adopted at sub-noise gain; Concacaf rejected, 40% robustness).
+>    UEFA 5-yr coefficient priors vindicated; framework + harness in place. Historical-ELO-as-of-date =
+>    future lever. Continental odds effectively unchanged.
+> 3. **ELO-wired validation — DONE.** Real strength, per-comp model-vs-naive: UCL BEATS (0.6032 vs
+>    0.6217); Europa/Conference trail (low modeled coverage); Concacaf trails (see #4). No continental
+>    market source (football-data domestic-only) → market track deferred (data-acquisition item).
+> 4. **Calibration — DONE (partial).** Confederation-aware constants (UEFA unchanged); Concacaf deficit
+>    cut (CC gap 0.038→0.007) but still TRAILS — STRUCTURAL small-sample limit (n=51, 58.8% home), no
+>    sane constants beat it (T7 insane-constant rule held). Explicit UEFA knockout-playoff round added
+>    (fixes ~1.5× R16 inflation; KOplayoff=16 invariant exact).
+> 5. **Continental value layer — DONE (scoped).** `model−market` BLOCKED (no continental odds source).
+>    Populated `games` (model probs + results) → Match Projections is now a model report card; value
+>    scaffold + documented blocker.
+> 6. **Bracket visualization — DONE.** Round-column knockout bracket (Playoff→Final) from games;
+>    aggregate scores, winners bolded, champion 🏆 (incl. PK finals). Verified in-browser.
+> 7. **Refresh pipeline — DONE.** build_all.sh covers all 17 surfaces + continental; cache merge-on-
+>    refetch (history retained); Liga MX Apertura 2026 window; launchd plist template.
+> 8. **Unified season_state — DONE.** Shared between/in_progress/concluded detector; both builds
+>    refactored behavior-preserving (concluded views + league tables byte-unchanged).
+>
+> **Net:** 8.5× faster sims; honest model findings (priors good, Concacaf small-sample-bound, no
+> continental market data); a real bracket viz; ops pipeline ready for the July/Aug rollovers.
 
 > **Approach C — Bridge-Regression Cross-League Offsets (2026-06-19) ✅**
 >
