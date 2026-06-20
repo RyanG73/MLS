@@ -46,6 +46,7 @@ from models.research_model import (
 import models.research_model as rm
 from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
+from scripts.eval.season_state import season_state, IN_PROGRESS
 
 # ── Per-league outlook: structure of each single-table league ────────────────
 # Each league declares its data `source`, team count `n`, and the outcome
@@ -609,7 +610,7 @@ def main():
                                  **{k: b[k] for k in ("top", "bottom", "band") if k in b}}
                                 for b in buckets]},
         "perf_by_year": perf_by_year,
-        "season": ts, "in_season": len(upcoming_cards) > 0,
+        "season": ts, "in_season": season_state(len(played), len(upcoming)) == IN_PROGRESS,
         "played": len(games) - len(upcoming_cards), "upcoming": len(upcoming_cards),
         "sim": {"teams": [tname(t) for t in tids],
                 "pmatrix": [[None if hi == ai else

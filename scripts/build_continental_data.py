@@ -16,6 +16,7 @@ from data_pipeline.espn_continental import (
 from data_pipeline.understat import canonical_frame
 from scripts.eval import bracket_sim as bs
 from scripts.eval import cross_league as cl
+from scripts.eval.season_state import season_state, CONCLUDED
 
 logger = logging.getLogger(__name__)
 
@@ -384,13 +385,17 @@ def _season_label(comp_id: str, played) -> str:
 
 
 def _is_concluded(comp_id: str, season: int, played) -> bool:
-    """True if this edition has a played final and no upcoming fixtures."""
-    if played.empty or played[played["round"] == "final"].empty:
-        return False
+    """True if this edition has a played final and no upcoming fixtures.
+
+    Delegates to the shared season_state() detector.
+    """
+    played_count = int(played["is_result"].sum()) if not played.empty else 0
+    final_played = not played[played["round"] == "final"].empty if not played.empty else False
     try:
-        return continental_fixtures(comp_id, season).empty
+        upcoming_count = len(continental_fixtures(comp_id, season))
     except Exception:
-        return True   # no fixtures reachable → treat the played edition as final
+        upcoming_count = 0   # no fixtures reachable → treat the played edition as final
+    return season_state(played_count, upcoming_count, final_played=final_played) == CONCLUDED
 
 
 def _actual_standings(comp_id, played):
