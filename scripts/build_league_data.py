@@ -59,9 +59,17 @@ from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON
 # `green_line`/`red_line` drive the table's qualification + relegation cut-lines.
 # 2nd-tier promotion/playoff/relegation counts are approximate (they vary by
 # country and year); top-flight UEFA-coefficient extra spots are out of scope.
-_TOP = lambda: [{"key": "title", "label": "Title", "col": "Title", "top": 1},
-                {"key": "ucl", "label": "Top 4 (UCL)", "col": "UCL", "top": 4},
-                {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": 3}]
+# Champions League spots vary by association: the top-performing leagues earn a 5th
+# spot via the UEFA coefficient (England and Italy had 5 for 2025-26). Europa = the
+# next place, Conference = the one after (domestic-cup-winner spots are unmodelable
+# and omitted, so these are approximate). `card=False` keeps a bucket as a table
+# COLUMN only — the favorite cards stay simple (Title / UCL / Relegation).
+_TOP = lambda ucl=4: [
+    {"key": "title", "label": "Title", "col": "Title", "top": 1},
+    {"key": "ucl", "label": "Champions Lg", "col": "UCL", "top": ucl},
+    {"key": "europa", "label": "Europa Lg", "col": "Europa", "band": [ucl + 1, ucl + 1], "card": False},
+    {"key": "conf", "label": "Conference Lg", "col": "Conf", "band": [ucl + 2, ucl + 2], "card": False},
+    {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": 3}]
 _PROMO = lambda promo, play, rel: [
     {"key": "promo", "label": "Promotion", "col": "Promo", "top": promo},
     {"key": "playoff", "label": "Playoff", "col": "Playoff", "band": play},
@@ -71,16 +79,18 @@ _LIGUILLA = lambda: [
 
 OUTLOOK = {
     # Big-5 top flights (Understat xG). buckets preserve the prior Title/UCL/Releg output.
+    # UCL spots per the current coefficient allocation: England + Italy earned a 5th
+    # Champions League place (2025-26 cycle); the others have 4. green_line = UCL spots.
     "epl":        {"name": "English Premier League", "source": "understat", "n": 20,
-                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+                   "buckets": _TOP(5), "green_line": 5, "red_line": 3},
     "la-liga":    {"name": "La Liga", "source": "understat", "n": 20,
-                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+                   "buckets": _TOP(4), "green_line": 4, "red_line": 3},
     "serie-a":    {"name": "Serie A", "source": "understat", "n": 20,
-                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+                   "buckets": _TOP(5), "green_line": 5, "red_line": 3},
     "bundesliga": {"name": "Bundesliga", "source": "understat", "n": 18,
-                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+                   "buckets": _TOP(4), "green_line": 4, "red_line": 3},
     "ligue-1":    {"name": "Ligue 1", "source": "understat", "n": 18,
-                   "buckets": _TOP(), "green_line": 4, "red_line": 3},
+                   "buckets": _TOP(4), "green_line": 4, "red_line": 3},
     # European 2nd tiers (football-data goals-only + market). Promotion/Playoff/Relegation.
     "championship": {"name": "EFL Championship", "source": "footballdata", "n": 24,
                      "buckets": _PROMO(2, [3, 6], 3), "green_line": 6, "red_line": 3},
@@ -683,7 +693,8 @@ def main():
                     "has_xg": has_xg,
                     "preseason": True if is_preseason else None,
                     "season_label": _season_label,
-                    "cards": [{"key": b["key"], "label": b["label"]} for b in buckets],
+                    "cards": [{"key": b["key"], "label": b["label"]}
+                              for b in buckets if b.get("card", True)],
                     "columns": [{"key": b["key"], "label": b.get("col", b["label"]),
                                  **{k: b[k] for k in ("top", "bottom", "band") if k in b}}
                                 for b in buckets]},

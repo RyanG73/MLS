@@ -811,7 +811,7 @@ function tableLadder(){
   const ol=D.outlook, cols=ol.columns, hasUp=NF>0;
   const teams=D.standings.map(vals).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
   const mx={};cols.forEach(c=>mx[c.key]=Math.max(...teams.map(s=>s[c.key]||0),1));
-  const BRGB={title:[246,181,63],promo:[246,181,63],liguilla:[246,181,63],ucl:[52,211,154],playoff:[52,211,154],releg:[226,95,79]};
+  const BRGB={title:[246,181,63],promo:[246,181,63],liguilla:[246,181,63],ucl:[52,211,154],europa:[88,150,246],conf:[150,120,220],playoff:[52,211,154],releg:[226,95,79]};
   const brgb=k=>BRGB[k]||[120,120,120];
   const hc=(v,k)=>v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}">${v.toFixed(0)}</span>`;
   const box=el('div','ladder tlad'+(hasUp?' tlad-w':''));
