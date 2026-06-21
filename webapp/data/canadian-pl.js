@@ -1,1 +1,1 @@
-window.LEAGUE_DATA = {"league":{"id":"canadian-pl","name":"Canadian Premier League","logo":null,"confederation":"Concacaf","status":"soon"},"teams":[]};
+window.LEAGUE_DATA = {"status":"placeholder","generated":"2026-06-21 00:00 UTC","league":{"id":"canadian-pl","name":"Canadian Premier League","logo":null,"confederation":"Concacaf","status":"soon"},"teams":[]};

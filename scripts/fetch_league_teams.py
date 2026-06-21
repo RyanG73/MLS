@@ -16,6 +16,7 @@ Run once to scaffold, re-run to refresh team lists (they change rarely).
 Usage: python scripts/fetch_league_teams.py
 """
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -92,9 +93,13 @@ def main():
             print(f"  {lid:18s} live   · logo {'ok' if logo else 'none'} (data built separately: MLS→build_dashboard_data, others→build_league_data)")
             continue
         teams = _teams(code) if code else []
-        stub = {"league": {"id": lid, "name": name, "logo": logo,
-                           "confederation": conf, "status": "soon"},
-                "teams": teams}
+        stub = {
+            "status": "placeholder",
+            "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "league": {"id": lid, "name": name, "logo": logo,
+                       "confederation": conf, "status": "soon"},
+            "teams": teams,
+        }
         (out_dir / f"{lid}.js").write_text(
             "window.LEAGUE_DATA = " + json.dumps(stub, separators=(",", ":")) + ";\n")
         print(f"  {lid:18s} soon   · {len(teams):3d} teams · logo {'ok' if logo else 'none'}")

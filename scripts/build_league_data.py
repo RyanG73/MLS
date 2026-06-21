@@ -2,6 +2,8 @@
 """
 Multi-league dashboard data builder — single-table (European) leagues.
 
+Payload contract: all writes go through write_js_payload (allow_nan=False).
+
 Produces webapp/data/<league>.js with the SAME payload schema the MLS build emits
 (scripts/build_dashboard_data.py), but with league-table semantics instead of
 MLS's conferences + playoff bracket + cup:
@@ -48,6 +50,7 @@ import models.research_model as rm
 from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
 from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON
+from scripts.payload_utils import write_js_payload, health_feature_stats
 
 # ── Per-league outlook: structure of each single-table league ────────────────
 # Each league declares its data `source`, team count `n`, and the outcome
@@ -663,8 +666,7 @@ def main():
     health = {"frame_file": f"{cfg['source']}:{lid}", "espn_ok": bool(stub_meta),
               "season_rows": int(len(_rows)), "played_rows": int(len(played)),
               "features": [{"family": fam, "cols": len(cols),
-                            "complete_pct": round(float(_rows[cols].notna().mean().mean() * 100), 1),
-                            "nondefault_pct": round(float((_rows[cols] != 0).mean().mean() * 100), 1)}
+                            **health_feature_stats(_rows, cols)}
                            for fam, cols in _FAMS.items() if cols]}
 
     model_card = {
@@ -730,8 +732,7 @@ def main():
                                             "league avg = recent walk-forward folds"}}
 
     out = Path(f"webapp/data/{lid}.js")
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("window.LEAGUE_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
+    write_js_payload(out, "LEAGUE_DATA", data)
     print(f"[{lid}] wrote {out} ({out.stat().st_size/1024:.0f} KB) · "
           f"{data['played']} played + {data['upcoming']} upcoming · {len(standings)} teams")
     _bk0, _bkN = buckets[0]["key"], buckets[-1]["key"]

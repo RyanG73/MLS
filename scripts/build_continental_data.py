@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from data_pipeline.espn_continental import (
@@ -17,6 +18,7 @@ from data_pipeline.understat import canonical_frame
 from scripts.eval import bracket_sim as bs
 from scripts.eval import cross_league as cl
 from scripts.eval.season_state import season_state, CONCLUDED
+from scripts.payload_utils import write_js_payload
 
 logger = logging.getLogger(__name__)
 
@@ -500,9 +502,10 @@ def build(comp_id: str, season: int | None, sims: int):
                               for t in champ_sorted],
             "games": games,
             "value_layer": _value_layer_scaffold(),
+            "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         }
         out = Path(f"webapp/data/{comp_id}.js")
-        out.write_text("window.LEAGUE_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
+        write_js_payload(out, "LEAGUE_DATA", data)
         print(f"[{comp_id}] wrote {out} ({out.stat().st_size // 1024} KB) · "
               f"CONCLUDED {label} · champion {res['champion']} · {len(res['field'])} teams · "
               f"{len(games)} games")
@@ -582,9 +585,10 @@ def build(comp_id: str, season: int | None, sims: int):
         "champion_odds": champ,
         "games": games,
         "value_layer": _value_layer_scaffold(),
+        "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
     }
     out = Path(f"webapp/data/{comp_id}.js")
-    out.write_text("window.LEAGUE_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
+    write_js_payload(out, "LEAGUE_DATA", data)
     modeled = sum(1 for e in field if e["modeled"])
     total = len(field)
     print(

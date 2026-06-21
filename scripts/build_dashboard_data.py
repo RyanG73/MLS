@@ -28,6 +28,8 @@ import urllib3
 urllib3.disable_warnings()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scripts.payload_utils import write_js_payload, health_feature_stats  # noqa: E402
+
 _ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1"
 _HDR = {"User-Agent": "Mozilla/5.0"}
 
@@ -529,8 +531,7 @@ def main():
         # across the family's columns, over current-season frame rows.
         "features": [
             {"family": fam, "cols": len(cols),
-             "complete_pct": round(float(_rows[cols].notna().mean().mean() * 100), 1),
-             "nondefault_pct": round(float((_rows[cols] != 0).mean().mean() * 100), 1)}
+             **health_feature_stats(_rows, cols)}
             for fam, cols in _FAMS.items() if cols
         ],
     }
@@ -602,8 +603,7 @@ def main():
                            "metric_convention": "brier_sum_form (range 0-2; random ~0.6406); "
                                                 "champion avg = 2022-2025 walk-forward"}}
     out = Path("webapp/data/mls.js")
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("window.LEAGUE_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
+    write_js_payload(out, "LEAGUE_DATA", data)
     _kb = out.stat().st_size / 1024
     print(f"Wrote {out} ({_kb:.0f} KB) · {data['played']} played + "
           f"{data['upcoming']} upcoming · {len(standings)} teams")

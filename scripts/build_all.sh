@@ -76,3 +76,11 @@ echo "=== $(date '+%Y-%m-%d %H:%M:%S') build_all done ==="
 
 # Cross-league power rankings (aggregates the freshly-built league .js files)
 "$PY" scripts/build_power_rankings.py || echo "power rankings build failed (non-fatal)"
+
+# ── Payload contract gate ─────────────────────────────────────────────────────
+# Runs after all builds so failures are reported together.  Non-zero exit
+# means one or more payloads contain NaN / missing required fields.
+echo "--- payload validation ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/validate_payloads.py \
+  && echo "  [OK] all payloads valid" \
+  || echo "  [WARN] payload validation failed — review output above before publishing"

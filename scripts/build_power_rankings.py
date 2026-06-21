@@ -14,9 +14,11 @@ Run after the league builds.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from data_pipeline import coefficients as co
+from scripts.payload_utils import write_js_payload
 
 _DATA = Path("webapp/data")
 
@@ -59,7 +61,8 @@ def _rank_group(leagues) -> list[dict]:
 
 
 def build():
-    data = {"groups": []}
+    data = {"groups": [],
+            "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
     for conf, leagues in _GROUPS.items():
         ranked = _rank_group(leagues)
         if not ranked:
@@ -71,7 +74,7 @@ def build():
             "teams": ranked,
         })
     out = _DATA / "power.js"
-    out.write_text("window.POWER_DATA = " + json.dumps(data, separators=(",", ":")) + ";\n")
+    write_js_payload(out, "POWER_DATA", data)
     for g in data["groups"]:
         top = g["teams"][0]
         print(f"[power] {g['confederation']}: {len(g['teams'])} teams "
