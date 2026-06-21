@@ -1,10 +1,20 @@
 # MLS Dashboard — Claude Instructions
 
-## Plan document
+## Documentation convention
 
-The canonical project plan lives at `docs/PLAN.md`.
+**Where to look:**
+- `docs/PLAN.md` — canonical plan; blockquote header is the living changelog of what was built
+- `docs/CURRENT_STATE.md` — canonical model config, metrics, run commands (quick reference)
+- `docs/PROJECT_HISTORY.md` — narrative history for newcomers; model lineage, key decisions, what failed and why
+- `docs/experiment-protocol.md` — shared agent contract for improvement campaigns
+- `docs/feature-hunt-log.md` — live record of features tried and rejected
+- `docs/superpowers/plans/<active>.md` — what's in progress right now; completed steps have verdicts appended at top
 
-**Update it after every iteration** — whenever eval results change, a feature is added/dropped, a parameter is tuned, or a phase decision is made, update the "Live eval results" block at the top of `docs/PLAN.md` and any relevant section body. Commit the updated plan in the same commit as the code changes.
+**Update rules (apply every iteration, commit with code changes):**
+- After any **code change**: append a verdict to the active `docs/superpowers/plans/` file. If model config or metrics changed, update `docs/CURRENT_STATE.md`.
+- After a **plan completes**: add 2–3 sentences summarising outcomes to `docs/PROJECT_HISTORY.md` under a dated entry, then delete the plan file.
+- After any **eval result change, feature add/drop, or parameter tune**: add a blockquote entry to the top of `docs/PLAN.md`.
+- **Completed plan files are deleted, not archived.** Their story lives in `PROJECT_HISTORY.md`. Only one or two plan files should exist at any time.
 
 ## Active branch
 
