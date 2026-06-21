@@ -482,7 +482,16 @@ const LID=new URLSearchParams(location.search).get('league')||'mls';
 document.write('<scr'+'ipt src="data/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
-const D = window.LEAGUE_DATA, $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+const _isPower = new URLSearchParams(location.search).get('league')==='power';
+// Power-rankings mode loads window.POWER_DATA (a cross-league view, not a single league).
+// Use a benign empty stub so the league render code below no-ops; renderPower() (appended
+// at the end of the page) then hides the league UI and draws the rankings.
+const D = _isPower
+  ? {league:{name:'Cross-League Power Rankings'}, outlook:{mode:'power'}, standings:[], games:[],
+     sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], team_inputs:{}, elo_history:{},
+     health:null, model_card:{}, in_season_brier:{}, season:2026}
+  : window.LEAGUE_DATA;
+const $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
 // Outlook mode: 'table' = single-table league (European promotion/relegation);
 // otherwise the MLS conference + playoff + cup view. Set by the build's outlook block.
 const isTable = (D.outlook||{}).mode === 'table';
@@ -492,6 +501,8 @@ const isKnockout = (D.outlook||{}).mode === 'knockout';
   const wrap=$('#sbLeagues'), groups={};
   (window.LEAGUES||[]).forEach(l=>{(groups[l.confederation]=groups[l.confederation]||[]).push(l);});
   let html='';
+  // Pinned cross-league view at the top — the platform's unique multi-league capability.
+  html+=`<a class="sb-lg sb-power${LID==='power'?' active':''}" href="?league=power"><span class="lgc">🌍</span><span>Power Rankings</span></a>`;
   for(const conf of ['Concacaf','UEFA']){
     if(!groups[conf])continue;
     html+=`<div class="sb-grp">${conf}</div>`;
@@ -1284,6 +1295,52 @@ $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.curr
 // deep-link a team from the League Table → Teams tab
 function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfile(team,true);}
 }  /* end full-app (non-soon) block */
+</script>
+
+<style>
+.pr-intro{color:var(--txt-2);font-size:13px;max-width:780px;margin:0 0 18px;line-height:1.55}
+.pr-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:880px){.pr-grid{grid-template-columns:1fr}}
+.pr-panel{background:#131820;border:1px solid #232a35;border-radius:10px;overflow:hidden}
+.pr-h{padding:10px 14px;font-weight:700;border-bottom:1px solid #232a35;display:flex;align-items:baseline;gap:8px}
+.pr-anchor{font-size:11px;color:var(--txt-3);font-weight:400}
+.pr-list{padding:4px 0;max-height:680px;overflow-y:auto}
+.pr-row{display:flex;align-items:center;gap:10px;padding:5px 14px}
+.pr-row:hover{background:#1a212b}
+.pr-rank{width:22px;text-align:right;color:var(--txt-3);font-size:12px;font-variant-numeric:tabular-nums}
+.pr-team{display:flex;flex-direction:column;min-width:128px}
+.pr-name{font-size:13px;color:var(--txt-1)}
+.pr-lg{font-size:10px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.04em}
+.pr-barwrap{flex:1;height:7px;background:#1a212b;border-radius:4px;overflow:hidden;min-width:40px}
+.pr-bar{display:block;height:100%;border-radius:4px;opacity:.85}
+.pr-str{width:42px;text-align:right;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.sb-power{font-weight:600}
+</style>
+<script>
+// Cross-league Power Rankings view (pinned sidebar item). Renders window.POWER_DATA.
+if (_isPower && window.POWER_DATA) {
+  const seg=$('#seg'); if(seg) seg.style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
+  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent='Cross-League Power Rankings';
+  const sub=$('#sub'); if(sub) sub.textContent='Domestic ELO + cross-league offset · comparable within a confederation (the scales don’t connect across)';
+  const panels = (window.POWER_DATA.groups||[]).map(g=>{
+    const max=g.teams[0].strength, min=g.teams[g.teams.length-1].strength, span=Math.max(1,max-min);
+    const rows = g.teams.map(t=>{
+      const w=10+90*(t.strength-min)/span;
+      return `<div class="pr-row"><span class="pr-rank">${t.rank}</span>`+
+        crest(t.team, t.logo)+
+        `<span class="pr-team"><span class="pr-name">${t.team}</span><span class="pr-lg">${t.league_short}</span></span>`+
+        `<span class="pr-barwrap"><span class="pr-bar" style="width:${w.toFixed(1)}%;background:${t.color||'#5a96f6'}"></span></span>`+
+        `<span class="pr-str">${t.strength.toFixed(0)}</span></div>`;
+    }).join('');
+    return `<div class="pr-panel"><div class="pr-h">${g.confederation}<span class="pr-anchor">${g.teams.length} teams · ${g.n_leagues} leagues · ${g.anchor}</span></div><div class="pr-list">${rows}</div></div>`;
+  }).join('');
+  const target=$('#view-outlook')||$('main.wrap');
+  if(target){
+    target.classList.remove('hidden');
+    target.innerHTML='<div class="pr-intro">Every team on one comparable strength scale — domestic ELO plus the league’s cross-league offset (the same strength the continental model uses), so a Premier League side can be compared directly against La Liga or Bundesliga. Scales are <b>confederation-relative</b>: UEFA and Concacaf never meet in the data, so they’re ranked separately.</div><div class="pr-grid">'+panels+'</div>';
+  }
+}
 </script>
 </body>
 </html>

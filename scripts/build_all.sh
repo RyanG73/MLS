@@ -73,3 +73,6 @@ for C in ucl europa conference concacaf-champions leagues-cup; do
 done
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') build_all done ==="
+
+# Cross-league power rankings (aggregates the freshly-built league .js files)
+"$PY" scripts/build_power_rankings.py || echo "power rankings build failed (non-fatal)"
