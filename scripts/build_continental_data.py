@@ -178,17 +178,12 @@ def _league_elos(league_id: str) -> dict[str, float]:
 def _mls_elos() -> dict[str, float]:
     """Compute MLS ELOs from parity_frame and remap opaque ASA hash IDs to team names."""
     import pandas as pd
-    from itscalledsoccer.client import AmericanSoccerAnalysis
+    from data_pipeline.asa_cache import get_teams
 
     df = pd.read_parquet("data/parity_frame.parquet")
     elos_by_hash = cl.compute_league_elos(df)
 
-    asa = AmericanSoccerAnalysis()
-    try:
-        asa.session.verify = False
-    except Exception:
-        pass
-    id2name = {r.team_id: r.team_name for r in asa.get_teams(leagues="mls").itertuples()}
+    id2name = {r.team_id: r.team_name for r in get_teams("mls").itertuples()}
     return {id2name.get(h, h): e for h, e in elos_by_hash.items()}  # {ASA name: elo}
 
 

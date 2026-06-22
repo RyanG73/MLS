@@ -126,15 +126,10 @@ def _build_elo_history(league_id: str) -> dict[str, tuple[list, list]]:
 
 def _load_mls_frame() -> pd.DataFrame:
     """Load and name-remap MLS parity frame (mirrors build_continental_data._mls_elos)."""
-    from itscalledsoccer.client import AmericanSoccerAnalysis
+    from data_pipeline.asa_cache import get_teams
     df = pd.read_parquet("data/parity_frame.parquet")
     # Remap ASA hash IDs to team names (home_team / away_team columns).
-    asa = AmericanSoccerAnalysis()
-    try:
-        asa.session.verify = False
-    except Exception:
-        pass
-    id2name = {r.team_id: r.team_name for r in asa.get_teams(leagues="mls").itertuples()}
+    id2name = {r.team_id: r.team_name for r in get_teams("mls").itertuples()}
     df = df.copy()
     df["home_team"] = df["home_team"].map(lambda h: id2name.get(h, h))
     df["away_team"] = df["away_team"].map(lambda a: id2name.get(a, a))

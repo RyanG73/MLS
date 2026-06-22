@@ -106,11 +106,10 @@ def main():
     from models.research_model import (fit_dc, dc_predict_batch, fit_xgb, bag_proba,
                                         calibrate_temperature, fit_capped_blend, blend)
     from scripts.eval.elo import compute_elo
-    from itscalledsoccer.client import AmericanSoccerAnalysis
+    from data_pipeline.asa_cache import get_teams, get_games as asa_get_games
     import math
     import models.research_model as rm
-    asa = AmericanSoccerAnalysis(); asa.session.verify = False
-    teams = asa.get_teams(leagues="mls")
+    teams = get_teams("mls")
     id2name = {r.team_id: r.team_name for r in teams.itertuples()}
     # ESPN-normalized-name -> ASA team_id (suffix-tolerant + alias)
     tok2id = {_toks(_norm(r.team_name)): r.team_id for r in teams.itertuples()}
@@ -428,7 +427,7 @@ def main():
     # Computed over the FULL ASA game history (2013+, deeper than the 2017+ model
     # frame) so the chart shows the complete trajectory under each trophy.
     try:
-        _gh = asa.get_games(leagues="mls")
+        _gh = asa_get_games("mls")
         _gh = _gh.rename(columns={"date_time_utc": "date", "home_team_id": "home_team",
                                   "away_team_id": "away_team", "home_score": "home_goals",
                                   "away_score": "away_goals", "season_name": "season"})

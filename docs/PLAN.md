@@ -1,5 +1,7 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **Section 2 — Data Acquisition & Source Ingestion (2026-06-21) ▶ DONE** — Created `docs/data-sources.md` register (all active + proposed sources, payload matrix, commit rules). Rewrote `data_pipeline/source_health.py` to be DB-free (parquet-backed; was dead code against Postgres). Added `observed_at` stamping + validation gates to `scripts/import_transfermarkt.py`. Created `data_pipeline/asa_cache.py` caching all ASA endpoints by mtime; wired into `build_dashboard_data.py`, `build_continental_data.py`, `eval/league_bridge.py`. 199/199 tests pass.
+
 > **Season rollover + roadmap round 2 (2026-06-20) ▶ IN PROGRESS**
 >
 > Full detail: `docs/superpowers/plans/2026-06-20-season-rollover-roadmap.md`. Trigger: EPL's 2026-27
