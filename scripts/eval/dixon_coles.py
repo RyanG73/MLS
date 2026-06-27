@@ -178,7 +178,8 @@ def apply_roster_dc_prior(
     dfd_adj = dict(dfd)
     for team_id in list(atk.keys()):
         short = hex_to_short.get(team_id, team_id)
-        entry = rd_z.get((short, season)) or rd_z.get((short, season - 1))
+        current = rd_z.get((short, season))
+        entry = current if current is not None else rd_z.get((short, season - 1))
         if not entry:
             continue
         att_z = entry.get("new_att_value_z", 0.0) or 0.0

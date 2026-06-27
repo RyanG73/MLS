@@ -177,7 +177,7 @@ class TestApplyRosterDcPrior:
         rd_z = {("A", 2024): {"new_att_value_z": 0.0, "new_def_value_z": 1.0, "new_gk_value_z": 1.0}}
         hex_to_short = {"teamA": "A"}
         a2, d2 = apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10)
-        # def_z + gk_z = 2.0 → dfd decreases by alpha * 2.0 = 0.20, capped at 0.25
+        # def_z + gk_z = 2.0 → dfd decreases by alpha * 2.0 = 0.20 (below 0.25 cap)
         assert d2["teamA"] == pytest.approx(dfd["teamA"] - 0.20)
 
     def test_adjustment_capped_at_max_adj(self):
@@ -210,3 +210,11 @@ class TestApplyRosterDcPrior:
         apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10)
         assert atk == atk_copy
         assert dfd == dfd_copy
+
+    def test_negative_att_z_decreases_atk(self):
+        atk, dfd = self._base()
+        rd_z = {("A", 2024): {"new_att_value_z": -1.0, "new_def_value_z": 0.0, "new_gk_value_z": 0.0}}
+        hex_to_short = {"teamA": "A"}
+        a2, d2 = apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10)
+        assert a2["teamA"] == pytest.approx(atk["teamA"] - 0.10)
+        assert d2["teamA"] == pytest.approx(dfd["teamA"])  # dfd unchanged
