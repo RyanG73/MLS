@@ -48,6 +48,91 @@ from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
 from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON
 from scripts.payload_utils import write_js_payload, health_feature_stats
+from data_pipeline import coefficients as co
+
+# ── tier-2 promoted-team seeding ──────────────────────────────────────────────
+# Maps top-flight league ID → its feeder tier-2 league ID.
+_TIER2_FOR: dict[str, str] = {
+    "epl":        "championship",
+    "bundesliga": "bundesliga-2",
+    "serie-a":    "serie-b",
+}
+
+# ESPN/Understat team name → football-data short name for common promoted teams.
+_FD_TEAM_ALIASES: dict[str, str] = {
+    "Sheffield United":        "Sheff Utd",
+    "Nottingham Forest":       "Nott'm Forest",
+    "Queens Park Rangers":     "QPR",
+    "West Bromwich Albion":    "West Brom",
+    "Leicester City":          "Leicester",
+    "Wolverhampton Wanderers": "Wolves",
+    "Brighton & Hove Albion":  "Brighton",
+    "AFC Bournemouth":         "Bournemouth",
+    "Leeds United":            "Leeds",
+    "Ipswich Town":            "Ipswich",
+    "Luton Town":              "Luton",
+    "Huddersfield Town":       "Huddersfield",
+    "Swansea City":            "Swansea",
+    "Coventry City":           "Coventry",
+    "Watford":                 "Watford",
+    "Brentford":               "Brentford",
+}
+
+_TIER2_ELO_CACHE: dict[str, dict[str, float]] = {}
+
+
+def _get_tier2_elo_map(tier2_lid: str) -> dict[str, float]:
+    """End-of-history ELO map for a tier-2 league, from football_data results.
+
+    Returns {team_name_as_in_football_data: current_elo}.
+    Returns {} if the data cannot be loaded.
+    """
+    if tier2_lid in _TIER2_ELO_CACHE:
+        return _TIER2_ELO_CACHE[tier2_lid]
+    try:
+        df = match_results(tier2_lid).sort_values("date")
+        df = df.dropna(subset=["home_goals", "away_goals"])
+        if df.empty:
+            _TIER2_ELO_CACHE[tier2_lid] = {}
+            return {}
+        _, elo_now_t2 = compute_elo(df, K=25, home_adv=80, regress=0.40,
+                                    return_ratings=True)
+        _TIER2_ELO_CACHE[tier2_lid] = dict(elo_now_t2)
+    except Exception as e:  # noqa: BLE001
+        print(f"[warning] tier2 ELO load failed for {tier2_lid}: {e}")
+        _TIER2_ELO_CACHE[tier2_lid] = {}
+    return _TIER2_ELO_CACHE[tier2_lid]
+
+
+def _elo_to_dc_params(
+    adj_elo: float,
+    atk: dict[str, float],
+    dfd: dict[str, float],
+    elo_now: dict[str, float],
+) -> tuple[float, float]:
+    """Map a translated ELO to DC attack/defense params via percentile interpolation.
+
+    Finds the percentile of adj_elo in the tier-1 ELO distribution, picks the
+    same percentile from sorted attack params and the INVERSE percentile from
+    defense params (higher ELO = better attack = higher atk; better defense =
+    lower dfd in DC log-space). Clamps to [5th, 95th] percentile.
+    """
+    elo_vals = sorted(elo_now.values())
+    n = len(elo_vals)
+    if n == 0 or not atk or not dfd:
+        return 0.0, 0.0
+
+    rank = sum(1 for e in elo_vals if e <= adj_elo)
+    pct = max(0.05, min(0.95, rank / n))
+
+    atk_vals = sorted(atk.values())
+    dfd_vals = sorted(dfd.values())
+
+    atk_idx = min(int(pct * len(atk_vals)), len(atk_vals) - 1)
+    dfd_idx = min(int((1.0 - pct) * len(dfd_vals)), len(dfd_vals) - 1)
+
+    return atk_vals[atk_idx], dfd_vals[dfd_idx]
+
 
 # ── Per-league outlook: structure of each single-table league ────────────────
 # Each league declares its data `source`, team count `n`, and the outcome
@@ -339,6 +424,8 @@ def main():
     # rather than defaulting to league-average (0 in log-space = exp(0)=1.0 = average).
     allplayed = df.dropna(subset=["home_goals", "away_goals"])
     atk, dfd, ha, rho = fit_dc(allplayed)
+    _elo_df, elo_now = compute_elo(allplayed.sort_values("date"), K=25, home_adv=80,
+                                   regress=0.40, return_ratings=True)
 
     if is_preseason:
         # Identify teams from the prior season (ts-1) as the "established" set.
@@ -350,23 +437,37 @@ def main():
         # Promoted teams = in upcoming but NOT in the prior season.
         _promoted_teams = _upcoming_teams - _prior_teams
         if _promoted_teams:
-            # Compute 15th-percentile of fitted attack and defence parameters.
-            # atk/dfd use log-space: lower atk = weaker attack; higher dfd = weaker defence.
-            # Established teams are those with fitted parameters.
+            # Flat fallback (15th-pct attack, 85th-pct defence) — used when
+            # no tier-2 ELO is available for a promoted team.
             _fitted_teams = set(atk.keys()) | set(dfd.keys())
-            _atk_vals = sorted(atk.get(t, 0.0) for t in _fitted_teams)
-            _dfd_vals = sorted(dfd.get(t, 0.0) for t in _fitted_teams)
-            _p15_idx = max(0, int(len(_atk_vals) * 0.15) - 1)
-            _p85_idx = min(len(_dfd_vals) - 1, int(len(_dfd_vals) * 0.85))
-            # 15th-pct attack (below-average scorer); 85th-pct defence (concedes more)
-            _atk_prior = _atk_vals[_p15_idx] if _atk_vals else -0.2
-            _dfd_prior = _dfd_vals[_p85_idx] if _dfd_vals else 0.2
+            _atk_vals_all = sorted(atk.get(t, 0.0) for t in _fitted_teams)
+            _dfd_vals_all = sorted(dfd.get(t, 0.0) for t in _fitted_teams)
+            _p15 = max(0, int(len(_atk_vals_all) * 0.15) - 1)
+            _p85 = min(len(_dfd_vals_all) - 1, int(len(_dfd_vals_all) * 0.85))
+            _atk_flat = _atk_vals_all[_p15] if _atk_vals_all else -0.2
+            _dfd_flat = _dfd_vals_all[_p85] if _dfd_vals_all else 0.2
+
+            _tier2_lid = _TIER2_FOR.get(lid)
+            _tier2_elo_map = _get_tier2_elo_map(_tier2_lid) if _tier2_lid else {}
+
             for _pt in _promoted_teams:
-                atk[_pt] = _atk_prior
-                dfd[_pt] = _dfd_prior
-            print(f"[{lid}] promoted teams seeded at atk={_atk_prior:.3f} "
-                  f"dfd={_dfd_prior:.3f} (15th/85th pct): {sorted(_promoted_teams)}")
-            # Future: seed from 2nd-tier historical strength via cross-league DC offset.
+                _fd_name = _FD_TEAM_ALIASES.get(_pt, _pt)
+                _tier2_elo = _tier2_elo_map.get(_pt) or _tier2_elo_map.get(_fd_name)
+                if _tier2_elo is not None and _tier2_lid is not None:
+                    _adj_elo = _tier2_elo + co.tier2_offset(_tier2_lid)
+                    atk[_pt], dfd[_pt] = _elo_to_dc_params(_adj_elo, atk, dfd, elo_now)
+                    print(f"[{lid}] promoted {_pt}: "
+                          f"tier2_elo={_tier2_elo:.0f} adj={_adj_elo:.0f} "
+                          f"DC=(atk={atk[_pt]:.3f}, dfd={dfd[_pt]:.3f})")
+                else:
+                    atk[_pt] = _atk_flat
+                    dfd[_pt] = _dfd_flat
+                    if _tier2_lid:
+                        print(f"[{lid}] promoted {_pt}: no tier2 ELO in {_tier2_lid}, "
+                              f"flat prior atk={_atk_flat:.3f} dfd={_dfd_flat:.3f}")
+                    else:
+                        print(f"[{lid}] promoted {_pt}: "
+                              f"flat prior atk={_atk_flat:.3f} dfd={_dfd_flat:.3f}")
 
     def dc_probs(h, a):
         return rm._dc_predict(h, a, atk, dfd, ha, rho)
@@ -377,8 +478,6 @@ def main():
                 math.exp(atk.get(a, 0) + dfd.get(h, 0)))
 
     # ── Current ELO (champion config) + standings from this season's results ──
-    _elo_df, elo_now = compute_elo(allplayed.sort_values("date"), K=25, home_adv=80,
-                                   regress=0.40, return_ratings=True)
     pts, gp, gf, ga, xgf, xga = {}, {}, {}, {}, {}, {}
     for _, r in played.iterrows():
         h, a = r["home_team"], r["away_team"]
