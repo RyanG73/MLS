@@ -213,3 +213,81 @@ def _collect_tier_matches(
             )
 
     return matches_by_season
+
+
+# ── objective and scoring ─────────────────────────────────────────────────────
+
+def _nll(delta: float, matches: list[_TierMatch], prior: float, lam: float) -> float:
+    """NLL + ridge objective for a single tier ELO offset."""
+    nll = 0.0
+    for m in matches:
+        adj = m.promoted_elo + delta
+        if m.is_home:
+            ph, pd_, pa = match_probs(adj, m.opponent_elo, conf="UEFA")
+        else:
+            ph, pd_, pa = match_probs(m.opponent_elo, adj, conf="UEFA")
+        p = max((ph, pd_, pa)[m.outcome], 1e-12)
+        nll -= math.log(p)
+    # Ridge penalty pulls δ toward the static prior.
+    nll += lam * len(matches) * (delta - prior) ** 2
+    return nll
+
+
+def _brier(matches: list[_TierMatch], delta: float) -> float:
+    """Mean sum-form Brier score on a match list given an ELO offset."""
+    if not matches:
+        return float("nan")
+    total = 0.0
+    for m in matches:
+        adj = m.promoted_elo + delta
+        if m.is_home:
+            ph, pd_, pa = match_probs(adj, m.opponent_elo, conf="UEFA")
+        else:
+            ph, pd_, pa = match_probs(m.opponent_elo, adj, conf="UEFA")
+        probs = [ph, pd_, pa]
+        actuals = [0.0, 0.0, 0.0]
+        actuals[m.outcome] = 1.0
+        total += sum((probs[i] - actuals[i]) ** 2 for i in range(3))
+    return total / len(matches)
+
+
+def _fit_offset(matches: list[_TierMatch], prior: float, lam: float) -> float:
+    """Fit a single scalar ELO offset on the given matches via NLL+ridge."""
+    result = minimize(
+        _nll,
+        x0=[prior],
+        args=(matches, prior, lam),
+        method="L-BFGS-B",
+        options={"maxiter": 1000, "ftol": 1e-10},
+    )
+    return float(result.x[0])
+
+
+def _loso_validate(
+    matches_by_season: dict[int, list[_TierMatch]],
+    fitted_delta: float,
+    prior: float,
+    lam: float,
+) -> tuple[float, float, float]:
+    """Leave-one-season-out validation.
+
+    For each season, fits on all OTHER seasons' matches and evaluates on the
+    held-out season.  Returns (mean_brier_fitted, mean_brier_prior, naive_brier).
+
+    naive_brier is always 2/3 (uniform 1/3 per outcome, sum-form).
+    """
+    seasons = sorted(matches_by_season.keys())
+    bf, bp = [], []
+    for held_out in seasons:
+        train = [m for s, ms in matches_by_season.items()
+                 if s != held_out for m in ms]
+        test = matches_by_season[held_out]
+        if not train or not test:
+            continue
+        d_cv = _fit_offset(train, prior, lam)
+        bf.append(_brier(test, d_cv))
+        bp.append(_brier(test, prior))
+
+    if not bf:
+        return float("nan"), float("nan"), 2 / 3
+    return float(np.mean(bf)), float(np.mean(bp)), 2 / 3

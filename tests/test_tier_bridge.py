@@ -119,3 +119,53 @@ def test_collect_tier_matches_returns_matches_for_promoted_team():
     for m in gamma_matches:
         assert m.promoted_elo > 0
         assert m.season == 2022
+
+
+# ── _fit_offset ───────────────────────────────────────────────────────────────
+
+def test_fit_offset_recovers_known_direction():
+    """When promoted teams consistently outperform the prior, fitted δ moves upward."""
+    from scripts.eval import tier_bridge as tb
+
+    # Construct matches where promoted team (ELO 1500) beats everyone —
+    # that means the prior (-120, adjusted=1380) is too pessimistic.
+    # The optimizer should push δ toward 0 (or positive) to raise the predicted prob.
+    matches = [
+        tb._TierMatch("P", 1500.0, 1500.0, True,  0, 2022),  # home win
+        tb._TierMatch("P", 1500.0, 1500.0, True,  0, 2022),
+        tb._TierMatch("P", 1500.0, 1500.0, False, 2, 2022),  # away win for P
+        tb._TierMatch("P", 1500.0, 1500.0, False, 2, 2022),
+        tb._TierMatch("P", 1500.0, 1500.0, True,  0, 2023),
+        tb._TierMatch("P", 1500.0, 1500.0, False, 2, 2023),
+    ]
+    prior = -120.0
+    fitted = tb._fit_offset(matches, prior, lam=0.001)
+    # With weak ridge, optimizer should push δ above prior to make P stronger.
+    assert fitted > prior
+
+
+def test_fit_offset_with_strong_ridge_stays_near_prior():
+    """Very strong ridge (lam=10) should keep the offset near the prior."""
+    from scripts.eval import tier_bridge as tb
+
+    matches = [
+        tb._TierMatch("P", 1500.0, 1500.0, True, 0, 2022),
+        tb._TierMatch("P", 1500.0, 1500.0, True, 1, 2022),
+        tb._TierMatch("P", 1500.0, 1500.0, True, 2, 2022),
+    ]
+    prior = -120.0
+    fitted = tb._fit_offset(matches, prior, lam=10.0)
+    assert abs(fitted - prior) < 10.0  # very strong ridge: stays close
+
+
+def test_brier_uniform_is_two_thirds():
+    """Brier returns a sensible value in [0, 2]."""
+    from scripts.eval import tier_bridge as tb
+
+    matches = [
+        tb._TierMatch("P", 1500.0, 1500.0, True,  0, 2022),
+        tb._TierMatch("P", 1500.0, 1500.0, True,  1, 2022),
+        tb._TierMatch("P", 1500.0, 1500.0, True,  2, 2022),
+    ]
+    b = tb._brier(matches, delta=0.0)
+    assert 0.0 < b < 2.0
