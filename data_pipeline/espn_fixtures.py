@@ -23,16 +23,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import requests
-import urllib3
 
+from data_pipeline.http import espn_get
 from data_pipeline.understat import _COLS, _coerce
 
-urllib3.disable_warnings()
 logger = logging.getLogger("espn_fixtures")
 
 _BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
-_HDR = {"User-Agent": "Mozilla/5.0"}
 _CACHE_DIR = Path("data/espn_fixtures")
 
 # Platform league id → ESPN slug.
@@ -107,9 +104,7 @@ def _fetch_events(slug: str, season: int) -> list[dict]:
     y0, y1 = season, season + 1
     params = {"dates": f"{y0}0701-{y1}0630", "limit": 500}
     try:
-        r = requests.get(url, params=params, headers=_HDR, timeout=30, verify=False)
-        r.raise_for_status()
-        return r.json().get("events", [])
+        return espn_get(url, params).get("events", [])
     except Exception as e:
         logger.warning("ESPN %s season=%s fetch failed: %s", slug, season, e)
         return []

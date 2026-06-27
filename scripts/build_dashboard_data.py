@@ -22,16 +22,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import requests
-import urllib3
-
-urllib3.disable_warnings()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from data_pipeline.http import espn_get  # noqa: E402
 from scripts.payload_utils import write_js_payload, health_feature_stats  # noqa: E402
 
 _ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1"
-_HDR = {"User-Agent": "Mozilla/5.0"}
 
 # MLS 2026 conferences (30 teams; San Diego FC added 2025)
 _EAST = {"atlanta united fc", "charlotte fc", "chicago fire fc", "fc cincinnati",
@@ -62,9 +58,8 @@ def _toks(nn):
 
 def espn_schedule(season):
     """Return list of fixtures: (date, home_norm, away_norm, status, hg, ag)."""
-    r = requests.get(f"{_ESPN}/scoreboard",
-                     params={"dates": f"{season}0201-{season}1215", "limit": 1000},
-                     headers=_HDR, verify=False, timeout=30).json()
+    r = espn_get(f"{_ESPN}/scoreboard",
+                 params={"dates": f"{season}0201-{season}1215", "limit": 1000})
     out = []
     for e in r.get("events", []):
         comp = e["competitions"][0]
@@ -121,8 +116,7 @@ def main():
     # ESPN team crest URL + brand colors, keyed by ASA team_id (public CDN; <img> ref)
     tmeta = {}
     try:
-        tj = requests.get(f"{_ESPN}/teams", params={"limit": 50},
-                          headers=_HDR, verify=False, timeout=25).json()
+        tj = espn_get(f"{_ESPN}/teams", params={"limit": 50}, timeout=25)
         for it in tj["sports"][0]["leagues"][0]["teams"]:
             tm = it["team"]; tid = map_team(_norm(tm["displayName"]))
             if not tid:
@@ -562,8 +556,7 @@ def main():
     # ── League meta (multi-league platform) ──────────────────────────────────
     _lg_logo = None
     try:
-        _lg_logo = (requests.get(f"{_ESPN}/scoreboard", headers=_HDR,
-                    verify=False, timeout=20).json().get("leagues", [{}])[0]
+        _lg_logo = (espn_get(f"{_ESPN}/scoreboard", timeout=20).get("leagues", [{}])[0]
                     .get("logos") or [{}])[0].get("href")
     except Exception:
         pass

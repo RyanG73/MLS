@@ -12,14 +12,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import requests
-import urllib3
 
-urllib3.disable_warnings()
+from data_pipeline.http import espn_get
+
 logger = logging.getLogger("espn_continental")
 
 _BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
-_HDR = {"User-Agent": "Mozilla/5.0"}
 _CACHE_DIR = Path("data/espn_continental")
 
 # Internal comp id -> ESPN slug.
@@ -36,9 +34,7 @@ def _fetch(slug: str, y0: int, y1: int) -> list[dict]:
     # {y+1}0701 for some seasons with HTTP 400).
     params = {"dates": f"{y0}0701-{y1}0630", "limit": 500}
     try:
-        r = requests.get(url, params=params, headers=_HDR, timeout=30, verify=False)
-        r.raise_for_status()
-        return r.json().get("events", [])
+        return espn_get(url, params).get("events", [])
     except Exception as e:
         logger.warning("ESPN %s %s fetch failed: %s", slug, y0, e)
         return []

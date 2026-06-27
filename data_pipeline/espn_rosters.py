@@ -20,13 +20,9 @@ import os
 import time
 import sys
 
-import requests
-import urllib3
-
-urllib3.disable_warnings()
+from data_pipeline.http import espn_get
 
 _BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1"
-_HEADERS = {"User-Agent": "Mozilla/5.0"}
 _OUT = os.path.join(os.path.dirname(__file__), "..", "data", "espn_rosters.csv")
 _OUT = os.path.abspath(_OUT)
 _FIELDS = [
@@ -48,10 +44,7 @@ _WINDOWS = {
 def _get(path, params, tries=3):
     for i in range(tries):
         try:
-            r = requests.get(f"{_BASE}/{path}", params=params,
-                             headers=_HEADERS, verify=False, timeout=25)
-            if r.status_code == 200:
-                return r.json()
+            return espn_get(f"{_BASE}/{path}", params, timeout=25)
         except Exception as e:
             if i == tries - 1:
                 print(f"  [warn] {path} {params} failed: {e}", file=sys.stderr)

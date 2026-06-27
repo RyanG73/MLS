@@ -27,16 +27,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import requests
-import urllib3
 
+from data_pipeline.http import espn_get
 from data_pipeline.understat import _COLS, _coerce
 
-urllib3.disable_warnings()
 logger = logging.getLogger("espn_soccer")
 
 _BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
-_HDR = {"User-Agent": "Mozilla/5.0"}
 _ESPN_CACHE_DIR = Path("data/espn_soccer")
 _LIGA_MX_SLUG = "mex.1"
 _SEASON_BASE_YEAR = 2017
@@ -86,9 +83,7 @@ def _fetch_events(year: int, start_mmdd: str, end_mmdd: str) -> list[dict]:
     url = f"{_BASE}/{_LIGA_MX_SLUG}/scoreboard"
     params = {"dates": f"{year}{start_mmdd}-{year}{end_mmdd}", "limit": 500}
     try:
-        r = requests.get(url, params=params, headers=_HDR, timeout=30, verify=False)
-        r.raise_for_status()
-        return r.json().get("events", [])
+        return espn_get(url, params).get("events", [])
     except Exception as e:
         logger.warning("ESPN Liga MX %s%s fetch failed: %s", year, start_mmdd, e)
         return []
@@ -186,7 +181,21 @@ def liga_mx_frame(use_cache: bool = True, refresh_latest: bool = True) -> pd.Dat
 
     df = combined[combined["season"] > 0].copy()
     df["date"] = pd.to_datetime(df["date"])
-    return df.sort_values("date").reset_index(drop=True)
+    df = df.sort_values("date").reset_index(drop=True)
+
+    try:
+        from data_pipeline.source_health import record_source_run
+        played = int(df["is_result"].sum()) if "is_result" in df.columns else len(df)
+        record_source_run(
+            source_name="espn",
+            endpoint="liga_mx_scoreboard",
+            raw_count=len(df),
+            parsed_count=played,
+        )
+    except Exception as _exc:
+        logger.debug("espn_soccer: could not record source health: %s", _exc)
+
+    return df
 
 
 if __name__ == "__main__":
