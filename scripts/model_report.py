@@ -34,6 +34,24 @@ from models.metrics import (brier_multiclass_sum, per_class_brier,
 
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 
+_DEFAULT_MARKET_EVAL = REPO_ROOT / "experiments" / "market_eval.json"
+
+
+def _load_market_slices(eval_path: str | None = None) -> dict | str:
+    """Load market_slices from market_eval.json if it exists.
+
+    Returns the parsed dict when available, otherwise a deferred string
+    instructing the user to run scripts/market_eval.py.
+    """
+    candidates = [eval_path] if eval_path else [str(_DEFAULT_MARKET_EVAL)]
+    for path in candidates:
+        if path and Path(path).exists():
+            try:
+                return json.loads(Path(path).read_text())
+            except Exception:
+                pass
+    return "deferred (run: python -m scripts.market_eval to generate)"
+
 
 def _git_sha() -> str:
     try:
@@ -213,6 +231,9 @@ def main() -> int:
                          "config is 5 since 2026-06-10; pass 1 to disable bagging")
     ap.add_argument("--wide-grid", action="store_true",
                     help="Sweep min_child_weight/reg_lambda in the inner XGB grid (48 combos)")
+    ap.add_argument("--market-eval", default=None, metavar="PATH",
+                    help="Path to market_eval.json; if omitted looks for "
+                         "experiments/market_eval.json automatically")
     args = ap.parse_args()
 
     df, meta, snapshot_hash = _load_frame(args.frame)
@@ -282,7 +303,7 @@ def main() -> int:
         "source_health": _source_health_snapshot(),
         "feature_completeness": _feature_completeness(df, test_seasons),
         "asa_cache_freshness": _asa_cache_freshness(),
-        "market_slices": "deferred (no odds in frame; run against odds DB for edge/CLV slices)",
+        "market_slices": _load_market_slices(getattr(args, "market_eval", None)),
     }
 
     out_path = (Path(args.out) if args.out else

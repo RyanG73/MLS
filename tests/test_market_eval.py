@@ -1,4 +1,5 @@
-"""Tests for data_pipeline.market math primitives."""
+"""Tests for data_pipeline.market math primitives and market_eval aggregations."""
+import json
 import math
 import pytest
 from data_pipeline.market import devig, edge_pct, clv_pp
@@ -179,3 +180,29 @@ def test_roi_by_edge_bucket_empty_bucket_is_null():
     df["edge"] = -20.0  # all negative — no eligible rows
     result = roi_by_edge_bucket(df, thresholds=[0, 4, 8])
     assert result.get("8%+", {}).get("n", 0) == 0
+
+
+def test_model_report_market_slices_loads_from_json(tmp_path):
+    """model_report._load_market_slices fills from market_eval.json when present."""
+    fake_eval = {
+        "generated": "2026-06-27T00:00:00Z",
+        "mls": {"status": "no_odds_data", "n_with_odds": 0},
+        "european": {"epl": {"n_seasons_with_market": 4,
+                             "brier_vs_market": {"2024": {"model": 0.59,
+                                                          "market": 0.57}}}},
+    }
+    eval_path = tmp_path / "market_eval.json"
+    eval_path.write_text(json.dumps(fake_eval))
+
+    from scripts.model_report import _load_market_slices
+    result = _load_market_slices(str(eval_path))
+    assert result["mls"]["status"] == "no_odds_data"
+    assert result["european"]["epl"]["n_seasons_with_market"] == 4
+
+
+def test_model_report_market_slices_deferred_when_missing(tmp_path):
+    """_load_market_slices returns a deferred string when no file exists."""
+    from scripts.model_report import _load_market_slices
+    result = _load_market_slices(str(tmp_path / "nonexistent.json"))
+    assert isinstance(result, str)
+    assert "deferred" in result.lower()
