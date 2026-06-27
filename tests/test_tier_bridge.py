@@ -169,3 +169,36 @@ def test_brier_uniform_is_two_thirds():
     ]
     b = tb._brier(matches, delta=0.0)
     assert 0.0 < b < 2.0
+
+
+# ── fit_all ───────────────────────────────────────────────────────────────────
+
+def test_fit_all_dry_run_returns_dict_with_correct_keys():
+    """fit_all(dry_run=True) returns a dict with all three pair keys."""
+    from scripts.eval import tier_bridge as tb
+
+    def _fake_collect(tier2_lid, tier1_lid):
+        return {}  # Return too few matches → prior is used.
+
+    with mock.patch.object(tb, "_collect_tier_matches", side_effect=_fake_collect):
+        results = tb.fit_all(dry_run=True)
+
+    assert set(results.keys()) == {
+        "championship_to_epl",
+        "bundesliga-2_to_bundesliga",
+        "serie-b_to_serie-a",
+    }
+
+
+def test_fit_all_uses_prior_when_too_few_matches():
+    """fit_all falls back to static prior when < _MIN_MATCHES collected."""
+    from scripts.eval import tier_bridge as tb
+    from data_pipeline import coefficients as co
+
+    def _fake_collect(tier2_lid, tier1_lid):
+        return {}  # 0 matches → too few
+
+    with mock.patch.object(tb, "_collect_tier_matches", side_effect=_fake_collect):
+        results = tb.fit_all(dry_run=True)
+
+    assert results["championship_to_epl"] == co._TIER2_PRIORS["championship_to_epl"]

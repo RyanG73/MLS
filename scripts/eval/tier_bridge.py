@@ -291,3 +291,87 @@ def _loso_validate(
     if not bf:
         return float("nan"), float("nan"), 2 / 3
     return float(np.mean(bf)), float(np.mean(bp)), 2 / 3
+
+
+# ── main entry point ──────────────────────────────────────────────────────────
+
+def fit_all(lam: float = 0.01, dry_run: bool = False) -> dict[str, float]:
+    """Fit tier2→tier1 ELO offsets for all supported league pairs.
+
+    Returns a dict mapping key (e.g. ``championship_to_epl``) → fitted offset.
+    Writes ``experiments/tier2_offsets.json`` unless ``dry_run=True``.
+    Falls back to the static prior in _TIER2_PRIORS for any pair that fails
+    validation or has too few matches.
+    """
+    results: dict[str, float] = {}
+
+    for tier2_lid, tier1_lid in _TIER2_PAIRS:
+        key = f"{tier2_lid}_to_{tier1_lid}"
+        prior = co._TIER2_PRIORS.get(key, -100.0)
+        _log.info("fit_all: fitting %s → %s (prior=%.1f ELO)", tier2_lid, tier1_lid, prior)
+
+        try:
+            matches_by_season = _collect_tier_matches(tier2_lid, tier1_lid)
+        except Exception as e:
+            _log.warning("fit_all: failed to collect %s→%s: %s — using prior", tier2_lid, tier1_lid, e)
+            results[key] = prior
+            continue
+
+        all_matches = [m for ms in matches_by_season.values() for m in ms]
+
+        if len(all_matches) < _MIN_MATCHES:
+            _log.warning(
+                "fit_all: only %d matches for %s→%s (need %d) — using prior",
+                len(all_matches), tier2_lid, tier1_lid, _MIN_MATCHES,
+            )
+            results[key] = prior
+            continue
+
+        fitted = _fit_offset(all_matches, prior, lam)
+        brier_f, brier_p, brier_n = _loso_validate(matches_by_season, fitted, prior, lam)
+
+        _log.info(
+            "fit_all: %s→%s fitted=%.1f  LOSO brier: fitted=%.4f prior=%.4f naive=%.4f",
+            tier2_lid, tier1_lid, fitted, brier_f, brier_p, brier_n,
+        )
+
+        if abs(fitted - prior) > _MAX_DELTA_FROM_PRIOR:
+            _log.warning(
+                "fit_all: %s→%s offset %.1f deviates >%.0f ELO from prior %.1f — using prior",
+                tier2_lid, tier1_lid, fitted, _MAX_DELTA_FROM_PRIOR, prior,
+            )
+            results[key] = prior
+        elif not math.isnan(brier_f) and brier_f > brier_n:
+            _log.warning(
+                "fit_all: %s→%s fitted Brier %.4f > naive %.4f — using prior",
+                tier2_lid, tier1_lid, brier_f, brier_n,
+            )
+            results[key] = prior
+        else:
+            results[key] = round(fitted, 2)
+
+    if not dry_run:
+        _OFFSETS_JSON.parent.mkdir(parents=True, exist_ok=True)
+        _OFFSETS_JSON.write_text(json.dumps(results, indent=2))
+        _log.info("fit_all: wrote %s", _OFFSETS_JSON)
+    else:
+        _log.info("fit_all: dry-run, not writing JSON. Results: %s", results)
+
+    return results
+
+
+if __name__ == "__main__":
+    import argparse
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    parser = argparse.ArgumentParser(description="Fit 2nd-tier → 1st-tier ELO offsets")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Fit and report without writing experiments/tier2_offsets.json")
+    parser.add_argument("--lam", type=float, default=0.01,
+                        help="Ridge penalty weight (default 0.01)")
+    args = parser.parse_args()
+
+    out = fit_all(lam=args.lam, dry_run=args.dry_run)
+    print("\nResults:")
+    for k, v in out.items():
+        print(f"  {k}: {v:.1f}")
