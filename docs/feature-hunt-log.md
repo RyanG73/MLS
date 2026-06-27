@@ -1,5 +1,74 @@
 # MLS Feature Hunt Log
 
+## 2026-06-26 — DC Roster Prior Injection — NOT KEPT
+
+**Experiment:** Position-split roster-value z-scores (new_att, new_def, new_gk) injected
+into Dixon-Coles atk/dfd parameters after fit_dc(). Single α shrinkage coefficient tuned
+per fold on cal-fold raw DC Brier (grid: 0.0, 0.02, 0.05, 0.08, 0.12, 0.18).
+Flag: `--roster-dc-prior --xgb-bag 5 --seed 42`.
+
+| Season | α* | DC Brier (cal) | Ens Brier |
+|--------|----|----------------|-----------|
+| 2022   | 0.02 | 0.6415 | 0.6306 |
+| 2023   | 0.12 | 0.6506 | 0.6343 |
+| 2024   | 0.02 | 0.6494 | 0.6375 |
+| 2025   | 0.08 | 0.6456 | 0.6329 |
+| **Avg**| —  | 0.6468 | **0.6338** |
+
+Champion (no flag): avg `0.6330`
+With flag: avg `0.6338`  Δ = `+0.0008`
+
+**Verdict:** NOT KEPT — avg Brier 0.6338 regresses from 0.6330 (Δ=+0.0008, within seed σ≈0.001 but directionally unfavorable).
+
+**Root cause:** The season-static TM roster values provide no meaningful additional correction to DC attack/defense parameters that weren't already captured by the 120-day time-decayed match history; the small α* values chosen (0.02–0.12) indicate the cal-fold found only marginal shrinkage was helpful, and the downstream XGB ensemble couldn't recover the DC noise introduced.
+
+**Next:** Try dated intra-season TM snapshots (Layer C weekly scrape with `observed_at`) for true timing-aware roster injection, or explore a different ensemble architecture (e.g., stacked meta-learner trained directly on DC residuals).
+
+---
+
+## 2026-06-26 — Roster-Delta Features (player-value workstream, first pass) — **NOT KEPT (season-static)**
+
+Section 6c in `eval_baseline.py`: cross-season player-level TM comparison producing new-signing value,
+departed value, net roster delta, unseen-new-star value (new player above league P75), and positional
+breakdowns (ATT/DEF/GK). Raw player CSVs 2017–2026. All features z-scored within season.
+
+| AB set | XGB Brier (3-fold avg 2022–2024) | Δ vs Base | Keep? |
+|--------|----------------------------------|-----------|-------|
+| +RosterDelta | 0.6368 | −0.0027 | NO |
+| +UnseenStar  | 0.6373 | −0.0032 | NO |
+| +Departures  | 0.6380 | −0.0038 | NO |
+| +RosterFull  | 0.6393 | −0.0052 | NO |
+
+**Slice evaluation** (Base model vs naive) — the framework for future dating:
+
+| Slice | Model | Naive | Δ |
+|-------|-------|-------|---|
+| Early season (first 60d) | 0.6301 | 0.6406 | −0.0105 |
+| High roster disruption (top 33%) | 0.6156 | 0.6406 | −0.0250 |
+| Unseen new star (new > P75 value) | 0.6338 | 0.6406 | −0.0068 |
+| Significant departure (dep_z > 1) | 0.6214 | 0.6406 | −0.0191 |
+
+**Why it fails as XGB features:**
+- TM data is season-labeled, not dated. "New this season" is a noisy proxy when the model can't
+  distinguish March signings from pre-season arrivals.
+- XGBoost already captures squad strength ordering via `squad_value_diff_z` and ELO. Cross-season
+  delta features are a different decomposition of the same signal.
+- The squad value hierarchy changes slowly; year-over-year delta is small relative to within-season
+  ELO/xG updates.
+
+**What the slice evaluation reveals:**
+- The Base model already beats naive by a large margin on high-disruption matches (−0.0250). This is
+  NOT because the model detects disruption — it's because disruption occurs mostly for weaker teams
+  who were always going to lose. The feature needs dated snapshots to capture *which team* got a star.
+- Establishment of the slice framework is the key deliverable. When true dated Transfermarkt snapshots
+  exist (Layer C: weekly scrapes with `observed_at`), re-test these same slices to verify directional gain.
+
+**Validation:** `venv/bin/python scripts/eval_baseline.py --xgb-bag 5 --seed 42`
+**Architecture left to try:** inject roster-prior into DC attack/defense rates (third-pass per roadmap),
+not just XGB feature matrix. Season-static data won't help; dated data + DC injection is the real lever.
+
+---
+
 ## 2026-06-07 — +Referee (season-lagged referee bias) — **KEEP, first Brier win since plateau**
 
 Section 5m in `eval_baseline.py`: season-lagged per-referee home-win rate and draw rate,

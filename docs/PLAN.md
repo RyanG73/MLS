@@ -1,5 +1,18 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-06-26 — Section 4 DC Prior Injection ▶ DONE — NOT KEPT**
+> Per-fold α*: 2022:0.02, 2023:0.12, 2024:0.02, 2025:0.08. 4-fold avg Brier: 0.6338 vs champion 0.6330 (Δ=+0.0008).
+> Season-static TM data added only marginal DC correction; the tiny α* values confirm the cal-fold found almost no shrinkage signal, and the regression sits within seed noise (σ≈0.001) but is directionally unfavorable — NOT KEPT. Next: dated intra-season TM snapshots (Layer C weekly scrape + `observed_at`) for timing-aware roster injection.
+
+> **Section 4 — Roster-Delta First Pass (2026-06-26) ▶ DONE — NOT KEPT**
+> Added section 6c to `eval_baseline.py`: cross-season TM player comparison → 7 new feature families
+> (new_player_value_z, departed_value_z, net_roster_delta_z, unseen_new_star_z, positional ATT/DEF/GK).
+> AB result: all regress Brier (−0.0027 to −0.0052). Root cause: season-static TM data can't capture
+> mid-season signing timing that the feature is designed for. Slice evaluation framework established
+> (early_season, roster_change, unseen_star, departure slices print after per-season Brier table).
+> Positive finding: Base model already beats naive by −0.0250 on high-disruption matches.
+> Next lever: true dated TM snapshots (weekly scrape + `observed_at`) + DC rate injection (third pass).
+
 > **Section 2 — Data Acquisition & Source Ingestion (2026-06-21) ▶ DONE** — Created `docs/data-sources.md` register (all active + proposed sources, payload matrix, commit rules). Rewrote `data_pipeline/source_health.py` to be DB-free (parquet-backed; was dead code against Postgres). Added `observed_at` stamping + validation gates to `scripts/import_transfermarkt.py`. Created `data_pipeline/asa_cache.py` caching all ASA endpoints by mtime; wired into `build_dashboard_data.py`, `build_continental_data.py`, `eval/league_bridge.py`. 199/199 tests pass.
 
 > **Season rollover + roadmap round 2 (2026-06-20) ▶ IN PROGRESS**
