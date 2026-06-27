@@ -35,13 +35,10 @@ import pandas as pd
 from scipy.optimize import minimize
 
 from data_pipeline import coefficients as co
-from scripts.eval.cross_league import match_probs
+from scripts.eval.cross_league import _ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT, match_probs
 from scripts.eval.elo import compute_elo
 
 _log = logging.getLogger(__name__)
-
-# Champion ELO config — must match the rest of the platform.
-_ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT = 25.0, 80.0, 0.40, 1500.0
 
 # Only fit on seasons within the model training window.
 _TRAIN_FROM = 2017
@@ -87,7 +84,7 @@ def _build_fd_elo_history(league_id: str) -> dict[str, tuple[list, list]]:
         return _FD_ELO_HISTORY_CACHE[league_id]
 
     from data_pipeline.football_data import match_results
-    df = match_results(league_id).sort_values("date")
+    df = match_results(league_id).sort_values("date").reset_index(drop=True)
     df = df.dropna(subset=["home_goals", "away_goals"])
     if df.empty:
         _FD_ELO_HISTORY_CACHE[league_id] = {}
@@ -102,12 +99,12 @@ def _build_fd_elo_history(league_id: str) -> dict[str, tuple[list, list]]:
         if pd.isna(d):
             continue
         d = pd.Timestamp(d)
-        for team, elo in [(row["home_team"], float(row["home_elo"])),
-                          (row["away_team"], float(row["away_elo"]))]:
+        for team, elo_col in [(row["home_team"], row["home_elo"]),
+                              (row["away_team"], row["away_elo"])]:
             if team not in history:
                 history[team] = ([], [])
             history[team][0].append(d)
-            history[team][1].append(elo)
+            history[team][1].append(float(elo_col))
 
     _FD_ELO_HISTORY_CACHE[league_id] = history
     _log.info("_build_fd_elo_history: %s → %d teams", league_id, len(history))
