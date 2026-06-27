@@ -214,6 +214,12 @@ was rebuilt on a clean 4-fold basis. The champion's 0.6330 is the authoritative 
 
 ---
 
+## Section 8 maintainability cleanup (2026-06-27)
+
+Addressed the Codex Section 8 findings without touching the champion model. Three changes shipped: a shared `data_pipeline/http.py` (`espn_get()`) eliminated 5 independent copies of the ESPN HTTP boilerplate (`urllib3.disable_warnings()`, `_HDR`, `verify=False`); a minimal `pyproject.toml` + `pip install -e .` replaced 11 `sys.path.insert` workarounds across scripts; and two stale README references to deleted docs (`HANDOFF.md`, `CODE_WALKTHROUGH.md`) were corrected. Parity check held at Δ=0.0000 throughout. The payload writer (`write_js_payload`) and health-block builder (`health_feature_stats`) from `scripts/payload_utils.py` were already in place from prior work and not changed.
+
+---
+
 ## Permanent constraints (do not re-litigate without explicit instruction)
 
 See `CLAUDE.md` for the full decision list with dates. Key ones with rationale:
