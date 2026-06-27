@@ -24,13 +24,10 @@ import datetime
 import hashlib
 import json
 import subprocess
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from models.metrics import (brier_multiclass_sum, per_class_brier,
                             log_loss_multiclass)
@@ -49,12 +46,59 @@ def _git_sha() -> str:
 def _source_health_snapshot() -> dict:
     """Best-effort per-source coverage gate status (Phase A → promotion gate).
 
-    Returns {source: {parsed, floor, ok, success, error}} when the source_runs
-    table is reachable; {} otherwise (no DB at report time → gate skips the check).
+    Returns {source: {parsed, floor, ok, success, error, fetched_at, endpoint}}
+    keyed by source name; {} otherwise (no health file → gate skips the check).
     """
     try:
         from data_pipeline.source_health import coverage_gate_status
         return coverage_gate_status()
+    except Exception:
+        return {}
+
+
+def _feature_completeness(df: pd.DataFrame, test_seasons: list) -> dict:
+    """Per-season null rates for key feature families in the test window.
+
+    Returns {season: {feature: null_fraction}} for the rows the model was
+    actually evaluated on, so calibration and Brier are interpretable alongside
+    feature coverage. Only columns with at least one null are included to keep
+    the report concise when data is clean.
+    """
+    key_feats = [
+        "home_elo", "away_elo",
+        "home_form_5", "away_form_5",
+        "home_xg_roll_5", "away_xg_roll_5",
+        "home_xga_roll_5", "away_xga_roll_5",
+        "home_xg_roll_10", "away_xg_roll_10",
+        "home_gk_z", "away_gk_z",
+        "home_xg_oe_z", "away_xg_oe_z",
+        "home_avail_share", "away_avail_share",
+        "home_dp_avail", "away_dp_avail",
+    ]
+    present = [c for c in key_feats if c in df.columns]
+    if not present:
+        return {}
+    test_df = df[df["season"].isin(test_seasons)]
+    out: dict = {}
+    for s, grp in test_df.groupby("season"):
+        n = len(grp)
+        if n == 0:
+            continue
+        season_nulls = {
+            c: round(float(grp[c].isna().sum() / n), 4)
+            for c in present
+            if grp[c].isna().any()
+        }
+        if season_nulls:
+            out[str(s)] = season_nulls
+    return out
+
+
+def _asa_cache_freshness() -> dict:
+    """Best-effort freshness summary for ASA parquet cache files."""
+    try:
+        from data_pipeline.asa_cache import cache_status
+        return cache_status()
     except Exception:
         return {}
 
@@ -236,6 +280,8 @@ def main() -> int:
                 np.sum((P - np.eye(3)[y]) ** 2, axis=1), 6).tolist(),
         },
         "source_health": _source_health_snapshot(),
+        "feature_completeness": _feature_completeness(df, test_seasons),
+        "asa_cache_freshness": _asa_cache_freshness(),
         "market_slices": "deferred (no odds in frame; run against odds DB for edge/CLV slices)",
     }
 

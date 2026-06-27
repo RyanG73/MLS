@@ -23,15 +23,12 @@ Usage:
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 from sklearn.metrics import log_loss
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from models.metrics import brier_multiclass_sum, per_class_brier
 

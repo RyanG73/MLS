@@ -18,8 +18,6 @@ from pathlib import Path
 
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 # Parity target = the live champion's avg_brier (experiments/champion.report.json),
 # so this check always guards the actual champion rather than a hardcoded snapshot.
 # Fallback covers a fresh checkout where the report is absent.

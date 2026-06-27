@@ -16,13 +16,11 @@ Usage: python scripts/build_dashboard_data.py [--season 2026] [--sims 20000]
 import argparse
 import json
 import subprocess
-import sys
 import unicodedata
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data_pipeline.http import espn_get  # noqa: E402
 from scripts.payload_utils import write_js_payload, health_feature_stats  # noqa: E402

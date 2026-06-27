@@ -29,7 +29,10 @@ The active system is **database-free**: the research harness validates the model
 python3.11 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+pip install -e .   # editable install — makes scripts/, data_pipeline/, and models/ importable
 ```
+
+This is required once per checkout so that project packages are importable without path workarounds.
 
 Optional environment (only needed for live odds logging):
 

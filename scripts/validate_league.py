@@ -24,13 +24,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 import time
 from pathlib import Path
 
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).parent.parent))  # repo root on sys.path
 
 from data_pipeline.understat import BIG5, canonical_frame
 from models.research_model import DEFAULT_N_BAGS, walk_forward

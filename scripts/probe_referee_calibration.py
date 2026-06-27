@@ -36,7 +36,6 @@ Usage:
 
 import argparse
 import pickle
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -45,7 +44,6 @@ from scipy.optimize import minimize, minimize_scalar
 from sklearn.metrics import log_loss
 
 REPO_ROOT = Path(__file__).parent.parent.resolve()
-sys.path.insert(0, str(REPO_ROOT))
 
 from models.metrics import brier_multiclass_sum
 from models.research_model import (

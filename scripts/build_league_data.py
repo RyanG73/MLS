@@ -30,13 +30,10 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).parent.parent))  # repo root on sys.path
 
 from data_pipeline.understat import canonical_frame, espn_name
 from data_pipeline.football_data import match_results

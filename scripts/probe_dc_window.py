@@ -18,13 +18,10 @@ Usage: python scripts/probe_dc_window.py [--frame data/parity_frame.parquet]
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from models.metrics import brier_multiclass_sum
 

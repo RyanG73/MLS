@@ -19,8 +19,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 from models.research_model import fit_xgb, bag_proba, calibrate_temperature  # noqa: E402
 from models.metrics import brier_multiclass_sum  # noqa: E402
 

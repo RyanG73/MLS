@@ -51,7 +51,6 @@ import xgboost as xgb
 import urllib3
 import sys as _sys
 import pathlib as _pathlib
-_sys.path.insert(0, str(_pathlib.Path(__file__).parent.parent))
 from models.metrics import (
     brier_multiclass_sum as _brier_sum,
     per_class_brier as _per_class_brier,
