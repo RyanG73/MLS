@@ -1,5 +1,11 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-06-27 — Section 9 Market Evaluation & CLV ▶ DONE**
+> Added DB-free market evaluation pipeline. `data_pipeline/market.py` is now the canonical vig/CLV math module (`devig`, `edge_pct`, `clv_pp`). `odds_log.py` gained `log_closers()` for near-kickoff closing-line capture. New `scripts/market_eval.py` generates `experiments/market_eval.json` with per-season model vs market Brier (European Big-5 reads from existing webapp payloads; MLS reads from `odds_log.parquet`, reports `no_odds_data` until lines accumulate). `model_report.py` gains `--market-eval` flag to fill the previously-deferred `market_slices` field. Market odds remain strictly evaluation-only — never added to `parity_frame.parquet` or training features. 22 tests pass.
+
+> **2026-06-27 — Section 5 Source Health & Model Governance ▶ DONE**
+> Wired source health tracking across all three active adapters (ASA, ESPN/Liga MX, Understat). Fixed `coverage_gate_status()` to use per-source significant-endpoint filtering so auxiliary calls like `get_teams` can't mask missing match-data records. Added `understat` and `football_data` to coverage floors. Champion reports now include `feature_completeness` (per-season null rates for key features: GK, xG-OE, ELO, form, availability) and `asa_cache_freshness`. Promotion gate gains an advisory `feature_completeness` check (non-blocking, flags >20% null features). Gate self-test extended to 7 cases. 209 tests pass; no model behavior changed.
+
 > **2026-06-26 — Section 4 DC Prior Injection ▶ DONE — NOT KEPT**
 > Per-fold α*: 2022:0.02, 2023:0.12, 2024:0.02, 2025:0.08. 4-fold avg Brier: 0.6338 vs champion 0.6330 (Δ=+0.0008).
 > Season-static TM data added only marginal DC correction; the tiny α* values confirm the cal-fold found almost no shrinkage signal, and the regression sits within seed noise (σ≈0.001) but is directionally unfavorable — NOT KEPT. Next: dated intra-season TM snapshots (Layer C weekly scrape + `observed_at`) for timing-aware roster injection.

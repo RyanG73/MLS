@@ -142,6 +142,36 @@ make test                   # DB-free unit suite
 make odds-log               # append Pinnacle opening lines to data/odds_log.parquet
 ```
 
+### Market Evaluation & CLV
+
+```bash
+# Log opening lines before a match day (requires ODDS_API_KEY)
+ODDS_API_KEY=<key> python -m data_pipeline.odds_log
+
+# Log closing lines within 3 hours of kickoff
+ODDS_API_KEY=<key> python -m data_pipeline.odds_log --closers
+
+# Generate market evaluation report (European Big-5 + MLS) → experiments/market_eval.json
+python -m scripts.market_eval
+
+# Attach market_eval.json to a model report
+python scripts/model_report.py --frame data/parity_frame.parquet --market-eval experiments/market_eval.json
+```
+
+**Key files:**
+| File | Purpose |
+|------|---------|
+| `data_pipeline/market.py` | `devig()`, `edge_pct()`, `clv_pp()` math primitives |
+| `data_pipeline/odds_log.py` | Pinnacle h2h fetcher; `log_openers()` / `log_closers()` |
+| `scripts/market_eval.py` | Full report builder; importable `brier_vs_market()` / `roi_by_edge_bucket()` |
+| `data/odds_log.parquet` | Forward-only opening lines (MLS, Pinnacle) |
+| `data/odds_closers.parquet` | Near-kickoff closing lines (MLS, Pinnacle) |
+| `experiments/market_eval.json` | Generated market evaluation report |
+
+**European data source:** football-data.co.uk Pinnacle/market-average closing odds, pre-computed in `webapp/data/*.js` payloads — no separate fetch needed for historical seasons.
+
+**MLS data:** forward-only from The Odds API. Historical Brier vs market comparison becomes meaningful once ~100+ fixtures accumulate in `odds_log.parquet`.
+
 ---
 
 ## Legacy / Archived (under legacy/, not in the active path)
