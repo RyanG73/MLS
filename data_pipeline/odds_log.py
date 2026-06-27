@@ -32,7 +32,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -47,6 +47,7 @@ _SPORT = SETTINGS["market"]["sport_key"]
 _REGIONS = SETTINGS["market"]["regions"]
 _ODDS_FORMAT = SETTINGS["market"]["odds_format"]
 _LOG_PATH = Path("data/odds_log.parquet")
+_CLOSERS_PATH = Path("data/odds_closers.parquet")
 
 
 def _fixture_key(home: str, away: str, commence: str) -> str:
@@ -143,9 +144,65 @@ def log_openers(dry_run: bool = False) -> int:
     return len(new)
 
 
+def log_closers(
+    dry_run: bool = False,
+    minutes_to_kickoff: int = 180,
+    closers_path: Path | None = None,
+) -> int:
+    """Capture current Pinnacle odds for near-kickoff MLS fixtures.
+
+    Unlike log_openers (which never overwrites), this overwrites each fixture's
+    rows on every call so repeated runs converge to the true closing line.
+    Returns number of outcome rows written (3 per fixture: home/draw/away).
+    """
+    out_path = Path(closers_path) if closers_path else _CLOSERS_PATH
+    fresh = fetch_opening_odds()  # same endpoint — current market odds
+    if fresh.empty:
+        print("[odds_log] closers: nothing fetched.")
+        return 0
+
+    now = datetime.now(timezone.utc)
+    cutoff = now + timedelta(minutes=minutes_to_kickoff)
+
+    def _is_soon(commence: str) -> bool:
+        try:
+            t = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+            return t <= cutoff
+        except Exception:
+            return False
+
+    near = fresh[fresh["commence_time"].apply(_is_soon)]
+    n_fix = near["fixture_key"].nunique()
+    if near.empty:
+        print(f"[odds_log] closers: no fixtures within {minutes_to_kickoff}min of kickoff.")
+        return 0
+    if dry_run:
+        print(f"[odds_log] DRY-RUN closers: would write {len(near)} rows / {n_fix} fixtures.")
+        return 0
+
+    existing = (pd.read_parquet(out_path)
+                if out_path.exists() else pd.DataFrame(columns=fresh.columns))
+    # Overwrite rows for near-kickoff fixtures (closer to true closing line)
+    kept = (existing[~existing["fixture_key"].isin(near["fixture_key"])]
+            if not existing.empty else existing)
+    combined = pd.concat([kept, near], ignore_index=True)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    combined.to_parquet(out_path, index=False)
+    print(f"[odds_log] closers: wrote {len(near)} rows / {n_fix} fixtures → {out_path}.")
+    return len(near)
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--dry-run", action="store_true",
-                    help="Fetch and print openers without writing the parquet log")
-    log_openers(dry_run=ap.parse_args().dry_run)
+                    help="Fetch and print without writing")
+    ap.add_argument("--closers", action="store_true",
+                    help="Capture closing-proxy odds for near-kickoff fixtures")
+    ap.add_argument("--minutes", type=int, default=180,
+                    help="Kickoff window in minutes for --closers (default 180)")
+    a = ap.parse_args()
+    if a.closers:
+        log_closers(dry_run=a.dry_run, minutes_to_kickoff=a.minutes)
+    else:
+        log_openers(dry_run=a.dry_run)

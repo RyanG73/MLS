@@ -92,3 +92,11 @@ def test_clv_pp_rejects_infinity():
         clv_pp(float('inf'), 0.4)
     with pytest.raises(ValueError):
         clv_pp(0.4, float('inf'))
+
+
+def test_log_closers_returns_zero_without_api_key(tmp_path, monkeypatch):
+    """log_closers is a no-op when ODDS_API_KEY is missing."""
+    monkeypatch.delenv("ODDS_API_KEY", raising=False)
+    from data_pipeline.odds_log import log_closers
+    n = log_closers(dry_run=True, closers_path=tmp_path / "closers.parquet")
+    assert n == 0
