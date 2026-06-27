@@ -2,6 +2,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from data_pipeline.http import espn_get
 
@@ -32,3 +33,11 @@ def test_espn_get_passes_params_and_headers():
         verify=False,
         timeout=15,
     )
+
+
+def test_espn_get_raises_on_http_error():
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+    with patch("data_pipeline.http.requests.get", return_value=mock_resp):
+        with pytest.raises(requests.HTTPError):
+            espn_get("https://example.com/api")
