@@ -1,5 +1,7 @@
 # Promoted Teams and Cross-League Strength Implementation Plan
 
+> **VERDICT (2026-06-27): COMPLETE.** All 9 tasks shipped. tier_bridge fits ELO offsets from 8 seasons × 3 pairs (912/578/912 first-season promoted-team matches). Fitted offsets ≈ static priors (ridge penalty active, priors well-calibrated). LOSO Brier 0.6278/0.6292/0.6313 vs naive 0.6667 — validation passes. Power rankings gain a "UEFA Tier 2" group (62 teams). EPL seeding confirmed: e.g. Ipswich (Championship ELO 1625 → adj 1505) gets near-average EPL seed vs flat prior that gave every promoted team identical weak seed. 402/402 suite tests passing (2 pre-existing failures unrelated).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the flat 15th-percentile promoted-team DC seed with a prior derived from actual 2nd-tier ELO, add 2nd-tier teams to the power rankings, and validate using in-season Brier on historically promoted teams.

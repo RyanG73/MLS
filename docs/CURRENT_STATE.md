@@ -18,6 +18,13 @@ definitions, data sources, and run commands. Update it when any of these change.
 4. Capped-DC convex blend: `w * XGB + (1-w) * DC`, w ∈ [0.7, 1.0], fitted by Brier minimisation on cal fold
 5. Second-pass temperature calibration on the blend output (fixes the pre-blend calibration bug that caused cal_err=0.1326)
 
+**Promoted-team seeding (European leagues, added 2026-06-27):**
+- Replaces flat 15th-pct attack / 85th-pct defense with tier-bridge seeding from actual 2nd-tier ELO
+- `scripts/eval/tier_bridge.py` fits one ELO offset δ per league pair (Championship→EPL, 2.Bundesliga→Bundesliga, Serie B→Serie A) from 8 seasons of historical promoted-team first-season outcomes
+- Fitted offsets stored in `experiments/tier2_offsets.json`; static priors used as fallback
+- Validated: LOSO Brier (0.6278 / 0.6292 / 0.6313) well below naive baseline (0.6667); fitted ≈ static priors (ridge penalty active; priors well-calibrated)
+- Power rankings gain a "UEFA Tier 2" group (Championship, 2.Bundesliga, Serie B) on the EPL=0 scale
+
 **Walk-forward evaluation config:**
 - Train data: 2017+, 2020 excluded (COVID bubble); 2021 retained in training + as 2022 cal fold (A/B-validated 2026-06-09: excluding it costs +0.0019 Brier)
 - Test seasons: 2022–2025 (2022 evaluates with the 2021 cal fold; 2025 added 2026-06-09 once the
