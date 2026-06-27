@@ -25,6 +25,8 @@ experiments/*.json
 !experiments/champion-4fold.report.json
 # Track the Approach C bridge-regression fitted offsets (small, deterministic output)
 !experiments/league_offsets.json
+# Track the tier-2 → tier-1 ELO offsets (small, deterministic output of tier_bridge.py)
+!experiments/tier2_offsets.json
 # Probe blend cache (large, regenerable)
 experiments/_referee_blends.pkl
 
