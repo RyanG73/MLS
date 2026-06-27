@@ -2985,6 +2985,7 @@ for test_season in TEST_SEASONS:
         h, d, a = per_class_brier(y_te_oh, dc_cal_te3)
         r["dc_cal_h"], r["dc_cal_d"], r["dc_cal_a"] = h, d, a
         r["dc_cal_err_max"], _ = decile_cal_error(dc_cal_te3[:, 0], (y_te_r == 0))
+        r["dc_prior_alpha"] = _dc_prior_alpha
 
     if xgb_ok:
         r["xgb_brier_raw"] = multiclass_brier(y_te_oh, xgb_te_probs_best)
@@ -3197,6 +3198,8 @@ dcols = ["season", "n", "naive_brier"]
 for c in ["dc_brier_cal", "xgb_brier_cal", "ens_stacked_brier"]:
     if c in rd.columns:
         dcols.append(c)
+if "dc_prior_alpha" in rd.columns and _ARGS.roster_dc_prior:
+    dcols.append("dc_prior_alpha")
 print(rd[dcols].to_string(index=False, float_format="{:.4f}".format))
 
 # Roster-change slice evaluation summary
