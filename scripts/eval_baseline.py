@@ -2542,8 +2542,21 @@ for test_season in TEST_SEASONS:
 
     # ── Dixon-Coles ──────────────────────────────────────────────────────────
     dc_ok = False
+    _dc_prior_alpha = 0.0
     try:
         atk, dfd, ha, rho = fit_dc(train_raw, decay_hl=DC_DECAY_HL)
+        if _ARGS.roster_dc_prior and _HAS_ROSTER_DELTA:
+            _best_pr_b, _dc_prior_alpha = float("inf"), 0.0
+            for _a in (0.0, 0.02, 0.05, 0.08, 0.12, 0.18):
+                _a_atk, _a_dfd = apply_roster_dc_prior(
+                    atk, dfd, test_season, _rd_z, _hex_to_short, _a)
+                _pr_b = multiclass_brier(
+                    y_cal_oh, dc_predict_batch(cal_raw, _a_atk, _a_dfd, ha, rho))
+                if _pr_b < _best_pr_b:
+                    _best_pr_b, _dc_prior_alpha = _pr_b, _a
+            atk, dfd = apply_roster_dc_prior(
+                atk, dfd, test_season, _rd_z, _hex_to_short, _dc_prior_alpha)
+            print(f" | α={_dc_prior_alpha:.2f}", end="", flush=True)
         dc_pred_cal = dc_predict_batch(cal_raw, atk, dfd, ha, rho)
         dc_pred_te  = dc_predict_batch(test_raw, atk, dfd, ha, rho)
         dc_cal_te3  = calibrate_multiclass(dc_pred_cal, y_cal_r, dc_pred_te)
