@@ -114,11 +114,18 @@ Validated values that must match CLAUDE.md:
 
 ## Dependencies & Reproducibility (F7)
 
-- **Python:** 3.11 (pinned in `.python-version`).
-- **Spec:** `requirements.txt` — lower bounds (minimum tested) + upper bounds
-  (next major) to stop a silent breaking upgrade.
-- **Lockfile:** `requirements.lock` (optional) is environment-specific —
-  regenerate on whatever machine you deploy from:
+- **Python:** 3.13 (pinned in `.python-version`; venv runs 3.13.1).
+- **Dependency files:**
+  - `requirements.txt` — active build/model only (lower + upper bounds).
+  - `requirements-dev.txt` — test runners + research tools; includes `-r requirements.txt`.
+  - `requirements-legacy.txt` — archived Pi/Postgres/Streamlit stack; includes `-r requirements.txt`.
+- **Install:**
+  ```bash
+  make install        # active build deps only
+  make install-dev    # active + test/research deps
+  make install-editable  # once per checkout: make scripts/, data_pipeline/, models/ importable
+  ```
+- **Lockfile:** `requirements.lock` is environment-specific — regenerate on the target machine:
   ```bash
   make lock                          # pip freeze > requirements.lock
   pip install -r requirements.lock   # reproducible install
