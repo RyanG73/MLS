@@ -13,6 +13,7 @@ import pytest
 
 from scripts.eval.dixon_coles import (
     dc_tau, fit_dc, dc_predict, dc_predict_batch, dc_lam_mu_batch,
+    apply_roster_dc_prior,
 )
 
 
@@ -129,3 +130,83 @@ class TestFitDc:
         atk, dfd, ha, rho = fit_dc(df, decay_hl=120, recent_seasons=1)
         # All teams still present (toy data has all teams every season), params finite
         assert all(math.isfinite(v) for v in atk.values())
+
+
+# ── apply_roster_dc_prior ─────────────────────────────────────────────────────
+
+class TestApplyRosterDcPrior:
+    """Unit tests for position-split DC parameter adjustment."""
+
+    def _base(self):
+        atk = {"teamA": 0.3, "teamB": -0.1}
+        dfd = {"teamA": 0.1, "teamB":  0.2}
+        return atk, dfd
+
+    def test_alpha_zero_returns_unchanged_params(self):
+        atk, dfd = self._base()
+        a2, d2 = apply_roster_dc_prior(atk, dfd, 2024, {}, {}, alpha=0.0)
+        assert a2 == atk
+        assert d2 == dfd
+
+    def test_new_attacker_increases_atk_only(self):
+        atk, dfd = self._base()
+        rd_z = {("A", 2024): {"new_att_value_z": 1.0, "new_def_value_z": 0.0, "new_gk_value_z": 0.0}}
+        hex_to_short = {"teamA": "A"}
+        a2, d2 = apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10)
+        assert a2["teamA"] == pytest.approx(atk["teamA"] + 0.10)
+        assert d2["teamA"] == pytest.approx(dfd["teamA"])         # dfd unchanged
+        assert a2["teamB"] == atk["teamB"]                         # other team unchanged
+
+    def test_new_gk_decreases_dfd_only(self):
+        atk, dfd = self._base()
+        rd_z = {("A", 2024): {"new_att_value_z": 0.0, "new_def_value_z": 0.0, "new_gk_value_z": 1.0}}
+        hex_to_short = {"teamA": "A"}
+        a2, d2 = apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10)
+        assert d2["teamA"] == pytest.approx(dfd["teamA"] - 0.10)  # dfd decreases
+        assert a2["teamA"] == pytest.approx(atk["teamA"])          # atk unchanged
+
+    def test_new_def_decreases_dfd_only(self):
+        atk, dfd = self._base()
+        rd_z = {("A", 2024): {"new_att_value_z": 0.0, "new_def_value_z": 1.0, "new_gk_value_z": 0.0}}
+        hex_to_short = {"teamA": "A"}
+        a2, d2 = apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10)
+        assert d2["teamA"] == pytest.approx(dfd["teamA"] - 0.10)
+
+    def test_def_and_gk_adjustments_are_additive(self):
+        atk, dfd = self._base()
+        rd_z = {("A", 2024): {"new_att_value_z": 0.0, "new_def_value_z": 1.0, "new_gk_value_z": 1.0}}
+        hex_to_short = {"teamA": "A"}
+        a2, d2 = apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10)
+        # def_z + gk_z = 2.0 → dfd decreases by alpha * 2.0 = 0.20, capped at 0.25
+        assert d2["teamA"] == pytest.approx(dfd["teamA"] - 0.20)
+
+    def test_adjustment_capped_at_max_adj(self):
+        atk, dfd = self._base()
+        # z=10.0, alpha=0.10 → uncapped = 1.0, capped = 0.25
+        rd_z = {("A", 2024): {"new_att_value_z": 10.0, "new_def_value_z": 0.0, "new_gk_value_z": 0.0}}
+        hex_to_short = {"teamA": "A"}
+        a2, _ = apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10, max_adj=0.25)
+        assert a2["teamA"] == pytest.approx(atk["teamA"] + 0.25)
+
+    def test_season_minus1_fallback(self):
+        atk, dfd = self._base()
+        # Entry only for season 2023, not 2024
+        rd_z = {("A", 2023): {"new_att_value_z": 1.0, "new_def_value_z": 0.0, "new_gk_value_z": 0.0}}
+        hex_to_short = {"teamA": "A"}
+        a2, _ = apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10)
+        assert a2["teamA"] == pytest.approx(atk["teamA"] + 0.10)  # used season-1 entry
+
+    def test_missing_entry_leaves_params_unchanged(self):
+        atk, dfd = self._base()
+        a2, d2 = apply_roster_dc_prior(atk, dfd, 2024, {}, {}, alpha=0.10)
+        assert a2 == atk
+        assert d2 == dfd
+
+    def test_does_not_mutate_original_dicts(self):
+        atk, dfd = self._base()
+        atk_copy, dfd_copy = dict(atk), dict(dfd)
+        rd_z = {("A", 2024): {"new_att_value_z": 1.0, "new_def_value_z": 1.0, "new_gk_value_z": 0.5}}
+        hex_to_short = {"teamA": "A"}
+        apply_roster_dc_prior(atk, dfd, 2024, rd_z, hex_to_short, alpha=0.10)
+        assert atk == atk_copy
+        assert dfd == dfd_copy

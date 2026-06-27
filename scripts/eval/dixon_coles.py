@@ -151,3 +151,39 @@ def dc_draw_prob_batch(split_df, atk, dfd, ha, rho, max_g: int = 8) -> np.ndarra
         )
         result.append(float(p_draw))
     return np.array(result)
+
+
+def apply_roster_dc_prior(
+    atk: dict,
+    dfd: dict,
+    season: int,
+    rd_z: dict,
+    hex_to_short: dict,
+    alpha: float,
+    max_adj: float = 0.25,
+) -> tuple:
+    """Adjust DC attack/defense parameters using position-split roster value z-scores.
+
+    Called after fit_dc(), before any dc_predict_batch() call:
+      atk_adj[team] +=  clip(alpha * new_att_value_z,               -max_adj, +max_adj)
+      dfd_adj[team] -=  clip(alpha * (new_def_value_z + new_gk_value_z), -max_adj, +max_adj)
+
+    dfd[team] is defense VULNERABILITY (higher = weaker defense = more goals allowed),
+    so a defensive signing DECREASES dfd (fewer goals allowed against the team).
+
+    Returns shallow-copied (atk_adj, dfd_adj). Does not mutate the inputs.
+    Lookup falls back to (short, season-1) when current season has no entry.
+    """
+    atk_adj = dict(atk)
+    dfd_adj = dict(dfd)
+    for team_id in list(atk.keys()):
+        short = hex_to_short.get(team_id, team_id)
+        entry = rd_z.get((short, season)) or rd_z.get((short, season - 1))
+        if not entry:
+            continue
+        att_z = entry.get("new_att_value_z", 0.0) or 0.0
+        def_z = entry.get("new_def_value_z", 0.0) or 0.0
+        gk_z  = entry.get("new_gk_value_z",  0.0) or 0.0
+        atk_adj[team_id] += float(np.clip(alpha * att_z,           -max_adj, max_adj))
+        dfd_adj[team_id] -= float(np.clip(alpha * (def_z + gk_z),  -max_adj, max_adj))
+    return atk_adj, dfd_adj
