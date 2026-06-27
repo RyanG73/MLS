@@ -181,6 +181,12 @@ def _parse_args() -> "_ap.Namespace":
     p.add_argument("--smoke-test",   action="store_true",
                    help="Run 2024-only eval and assert Brier within 0.001 of pinned "
                         "reference (0.6346). Gate before refactoring eval_baseline.py.")
+    p.add_argument("--roster-dc-prior", action="store_true",
+                   help="P4 experiment: after fit_dc(), adjust atk/dfd parameters using "
+                        "position-split roster-value z-scores (new_att_value_z, "
+                        "new_def_value_z, new_gk_value_z). Requires --transfermarkt "
+                        "data. α shrinkage tuned per fold on cal-fold raw DC Brier "
+                        "from grid {0.0, 0.02, 0.05, 0.08, 0.12, 0.18}.")
     return p.parse_args()
 
 
@@ -1206,6 +1212,186 @@ if FETCH_TRANSFERMARKT:
 else:
     print("\n[6b/9] Transfermarkt skipped (FETCH_TRANSFERMARKT=False). Set True to enable.")
 
+# ─── 6c. Roster-delta features (player-level TM: signings, departures, current) ─
+# First-pass player-value workstream (Section 4 improvement roadmap).
+# Loads raw player-level TM CSVs and computes cross-season roster changes.
+#
+# Leakage note: TM data is season-labeled, not date-stamped. Features are
+# treated as "known at season start" (Layer A/B approximation per the roadmap).
+# True dated snapshots (Layer C) require weekly archive builds going forward.
+#
+# Features computed per team-season (home/away/diff variants at match level):
+#   new_player_value_z    — total inbound transfer value, z-scored within season
+#   departed_value_z      — total outbound transfer value, z-scored within season
+#   net_roster_delta_z    — (new − departed), z-scored within season
+#   unseen_new_star_z     — value from new players above league P75 market value
+#   new_att_value_z       — new attacker (ATT) value z-scored
+#   new_def_value_z       — new defender (DEF) value z-scored
+#   new_gk_value_z        — new goalkeeper (GK) value z-scored
+
+_HAS_ROSTER_DELTA = False
+if FETCH_TRANSFERMARKT and _HAS_TM:
+    print("\n[6c/9] Building roster-delta features (player-level TM)...")
+
+    _PG: dict[str, str] = {
+        "goalkeeper": "GK",
+        "centre-back": "DEF", "center-back": "DEF", "left-back": "DEF",
+        "right-back": "DEF", "left back": "DEF", "right back": "DEF",
+        "defender": "DEF", "sweeper": "DEF",
+        "central midfield": "MID", "defensive midfield": "MID",
+        "left midfield": "MID", "right midfield": "MID",
+        "midfield": "MID", "midfielder": "MID",
+        "attacking midfield": "ATT", "left winger": "ATT", "right winger": "ATT",
+        "winger": "ATT", "centre-forward": "ATT", "center-forward": "ATT",
+        "striker": "ATT", "forward": "ATT", "second striker": "ATT",
+    }
+
+    # TM team name → ASA short code (built from the mapped CSVs already loaded in 6b)
+    _tm_name_to_short: dict[str, str] = {}
+    for _csv in _tm_csvs:
+        try:
+            _mdf = pd.read_csv(_csv, usecols=["tm_team_name", "asa_team_id"])
+            for _, _mr in _mdf.iterrows():
+                _tn = _mr.get("tm_team_name")
+                _ai = _mr.get("asa_team_id")
+                if isinstance(_tn, str) and isinstance(_ai, str) and _tn and _ai:
+                    _tm_name_to_short[_tn.strip()] = _ai.strip()
+        except Exception:
+            continue
+
+    # Load raw player-level CSVs.  2025+ uses _raw.csv; 2017-2024 uses untagged file.
+    _DATA_DIR_RC = os.path.join(os.path.dirname(__file__), "..", "data")
+    _raw_rosters: dict[int, pd.DataFrame] = {}
+    for _s in range(2017, 2028):
+        for _sfx in ("_raw", ""):
+            _p = os.path.join(_DATA_DIR_RC,
+                              f"transfermarkt_squad_values_{_s}{_sfx}.csv")
+            if os.path.exists(_p):
+                try:
+                    _rdf = pd.read_csv(_p)
+                    if "player_name" in _rdf.columns and len(_rdf) > 1:
+                        _rdf["market_value_eur"] = pd.to_numeric(
+                            _rdf["market_value_eur"], errors="coerce").fillna(0.0)
+                        _raw_rosters[_s] = _rdf
+                        break
+                except Exception:
+                    pass
+
+    # Cross-season comparison: new = in cur but not prior; departed = in prior but not cur.
+    _rd_raw: dict[tuple, dict] = {}  # (short_code, season) → raw EUR aggregates
+    for _s in sorted(_raw_rosters.keys()):
+        cur_df  = _raw_rosters[_s]
+        prev_df = _raw_rosters.get(_s - 1)
+
+        # League-wide P75 player value for "unseen new star" threshold
+        _all_vals = cur_df["market_value_eur"].dropna()
+        _p75 = float(_all_vals.quantile(0.75)) if len(_all_vals) > 10 else 0.0
+
+        for _tm_name in cur_df["tm_team_name"].dropna().unique():
+            short = _tm_name_to_short.get(str(_tm_name).strip())
+            if not short:
+                continue
+
+            cur_players  = cur_df[cur_df["tm_team_name"] == _tm_name].copy()
+            cur_names    = set(cur_players["player_name"].dropna().str.strip())
+
+            if prev_df is not None and _tm_name in prev_df["tm_team_name"].values:
+                prev_players = prev_df[prev_df["tm_team_name"] == _tm_name].copy()
+                prev_names   = set(prev_players["player_name"].dropna().str.strip())
+            else:
+                prev_players = pd.DataFrame()
+                prev_names   = set()
+
+            new_df = cur_players[
+                cur_players["player_name"].str.strip().isin(cur_names - prev_names)
+            ]
+            new_value = float(new_df["market_value_eur"].clip(lower=0).sum())
+
+            dep_value = 0.0
+            if len(prev_players) > 0:
+                dep_df    = prev_players[
+                    ~prev_players["player_name"].str.strip().isin(cur_names)
+                ]
+                dep_value = float(dep_df["market_value_eur"].clip(lower=0).sum())
+
+            star_df      = new_df[new_df["market_value_eur"] > _p75]
+            unseen_star  = float(star_df["market_value_eur"].clip(lower=0).sum())
+
+            new_att = new_def = new_gk = 0.0
+            for _, _pr in new_df.iterrows():
+                _pg = _PG.get(str(_pr.get("position", "") or "").strip().lower(), "MID")
+                _v  = float(_pr.get("market_value_eur", 0) or 0)
+                if _pg == "ATT":
+                    new_att += _v
+                elif _pg == "DEF":
+                    new_def += _v
+                elif _pg == "GK":
+                    new_gk += _v
+
+            _rd_raw[(short, _s)] = {
+                "new_player_value": new_value,
+                "departed_value":   dep_value,
+                "net_roster_delta": new_value - dep_value,
+                "unseen_new_star":  unseen_star,
+                "new_att_value":    new_att,
+                "new_def_value":    new_def,
+                "new_gk_value":     new_gk,
+            }
+
+    # Z-score each field within season (scale-free differentials)
+    _rd_z: dict[tuple, dict] = {}
+    _RD_FIELDS = ["new_player_value", "departed_value", "net_roster_delta",
+                  "unseen_new_star", "new_att_value", "new_def_value", "new_gk_value"]
+    for _s in sorted({ss for (_, ss) in _rd_raw}):
+        for _field in _RD_FIELDS:
+            _fvals = [d[_field] for (t, ss), d in _rd_raw.items() if ss == _s]
+            if len(_fvals) < 3:
+                continue
+            _fmu = float(np.mean(_fvals))
+            _fsd = max(float(np.std(_fvals)), 1.0)
+            for (t, ss), d in _rd_raw.items():
+                if ss == _s:
+                    if (t, ss) not in _rd_z:
+                        _rd_z[(t, ss)] = {}
+                    _rd_z[(t, ss)][_field + "_z"] = (d[_field] - _fmu) / _fsd
+
+    def _rdz(team_id: str, season, field_z: str) -> float | None:
+        short = _hex_to_short.get(team_id, team_id)
+        s = int(season)
+        for lag in (0, 1):
+            entry = _rd_z.get((short, s - lag))
+            if entry and field_z in entry:
+                return entry[field_z]
+        return None
+
+    if _rd_z:
+        for _hcol, _acol, _fz in [
+            ("home_new_player_value_z",  "away_new_player_value_z",  "new_player_value_z"),
+            ("home_departed_value_z",    "away_departed_value_z",    "departed_value_z"),
+            ("home_net_roster_delta_z",  "away_net_roster_delta_z",  "net_roster_delta_z"),
+            ("home_unseen_new_star_z",   "away_unseen_new_star_z",   "unseen_new_star_z"),
+            ("home_new_att_value_z",     "away_new_att_value_z",     "new_att_value_z"),
+            ("home_new_def_value_z",     "away_new_def_value_z",     "new_def_value_z"),
+            ("home_new_gk_value_z",      "away_new_gk_value_z",      "new_gk_value_z"),
+        ]:
+            df[_hcol] = [_rdz(r.home_team, r.season, _fz) for _, r in df.iterrows()]
+            df[_acol] = [_rdz(r.away_team, r.season, _fz) for _, r in df.iterrows()]
+            _base = _fz.replace("_z", "")
+            df[f"{_base}_diff_z"] = df[_hcol].fillna(0) - df[_acol].fillna(0)
+
+        _HAS_ROSTER_DELTA = True
+        _rd_cov = df["home_net_roster_delta_z"].notna().mean()
+        print(f"    Roster-delta loaded: {len(_rd_z)} team-seasons  coverage={_rd_cov:.0%}")
+        _star_cov = (df["home_unseen_new_star_z"].fillna(0) > 0).mean()
+        print(f"    Unseen-star (new player > P75 value): {_star_cov:.0%} of home teams")
+    else:
+        print("    Roster-delta: no cross-season data built.")
+else:
+    if not FETCH_TRANSFERMARKT:
+        print("\n[6c/9] Roster-delta skipped (FETCH_TRANSFERMARKT=False).")
+    elif not _HAS_TM:
+        print("\n[6c/9] Roster-delta skipped (TM base data not loaded in 6b).")
+
 # ─── TZ shift feature ─────────────────────────────────────────────────────────
 # _tz_band, _away_tz_shift_abs, _away_tz_shift_signed imported from feature_registry
 
@@ -2136,6 +2322,30 @@ if _TM_DP:
     AB_SETS["+TM_Stars"]      = _FEAT_BASE + _TM_DP          # top-3 value concentration
 if _TM_FEATS and _TM_POSITIONAL and _TM_AGE:
     AB_SETS["+TM_PELE"]       = _FEAT_BASE + _TM_FEATS + _TM_POSITIONAL + _TM_AGE + _TM_DP
+
+# Roster-delta AB sets (Section 4 player-value workstream — first pass)
+_TM_ROSTER_DELTA = (["home_net_roster_delta_z", "away_net_roster_delta_z", "net_roster_delta_diff_z"]
+                     if "home_net_roster_delta_z" in df.columns else [])
+_TM_NEW_STAR     = (["home_unseen_new_star_z", "away_unseen_new_star_z", "unseen_new_star_diff_z"]
+                     if "home_unseen_new_star_z" in df.columns else [])
+_TM_DEPARTED     = (["home_departed_value_z", "away_departed_value_z", "departed_value_diff_z"]
+                     if "home_departed_value_z" in df.columns else [])
+_TM_ROSTER_POS   = (["home_new_att_value_z", "away_new_att_value_z", "new_att_value_diff_z",
+                      "home_new_def_value_z", "away_new_def_value_z", "new_def_value_diff_z",
+                      "home_new_gk_value_z",  "away_new_gk_value_z",  "new_gk_value_diff_z"]
+                     if "home_new_att_value_z" in df.columns else [])
+_TM_ROSTER_FULL  = list(dict.fromkeys(
+    _TM_ROSTER_DELTA + _TM_NEW_STAR + _TM_DEPARTED + _TM_ROSTER_POS
+))
+if _TM_ROSTER_DELTA:
+    AB_SETS["+RosterDelta"] = _FEAT_BASE + _TM_ROSTER_DELTA
+if _TM_NEW_STAR:
+    AB_SETS["+UnseenStar"]  = _FEAT_BASE + _TM_NEW_STAR
+if _TM_DEPARTED:
+    AB_SETS["+Departures"]  = _FEAT_BASE + _TM_DEPARTED
+if _TM_ROSTER_FULL:
+    AB_SETS["+RosterFull"]  = _FEAT_BASE + _TM_ROSTER_FULL
+
 AB_SETS["+TZShift"]    = _FEAT_BASE + _FEAT_TZ
 AB_SETS["+PythagLuck"] = _FEAT_BASE + _FEAT_PYTHAG
 # Interaction probe: the two positive-marginal singles (+0.0008 each) combined —
@@ -2242,7 +2452,7 @@ if _ARGS.ab_only:
 # Engine extracted to scripts/eval/dixon_coles.py (F4 monolith split).
 from scripts.eval.dixon_coles import (        # noqa: E402
     dc_tau, dc_nll, fit_dc, dc_predict, dc_predict_batch, dc_lam_mu_batch,
-    dc_draw_prob_batch,
+    dc_draw_prob_batch, apply_roster_dc_prior,
 )
 
 
@@ -2815,6 +3025,46 @@ for test_season in TEST_SEASONS:
         r["hur_draw_brier"] = _hd
         r["hur_cal_err_max"], _ = decile_cal_error(ens_hur[:, 0], (y_te_r == 0))
 
+    # ── Roster-change slice evaluation ──────────────────────────────────────────
+    # Evaluates the best available model on targeted subsets to test whether
+    # roster-delta features capture signal in roster-disruption matches.
+    if _HAS_ROSTER_DELTA and ens_stacked is not None:
+        _best_preds = ens_stacked  # use champion-path predictions for slice eval
+
+        # Early-season slice: first 60 calendar days of each season
+        _season_start = pd.to_datetime(test["date"]).min()
+        _early_mask   = (pd.to_datetime(test["date"]) - _season_start).dt.days < 60
+        if _early_mask.sum() >= 10:
+            _yt_early = y_te_oh[_early_mask.values]
+            r["slice_early_brier"] = multiclass_brier(_yt_early,
+                                                      _best_preds[_early_mask.values])
+
+        # Roster-change slice: top tertile of combined net roster delta magnitude
+        if "home_net_roster_delta_z" in test.columns and "away_net_roster_delta_z" in test.columns:
+            _rdmag = (test["home_net_roster_delta_z"].fillna(0).abs()
+                      + test["away_net_roster_delta_z"].fillna(0).abs())
+            _rd_thresh = _rdmag.quantile(0.67)
+            _rc_mask = _rdmag >= _rd_thresh
+            if _rc_mask.sum() >= 10:
+                r["slice_roster_change_brier"] = multiclass_brier(
+                    y_te_oh[_rc_mask.values], _best_preds[_rc_mask.values])
+
+        # Unseen-star slice: either team has high-value new player (unseen_new_star > 0)
+        if "home_unseen_new_star_z" in test.columns and "away_unseen_new_star_z" in test.columns:
+            _star_mask = ((test["home_unseen_new_star_z"].fillna(0) > 0)
+                          | (test["away_unseen_new_star_z"].fillna(0) > 0))
+            if _star_mask.sum() >= 10:
+                r["slice_unseen_star_brier"] = multiclass_brier(
+                    y_te_oh[_star_mask.values], _best_preds[_star_mask.values])
+
+        # Departure slice: either team lost significant value (departed_value_z > 1.0)
+        if "home_departed_value_z" in test.columns and "away_departed_value_z" in test.columns:
+            _dep_mask = ((test["home_departed_value_z"].fillna(0) > 1.0)
+                         | (test["away_departed_value_z"].fillna(0) > 1.0))
+            if _dep_mask.sum() >= 10:
+                r["slice_departure_brier"] = multiclass_brier(
+                    y_te_oh[_dep_mask.values], _best_preds[_dep_mask.values])
+
     results.append(r)
     best_key = next(
         (k for k in ["ens_stacked_brier", "ens_avg_brier", "xgb_brier_cal", "dc_brier_cal"]
@@ -2935,6 +3185,26 @@ for c in ["dc_brier_cal", "xgb_brier_cal", "ens_stacked_brier"]:
     if c in rd.columns:
         dcols.append(c)
 print(rd[dcols].to_string(index=False, float_format="{:.4f}".format))
+
+# Roster-change slice evaluation summary
+_slice_cols = ["slice_early_brier", "slice_roster_change_brier",
+               "slice_unseen_star_brier", "slice_departure_brier"]
+_slice_present = [c for c in _slice_cols if c in rd.columns]
+if _slice_present:
+    print(f"\nRoster-change slice Brier (avg champion model vs naive):")
+    print(f"  {'Slice':<28} {'Model':>8}  {'Naive':>8}  {'Δ':>8}")
+    _slice_labels = {
+        "slice_early_brier":          "Early season (first 60d)",
+        "slice_roster_change_brier":  "High roster disruption (top 33%)",
+        "slice_unseen_star_brier":    "Unseen new star (new > P75 value)",
+        "slice_departure_brier":      "Significant departure (dep_z > 1)",
+    }
+    for _sc in _slice_present:
+        _sm = rd[_sc].dropna().mean() if _sc in rd.columns else float("nan")
+        _sn = rd["naive_brier"].mean()
+        _label = _slice_labels.get(_sc, _sc)
+        _delta = _sm - _sn
+        print(f"  {_label:<28} {_sm:>8.4f}  {_sn:>8.4f}  {_delta:>+8.4f}")
 
 # ─── 9. Recommendations ───────────────────────────────────────────────────────
 
