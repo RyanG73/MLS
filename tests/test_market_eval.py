@@ -25,6 +25,21 @@ def test_devig_rejects_invalid_odds():
         devig(0.0, 3.0, 3.0)
     with pytest.raises(ValueError):
         devig(2.0, -1.0, 3.0)
+    with pytest.raises(ValueError):
+        devig(0.9, 3.0, 3.0)
+    with pytest.raises(ValueError):
+        devig(2.0, 3.0, 0.5)
+    with pytest.raises(ValueError):
+        devig(2.0, 3.0, 0.0)
+
+
+def test_devig_rejects_nan():
+    with pytest.raises(ValueError):
+        devig(float('nan'), 3.0, 3.0)
+    with pytest.raises(ValueError):
+        devig(2.0, float('nan'), 3.0)
+    with pytest.raises(ValueError):
+        devig(2.0, 3.0, float('nan'))
 
 
 def test_edge_pct_positive_when_model_higher():
@@ -39,6 +54,20 @@ def test_edge_pct_zero_when_equal():
     assert edge_pct(0.45, 0.45) == pytest.approx(0.0)
 
 
+def test_edge_pct_rejects_nan():
+    with pytest.raises(ValueError):
+        edge_pct(float('nan'), 0.4)
+    with pytest.raises(ValueError):
+        edge_pct(0.4, float('nan'))
+
+
+def test_edge_pct_rejects_infinity():
+    with pytest.raises(ValueError):
+        edge_pct(float('inf'), 0.4)
+    with pytest.raises(ValueError):
+        edge_pct(0.4, float('inf'))
+
+
 def test_clv_pp_positive_when_line_moved_our_way():
     assert clv_pp(open_implied=0.40, close_implied=0.45) == pytest.approx(5.0)
 
@@ -49,3 +78,17 @@ def test_clv_pp_negative_when_line_moved_against():
 
 def test_clv_pp_zero_when_unchanged():
     assert clv_pp(0.40, 0.40) == pytest.approx(0.0)
+
+
+def test_clv_pp_rejects_nan():
+    with pytest.raises(ValueError):
+        clv_pp(float('nan'), 0.4)
+    with pytest.raises(ValueError):
+        clv_pp(0.4, float('nan'))
+
+
+def test_clv_pp_rejects_infinity():
+    with pytest.raises(ValueError):
+        clv_pp(float('inf'), 0.4)
+    with pytest.raises(ValueError):
+        clv_pp(0.4, float('inf'))
