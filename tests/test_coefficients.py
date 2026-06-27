@@ -36,3 +36,36 @@ def test_concacaf_offsets_are_relative_not_uefa_scale():
 def test_concacaf_club_strength_below_modeled_top():
     # An unmodeled Central-American club sits well below the MLS/Liga MX modeled range.
     assert co.club_strength("Alajuelense") < 1550
+
+
+# ── tier2_offset ──────────────────────────────────────────────────────────────
+
+def test_tier2_offset_unknown_league_returns_zero():
+    """Unsupported league pair returns 0.0, no crash."""
+    from data_pipeline import coefficients as co
+    assert co.tier2_offset("unknown-league") == 0.0
+
+
+def test_tier2_offset_returns_static_prior_when_json_absent(tmp_path, monkeypatch):
+    """Falls back to static prior when experiments/tier2_offsets.json is absent."""
+    import data_pipeline.coefficients as co
+    monkeypatch.setattr(co, "_TIER2_JSON", tmp_path / "nonexistent.json")
+    monkeypatch.setattr(co, "_TIER2_OFFSETS_LOADED", False)
+    monkeypatch.setattr(co, "_TIER2_OFFSETS", None)
+    result = co.tier2_offset("championship")
+    assert result == co._TIER2_PRIORS["championship_to_epl"]
+
+
+def test_tier2_offset_reads_fitted_value_from_json(tmp_path, monkeypatch):
+    """Returns the fitted offset from JSON when present, not the prior."""
+    import json
+    import data_pipeline.coefficients as co
+    fitted = {"championship_to_epl": -95.5, "bundesliga-2_to_bundesliga": -80.0,
+              "serie-b_to_serie-a": -110.0}
+    json_path = tmp_path / "tier2_offsets.json"
+    json_path.write_text(json.dumps(fitted))
+    monkeypatch.setattr(co, "_TIER2_JSON", json_path)
+    monkeypatch.setattr(co, "_TIER2_OFFSETS_LOADED", False)
+    monkeypatch.setattr(co, "_TIER2_OFFSETS", None)
+    assert co.tier2_offset("championship") == -95.5
+    assert co.tier2_offset("bundesliga-2") == -80.0

@@ -146,3 +146,56 @@ def league_offset(league_id: str) -> float:
 def club_strength(club: str) -> float:
     """Cross-league strength (ELO points) for an unmodeled club, or BASELINE."""
     return _CLUB_STRENGTH.get(club, BASELINE_STRENGTH)
+
+
+# ── 2nd-tier → 1st-tier ELO offset ───────────────────────────────────────────
+# Lazy-loaded from experiments/tier2_offsets.json (built by scripts.eval.tier_bridge).
+# Falls back to static priors below when the file is absent or the key is missing.
+
+_TIER2_OFFSETS: dict[str, float] | None = None
+_TIER2_OFFSETS_LOADED: bool = False
+_TIER2_JSON = Path(__file__).parent.parent / "experiments" / "tier2_offsets.json"
+
+# Static priors: rough ELO gap between each 2nd-tier and 1st-tier league.
+# These anchor the ridge penalty in tier_bridge and serve as permanent fallback.
+_TIER2_PRIORS: dict[str, float] = {
+    "championship_to_epl": -120.0,
+    "bundesliga-2_to_bundesliga": -100.0,
+    "serie-b_to_serie-a": -130.0,
+}
+
+# Maps tier-2 league ID → tier-1 league ID (used to construct the JSON key).
+_TIER1_FOR: dict[str, str] = {
+    "championship": "epl",
+    "bundesliga-2": "bundesliga",
+    "serie-b": "serie-a",
+}
+
+
+def _load_tier2() -> dict[str, float] | None:
+    """Lazy-load experiments/tier2_offsets.json exactly once."""
+    global _TIER2_OFFSETS, _TIER2_OFFSETS_LOADED
+    if _TIER2_OFFSETS_LOADED:
+        return _TIER2_OFFSETS
+    _TIER2_OFFSETS_LOADED = True
+    try:
+        _TIER2_OFFSETS = json.loads(_TIER2_JSON.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        _TIER2_OFFSETS = None
+    return _TIER2_OFFSETS
+
+
+def tier2_offset(tier2_league_id: str) -> float:
+    """ELO offset translating a tier-2 team's domestic ELO to the tier-1 scale.
+
+    Returns the fitted offset from experiments/tier2_offsets.json when available,
+    otherwise the static prior from _TIER2_PRIORS. Returns 0.0 for unknown pairs.
+    """
+    tier1_lid = _TIER1_FOR.get(tier2_league_id)
+    if tier1_lid is None:
+        return 0.0
+    key = f"{tier2_league_id}_to_{tier1_lid}"
+    fitted = _load_tier2()
+    if fitted is not None and key in fitted:
+        return float(fitted[key])
+    return _TIER2_PRIORS.get(key, 0.0)
