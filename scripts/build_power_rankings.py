@@ -29,6 +29,13 @@ _GROUPS = {
     "Concacaf": [("mls", "MLS"), ("liga-mx", "Liga MX")],
 }
 
+# Tier-2 European leagues (Championship, 2.Bundesliga, Serie B).
+_TIER2_LEAGUES = [
+    ("championship", "Championship"),
+    ("bundesliga-2", "2. Bundesliga"),
+    ("serie-b", "Serie B"),
+]
+
 
 def _load_standings(league_id: str):
     """Read a built league's standings rows (team, elo, logo, color)."""
@@ -40,11 +47,11 @@ def _load_standings(league_id: str):
     return d.get("standings", [])
 
 
-def _rank_group(leagues) -> list[dict]:
+def _rank_group(leagues, tier: int = 1) -> list[dict]:
     """One confederation's teams ranked by cross-league strength (ELO + offset)."""
     rows = []
     for lid, short in leagues:
-        offset = co.league_offset(lid)
+        offset = co.tier2_offset(lid) if tier == 2 else co.league_offset(lid)
         for s in _load_standings(lid):
             elo = s.get("elo")
             if elo is None:
@@ -53,6 +60,7 @@ def _rank_group(leagues) -> list[dict]:
                 "team": s["team"], "league": lid, "league_short": short,
                 "elo": int(round(elo)), "strength": round(float(elo) + offset, 1),
                 "logo": s.get("logo"), "color": s.get("color"),
+                "tier": tier,
             })
     rows.sort(key=lambda r: -r["strength"])
     for i, r in enumerate(rows, 1):
@@ -72,6 +80,15 @@ def build():
             "anchor": "EPL = 0" if conf == "UEFA" else "MLS = 0",
             "n_leagues": len({r["league"] for r in ranked}),
             "teams": ranked,
+        })
+    # Tier-2 UEFA group (Championship, 2.Bundesliga, Serie B) — on the EPL=0 scale.
+    ranked_t2 = _rank_group(_TIER2_LEAGUES, tier=2)
+    if ranked_t2:
+        data["groups"].append({
+            "confederation": "UEFA Tier 2",
+            "anchor": "EPL = 0",
+            "n_leagues": len({r["league"] for r in ranked_t2}),
+            "teams": ranked_t2,
         })
     out = _DATA / "power.js"
     write_js_payload(out, "POWER_DATA", data)
