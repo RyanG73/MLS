@@ -13,7 +13,7 @@ import pytest
 
 # ── Helpers replicating the eval_baseline split logic ──────────────────────
 
-COVID = {2020, 2021}
+COVID = {2020}
 
 
 def make_splits(df: pd.DataFrame, test_seasons: list[int]) -> list[dict]:
@@ -41,7 +41,7 @@ def make_splits(df: pd.DataFrame, test_seasons: list[int]) -> list[dict]:
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 
-def _make_df(seasons=range(2017, 2025), matches_per_season=10) -> pd.DataFrame:
+def _make_df(seasons=range(2017, 2026), matches_per_season=10) -> pd.DataFrame:
     rows = []
     for s in seasons:
         if s in COVID:
@@ -69,7 +69,7 @@ class TestSplitDisjointness:
     @pytest.fixture
     def splits(self):
         df = _make_df()
-        return make_splits(df, test_seasons=[2022, 2023, 2024])
+        return make_splits(df, test_seasons=[2022, 2023, 2024, 2025])
 
     def test_train_cal_test_match_ids_disjoint(self, splits):
         for sp in splits:
@@ -101,7 +101,7 @@ class TestNoFutureLeakage:
     @pytest.fixture
     def splits(self):
         df = _make_df()
-        return make_splits(df, test_seasons=[2022, 2023, 2024])
+        return make_splits(df, test_seasons=[2022, 2023, 2024, 2025])
 
     def test_train_dates_before_cal_season(self, splits):
         for sp in splits:
