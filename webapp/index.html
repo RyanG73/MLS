@@ -549,6 +549,7 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 <footer class="wrap" id="foot"></footer>
 
 <script src="leagues.js"></script>
+<script src="data/logos.js"></script>
 <script>
 // League selected via ?league=<id> (default mls). Synchronous document.write so
 // window.LEAGUE_DATA is set before the main render script runs.
@@ -601,7 +602,12 @@ const isKnockout = (D.outlook||{}).mode === 'knockout';
 })();
 const monogram=n=>{const w=n.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean);return ((w[0]?.[0]||'')+(w[1]?.[0]||'')).toUpperCase();};
 const fmt=v=>`${v.toFixed(1)}%`;                         // percentages with one decimal + sign
-const crest=(name,logo)=>`<span class="crest"><span class="mono">${monogram(name)}</span>${logo?`<img src="${logo}" alt="" loading="lazy" onerror="this.remove()">`:''}</span>`;
+// Global logo fallback: continental comps + scattered domestic rows ship no logo;
+// data/logos.js (window.TEAM_LOGOS) supplies one keyed by team name. See build_logo_map.py.
+const _logoMap=window.TEAM_LOGOS||{};
+const _logoFor=(name,logo)=>logo||_logoMap[name]||_logoMap[(name||'').trim()]||'';
+const crest=(name,logo)=>{const l=_logoFor(name,logo);
+  return `<span class="crest"><span class="mono">${monogram(name)}</span>${l?`<img src="${l}" alt="" loading="lazy" onerror="this.remove()">`:''}</span>`;};
 /* visibility-safe team color on dark band */
 function hexrgb(h){h=(h||'#888').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 const lum=([r,g,b])=>(0.2126*r+0.7152*g+0.0722*b)/255;
