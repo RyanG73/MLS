@@ -180,30 +180,28 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .tsub{display:block;font-size:10px;color:var(--txt-3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pts{font-family:"Archivo";font-weight:700;font-size:14px;text-align:center}
 .projc{font-family:"Archivo";font-weight:700;font-size:12.5px;text-align:center;color:var(--txt-2)}
-.heat{font-family:"Archivo";font-weight:700;font-size:11.5px;text-align:center;padding:5px 0;border-radius:5px;color:var(--txt-1)}
+.heat{font-family:var(--mono);font-weight:700;font-size:11px;text-align:center;padding:4px 0;border-radius:4px;color:var(--txt-1)}
 .heat.z{color:var(--txt-3);font-weight:500;background:transparent!important}
 /* ── table-league outlook (European single table: Title / UCL / Relegation) ── */
 .favs.t3{grid-template-columns:repeat(3,1fr)}
 .fav.title::before{background:var(--hfa)} .fav.title .pct{color:var(--hfa)} .fav.title .sq{background:var(--hfa)}
 .fav.ucl::before{background:var(--qualify)} .fav.ucl .pct{color:var(--qualify)} .fav.ucl .sq{background:var(--qualify)}
 .fav.releg::before{background:#e25f4f} .fav.releg .pct{color:#e25f4f} .fav.releg .sq{background:#e25f4f}
-.tlad .thead,.tlad .trow{display:grid;grid-template-columns:24px minmax(0,1fr) 34px 46px 42px 48px 46px 48px;align-items:center;gap:5px;padding:8px var(--s3)}
-.tlad .thead{font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt-3);border-bottom:1px solid var(--line)}
+/* dense single-table grid — column template is built in JS (tableLadder) and set
+   via --tgrid so the club column stays tight regardless of how many outcome cols. */
+.tlad .thead,.tlad .trow{display:grid;grid-template-columns:var(--tgrid,18px minmax(90px,1fr) 36px 34px 34px 34px 34px);align-items:center;gap:5px;padding:6px var(--s3)}
+.tlad .thead{font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3);border-bottom:1px solid var(--line)}
 .tlad .thead .c{text-align:center;line-height:1.1}
 .tlad .trow{border-bottom:1px solid var(--line);position:relative;transition:background .12s}
 .tlad .trow:last-child{border-bottom:none}
 .tlad .trow:hover{background:var(--ink-2)}
 .tlad .trow.ucl{box-shadow:inset 3px 0 0 var(--qualify)}
-.tlad .trow.rz{box-shadow:inset 3px 0 0 #e25f4f}
-.ucl-line,.rz-line{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;padding:3px var(--s4);font-weight:600}
-.ucl-line{color:var(--qualify);border-top:1px dashed rgba(52,211,154,.4)}
-.rz-line{color:#e25f4f;border-top:1px dashed rgba(226,95,79,.4)}
-@media(max-width:620px){.tlad .thead .c-elo,.tlad .trow .eloc{display:none}
-  .tlad .thead,.tlad .trow{grid-template-columns:22px minmax(0,1fr) 30px 44px 46px 44px 46px;gap:4px}}
-/* wider table grid when there are upcoming fixtures (what-if Next-5 column) */
-.tlad-w .thead,.tlad-w .trow{grid-template-columns:24px minmax(0,1fr) 32px 42px 38px 44px 42px 44px 86px}
-@media(max-width:620px){.tlad-w .thead .c-w5,.tlad-w .thead .c-elo,.tlad-w .trow .eloc{display:none}
-  .tlad-w .thead,.tlad-w .trow{grid-template-columns:22px minmax(0,1fr) 30px 42px 44px 42px 44px}}
+.tlad .trow.rz{box-shadow:inset 3px 0 0 var(--drop)}
+.tlad .rank,.tlad .pts,.tlad .projc,.tlad .eloc{font-family:var(--mono)}
+.ucl-line,.rz-line{font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:3px var(--s3);font-weight:700;font-family:var(--mono)}
+.ucl-line{color:var(--qualify);border-top:1px dashed rgba(61,220,132,.35)}
+.rz-line{color:var(--drop);border-top:1px dashed rgba(255,93,93,.35)}
+@media(max-width:620px){.tlad .thead .c-elo,.tlad .trow .eloc{display:none}}
 /* ── knockout-view sub-tabs (UEFA Champions League etc.) ── */
 .ko-subtabs{display:flex;gap:6px;margin-bottom:10px}
 .ko-tab{padding:6px 12px;border:1px solid #2a2f3a;background:#161a22;color:#9aa4b2;border-radius:6px;cursor:pointer;font-size:13px}
@@ -416,6 +414,10 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 
 @media(max-width:1280px){
   .ladders{grid-template-columns:1fr}
+}
+/* single-table body (table + projected-finish plot) collapses to one column */
+@media(max-width:880px){
+  #ladders{grid-template-columns:1fr!important}
 }
 @media(max-width:860px){
   .favs{grid-template-columns:1fr 1fr}
@@ -902,13 +904,16 @@ function tableLadder(){
   const ol=D.outlook, cols=ol.columns, hasUp=NF>0;
   const teams=D.standings.map(vals).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
   const mx={};cols.forEach(c=>mx[c.key]=Math.max(...teams.map(s=>s[c.key]||0),1));
-  const BRGB={title:[246,181,63],promo:[246,181,63],liguilla:[246,181,63],ucl:[52,211,154],europa:[88,150,246],conf:[150,120,220],playoff:[52,211,154],releg:[226,95,79]};
+  const BRGB={title:[244,183,64],promo:[244,183,64],liguilla:[244,183,64],ucl:[61,220,132],europa:[74,163,255],conf:[74,163,255],playoff:[61,220,132],releg:[255,93,93]};
   const brgb=k=>BRGB[k]||[120,120,120];
   const hc=(v,k)=>v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}">${v.toFixed(0)}</span>`;
-  const box=el('div','ladder tlad'+(hasUp?' tlad-w':''));
-  box.appendChild(el('div','ladder-h',`<span class="name">${ol.n_teams}-team table</span>`));
+  // dense column template: # · Club · Pts · Proj · ELO · <one 34px per outcome> · [Next5]
+  const grid=`18px minmax(90px,1fr) 36px 34px 34px ${'34px '.repeat(cols.length)}${hasUp?'80px':''}`.trim();
+  const box=el('div','panel ladder tlad'+(hasUp?' tlad-w':''));
+  box.style.setProperty('--tgrid',grid);
+  box.appendChild(el('div','panel-h',`<span class="dot"></span><h2>League table</h2><span class="meta">${ol.n_teams} teams · 10k sims</span>`));
   box.appendChild(el('div','thead',
-    `<span>#</span><span>Club</span><span class="c">Pts</span><span class="c c-proj">Proj</span>`+
+    `<span></span><span>Club</span><span class="c">Pts</span><span class="c c-proj">Proj</span>`+
     `<span class="c c-elo">ELO</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
     (hasUp?`<span class="c c-w5">Next 5</span>`:'')));
   teams.forEach((t,i)=>{
@@ -941,17 +946,17 @@ function renderTableOutlook(){
   const note=[gl,rl].filter(Boolean).join(' · ');
   $('#laddernote').textContent=`${ol.n_teams}-team single table`+(note?` · ${note}`:'')+
     (NF>0?` · click the Next-5 boxes to force results and resimulate`:'');
-  const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='1fr';
+  const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='minmax(0,1fr) minmax(0,1fr)';l.style.alignItems='start';
   // Fix 2: preseason leagues have no current-season rows — show an explicit banner so
   // the table's projected standings are not mistaken for live results.
   if(ol.preseason){
     const banner=el('div','whatif-banner on',
       `<b>Preseason projection</b> · No ${ol.season_label||D.season} matches played yet. `+
       `Standings show statistical priors from last season, not live results.`);
-    banner.style.marginBottom='var(--s4)';
+    banner.style.marginBottom='var(--s4)';banner.style.gridColumn='1/-1';
     l.appendChild(banner);
   }
-  l.append(tableLadder());
+  l.append(tableLadder());   // Task A4 changes this to: l.append(tableLadder(), finishPlotPanel());
 }
 const KO_ROUND_ORDER=['RoundOne','KOplayoff','Playoff','R16','QF','SF','Final'];
 function bracketTree(){
