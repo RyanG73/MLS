@@ -1267,19 +1267,6 @@ $('#teamBtn').onclick=e=>{e.stopPropagation();const o=menu.classList.toggle('ope
 document.addEventListener('click',closeDD);
 $('#resultFilter').onclick=e=>{const b=e.target.closest('button');if(!b)return;fRes=b.dataset.f;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));renderGames();};
 
-function band(g){
-  const hc=vis(g.hcolor),ac=vis(g.acolor);
-  const segs=[['H',g.pH,hc,txtOn(g.hcolor)],['D',g.pD,'var(--draw)','#0a111e'],['A',g.pA,ac,txtOn(g.acolor)]];
-  const favk=segs.reduce((m,s)=>s[1]>m[1]?s:m)[0];
-  return `<div class="band">`+segs.map(([k,p,bg,fg])=>{const w=p*100;
-    return `<div class="${k===favk?'fav-seg':''}${w<13?' tiny':''}" style="width:${w}%;background:${bg};color:${fg}"><span>${w.toFixed(1)}%</span></div>`;}).join('')+`</div>`;
-}
-/* fair American odds row, color-keyed to the band (home/away team color, draw gray) */
-function oddsRow(g){
-  const cells=[['Home',g.pH,vis(g.hcolor)],['Draw',g.pD,'var(--txt-2)'],['Away',g.pA,vis(g.acolor)]];
-  return `<div class="odds3">`+cells.map(([lab,p,col])=>
-    `<div class="oc"><span class="ol">${lab}</span><span class="op">${(p*100).toFixed(1)}%</span><span class="oa" style="color:${col}">${american(p)}</span></div>`).join('')+`</div>`;
-}
 function topPick(g){return [['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,s)=>s[1]>m[1]?s:m)[0];}
 const _OL={H:'Home',D:'Draw',A:'Away'};
 // pick = biggest model edge over market (model_prob − market_prob) when a market
