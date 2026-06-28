@@ -6,26 +6,35 @@
 <title>MLS Projections</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=Spline+Sans+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink-0:#0a111e; --ink-1:#101a2c; --ink-2:#16243c; --ink-3:#1d2e49;
-  --line:rgba(150,180,220,.10); --line-2:rgba(150,180,220,.18); --line-3:rgba(150,180,220,.30);
-  --txt-1:#eef3fb; --txt-2:#9fb0c8; --txt-3:#65748d;
-  --floodlight:#56d2ff; --west:#f6894a;
-  --qualify:#34d39a; --hfa:#f6b53f; --shield:#d7deea; --spoon:#bd7d4e;
-  --draw:#5d6b82;
-  --r-sm:6px; --r-md:10px; --r-lg:16px;
+  --ink-0:#070809; --ink-1:#0a0d0b; --ink-2:#0c100d; --ink-3:#121a14;
+  --line:#131b14; --line-2:#18211a; --line-3:#243026;
+  --txt-1:#e3e9e4; --txt-2:#9fb0a3; --txt-3:#54665b;
+  --win:#f4b740; --qualify:#3ddc84; --europa:#4aa3ff; --drop:#ff5d5d; --draw:#5a6b7a;
+  /* legacy aliases kept so not-yet-restyled code keeps working until its task lands */
+  --floodlight:#3ddc84; --west:#f4b740; --hfa:#f4b740; --shield:#d7deea; --spoon:#bd7d4e;
+  --mono:"Spline Sans Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r-sm:4px; --r-md:8px; --r-lg:10px;
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:36px;
-  --maxw:1360px; --sbw:220px;
+  --maxw:1320px; --sbw:220px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
 body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  background:radial-gradient(1200px 500px at 70% -10%, rgba(86,210,255,.08), transparent 60%), var(--ink-0);
-  color:var(--txt-1); font-feature-settings:"tnum" 1; line-height:1.45;-webkit-font-smoothing:antialiased;padding-bottom:48px;padding-left:var(--sbw)}
+  background:var(--ink-0);
+  color:var(--txt-1); font-feature-settings:"tnum" 1; line-height:1.42;-webkit-font-smoothing:antialiased;padding-bottom:48px;padding-left:var(--sbw)}
 h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--s4)}
+
+/* ── shared quant-terminal primitives (used across every view) ── */
+.panel{border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--ink-1);overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:8px;padding:9px var(--s3);border-bottom:1px solid var(--line-2);background:var(--ink-2)}
+.panel-h .dot{width:7px;height:7px;border-radius:50%;background:var(--qualify);box-shadow:0 0 8px var(--qualify);flex:none}
+.panel-h h2{font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;color:var(--txt-1);text-transform:uppercase}
+.panel-h .meta{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--txt-3)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
 /* ── league sidebar ── */
 .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sbw);z-index:40;overflow-y:auto;
@@ -169,7 +178,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
   .tlad .thead,.tlad .trow{grid-template-columns:22px minmax(0,1fr) 30px 44px 46px 44px 46px;gap:4px}}
 /* wider table grid when there are upcoming fixtures (what-if Next-5 column) */
 .tlad-w .thead,.tlad-w .trow{grid-template-columns:24px minmax(0,1fr) 32px 42px 38px 44px 42px 44px 86px}
-@media(max-width:620px){.tlad-w .thead .c-w5,.tlad-w .trow .wgroup,.tlad-w .thead .c-elo,.tlad-w .trow .eloc{display:none}
+@media(max-width:620px){.tlad-w .thead .c-w5,.tlad-w .thead .c-elo,.tlad-w .trow .eloc{display:none}
   .tlad-w .thead,.tlad-w .trow{grid-template-columns:22px minmax(0,1fr) 30px 42px 44px 42px 44px}}
 /* ── knockout-view sub-tabs (UEFA Champions League etc.) ── */
 .ko-subtabs{display:flex;gap:6px;margin-bottom:10px}
@@ -212,6 +221,9 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .wbox.w{background:var(--qualify);border-color:var(--qualify)}
 .wbox.d{background:var(--draw);border-color:var(--draw)}
 .wbox.l{background:#e25f4f;border-color:#e25f4f}
+/* per-box opponent label — hidden on desktop (13px squares), shown in the
+   mobile full-width what-if sub-row where there is room for context */
+.wb-l{display:none}
 .whatif-banner{display:none;align-items:center;gap:var(--s3);background:rgba(86,210,255,.08);
   border:1px solid rgba(86,210,255,.35);border-radius:var(--r-md);padding:8px var(--s3);margin-bottom:var(--s3);font-size:12.5px;color:var(--txt-2)}
 .whatif-banner.on{display:flex}
@@ -389,7 +401,7 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 /* narrow: drop the two widest new columns (ELO, Next-5 what-if) so the core
    odds stay legible; what-if remains available on wider screens / desktop */
 @media(max-width:760px){
-  .col-head .c-elo,.row .eloc,.col-head .c-w5,.row .wgroup{display:none}
+  .col-head .c-elo,.row .eloc,.col-head .c-w5{display:none}
   .col-head,.row{grid-template-columns:22px minmax(0,1fr) 28px 40px 38px 40px 42px 42px 38px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
 }
 @media(max-width:480px){
@@ -399,6 +411,35 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
   .g-side .tn{font-size:12.5px}
   .acc .bars{display:none}
   .fav .team{font-size:13.5px} .fav .pct{font-size:22px}
+}
+/* Fix 3 — mobile horizontal overflow:
+   .seg tab bar is inline-flex with 4 wide buttons (~440px) — make it scroll.
+   .favs.t3 (3-column European card) collapses to 1 column.
+   Body clip prevents any stray element from widening the document. */
+@media(max-width:520px){
+  .seg{overflow-x:auto;flex-wrap:nowrap;max-width:100%;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .seg::-webkit-scrollbar{display:none}
+  .favs.t3{grid-template-columns:1fr}
+  body{overflow-x:hidden}
+}
+/* Mobile what-if mode: the desktop Next-5 column is too narrow to tap, so on
+   mobile the .wgroup reflows to a full-width sub-row under each team with large
+   touch targets + opponent labels. Reuses the same forced/scheduleSim logic and
+   #ladders click delegation — presentation only. */
+@media(max-width:760px){
+  .row .wgroup,.tlad-w .trow .wgroup{
+    grid-column:1/-1;display:flex;flex-wrap:wrap;justify-content:flex-start;
+    gap:6px;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line-3)}
+  .row .wgroup::before,.tlad-w .trow .wgroup::before{
+    content:"Next 5 — tap to force W / D / L";flex-basis:100%;
+    font-size:9px;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--txt-3);margin-bottom:1px}
+  .row .wbox,.tlad-w .trow .wbox{
+    width:auto;min-width:0;height:36px;flex:1 1 0;max-width:84px;
+    display:flex;align-items:center;justify-content:center;border-radius:7px}
+  .wb-l{display:flex;flex-direction:column;align-items:center;line-height:1.1;
+    font-size:10.5px;font-weight:700;color:var(--txt-2);pointer-events:none}
+  .wbox.w .wb-l,.wbox.d .wb-l,.wbox.l .wb-l{color:#06121d}
 }
 </style>
 </head>
@@ -543,8 +584,11 @@ function renderSoonView(){
   $('#seg').style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>s.classList.add('hidden'));
   $('#acc').innerHTML='<div class="soon-badge">Model not built yet</div>';
+  // Prefer the payload's explicit placeholder reason (build emits it; see
+  // docs/CURRENT_STATE.md § Route State Taxonomy) over generic fallback copy.
+  const _soonNote=D.reason||"A projection model for this league isn't built yet — teams shown for reference.";
   const sec=el('section','soon-view',
-    `<div class="sec-h"><h2>${(D.league||{}).name||'League'}</h2><span class="note">A projection model for this league isn't built yet — teams shown for reference.</span></div>
+    `<div class="sec-h"><h2>${(D.league||{}).name||'League'}</h2><span class="note">${_soonNote}</span></div>
      <div class="soon-teams" id="soonTeams"></div>`);
   $('main.wrap').appendChild(sec);
   $('#soonTeams').innerHTML=(D.teams||[]).map(t=>
@@ -553,6 +597,7 @@ function renderSoonView(){
   $('#foot').textContent='';
 }
 if((D.league||{}).status==='soon'){ renderSoonView(); }
+else if(_isPower){ /* power route — renderPower handles this below, skip normal league render */ }
 else {
 /* header: % complete + simplified model-vs-naive accuracy card */
 const _pct=(D.league||{}).pct_complete;
@@ -740,7 +785,7 @@ function whatifCell(team){
     const homePOV=g.home===team, f=forced[g.id];
     const st=!f?'':(f==='D'?'d':((f==='H')===homePOV?'w':'l'));
     const opp=homePOV?g.away:g.home;
-    return `<span class="wbox ${st}" data-gid="${g.id}" data-team="${team}" title="${homePOV?'vs':'@'} ${opp} · ${g.date}"></span>`;
+    return `<span class="wbox ${st}" data-gid="${g.id}" data-team="${team}" title="${homePOV?'vs':'@'} ${opp} · ${g.date}"><span class="wb-l">${homePOV?'v':'@'}${monogram(opp)}</span></span>`;
   }).join('')+`</span>`;
 }
 function ladder(conf){
@@ -777,9 +822,13 @@ function renderOutlook(){
 }
 /* ── table-league outlook: config-driven favorite cards + single ladder ── */
 function tFavCard(card,t){
+  // Fix 3: label preseason cards so users know these are statistical priors, not live probabilities.
+  const preNote=D.outlook.preseason
+    ?`<span class="pp" style="color:var(--txt-3);font-size:10px;display:block;margin-top:4px">preseason prior · no matches played</span>`
+    :'';
   return `<div class="fav ${card.key}"><div class="lab"><span class="sq"></span>${card.label}</div>
   <div class="teamrow">${crest(t.team,t.logo)}<div class="ftxt"><div class="team">${t.team}</div></div></div>
-  <div class="favstats"><span class="pct">${fmt(t[card.key])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts · <b>${t.proj_rank}</b> avg pos</span></div></div>`;
+  <div class="favstats"><span class="pct">${fmt(t[card.key])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts · <b>${t.proj_rank}</b> avg pos</span>${preNote}</div></div>`;
 }
 // Single-table what-if Monte-Carlo (the table analog of MLS runSim): start from
 // current points, apply forced results, sample remaining via the pmatrix, rank
@@ -861,7 +910,17 @@ function renderTableOutlook(){
   const note=[gl,rl].filter(Boolean).join(' · ');
   $('#laddernote').textContent=`${ol.n_teams}-team single table`+(note?` · ${note}`:'')+
     (NF>0?` · click the Next-5 boxes to force results and resimulate`:'');
-  const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='1fr';l.append(tableLadder());
+  const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='1fr';
+  // Fix 2: preseason leagues have no current-season rows — show an explicit banner so
+  // the table's projected standings are not mistaken for live results.
+  if(ol.preseason){
+    const banner=el('div','whatif-banner on',
+      `<b>Preseason projection</b> · No ${ol.season_label||D.season} matches played yet. `+
+      `Standings show statistical priors from last season, not live results.`);
+    banner.style.marginBottom='var(--s4)';
+    l.appendChild(banner);
+  }
+  l.append(tableLadder());
 }
 const KO_ROUND_ORDER=['RoundOne','KOplayoff','Playoff','R16','QF','SF','Final'];
 function bracketTree(){
@@ -1016,6 +1075,7 @@ function renderKnockout(){
     : D.outlook.format_label+' · ~ marks teams estimated from coefficients (not fully modeled)';
 }
 (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();
+renderHealth();   // eager: pre-render so NaN/undefined issues surface at load, not only on tab click
 $('#ladders').addEventListener('click',e=>{
   const tl=e.target.closest('.tlink');if(tl){openTeam(tl.dataset.team);return;}
   const b=e.target.closest('.wbox');if(!b)return;
@@ -1037,6 +1097,11 @@ function renderHealth(){
   const h=D.health, m=D.model||{}, mc=D.model_card||{}, live=D.in_season_brier||{};
   if(!h)return;
   const col=v=>v>=99?'var(--qualify)':v>=95?'var(--hfa)':'#e25f4f';
+  // hbar: renders a progress bar + % value, but if the value is NaN (preseason — no
+  // current-season rows yet), shows a "no rows" placeholder instead of "NaN%".
+  const hbar=v=>v!=null&&isFinite(v)
+    ?`<span class="hbar"><span style="width:${v}%;background:${col(v)}"></span></span><span class="hv" style="color:${col(v)}">${v.toFixed(0)}%</span>`
+    :`<span class="hbar"></span><span class="hv" style="color:var(--txt-3);font-size:10px">no rows</span>`;
   // hero stats
   const cal=m.cal_err, calGood=cal!=null&&cal<0.05;
   const stats=[
@@ -1066,8 +1131,7 @@ function renderHealth(){
   const feat=`<div class="hcard2"><h3>Input completeness · ${D.season} season</h3>
     <div class="hhead2"><span>Feature family</span><span>Cols</span><span>Complete</span><span>Active (≠0)</span></div>`+
     h.features.map(f=>`<div class="hrow2"><span class="fam">${f.family}</span><span class="nc">${f.cols}</span>
-      <span class="hbar"><span style="width:${f.complete_pct}%;background:${col(f.complete_pct)}"></span></span><span class="hv" style="color:${col(f.complete_pct)}">${f.complete_pct}%</span>
-      <span class="hbar"><span style="width:${f.nondefault_pct}%;background:${col(f.nondefault_pct)}"></span></span><span class="hv" style="color:${col(f.nondefault_pct)}">${f.nondefault_pct}%</span></div>`).join('')+
+      ${hbar(f.complete_pct)}${hbar(f.nondefault_pct)}</div>`).join('')+
     `<div class="hnote">"Active" = share of values ≠ 0 (the neutral fill at predict time). is_playoff 0% is expected in the regular season; Availability &lt;100% = roster data missing for some matches.</div></div>`;
   // value edge backtest card
   const bt=(D.value_layer||{}).backtest;
@@ -1083,7 +1147,7 @@ function renderHealth(){
     <div class="hnote">${bt.note}</div></div>` : '';
   // freshness strip
   const fresh=`<div class="h-fresh"><span>Feature frame <b>${h.frame_file.split('/').pop()}</b> · ${h.frame_mtime||''}</span>
-    <span>${h.espn_ok!=null?`ESPN schedule <b style="color:${h.espn_ok?'var(--qualify)':'#e25f4f'}">${h.espn_ok?'OK':'FAILED'}</b> · ${h.espn_events} events`:`Source <b>${h.frame_file.split(':')[0]}</b>`}</span>
+    <span>${h.espn_ok!=null?`ESPN schedule <b style="color:${h.espn_ok?'var(--qualify)':'#e25f4f'}">${h.espn_ok?'OK':'FAILED'}</b> · ${h.espn_events??'—'} events`:`Source <b>${h.frame_file.split(':')[0]}</b>`}</span>
     <span>${h.season_rows} season rows (${h.played_rows} played)</span><span>Built ${D.generated}</span></div>`;
   $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+btCard+fresh;
 }
