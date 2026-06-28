@@ -64,3 +64,5 @@ data/*.parquet
 
 data/*.meta.json
 data/roster_profiles/
+
+.superpowers/

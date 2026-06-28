@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=Spline+Sans+Mono:wght@500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Inter",sans-serif;background:#06080d;color:#e8edf6;padding:28px 22px 80px;line-height:1.4;font-feature-settings:"tnum" 1}
+  .pg-h{max-width:1280px;margin:0 auto 8px}
+  .pg-h h1{font-family:"Archivo";font-weight:800;font-size:23px;letter-spacing:-.02em}
+  .pg-h p{color:#8 a;color:#8b9bb4;font-size:13.5px;margin-top:4px;max-width:760px}
+  .grid{max-width:1280px;margin:22px auto 0;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .card{border:1px solid #1c2435;border-radius:14px;overflow:hidden;cursor:pointer;transition:.15s;background:#0a0e16}
+  .card:hover{border-color:#3a4straight;border-color:#39455f;transform:translateY(-2px)}
+  .card.selected{border-color:#56d2ff;box-shadow:0 0 0 2px rgba(86,210,255,.4)}
+  .card-tag{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid #1c2435}
+  .card-tag .ltr{width:26px;height:26px;border-radius:7px;background:#1b2740;color:#9fc6ff;display:grid;place-items:center;font-family:"Archivo";font-weight:800;font-size:14px;flex:none}
+  .card.selected .card-tag .ltr{background:#56d2ff;color:#06121d}
+  .card-tag h3{font-family:"Archivo";font-weight:700;font-size:15px}
+  .card-tag span{display:block;font-size:11px;color:#7e8 da;color:#7e8da6;font-weight:500;margin-top:1px}
+  .demo{padding:14px;height:100%}
+  .note{font-size:11.5px;color:#7e8da6;padding:0 16px 14px}
+  .note b{color:#aeb9cd;font-weight:600}
+
+  /* ============ A · BROADCAST ============ */
+  .A{background:linear-gradient(180deg,#0c1119,#090c12)}
+  .A .topline{display:flex;gap:8px;margin-bottom:13px}
+  .A .tbox{flex:1;border:1px solid #232c3e;border-radius:9px;padding:9px 10px;background:#0e1420;position:relative;overflow:hidden}
+  .A .tbox::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+  .A .tbox.t::before{background:#f4b740}.A .tbox.u::before{background:#37d39a}.A .tbox.r::before{background:#ef5b52}
+  .A .tbox .k{font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#7e8da6}
+  .A .tbox .nm{font-family:"Archivo";font-weight:700;font-size:12.5px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .A .tbox .pc{font-family:"Archivo";font-weight:800;font-size:17px;margin-top:2px}
+  .A .tbox.t .pc{color:#f4b740}.A .tbox.u .pc{color:#37d39a}.A .tbox.r .pc{color:#ef5b52}
+  .A .thd{display:grid;grid-template-columns:20px 1fr 38px 38px 38px;gap:6px;font-size:8.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#67748d;padding:0 4px 7px;border-bottom:1px solid #232c3e}
+  .A .thd .c{text-align:center}
+  .A .row{display:grid;grid-template-columns:20px 1fr 38px 38px 38px;gap:6px;align-items:center;padding:9px 4px;border-bottom:1px solid #161d2a}
+  .A .row .rk{font-family:"Archivo";font-weight:800;font-size:14px;color:#5d6b82;text-align:center}
+  .A .row.up{box-shadow:inset 3px 0 0 #37d39a}.A .row.dn{box-shadow:inset 3px 0 0 #ef5b52}
+  .A .row.up .rk{color:#37d39a}.A .row.dn .rk{color:#ef5b52}
+  .A .tm{display:flex;align-items:center;gap:9px;min-width:0}
+  .A .tm img{width:21px;height:21px;object-fit:contain;flex:none}
+  .A .tm b{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .A .v{font-family:"Archivo";font-weight:700;font-size:12.5px;text-align:center;color:#c4cfe0}
+  .A .v.dim{color:#566糸;color:#56627a}
+  .A .heat{font-family:"Archivo";font-weight:700;font-size:12px;text-align:center;border-radius:5px;padding:4px 0}
+
+  /* ============ B · QUANT TERMINAL ============ */
+  .B{background:#070809;font-family:"Spline Sans Mono",monospace}
+  .B .bbar{display:flex;align-items:center;gap:8px;border:1px solid #1d2a22;border-radius:3px;padding:7px 9px;margin-bottom:11px;background:#0a0f0b}
+  .B .dot{width:7px;height:7px;border-radius:50%;background:#3ddc84;box-shadow:0 0 8px #3ddc84}
+  .B .bbar .t1{font-size:11px;color:#3ddc84;font-weight:700;letter-spacing:.04em}
+  .B .bbar .t2{font-size:10px;color:#5f6e63;margin-left:auto}
+  .B .thd{display:grid;grid-template-columns:18px 1fr 46px 60px;gap:5px;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#566;color:#54665b;padding:0 2px 5px;border-bottom:1px solid #15201a}
+  .B .thd .c{text-align:right}
+  .B .row{display:grid;grid-template-columns:18px 1fr 46px 60px;gap:5px;align-items:center;padding:6px 2px;border-bottom:1px solid #0f160f}
+  .B .row .rk{font-size:11px;color:#48564d;text-align:center}
+  .B .tm{display:flex;align-items:center;gap:7px;min-width:0}
+  .B .tm img{width:16px;height:16px;object-fit:contain;flex:none;filter:saturate(.9)}
+  .B .tm b{font-weight:600;font-size:12px;color:#cdd8cf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:"Inter"}
+  .B .num{font-size:12px;color:#9fb0a3;text-align:right;font-weight:600}
+  .B .pb{display:flex;align-items:center;gap:5px;justify-content:flex-end}
+  .B .pb .bar{height:8px;flex:1;background:#101a12;border-radius:1px;overflow:hidden;max-width:40px}
+  .B .pb .bar>i{display:block;height:100%}
+  .B .pb .pv{font-size:11px;width:26px;text-align:right}
+  .B .up i{background:#3ddc84}.B .up .pv{color:#3ddc84}
+  .B .dn i{background:#ff5d5d}.B .dn .pv{color:#ff5d5d}
+
+  /* ============ C · REFINED CURRENT ============ */
+  .C{background:radial-gradient(900px 320px at 75% -20%,rgba(86,210,255,.06),transparent 60%),#0a111e}
+  .C .topline{display:flex;gap:8px;margin-bottom:13px}
+  .C .tbox{flex:1;background:#101a2c;border:1px solid rgba(150,180,220,.14);border-radius:10px;padding:10px}
+  .C .tbox .k{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#65748d;display:flex;align-items:center;gap:5px}
+  .C .tbox .k i{width:8px;height:8px;border-radius:3px}
+  .C .tbox.t .k i{background:#f6b53f}.C .tbox.u .k i{background:#34d39a}.C .tbox.r .k i{background:#e25f4f}
+  .C .tbox .nm{font-family:"Archivo";font-weight:700;font-size:12.5px;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .C .tbox .pc{font-family:"Archivo";font-weight:800;font-size:18px;margin-top:3px}
+  .C .tbox.t .pc{color:#f6b53f}.C .tbox.u .pc{color:#34d39a}.C .tbox.r .pc{color:#e25f4f}
+  .C .thd{display:grid;grid-template-columns:20px 1fr 36px 40px 40px;gap:5px;font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:#65748d;padding:0 6px 7px;border-bottom:1px solid rgba(150,180,220,.10)}
+  .C .thd .c{text-align:center}
+  .C .row{display:grid;grid-template-columns:20px 1fr 36px 40px 40px;gap:5px;align-items:center;padding:8px 6px;border-bottom:1px solid rgba(150,180,220,.10)}
+  .C .row.up{box-shadow:inset 3px 0 0 #34d39a}.C .row.dn{box-shadow:inset 3px 0 0 #e25f4f}
+  .C .row .rk{font-family:"Archivo";font-weight:700;font-size:13px;color:#65748d;text-align:center}
+  .C .tm{display:flex;align-items:center;gap:9px;min-width:0}
+  .C .tm img{width:21px;height:21px;object-fit:contain;flex:none}
+  .C .tm b{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .C .v{font-family:"Archivo";font-weight:700;font-size:12px;text-align:center;color:#9fb0c8}
+  .C .heat{font-family:"Archivo";font-weight:700;font-size:11.5px;text-align:center;border-radius:5px;padding:4px 0}
+</style>
+</head>
+<body>
+  <div class="pg-h">
+    <h1>Which visual direction should we take?</h1>
+    <p>Same Premier League data, three identities. The goal is to shed the generic dark-dashboard look. Click the one that feels right (or tell me in the terminal) — we can also blend. Each preview shows the top summary boxes plus a few table rows.</p>
+  </div>
+
+  <div class="grid cards">
+
+    <!-- ============ A ============ -->
+    <div class="card" data-choice="A" onclick="toggleSelect(this)">
+      <div class="card-tag"><div class="ltr">A</div><div><h3>Broadcast</h3><span>Editorial sports-graphics · The Athletic / Sky</span></div></div>
+      <div class="demo A">
+        <div class="topline">
+          <div class="tbox t"><div class="k">Title</div><div class="nm">Arsenal</div><div class="pc">31%</div></div>
+          <div class="tbox u"><div class="k">Top 5 · UCL</div><div class="nm">Man City</div><div class="pc">88%</div></div>
+          <div class="tbox r"><div class="k">Relegation</div><div class="nm">Sunderland</div><div class="pc">64%</div></div>
+        </div>
+        <div class="thd"><span>#</span><span>Club</span><span class="c">Pts</span><span class="c">Title</span><span class="c">UCL</span></div>
+        <div class="row up"><span class="rk">1</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/359.png"><b>Arsenal</b></span><span class="v">81</span><span class="heat" style="background:rgba(244,183,64,.32);color:#f4b740">31</span><span class="v">96</span></div>
+        <div class="row up"><span class="rk">2</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/382.png"><b>Manchester City</b></span><span class="v">78</span><span class="heat" style="background:rgba(244,183,64,.20);color:#f4b740">24</span><span class="v">88</span></div>
+        <div class="row up"><span class="rk">3</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/364.png"><b>Liverpool</b></span><span class="v">74</span><span class="heat" style="background:rgba(244,183,64,.12);color:#f4b740">18</span><span class="v">79</span></div>
+        <div class="row dn"><span class="rk">19</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/366.png"><b>Burnley</b></span><span class="v">28</span><span class="v dim">·</span><span class="v dim">·</span></div>
+        <div class="row dn"><span class="rk">20</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/366.png" style="visibility:hidden"><b>Sunderland</b></span><span class="v">24</span><span class="v dim">·</span><span class="v dim">·</span></div>
+      </div>
+      <div class="note"><b>Confident & legible.</b> Big numerals, one accent per race, team-color rails. Most clearly "not an AI dashboard."</div>
+    </div>
+
+    <!-- ============ B ============ -->
+    <div class="card" data-choice="B" onclick="toggleSelect(this)">
+      <div class="card-tag"><div class="ltr">B</div><div><h3>Quant terminal</h3><span>FiveThirtyEight / Bloomberg · model-forward</span></div></div>
+      <div class="demo B">
+        <div class="bbar"><span class="dot"></span><span class="t1">PREMIER LEAGUE · 10k SIMS</span><span class="t2">model 0.572</span></div>
+        <div class="thd"><span>#</span><span>Club</span><span class="c">PTS</span><span class="c">TITLE</span></div>
+        <div class="row up"><span class="rk">1</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/359.png"><b>Arsenal</b></span><span class="num">81.2</span><span class="pb"><span class="bar"><i style="width:62%"></i></span><span class="pv">31</span></span></div>
+        <div class="row up"><span class="rk">2</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/382.png"><b>Man City</b></span><span class="num">78.4</span><span class="pb"><span class="bar"><i style="width:48%"></i></span><span class="pv">24</span></span></div>
+        <div class="row up"><span class="rk">3</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/364.png"><b>Liverpool</b></span><span class="num">74.1</span><span class="pb"><span class="bar"><i style="width:36%"></i></span><span class="pv">18</span></span></div>
+        <div class="row dn"><span class="rk">19</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/366.png"><b>Burnley</b></span><span class="num">28.3</span><span class="pb"><span class="bar"><i style="width:55%"></i></span><span class="pv">55</span></span></div>
+        <div class="row dn"><span class="rk">20</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/366.png" style="visibility:hidden"><b>Sunderland</b></span><span class="num">24.0</span><span class="pb"><span class="bar"><i style="width:68%"></i></span><span class="pv">68</span></span></div>
+      </div>
+      <div class="note"><b>Dense & analytical.</b> Mono numerics, inline bars, no chrome. Signals "this is a real model," fits the betting/edge angle.</div>
+    </div>
+
+    <!-- ============ C ============ -->
+    <div class="card" data-choice="C" onclick="toggleSelect(this)">
+      <div class="card-tag"><div class="ltr">C</div><div><h3>Refined current</h3><span>Keep navy/cyan identity, remove the AI smell</span></div></div>
+      <div class="demo C">
+        <div class="topline">
+          <div class="tbox t"><div class="k"><i></i>Title</div><div class="nm">Arsenal</div><div class="pc">31%</div></div>
+          <div class="tbox u"><div class="k"><i></i>UCL</div><div class="nm">Man City</div><div class="pc">88%</div></div>
+          <div class="tbox r"><div class="k"><i></i>Drop</div><div class="nm">Sunderland</div><div class="pc">64%</div></div>
+        </div>
+        <div class="thd"><span>#</span><span>Club</span><span class="c">Pts</span><span class="c">Title</span><span class="c">UCL</span></div>
+        <div class="row up"><span class="rk">1</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/359.png"><b>Arsenal</b></span><span class="v">81</span><span class="heat" style="background:rgba(246,181,63,.30);color:#f6b53f">31</span><span class="v">96</span></div>
+        <div class="row up"><span class="rk">2</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/382.png"><b>Manchester City</b></span><span class="v">78</span><span class="heat" style="background:rgba(246,181,63,.18);color:#f6b53f">24</span><span class="v">88</span></div>
+        <div class="row up"><span class="rk">3</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/364.png"><b>Liverpool</b></span><span class="v">74</span><span class="heat" style="background:rgba(246,181,63,.10);color:#f6b53f">18</span><span class="v">79</span></div>
+        <div class="row dn"><span class="rk">19</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/366.png"><b>Burnley</b></span><span class="v">28</span><span class="v">·</span><span class="v">·</span></div>
+        <div class="row dn"><span class="rk">20</span><span class="tm"><img src="https://a.espncdn.com/i/teamlogos/soccer/500/366.png" style="visibility:hidden"><b>Sunderland</b></span><span class="v">24</span><span class="v">·</span><span class="v">·</span></div>
+      </div>
+      <div class="note"><b>Lowest risk.</b> Same brand, but disciplined type/spacing and a 2-color qualify/drop system instead of the rainbow heat.</div>
+    </div>
+
+  </div>
+</body>
+</html>
