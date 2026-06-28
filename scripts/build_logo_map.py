@@ -59,11 +59,14 @@ ALIAS = {
     "Red Bull New York": "New York Red Bulls",
 }
 
-# Manual supplement for teams absent from every current league file (promoted / relegated
-# / newly added clubs). Fill in with ESPN team-logo URLs as gaps are found — see the
-# coverage report this script prints. Format:
+# Manual supplement for teams absent from every league file AND from foreign_logos.json
+# (ESPN's domestic roster snapshot omits them). IDs verified via ESPN team API. Format:
 #   "Coventry City": "https://a.espncdn.com/i/teamlogos/soccer/500/<id>.png",
-SUPPLEMENT = {}
+SUPPLEMENT = {
+    "Mazatlán FC": "https://a.espncdn.com/i/teamlogos/soccer/500/20702.png",  # Liga MX; ESPN mex.1 snapshot stale
+    "Le Mans": "https://a.espncdn.com/i/teamlogos/soccer/500/2697.png",
+    "Troyes": "https://a.espncdn.com/i/teamlogos/soccer/500/170.png",
+}
 
 
 def main():
@@ -86,6 +89,18 @@ def main():
                 logos[name] = logo
 
     harvested = len(logos)
+
+    # Merge ESPN foreign-league logos (scripts/foreign_logos.json, built by fetch_foreign_logos.py)
+    # into the pool BEFORE building the fuzzy index, so continental clubs from leagues we don't
+    # model domestically (Eredivisie, Primeira, Scottish, Concacaf domestics, …) get resolved.
+    foreign_path = os.path.join(os.path.dirname(__file__), "foreign_logos.json")
+    foreign_n = 0
+    if os.path.exists(foreign_path):
+        foreign = json.load(open(foreign_path, encoding="utf-8"))
+        for name, url in foreign.items():
+            if name and url and name not in logos:
+                logos[name] = url
+                foreign_n += 1
 
     # normalized index of teams that DO have a logo (key -> url); keep the shortest
     # source name per key as the canonical (usually the cleaner domestic name).
@@ -134,7 +149,7 @@ def main():
     out = os.path.join(DATA, "logos.js")
     with open(out, "w", encoding="utf-8") as f:
         f.write("window.TEAM_LOGOS=" + json.dumps(logos, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + ";\n")
-    print(f"wrote {out}: {len(logos)} teams ({harvested} harvested, {resolved} fuzzy-resolved)")
+    print(f"wrote {out}: {len(logos)} teams ({harvested} harvested, {foreign_n} foreign, {resolved} fuzzy-resolved)")
     # report names still unresolved (no logo anywhere we can reach)
     unresolved = sorted(n for n in all_names if n not in logos)
     print(f"unresolved: {len(unresolved)}")
