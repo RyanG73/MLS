@@ -1327,11 +1327,16 @@ function renderGames(){
 /* ═══════════════ TEAMS (ELO grid + trophies + profile) ═══════════════ */
 const stdByTeam=new Map(D.standings.map(s=>[s.team,s]));
 // distinct SVG trophy glyphs (conference championships dropped per spec)
-const TROPHY={'MLS Cup':{c:'#f6b53f',g:'cup'},"Supporters' Shield":{c:'#cfd8e6',g:'shield'},'US Open Cup':{c:'#56d2ff',g:'cup'}};
+// Trophy registry: known competitions get a glyph + color; unknown types fall back to
+// a generic cup. The Teams-tab legend is built from the trophy TYPES actually present in
+// D.trophies for the current league — so European teams never advertise the US Open Cup.
+const TROPHY={'MLS Cup':{c:'#f4b740',g:'cup'},"Supporters' Shield":{c:'#cfd8e6',g:'shield'},'US Open Cup':{c:'#4aa3ff',g:'cup'},
+  'League Title':{c:'#f4b740',g:'cup'},'Domestic Cup':{c:'#4aa3ff',g:'cup'},'Continental':{c:'#3ddc84',g:'cup'}};
+const trophyMeta=k=>TROPHY[k]||{c:'#9fb0a3',g:'cup'};
 const _CUP='M -3 -4 L 3 -4 L 3 -2 C 3 0.4 -3 0.4 -3 -2 Z M -0.8 0.2 L 0.8 0.2 L 0.8 2.2 L 2 2.2 L 2 3.2 L -2 3.2 L -2 2.2 L -0.8 2.2 Z';
 const _SHIELD='M 0 -4 L 3.2 -2.6 L 3.2 0.6 C 3.2 2.6 0 4 0 4 C 0 4 -3.2 2.6 -3.2 0.6 L -3.2 -2.6 Z';
-function trophyGlyph(kind,year,cx,cy,s){const t=TROPHY[kind];if(!t)return'';
-  return `<g transform="translate(${cx.toFixed(1)},${cy.toFixed(1)}) scale(${s})"><path d="${t.g==='cup'?_CUP:_SHIELD}" fill="${t.c}" stroke="#0a111e" stroke-width="0.6"/><title>${kind} ${year}</title></g>`;}
+function trophyGlyph(kind,year,cx,cy,s){const t=trophyMeta(kind);
+  return `<g transform="translate(${cx.toFixed(1)},${cy.toFixed(1)}) scale(${s})"><path d="${t.g==='cup'?_CUP:_SHIELD}" fill="${t.c}" stroke="#070809" stroke-width="0.6"/><title>${kind} ${year}</title></g>`;}
 const eloTip=el('div','elo-tip'); document.body.appendChild(eloTip);
 
 // League-wide ELO scale across ALL teams and all time — so a team's line is
@@ -1392,13 +1397,26 @@ function renderProfile(team,scroll){
   _selTeam=team;
   document.querySelectorAll('.elo-card').forEach(c=>c.classList.toggle('sel',c.dataset.team===team));
   const inp=(D.team_inputs||{})[team]||{}, gms=D.games.filter(g=>g.home===team||g.away===team);
-  const rank=(D.standings.filter(x=>x.conf===s.conf).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)).findIndex(x=>x.team===team))+1;
+  // Place label is league-type-aware: table leagues reuse the `conf` key for a Conference-League
+  // probability (a number), so NEVER render "${conf}ern Conference" there — show overall rank instead.
+  const _N=(D.outlook||{}).n_teams||D.standings.length;
+  const overallRank=[...D.standings].sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)).findIndex(x=>x.team===team)+1;
+  const confRank=isTable?null:(D.standings.filter(x=>x.conf===s.conf).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)).findIndex(x=>x.team===team))+1;
+  const placeLabel=isTable?`#${overallRank} of ${_N}`:`${s.conf}ern Conference · #${confRank}`;
+  const rankLabel=isTable?'League rank':`${s.conf} rank`;
+  const rankVal=isTable?`#${overallRank}`:`#${confRank}`;
   let w=0,d=0,l=0; gms.filter(g=>g.result).forEach(g=>{const h=g.home===team;
     if(g.result==='D')d++; else if((g.result==='H')===h)w++; else l++;});
   const fv=v=>v==null?'—':v;
   const chart=eloChartSVG(team,760,210,true).svg;
   const troph=((D.trophies||{})[team]||[]).filter(t=>t.type!=='Conference');
   const chips=troph.length?troph.map(t=>`<span class="troph-chip"><b>${t.year}</b> ${t.type}</span>`).join(''):'<span style="color:var(--txt-3);font-size:12px">No major trophies 2013–present.</span>';
+  // Legend reflects only the trophy TYPES present in this league's data (no MLS leakage in Europe).
+  const _legendTypes=[...new Set(Object.values(D.trophies||{}).flat().map(t=>t.type).filter(t=>t&&t!=='Conference'))];
+  const trophLegend=_legendTypes.length
+    ? `<div class="troph-legend">`+_legendTypes.map(ty=>{const m=trophyMeta(ty);
+        return `<span><svg width="13" height="13" viewBox="-4 -5 8 9"><path d="${m.g==='cup'?_CUP:_SHIELD}" fill="${m.c}"/></svg>${ty}</span>`;}).join('')+`</div>`
+    : `<div class="troph-legend" style="color:var(--txt-3)">No trophy data for this league.</div>`;
   const inputsCard=`<div class="pcard"><h3>Model inputs (current)</h3>
     <div class="pstat"><span class="k">ELO rating</span><span class="v">${inp.elo??'—'}</span></div>
     <div class="pstat"><span class="k">xG for (roll 5)</span><span class="v">${fv(inp.xg_for)}</span></div>
@@ -1410,7 +1428,7 @@ function renderProfile(team,scroll){
     <div class="pstat"><span class="k">Record (W-D-L)</span><span class="v">${w}-${d}-${l}</span></div>
     <div class="pstat"><span class="k">Points · GP</span><span class="v">${s.pts} · ${s.gp}</span></div>
     <div class="pstat"><span class="k">GD · xGD</span><span class="v">${sgn(s.gd)} · ${sgnf(s.xgd)}</span></div>
-    <div class="pstat"><span class="k">${s.conf} rank</span><span class="v">#${rank}</span></div>
+    <div class="pstat"><span class="k">${rankLabel}</span><span class="v">${rankVal}</span></div>
     <div class="pstat"><span class="k">Playoff odds</span><span class="v">${s.playoff}%</span></div>
     <div class="pstat"><span class="k">Shield · Cup</span><span class="v">${s.shield}% · ${s.cup}%</span></div></div>`;
   const upc=gms.filter(g=>g.result==null).slice(0,5).map(g=>{const h=g.home===team,opp=h?g.away:g.home;
@@ -1419,8 +1437,8 @@ function renderProfile(team,scroll){
     const won=g.result==='D'?'D':((g.result==='H')===h?'W':'L'), pick=[['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,x)=>x[1]>m[1]?x:m)[0], hit=pick===g.result;
     return `<div class="pmini"><span class="d">${g.date.slice(5)}</span><span class="opp">${h?'vs':'@'} ${opp} · ${g.hg}-${g.ag}</span><span class="pr" style="color:${won==='W'?'var(--qualify)':won==='L'?'#e25f4f':'var(--txt-2)'}">${won}</span><span class="res ${hit?'ok':'miss'}">${hit?'✓':'✗'}</span></div>`;}).join('')||'<div class="pstat"><span class="k">No results yet</span></div>';
   $('#teamProfile').innerHTML=
-    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${s.conf}ern Conference · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div></div>
-     <div class="chart-wrap big">${chart}<div class="troph-legend"><span><svg width="13" height="13" viewBox="-4 -5 8 9"><path d="${_CUP}" fill="#f6b53f"/></svg>MLS Cup</span><span><svg width="13" height="13" viewBox="-4 -5 8 9"><path d="${_SHIELD}" fill="#cfd8e6"/></svg>Supporters' Shield</span><span><svg width="13" height="13" viewBox="-4 -5 8 9"><path d="${_CUP}" fill="#56d2ff"/></svg>US Open Cup</span></div><div class="troph-list">${chips}</div></div>
+    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div></div>
+     <div class="chart-wrap big">${chart}${trophLegend}<div class="troph-list">${chips}</div></div>
      <div class="prof-grid">${inputsCard}${seasonCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div></div>`;
   if(scroll)$('#teamProfile').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
