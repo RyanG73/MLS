@@ -220,6 +220,12 @@ Addressed the Codex Section 8 findings without touching the champion model. Thre
 
 ---
 
+## Webapp UI redesign — quant-terminal (2026-06-28)
+
+Redesigned the single-file dashboard (`webapp/index.html`) onto a distinctive "quant-terminal" design system (near-black ink, monospace numerics, flat panels, a disciplined one-accent-per-role palette) to shed the generic "AI dashboard" look, plus several correctness fixes. Highlights: a data-driven **race strip** that scales the top summary boxes to any league's `outlook.cards`; a half-width dense table + **projected-finish range plot** for single-table leagues (eliminating the 770px empty club column), fed by a finishing-position histogram added non-invasively to the existing `runSimTable` loop; a global logo fallback (`scripts/build_logo_map.py` → `webapp/data/logos.js`) that fuzzy-resolves cross-competition name mismatches so continental brackets and promoted teams render real crests; league-aware trophies (fixing the MLS-only "US Open Cup" legend leaking into Europe and the `0.4ern Conference` profile bug, which stemmed from European payloads reusing the `conf` key for a Conference-League probability); and all tournament tables restyled from bare `<table>`s into heat panels + a round-reach heat matrix. The simulation math and JS↔Python porting contract were left untouched. Done as a presentation-layer overhaul on branch `feat/webapp-ui-redesign`; verified across every league archetype + mobile with zero console errors.
+
+---
+
 ## Permanent constraints (do not re-litigate without explicit instruction)
 
 See `CLAUDE.md` for the full decision list with dates. Key ones with rationale:

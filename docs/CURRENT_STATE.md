@@ -1,6 +1,6 @@
 # MLS Prediction System — Current State
 
-Last updated: 2026-06-07
+Last updated: 2026-06-27
 
 This document is the single source of truth for the canonical model, metric
 definitions, data sources, and run commands. Update it when any of these change.
@@ -17,6 +17,12 @@ definitions, data sources, and run commands. Update it when any of these change.
 3. Temperature calibration applied to both DC and XGB outputs on the cal fold
 4. Capped-DC convex blend: `w * XGB + (1-w) * DC`, w ∈ [0.7, 1.0], fitted by Brier minimisation on cal fold
 5. Second-pass temperature calibration on the blend output (fixes the pre-blend calibration bug that caused cal_err=0.1326)
+
+> **Calibration method validated 2026-06-28:** a full sweep of all 6 `--calibration`
+> methods (platt, isotonic, beta, temp_then_platt, temp_then_isotonic vs temperature)
+> confirmed temperature is best — every alternative regressed Brier by +0.0026 to
+> +0.0063 (≥13× the noise floor). Platt/beta improve decile calibration but at a real
+> Brier cost. See `docs/feature-hunt-log.md` 2026-06-28.
 
 **Promoted-team seeding (European leagues, added 2026-06-27):**
 - Replaces flat 15th-pct attack / 85th-pct defense with tier-bridge seeding from actual 2nd-tier ELO
@@ -75,15 +81,79 @@ compare half-form values directly with research Brier.
 
 ## Production Path (webapp-only)
 
-| What | Path | Model |
-|------|------|-------|
-| Static web dashboard | `scripts/build_dashboard_data.py` → `webapp/data.js` → `webapp/` | `models/research_model` |
+| What | Build script | Payload(s) | Model |
+|------|------|------|-------|
+| MLS dashboard | `scripts/build_dashboard_data.py` | `webapp/data/mls.js` | `models/research_model` |
+| European / table leagues | `scripts/build_league_data.py` | `webapp/data/{epl,la-liga,…}.js` | `models/research_model` |
+| Continental knockouts | `scripts/build_continental_data.py` | `webapp/data/{ucl,europa,…}.js` | bracket simulator |
+| "Coming soon" stubs + registry | `scripts/fetch_league_teams.py` | placeholders + `webapp/leagues.js` | — |
+| Contract validation | `scripts/validate_payloads.py` | (checks all `webapp/data/*.js`) | — |
 
-The single active path is database-free: the Mac runs `build_dashboard_data.py`
-to render `webapp/data.js`, and `webapp/index.html` is served statically. The
+The single active path is database-free: the Mac runs the build scripts to render
+per-league payloads under `webapp/data/*.js`, and `webapp/index.html` is served statically. The
 former Postgres/Streamlit pipeline and the legacy model stack
 (`dixon_coles`/`gradient_boost`/`stacking_ensemble`) were archived under
 `legacy/` on 2026-06-11 (see `legacy/README.md`).
+
+---
+
+## Route State Taxonomy
+
+Every `webapp/data/*.js` payload carries a top-level **`status`** field that names
+the route/view state. The webapp branches on this to decide which panels, tabs,
+and copy are legal for a surface, and `scripts/validate_payloads.py` keys its
+required-field checks off it. This distinguishes projections from priors, completed
+results, and unavailable surfaces — so users never mistake a placeholder or stale
+page for a live projection.
+
+| `status` | Meaning | Produced by | Webapp framing |
+|----------|---------|-------------|----------------|
+| `live` | Current season in progress: played + upcoming matches | `build_dashboard_data.py` (MLS), `build_league_data.py` (in-progress) | Full projection UI: standings, match probs, sim, health |
+| `preseason` | Schedule published, **no matches played yet** — projections are statistical **priors**, not live probabilities | `build_league_data.py` when `season_state == PRESEASON` | "pre-season projection" banner; cards labelled "preseason prior · no matches played"; health shows "no current rows" instead of `NaN%` |
+| `completed` | Final results, **no projection framing** | `build_league_data.py` (concluded table league), `build_continental_data.py` (concluded knockout) | Result/standings view; champion shown; no edge/value affordances |
+| `knockout_live` | Bracket or league phase active | `build_continental_data.py` (in-progress) | Bracket projection + current path |
+| `placeholder` | Model/source not built for this league | `fetch_league_teams.py` | "coming soon" view; carries a human-readable **`reason`** string; team list shown for reference if available |
+
+Notes:
+- **`status` is distinct from `league.status`.** `league.status` (`live`/`soon`) drives
+  the sidebar "soon" tag and the model-not-built branch; top-level `status` is the
+  canonical route state. They will usually agree, but consumers should branch on
+  top-level `status`.
+- Power rankings (`power.js`) is a cross-league surface with `groups` and no `league`
+  key; the webapp selects it via `?league=power` before the normal league render.
+- `placeholder` payloads MUST include `reason` (why there are no projections). The
+  webapp surfaces this string directly in the "coming soon" view.
+- The state is derived from `scripts/eval/season_state.py` (`PRESEASON` /
+  `IN_PROGRESS` / `CONCLUDED` / `BETWEEN`) for table leagues, so `status`,
+  `in_season`, and `outlook.preseason` stay consistent within one payload.
+
+---
+
+## Model Card Fields
+
+Non-placeholder payloads include a **`model_card`** object — a compact, human-readable
+description of the model that produced the projections, surfaced in the dashboard's
+model-health tab. It is informational (not consumed by the model); keep it in sync
+with the champion config above.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `arch` | `string[]` | Ordered pipeline stages, e.g. `["Dixon-Coles", "Temperature", "XGBoost ×5 bag", "Capped-DC blend", "Temperature"]` |
+| `config` | `object` | Headline hyperparameters: `ELO K`, `Home adv`, `Season regress`, `DC decay`, `XGB weight ½-life`, `Seed bag`, `xG / form windows` |
+| `per_class` | `object` | Champion per-class Brier `{home, draw, away}` (from `champion.json` → report `overall`) |
+| `n_test` | `int \| null` | Number of test matches in the champion report |
+
+The MLS and table-league builds populate `model_card` from `experiments/champion.json`
+→ the referenced report. If the champion report is unreadable, the build still emits
+`arch` and `config` (static) and leaves `per_class`/`n_test` empty rather than failing.
+
+Companion fields in the same payload:
+- `model` — live headline metrics for this surface: `best_brier`, `naive`, `improve_pct`,
+  `market`/`edge_pct` (where market history exists), `metric: "brier_sum_form"`.
+- `in_season_brier` — running Brier over the current season's played matches.
+- `health` — feature-family completeness/non-default over current-season rows
+  (see `scripts/payload_utils.py:health_feature_stats`; preseason rows return
+  `status: "no_rows"` rather than `NaN`).
 
 ---
 
@@ -147,6 +217,7 @@ make build-dashboard-data   # rebuild webapp/data.js (the production artifact)
 make parity-check           # research_model reproduces the champion (|Δ| < 0.0015)
 make test                   # DB-free unit suite
 make odds-log               # append Pinnacle opening lines to data/odds_log.parquet
+python3 scripts/build_logo_map.py   # rebuild webapp/data/logos.js (global crest fallback; run after league data rebuilds)
 ```
 
 ### Market Evaluation & CLV
