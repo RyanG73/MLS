@@ -117,9 +117,9 @@ def main():
         if alias not in logos and canon in logos:
             logos[alias] = logos[canon]
 
-    # resolve remaining logo-less names by fuzzy match
+    # resolve remaining logo-less names by fuzzy match (sorted for deterministic output)
     resolved = 0
-    for name in all_names:
+    for name in sorted(all_names):
         if name in logos:
             continue
         url = resolve(name)
@@ -133,7 +133,7 @@ def main():
 
     out = os.path.join(DATA, "logos.js")
     with open(out, "w", encoding="utf-8") as f:
-        f.write("window.TEAM_LOGOS=" + json.dumps(logos, ensure_ascii=False, separators=(",", ":")) + ";\n")
+        f.write("window.TEAM_LOGOS=" + json.dumps(logos, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + ";\n")
     print(f"wrote {out}: {len(logos)} teams ({harvested} harvested, {resolved} fuzzy-resolved)")
     # report names still unresolved (no logo anywhere we can reach)
     unresolved = sorted(n for n in all_names if n not in logos)
