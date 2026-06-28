@@ -133,7 +133,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 
 /* ── race strip: one card per race, leader + contenders (scales to any league) ── */
 .races{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:var(--s5)}
-.race{border:1px solid var(--line-2);border-radius:9px;background:var(--ink-2);padding:10px 11px;position:relative;overflow:hidden}
+.race{border:1px solid var(--line-2);border-radius:9px;background:var(--ink-2);padding:10px 11px;position:relative;overflow:hidden;max-width:460px;justify-self:stretch}
 .race::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
 .race.t::before{background:var(--win)}.race.u::before{background:var(--qualify)}.race.e::before{background:var(--europa)}.race.r::before{background:var(--drop)}.race.s::before{background:var(--shield)}
 .race .rk{font-size:8.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-2);display:flex;justify-content:space-between;gap:6px}
@@ -202,6 +202,19 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .ucl-line{color:var(--qualify);border-top:1px dashed rgba(61,220,132,.35)}
 .rz-line{color:var(--drop);border-top:1px dashed rgba(255,93,93,.35)}
 @media(max-width:620px){.tlad .thead .c-elo,.tlad .trow .eloc{display:none}}
+/* ── projected-finish range plot ── */
+.plotpanel .plot{padding:10px var(--s4) 14px}
+.plot .faxis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--txt-3);padding:0 0 7px;border-bottom:1px solid var(--line);margin-bottom:5px}
+.plot .frow{display:grid;grid-template-columns:104px 1fr;gap:9px;align-items:center;padding:3px 0}
+.plot .fn{display:flex;align-items:center;gap:6px;min-width:0}
+.plot .fn .crest{width:16px;height:16px}
+.plot .fn b{font-size:11px;color:var(--txt-2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plot .ftrack{position:relative;height:14px}
+.plot .rangebar{position:absolute;top:4px;height:6px;border-radius:3px;opacity:.42}
+.plot .fmed{position:absolute;top:2px;width:3px;height:10px;border-radius:1px}
+.plot .fleg{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;font-size:10px;color:var(--txt-3)}
+.plot .fleg span{display:inline-flex;align-items:center;gap:5px}
+.plot .fleg i{width:9px;height:9px;border-radius:2px;display:inline-block}
 /* ── knockout-view sub-tabs (UEFA Champions League etc.) ── */
 .ko-subtabs{display:flex;gap:6px;margin-bottom:10px}
 .ko-tab{padding:6px 12px;border:1px solid #2a2f3a;background:#161a22;color:#9aa4b2;border-radius:6px;cursor:pointer;font-size:13px}
@@ -869,6 +882,8 @@ function raceCard(card){
 function runSimTable(N=10000){
   const ol=D.outlook, cols=ol.columns;
   const acc={};SIM.teams.forEach(t=>{const a={proj:0,rank:0};cols.forEach(c=>a[c.key]=0);acc[t]=a;});
+  // finishing-position histogram per team (index = team idx, slot = 0-based rank) → fuels the projected-finish plot
+  const finishHist=[];for(let i=0;i<NT;i++)finishHist.push(new Float64Array(NT));
   const fixedPts=new Float64Array(NT),free=[];
   for(let id=0;id<NF;id++){const f=forced[id];
     if(f==='H')fixedPts[FH[id]]+=3;
@@ -892,11 +907,15 @@ function runSimTable(N=10000){
       else return;
       for(let k=lo;k<hi;k++)acc[SIM.teams[order[k]]][c.key]++;
     });
-    for(let r=0;r<NT;r++)acc[SIM.teams[order[r]]].rank+=r+1;
+    for(let r=0;r<NT;r++){acc[SIM.teams[order[r]]].rank+=r+1;finishHist[order[r]][r]++;}
     for(let i=0;i<NT;i++)acc[SIM.teams[i]].proj+=pts[i];
   }
+  // percentile of a position histogram (returns 1-indexed finishing position at cumulative quantile q)
+  const pctile=(hist,q)=>{let c=0;const target=q*N;for(let r=0;r<hist.length;r++){c+=hist[r];if(c>=target)return r+1;}return hist.length;};
   const out={};
-  for(const t of SIM.teams){const a=acc[t];const e={proj_pts:+(a.proj/N).toFixed(1),proj_rank:+(a.rank/N).toFixed(1)};
+  for(let i=0;i<SIM.teams.length;i++){const t=SIM.teams[i],a=acc[t];
+    const e={proj_pts:+(a.proj/N).toFixed(1),proj_rank:+(a.rank/N).toFixed(1),
+      fin_p10:pctile(finishHist[i],0.10),fin_med:pctile(finishHist[i],0.50),fin_p90:pctile(finishHist[i],0.90)};
     cols.forEach(c=>e[c.key]=+(a[c.key]/N*100).toFixed(1));out[t]=e;}
   return out;
 }
@@ -937,6 +956,39 @@ function tableLadder(){
   });
   return box;
 }
+/* ── projected-finish range plot (single-table companion, #4) ──
+   Each team's 10th–90th percentile finishing position with a median dot, zone-colored.
+   Reuses runSimTable's finishing-position histogram; runs once at load, refreshes on what-if. */
+let finishVals=null;
+function ensureFinish(){ if(!finishVals && SIM.teams.length) finishVals=runSimTable(10000); }
+function finishZone(rank){ const ol=D.outlook;
+  if(ol.green_line&&rank<=1) return 'var(--win)';
+  if(ol.green_line&&rank<=ol.green_line) return 'var(--qualify)';
+  if(ol.red_line&&rank>ol.n_teams-ol.red_line) return 'var(--drop)';
+  return 'var(--draw)'; }
+function axisTicks(N){ const ticks=[...new Set([1,Math.round(N*0.25),Math.round(N*0.5),Math.round(N*0.75),N])];
+  return ticks.map(t=>`<span>${t}</span>`).join(''); }
+function finishLegend(){ const L=[['var(--win)','Title'],['var(--qualify)','Qualify'],['var(--europa)','Europa'],['var(--draw)','Mid'],['var(--drop)','Relegation']];
+  return `<div class="fleg">`+L.map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join('')+`</div>`; }
+function finishPlotPanel(){
+  ensureFinish();
+  const src=simVals||finishVals||{}, N=D.outlook.n_teams||D.standings.length;
+  const teams=D.standings.map(s=>Object.assign({},s,src[s.team]||{}))
+    .sort((a,b)=>(a.fin_med||99)-(b.fin_med||99));
+  const pos=p=>((p-1)/(Math.max(1,N-1))*100);
+  const rows=teams.map(t=>{
+    const a=t.fin_p10||1,m=t.fin_med||1,b=t.fin_p90||N, c=finishZone(Math.round(m));
+    const L=pos(a),W=Math.max(2,pos(b)-pos(a));
+    return `<div class="frow"><span class="fn">${crest(t.team,t.logo)}<b>${t.team}</b></span>`+
+      `<span class="ftrack"><span class="rangebar" style="left:${L.toFixed(1)}%;width:${W.toFixed(1)}%;background:${c}"></span>`+
+      `<span class="fmed" style="left:calc(${pos(m).toFixed(1)}% - 1px);background:${c}"></span></span></div>`;
+  }).join('');
+  const panel=el('div','panel plotpanel');
+  panel.innerHTML=`<div class="panel-h"><span class="dot" style="background:var(--europa);box-shadow:0 0 8px var(--europa)"></span>`+
+    `<h2>Projected finish</h2><span class="meta">10th–90th pct · ● median</span></div>`+
+    `<div class="plot"><div class="faxis">${axisTicks(N)}</div>${rows}${finishLegend()}</div>`;
+  return panel;
+}
 function renderTableOutlook(){
   const ol=D.outlook;
   $('#favs').className='races';
@@ -956,7 +1008,7 @@ function renderTableOutlook(){
     banner.style.marginBottom='var(--s4)';banner.style.gridColumn='1/-1';
     l.appendChild(banner);
   }
-  l.append(tableLadder());   // Task A4 changes this to: l.append(tableLadder(), finishPlotPanel());
+  l.append(tableLadder(), finishPlotPanel());
 }
 const KO_ROUND_ORDER=['RoundOne','KOplayoff','Playoff','R16','QF','SF','Final'];
 function bracketTree(){
