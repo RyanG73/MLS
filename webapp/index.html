@@ -114,21 +114,22 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .crest:has(img) .mono{display:none}   /* logo present → hide fallback initials */
 
 /* favorites — four title races: Shield · East · West · Spoon */
-.favs{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s3);margin-bottom:var(--s5)}
-.fav{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4);position:relative;overflow:hidden}
+.favs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:var(--s5)}
+.fav{background:var(--ink-2);border:1px solid var(--line-2);border-radius:9px;padding:11px var(--s3);position:relative;overflow:hidden}
 .fav::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
-.fav .lab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3);display:flex;align-items:center;gap:6px}
-.fav .lab .sq{width:9px;height:9px;border-radius:3px}
-.fav .teamrow{display:flex;align-items:center;gap:9px;margin-top:10px}
+.fav .lab{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--txt-2);display:flex;align-items:center;gap:6px}
+.fav .lab .sq{width:8px;height:8px;border-radius:2px}
+.fav .teamrow{display:flex;align-items:center;gap:8px;margin-top:9px}
+.fav .teamrow .crest{width:22px;height:22px}
 .fav .ftxt{min-width:0}
-.fav .team{font-family:"Archivo";font-weight:700;font-size:15px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fav .team{font-family:"Archivo";font-weight:700;font-size:14px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fav .favstats{display:flex;align-items:baseline;gap:9px;margin-top:9px;flex-wrap:wrap}
-.fav .pct{font-family:"Archivo";font-weight:800;font-size:26px;line-height:1}
-.fav .pp{font-size:11.5px;color:var(--txt-3);font-weight:600}
-.fav .pp b{font-family:"Archivo";color:var(--txt-2);font-weight:700}
+.fav .pct{font-family:var(--mono);font-weight:700;font-size:22px;line-height:1}
+.fav .pp{font-size:10.5px;color:var(--txt-3);font-weight:600}
+.fav .pp b{font-family:var(--mono);color:var(--txt-2);font-weight:700}
 .fav.shield::before{background:var(--shield)} .fav.shield .pct{color:var(--shield)} .fav.shield .sq{background:var(--shield)}
-.fav.east::before{background:var(--floodlight)} .fav.east .pct{color:var(--floodlight)} .fav.east .sq{background:var(--floodlight)}
-.fav.west::before{background:var(--west)} .fav.west .pct{color:var(--west)} .fav.west .sq{background:var(--west)}
+.fav.east::before{background:var(--qualify)} .fav.east .pct{color:var(--qualify)} .fav.east .sq{background:var(--qualify)}
+.fav.west::before{background:var(--win)} .fav.west .pct{color:var(--win)} .fav.west .sq{background:var(--win)}
 .fav.spoon::before{background:var(--spoon)} .fav.spoon .pct{color:var(--spoon)} .fav.spoon .sq{background:var(--spoon)}
 
 /* ── race strip: one card per race, leader + contenders (scales to any league) ── */
@@ -157,29 +158,29 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 
 /* ladders */
 .ladders{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
-.ladder{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
-.ladder-h{display:flex;align-items:center;justify-content:space-between;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);background:var(--ink-2)}
-.ladder-h .name{font-family:"Archivo";font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px}
+.ladder{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden}
+.ladder-h{display:flex;align-items:center;gap:8px;padding:9px var(--s3);border-bottom:1px solid var(--line-2);background:var(--ink-2)}
+.ladder-h .name{font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
 .conf-dot{width:8px;height:8px;border-radius:50%}
-.east .conf-dot{background:var(--floodlight)} .west .conf-dot{background:var(--west)}
-.col-head,.row{display:grid;grid-template-columns:22px minmax(0,1fr) 30px 42px 36px 38px 40px 42px 42px 38px 88px;align-items:center;gap:5px;padding:8px var(--s3)}
-.col-head{font-size:9px;text-transform:uppercase;letter-spacing:.03em;color:var(--txt-3);border-bottom:1px solid var(--line)}
+.east .conf-dot{background:var(--qualify)} .west .conf-dot{background:var(--win)}
+.col-head,.row{display:grid;grid-template-columns:22px minmax(0,1fr) 30px 42px 36px 38px 40px 42px 42px 38px 88px;align-items:center;gap:5px;padding:7px var(--s3)}
+.col-head{font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3);border-bottom:1px solid var(--line)}
 .col-head .c{text-align:center;line-height:1.1}
 .row{border-bottom:1px solid var(--line);position:relative;transition:background .12s}
 .row:last-child{border-bottom:none}
 .row:hover{background:var(--ink-2)}
-.row.hfa{box-shadow:inset 3px 0 0 var(--hfa)}
-.rank{font-family:"Archivo";font-weight:700;font-size:13px;color:var(--txt-3);text-align:center}
-.row.hfa .rank{color:var(--hfa)}
+.row.hfa{box-shadow:inset 3px 0 0 var(--qualify)}
+.rank{font-family:var(--mono);font-weight:700;font-size:12px;color:var(--txt-3);text-align:center}
+.row.hfa .rank{color:var(--qualify)}
 .tcell{display:flex;align-items:center;gap:9px;min-width:0}
 .tcol{min-width:0;display:flex;flex-direction:column;gap:1px}
 .tname{display:block;font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tname.tlink{cursor:pointer} .tname.tlink:hover{color:var(--floodlight);text-decoration:underline}
+.tname.tlink{cursor:pointer} .tname.tlink:hover{color:var(--qualify);text-decoration:underline}
 /* narrow screens: drop the team name/sub, show crest only */
 @media(max-width:620px){.ladder .tcol{display:none} .ladder .tcell{justify-content:center}}
 .tsub{display:block;font-size:10px;color:var(--txt-3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pts{font-family:"Archivo";font-weight:700;font-size:14px;text-align:center}
-.projc{font-family:"Archivo";font-weight:700;font-size:12.5px;text-align:center;color:var(--txt-2)}
+.pts{font-family:var(--mono);font-weight:700;font-size:13px;text-align:center}
+.projc{font-family:var(--mono);font-weight:700;font-size:12px;text-align:center;color:var(--txt-2)}
 .heat{font-family:var(--mono);font-weight:700;font-size:11px;text-align:center;padding:4px 0;border-radius:4px;color:var(--txt-1)}
 .heat.z{color:var(--txt-3);font-weight:500;background:transparent!important}
 /* ── table-league outlook (European single table: Title / UCL / Relegation) ── */
@@ -613,7 +614,7 @@ function vis(hex){let c=hexrgb(hex);if(lum(c)<0.20){c=c.map(x=>Math.round(x+(255
 const txtOn=hex=>lum(hexrgb(hex))>0.6?'#06121d':'#fff';
 /* heatmap background for an odds value */
 function heat(v,rgb,maxv){const a=v<=0?0:Math.min(0.62,0.07+0.55*(v/(maxv||100)));return `background:rgba(${rgb.join(',')},${a.toFixed(3)})`;}
-const RGB={po:[52,211,154],hfa:[246,181,63],sh:[215,222,234],sp:[189,125,78]};
+const RGB={po:[61,220,132],hfa:[244,183,64],sh:[215,222,234],sp:[189,125,78]};
 /* fair (no-vig) American odds from a probability */
 const american=p=>{if(p==null||p<=0)return'—';const v=p>=0.5?-100*p/(1-p):100*(1-p)/p;const r=Math.round(v);return r>0?`+${r}`:`${r}`;};
 
@@ -812,7 +813,7 @@ $('#laddernote').textContent=`Top ${D.playoff_slots} per conference make the pla
 const MAX={po:Math.max(...D.standings.map(s=>s.playoff),1),hfa:Math.max(...D.standings.map(s=>s.hfa),1),
   sh:Math.max(...D.standings.map(s=>s.shield),1),sp:Math.max(...D.standings.map(s=>s.spoon),1),
   cup:Math.max(...D.standings.map(s=>s.cup),1)};
-RGB.cup=[86,210,255];
+RGB.cup=[74,163,255];
 function hcell(v,key){return v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGB[key],MAX[key])}">${v.toFixed(0)}</span>`;}
 const sgn=v=>v==null?'–':(v>0?'+':'')+v;
 const sgnf=v=>v==null?'–':(v>0?'+':'')+v.toFixed(1);
