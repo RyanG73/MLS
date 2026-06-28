@@ -131,6 +131,30 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .fav.west::before{background:var(--west)} .fav.west .pct{color:var(--west)} .fav.west .sq{background:var(--west)}
 .fav.spoon::before{background:var(--spoon)} .fav.spoon .pct{color:var(--spoon)} .fav.spoon .sq{background:var(--spoon)}
 
+/* ── race strip: one card per race, leader + contenders (scales to any league) ── */
+.races{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:var(--s5)}
+.race{border:1px solid var(--line-2);border-radius:9px;background:var(--ink-2);padding:10px 11px;position:relative;overflow:hidden}
+.race::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+.race.t::before{background:var(--win)}.race.u::before{background:var(--qualify)}.race.e::before{background:var(--europa)}.race.r::before{background:var(--drop)}.race.s::before{background:var(--shield)}
+.race .rk{font-size:8.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-2);display:flex;justify-content:space-between;gap:6px}
+.race .rk em{font-style:normal;color:var(--txt-3);font-weight:700}
+.race .lead{display:flex;align-items:center;gap:8px;margin:8px 0 9px}
+.race .lead .crest{width:22px;height:22px}
+.race .lead .nm{font-family:"Archivo";font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.race .lead .pc{font-family:var(--mono);font-weight:700;font-size:15px}
+.race.t .pc{color:var(--win)}.race.u .pc{color:var(--qualify)}.race.e .pc{color:var(--europa)}.race.r .pc{color:var(--drop)}.race.s .pc{color:var(--shield)}
+.race .cont{display:flex;flex-direction:column;gap:4px}
+.race .cl{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--txt-2)}
+.race .cl .cn{width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+.race .cl .cb{flex:1;height:5px;background:var(--ink-3);border-radius:2px;overflow:hidden}
+.race .cl .cb>i{display:block;height:100%}
+.race .cl .cv{width:22px;text-align:right;font-size:10px}
+.race.t .cb>i{background:var(--win)}.race.t .cv{color:var(--win)}
+.race.u .cb>i{background:var(--qualify)}.race.u .cv{color:var(--qualify)}
+.race.e .cb>i{background:var(--europa)}.race.e .cv{color:var(--europa)}
+.race.r .cb>i{background:var(--drop)}.race.r .cv{color:var(--drop)}
+.race.s .cb>i{background:var(--shield)}.race.s .cv{color:var(--shield)}
+
 /* ladders */
 .ladders{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
 .ladder{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
@@ -820,15 +844,22 @@ function renderOutlook(){
   renderFavs();
   const l=$('#ladders');l.innerHTML='';l.append(ladder('East'),ladder('West'));
 }
-/* ── table-league outlook: config-driven favorite cards + single ladder ── */
-function tFavCard(card,t){
-  // Fix 3: label preseason cards so users know these are statistical priors, not live probabilities.
-  const preNote=D.outlook.preseason
-    ?`<span class="pp" style="color:var(--txt-3);font-size:10px;display:block;margin-top:4px">preseason prior · no matches played</span>`
-    :'';
-  return `<div class="fav ${card.key}"><div class="lab"><span class="sq"></span>${card.label}</div>
-  <div class="teamrow">${crest(t.team,t.logo)}<div class="ftxt"><div class="team">${t.team}</div></div></div>
-  <div class="favstats"><span class="pct">${fmt(t[card.key])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts · <b>${t.proj_rank}</b> avg pos</span>${preNote}</div></div>`;
+/* ── table-league outlook: race strip (one card per race) + single ladder ── */
+// Accent class per race key (gold title / green UCL / blue Europa / red relegation).
+const RACE_ACCENT={title:'t',promo:'t',liguilla:'t',ucl:'u',playoff:'u',europa:'e',conf:'e',releg:'r',spoon:'r'};
+function raceCard(card){
+  const ranked=[...D.standings.map(vals)].sort((a,b)=>(b[card.key]||0)-(a[card.key]||0));
+  const lead=ranked[0]; if(!lead)return'';
+  const conts=ranked.slice(1,3);
+  const max=Math.max(lead[card.key]||0,1);
+  const accent=RACE_ACCENT[card.key]||'u';
+  const bar=t=>`<div class="cl"><span class="cn">${t.team}</span>`+
+    `<span class="cb"><i style="width:${((t[card.key]||0)/max*100).toFixed(0)}%"></i></span>`+
+    `<span class="cv num">${(t[card.key]||0).toFixed(0)}</span></div>`;
+  return `<div class="race ${accent}">`+
+    `<div class="rk"><span>${card.label}</span><em>${card.hint||''}</em></div>`+
+    `<div class="lead">${crest(lead.team,lead.logo)}<span class="nm">${lead.team}</span><span class="pc">${fmt(lead[card.key]||0)}</span></div>`+
+    `<div class="cont">${conts.map(bar).join('')}</div></div>`;
 }
 // Single-table what-if Monte-Carlo (the table analog of MLS runSim): start from
 // current points, apply forced results, sample remaining via the pmatrix, rank
@@ -902,9 +933,9 @@ function tableLadder(){
   return box;
 }
 function renderTableOutlook(){
-  const ol=D.outlook, all=D.standings.map(vals);
-  $('#favs').className='favs t3';
-  $('#favs').innerHTML=ol.cards.map(card=>tFavCard(card,[...all].sort((a,b)=>b[card.key]-a[card.key])[0])).join('');
+  const ol=D.outlook;
+  $('#favs').className='races';
+  $('#favs').innerHTML=ol.cards.map(raceCard).join('');
   const gl=ol.green_line?`top ${ol.green_line} qualify`:null;
   const rl=ol.red_line?`bottom ${ol.red_line} drop`:null;
   const note=[gl,rl].filter(Boolean).join(' · ');
