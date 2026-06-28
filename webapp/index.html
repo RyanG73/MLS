@@ -212,30 +212,31 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(1
 .plot .fleg span{display:inline-flex;align-items:center;gap:5px}
 .plot .fleg i{width:9px;height:9px;border-radius:2px;display:inline-block}
 /* ── knockout-view sub-tabs (UEFA Champions League etc.) ── */
-.ko-subtabs{display:flex;gap:6px;margin-bottom:10px}
-.ko-tab{padding:6px 12px;border:1px solid #2a2f3a;background:#161a22;color:#9aa4b2;border-radius:6px;cursor:pointer;font-size:13px}
-.ko-tab.on{background:#222836;color:#fff}
+.ko-subtabs{display:flex;gap:6px;margin-bottom:12px}
+.ko-tab{padding:6px 13px;border:1px solid var(--line-2);background:var(--ink-2);color:var(--txt-2);border-radius:var(--r-sm);cursor:pointer;font-size:12px;font-family:var(--mono);letter-spacing:.02em}
+.ko-tab.on{background:var(--ink-3);color:var(--txt-1);border-color:var(--line-3)}
 .ko-pane.off{display:none}
-.ko-line td{color:#52d39a;font-size:11px;text-align:center;background:#10141b}
-.ko-coef{color:#e2a23f;font-weight:700}
-.ko-done{background:#16241b;border:1px solid #2c5e3f;color:#cdeedd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:14px}
-.ko-done b{color:#7ee0a8}
-.ko-donesub{color:#8aa698;font-size:12px}
-.ko-twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.ko-tblh{font-weight:700;margin:2px 0 6px;color:#cdd5e0;font-size:13px}
+.ko-pane>.panel{margin-bottom:14px}
+.ko-coef{color:var(--win);font-weight:700}
+.ko-done{background:rgba(61,220,132,.08);border:1px solid rgba(61,220,132,.30);color:var(--txt-1);border-radius:var(--r-md);padding:11px 14px;margin-bottom:14px;font-size:14px}
+.ko-done b{color:var(--qualify);font-family:"Archivo"}
+.ko-donesub{color:var(--txt-3);font-size:12px}
+.ko-twocol{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:760px){.ko-twocol{grid-template-columns:1fr}}
 /* ── knockout bracket (round-column layout) ── */
-.br-wrap{display:flex;gap:0;overflow-x:auto;margin-bottom:18px;padding-bottom:6px}
-.br-col{display:flex;flex-direction:column;min-width:140px;max-width:160px;flex:0 0 auto;padding:0 6px}
-.br-col-hd{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9aa4b2;text-align:center;padding:4px 0 8px;border-bottom:1px solid #2a2f3a;margin-bottom:6px}
+.br-wrap{display:flex;gap:0;overflow-x:auto;margin-bottom:6px;padding-bottom:6px}
+.br-col{display:flex;flex-direction:column;min-width:150px;max-width:172px;flex:0 0 auto;padding:0 6px}
+.br-col-hd{font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-3);text-align:center;padding:4px 0 8px;border-bottom:1px solid var(--line-2);margin-bottom:6px}
 .br-spacer{flex:1}
-.br-tie{background:#161a22;border:1px solid #2a2f3a;border-radius:7px;padding:6px 8px;margin:3px 0;font-size:12px;line-height:1.5}
-.br-team{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cdd5e0;display:flex;justify-content:space-between;gap:4px}
-.br-team.br-winner{color:#7ee0a8;font-weight:700}
-.br-score{color:#9aa4b2;font-size:11px;flex:none}
-.br-trophy{font-size:13px;margin-left:3px}
-.br-pk{color:#e2a23f;font-size:10px;flex:none}
-.br-prob{color:#9aa4b2;font-size:10px;flex:none}
+.br-tie{background:var(--ink-2);border:1px solid var(--line-2);border-radius:7px;padding:6px 8px;margin:3px 0;font-size:12px;line-height:1.5}
+.br-team{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt-2);display:flex;align-items:center;gap:6px}
+.br-team .crest{width:16px;height:16px;flex:none}
+.br-team .bn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.br-team.br-winner{color:var(--qualify);font-weight:700}
+.br-score{color:var(--txt-2);font-size:11px;flex:none;font-family:var(--mono)}
+.br-trophy{font-size:13px;margin-left:1px}
+.br-pk{color:var(--win);font-size:10px;flex:none;font-family:var(--mono)}
+.br-prob{color:var(--txt-3);font-size:10px;flex:none;font-family:var(--mono)}
 /* playoff cut line (1–9 in, glowing) + wild-card divider (after 7) */
 .po-line,.wc-line{position:relative;height:0}
 .po-line .lab,.wc-line .lab{position:absolute;left:var(--s3);top:-8px;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;background:var(--ink-1);padding:0 6px}
@@ -1074,9 +1075,9 @@ function bracketTree(){
         const aIsChamp=isChampFinal&&champion&&away===champion;
         const pk=level?'<span class="br-pk"> pk</span>':'';
         html+='<div class="br-tie">';
-        html+='<div class="br-team'+(hWin?' br-winner':'')+'"><span>'+home+(hIsChamp?'<span class="br-trophy">🏆</span>':'')+'</span>';
+        html+='<div class="br-team'+(hWin?' br-winner':'')+'">'+crest(home,null)+'<span class="bn">'+home+(hIsChamp?'<span class="br-trophy">🏆</span>':'')+'</span>';
         html+='<span class="br-score">'+hScore+'</span></div>';
-        html+='<div class="br-team'+(aWin?' br-winner':'')+'"><span>'+away+(aIsChamp?'<span class="br-trophy">🏆</span>':'')+'</span>';
+        html+='<div class="br-team'+(aWin?' br-winner':'')+'">'+crest(away,null)+'<span class="bn">'+away+(aIsChamp?'<span class="br-trophy">🏆</span>':'')+'</span>';
         html+='<span class="br-score">'+aScore+pk+'</span></div>';
         html+='</div>';
       } else {
@@ -1086,8 +1087,8 @@ function bracketTree(){
         const pH=refGame.pH!=null?refGame.pH:null;
         const pA=refGame.pA!=null?refGame.pA:null;
         html+='<div class="br-tie">';
-        html+='<div class="br-team"><span>'+home+'</span>'+(pH!=null?'<span class="br-prob">'+(pH*100).toFixed(0)+'%</span>':'')+'</div>';
-        html+='<div class="br-team"><span>'+away+'</span>'+(pA!=null?'<span class="br-prob">'+(pA*100).toFixed(0)+'%</span>':'')+'</div>';
+        html+='<div class="br-team">'+crest(home,null)+'<span class="bn">'+home+'</span>'+(pH!=null?'<span class="br-prob">'+(pH*100).toFixed(0)+'%</span>':'')+'</div>';
+        html+='<div class="br-team">'+crest(away,null)+'<span class="bn">'+away+'</span>'+(pA!=null?'<span class="br-prob">'+(pA*100).toFixed(0)+'%</span>':'')+'</div>';
         html+='</div>';
       }
     });
@@ -1098,10 +1099,16 @@ function bracketTree(){
 }
 function renderKnockout(){
   const el=$('#ladders'); if(!el) return;
+  el.style.display='block';   // knockout panes stack full-width (not the 2-col ladders grid)
   const phases=(D.outlook.phases||['knockout']);
   const rounds=D.outlook.rounds||[];
   const PHASE_LABEL={league:'League Phase', group:'Group Stage', knockout:'Knockout'};
   const paneKey=p=>p==='knockout'?'ko':p;
+  // heat cell for a probability (0..1), colored by role
+  const RG={adv:[61,220,132],po:[244,183,64],out:[255,93,93],win:[61,220,132]};
+  const koCell=(p,rgb)=> p==null||p<0.005?`<span class="heat z">·</span>`
+    :`<span class="heat" style="${heat(p*100,rgb,100)}">${(p*100).toFixed(0)}</span>`;
+  const tcell=(team,logo,mark)=>`<span class="tcell">${crest(team,logo)}<span class="tcol"><span class="tname">${team}${mark||''}</span></span></span>`;
   let h='';
   // Concluded edition: a result banner, not a live projection.
   if(D.outlook.concluded){
@@ -1115,19 +1122,19 @@ function renderKnockout(){
     ).join('')+'</div>';
   }
   let pi=0; const off=()=> (pi++===0?'':' off');
-  // League phase — single 36-team table (UCL / Europa / Conference)
+  // League phase — single 36-team heat table (UCL / Europa / Conference)
   if(phases.includes('league')){
-    h+='<div class="ko-pane'+off()+'" data-pane="league"><table class="tlad"><thead><tr>'+
-       '<th>#</th><th>Team</th><th>Adv</th><th>Playoff</th><th>Out</th></tr></thead><tbody>';
     const st=[...D.standings].sort((a,b)=>b.auto_advance-a.auto_advance);
-    st.forEach((s,i)=>{h+='<tr><td>'+(i+1)+'</td><td>'+s.team+'</td>'+
-      '<td>'+(s.auto_advance*100).toFixed(0)+'%</td><td>'+(s.playoff*100).toFixed(0)+'%</td>'+
-      '<td>'+(s.eliminated*100).toFixed(0)+'%</td></tr>';
-      if(i===7) h+='<tr class="ko-line"><td colspan="5">auto-advance line (top 8)</td></tr>';
-      if(i===23) h+='<tr class="ko-line"><td colspan="5">knockout-playoff line (top 24)</td></tr>';});
-    h+='</tbody></table></div>';
+    h+='<div class="ko-pane'+off()+'" data-pane="league"><div class="panel ladder tlad" style="--tgrid:22px minmax(90px,1fr) 52px 56px 48px">'+
+       '<div class="panel-h"><span class="dot"></span><h2>League phase</h2><span class="meta">'+st.length+' teams · top 8 advance</span></div>'+
+       '<div class="thead"><span></span><span>Team</span><span class="c">Adv</span><span class="c">Playoff</span><span class="c">Out</span></div>';
+    st.forEach((s,i)=>{h+='<div class="trow"><span class="rank">'+(i+1)+'</span>'+tcell(s.team,s.logo)+
+        koCell(s.auto_advance,RG.adv)+koCell(s.playoff,RG.po)+koCell(s.eliminated,RG.out)+'</div>';
+      if(i===7) h+='<div class="ucl-line">Auto-advance line (top 8)</div>';
+      if(i===23) h+='<div class="ucl-line" style="color:var(--txt-3);border-top-color:var(--line-3)">Knockout-playoff line (top 24)</div>';});
+    h+='</div></div>';
   }
-  // Group stage — two parallel tables side by side (Leagues Cup)
+  // Group stage — two parallel heat tables side by side (Leagues Cup)
   if(phases.includes('group')){
     const byT={}; D.standings.forEach(s=>{(byT[s.table]=byT[s.table]||[]).push(s);});
     const ADV=4;
@@ -1135,23 +1142,27 @@ function renderKnockout(){
     Object.keys(byT).sort().forEach(tk=>{
       const rows=byT[tk].sort((a,b)=>b.advance-a.advance);
       const title=tk==='liga-mx'?'Liga MX':tk==='mls'?'MLS':tk;
-      h+='<div class="ko-tbl"><div class="ko-tblh">'+title+'</div>'+
-         '<table class="tlad"><thead><tr><th>#</th><th>Team</th><th>Adv</th></tr></thead><tbody>';
-      rows.forEach((s,i)=>{h+='<tr><td>'+(i+1)+'</td><td>'+s.team+'</td>'+
-        '<td>'+(s.advance*100).toFixed(0)+'%</td></tr>';
-        if(i===ADV-1) h+='<tr class="ko-line"><td colspan="3">advance line (top '+ADV+')</td></tr>';});
-      h+='</tbody></table></div>';
+      h+='<div class="panel ladder tlad" style="--tgrid:22px minmax(90px,1fr) 52px">'+
+         '<div class="panel-h"><span class="dot"></span><h2>'+title+'</h2><span class="meta">top '+ADV+' advance</span></div>'+
+         '<div class="thead"><span></span><span>Team</span><span class="c">Adv</span></div>';
+      rows.forEach((s,i)=>{h+='<div class="trow"><span class="rank">'+(i+1)+'</span>'+tcell(s.team,s.logo)+koCell(s.advance,RG.adv)+'</div>';
+        if(i===ADV-1) h+='<div class="ucl-line">Advance line (top '+ADV+')</div>';});
+      h+='</div>';
     });
     h+='</div></div>';
   }
-  // Knockout — bracket visualization + champion-odds leaderboard
-  h+='<div class="ko-pane'+off()+'" data-pane="ko">'+bracketTree()+'<table class="tlad"><thead><tr><th>Team</th>'+
-     rounds.map(r=>'<th>'+r+'</th>').join('')+'<th>Win</th></tr></thead><tbody>';
+  // Knockout — bracket + round-by-round heat matrix (chance of reaching each round)
   const fld=[...D.field].sort((a,b)=>b.odds.win-a.odds.win);
-  fld.forEach(t=>{h+='<tr><td>'+t.team+((D.outlook.concluded||t.modeled)?'':' <span class="ko-coef">~</span>')+'</td>'+
-    rounds.map(r=>'<td>'+((t.odds[r]||0)*100).toFixed(0)+'%</td>').join('')+
-    '<td><b>'+(t.odds.win*100).toFixed(1)+'%</b></td></tr>';});
-  h+='</tbody></table></div>';
+  const mgrid='minmax(90px,1.3fr) '+rounds.map(()=>'1fr').join(' ')+' 1fr';
+  h+='<div class="ko-pane'+off()+'" data-pane="ko">'+bracketTree()+
+     '<div class="panel ladder tlad" style="--tgrid:'+mgrid+'">'+
+     '<div class="panel-h"><span class="dot"></span><h2>Round-by-round odds</h2><span class="meta">chance of reaching each round</span></div>'+
+     '<div class="thead"><span>Team</span>'+rounds.map(r=>'<span class="c">'+r+'</span>').join('')+'<span class="c">Win</span></div>';
+  fld.forEach(t=>{const mark=(D.outlook.concluded||t.modeled)?'':' <span class="ko-coef">~</span>';
+    h+='<div class="trow">'+tcell(t.team,t.logo,mark)+
+      rounds.map(r=>koCell(t.odds[r],RG.adv)).join('')+
+      '<span class="heat" style="'+heat((t.odds.win||0)*100,RG.win,100)+';font-weight:800">'+((t.odds.win||0)*100).toFixed(1)+'</span></div>';});
+  h+='</div></div>';
   el.innerHTML=h;
   el.querySelectorAll('.ko-tab').forEach(btn=>btn.onclick=()=>{
     el.querySelectorAll('.ko-tab').forEach(b=>b.classList.remove('on'));
