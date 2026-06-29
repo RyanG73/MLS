@@ -44,9 +44,11 @@ DIV = {
     "epl": "E0", "la-liga": "SP1", "serie-a": "I1", "bundesliga": "D1", "ligue-1": "F1",
     "championship": "E1", "league-one": "E2", "league-two": "E3",
     "bundesliga-2": "D2", "serie-b": "I2",
+    "segunda": "SP2", "ligue-2": "F2",
 }
 BIG5 = ["epl", "la-liga", "serie-a", "bundesliga", "ligue-1"]
-GOALS_ONLY = ["championship", "league-one", "league-two", "bundesliga-2", "serie-b"]
+GOALS_ONLY = ["championship", "league-one", "league-two", "bundesliga-2", "serie-b",
+              "segunda", "ligue-2"]
 
 _RESULTS_CACHE_DIR = Path("data/football_data")
 _RAW_CACHE_DIR = _RESULTS_CACHE_DIR / "raw"
