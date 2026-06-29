@@ -54,3 +54,10 @@ def test_elo_to_dc_params_empty_maps_return_zeros():
     from scripts.build_league_data import _elo_to_dc_params
     result = _elo_to_dc_params(1500.0, {}, {}, {})
     assert result == (0.0, 0.0)
+
+
+def test_build_exposes_tier1_for_inverse_map():
+    """build module exposes _TIER1_FOR_BUILD = inverse of _TIER2_FOR (drives reverse seeding)."""
+    from scripts.build_league_data import _TIER1_FOR_BUILD, _TIER2_FOR
+    for t1, t2 in _TIER2_FOR.items():
+        assert _TIER1_FOR_BUILD[t2] == t1

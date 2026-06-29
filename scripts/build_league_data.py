@@ -59,6 +59,9 @@ _TIER2_FOR: dict[str, str] = {
     "la-liga":    "segunda",
     "ligue-1":    "ligue-2",
 }
+# Inverse: tier-2 league ID → its top-flight. Used to seed RELEGATED teams when building a
+# second-tier league. Named distinctly from coefficients._TIER1_FOR to avoid confusion.
+_TIER1_FOR_BUILD: dict[str, str] = {t2: t1 for t1, t2 in _TIER2_FOR.items()}
 
 # ESPN/Understat team name → football-data short name for common promoted teams.
 _FD_TEAM_ALIASES: dict[str, str] = {
@@ -83,27 +86,31 @@ _FD_TEAM_ALIASES: dict[str, str] = {
 _TIER2_ELO_CACHE: dict[str, dict[str, float]] = {}
 
 
-def _get_tier2_elo_map(tier2_lid: str) -> dict[str, float]:
-    """End-of-history ELO map for a tier-2 league, from football_data results.
+def _get_tier_elo_map(lid: str) -> dict[str, float]:
+    """End-of-history ELO map for ANY football-data league, {fd_team_name: current_elo}.
 
-    Returns {team_name_as_in_football_data: current_elo}.
-    Returns {} if the data cannot be loaded.
+    Used to seed both promoted teams (from their tier-2 ELO) and relegated teams (from
+    their tier-1 ELO). Returns {} if the data cannot be loaded.
     """
-    if tier2_lid in _TIER2_ELO_CACHE:
-        return _TIER2_ELO_CACHE[tier2_lid]
+    if lid in _TIER2_ELO_CACHE:
+        return _TIER2_ELO_CACHE[lid]
     try:
-        df = match_results(tier2_lid).sort_values("date")
+        df = match_results(lid).sort_values("date")
         df = df.dropna(subset=["home_goals", "away_goals"])
         if df.empty:
-            _TIER2_ELO_CACHE[tier2_lid] = {}
+            _TIER2_ELO_CACHE[lid] = {}
             return {}
-        _, elo_now_t2 = compute_elo(df, K=25, home_adv=80, regress=0.40,
-                                    return_ratings=True)
-        _TIER2_ELO_CACHE[tier2_lid] = dict(elo_now_t2)
+        _, elo_now_t = compute_elo(df, K=25, home_adv=80, regress=0.40,
+                                   return_ratings=True)
+        _TIER2_ELO_CACHE[lid] = dict(elo_now_t)
     except Exception as e:  # noqa: BLE001
-        print(f"[warning] tier2 ELO load failed for {tier2_lid}: {e}")
-        _TIER2_ELO_CACHE[tier2_lid] = {}
-    return _TIER2_ELO_CACHE[tier2_lid]
+        print(f"[warning] tier ELO load failed for {lid}: {e}")
+        _TIER2_ELO_CACHE[lid] = {}
+    return _TIER2_ELO_CACHE[lid]
+
+
+# Backward-compatible alias (existing callers/tests use the tier2 name).
+_get_tier2_elo_map = _get_tier_elo_map
 
 
 def _elo_to_dc_params(
@@ -483,27 +490,32 @@ def main():
             _atk_flat = _atk_vals_all[_p15] if _atk_vals_all else -0.2
             _dfd_flat = _dfd_vals_all[_p85] if _dfd_vals_all else 0.2
 
-            _tier2_lid = _TIER2_FOR.get(lid)
-            _tier2_elo_map = _get_tier2_elo_map(_tier2_lid) if _tier2_lid else {}
+            _tier2_lid = _TIER2_FOR.get(lid)          # set if lid is a top flight
+            _tier2_elo_map = _get_tier_elo_map(_tier2_lid) if _tier2_lid else {}
+            _tier1_lid = _TIER1_FOR_BUILD.get(lid)    # set if lid is a second tier
+            _tier1_elo_map = _get_tier_elo_map(_tier1_lid) if _tier1_lid else {}
 
             for _pt in _promoted_teams:
                 _fd_name = _FD_TEAM_ALIASES.get(_pt, _pt)
-                _tier2_elo = _tier2_elo_map.get(_pt) or _tier2_elo_map.get(_fd_name)
-                if _tier2_elo is not None and _tier2_lid is not None:
-                    _adj_elo = _tier2_elo + co.tier2_offset(_tier2_lid)
+                _t2_elo = _tier2_elo_map.get(_pt) or _tier2_elo_map.get(_fd_name)
+                _t1_elo = _tier1_elo_map.get(_pt) or _tier1_elo_map.get(_fd_name)
+                if _t2_elo is not None and _tier2_lid is not None:
+                    # promoted into a top flight → seed from tier-2 ELO (forward bridge)
+                    _adj_elo = _t2_elo + co.tier2_offset(_tier2_lid)
                     atk[_pt], dfd[_pt] = _elo_to_dc_params(_adj_elo, atk, dfd, elo_now)
-                    print(f"[{lid}] promoted {_pt}: "
-                          f"tier2_elo={_tier2_elo:.0f} adj={_adj_elo:.0f} "
+                    print(f"[{lid}] promoted {_pt}: tier2_elo={_t2_elo:.0f} adj={_adj_elo:.0f} "
+                          f"DC=(atk={atk[_pt]:.3f}, dfd={dfd[_pt]:.3f})")
+                elif _t1_elo is not None and _tier1_lid is not None:
+                    # relegated into a second tier → seed from tier-1 ELO (reverse bridge)
+                    _adj_elo = _t1_elo + co.tier1_offset(lid)
+                    atk[_pt], dfd[_pt] = _elo_to_dc_params(_adj_elo, atk, dfd, elo_now)
+                    print(f"[{lid}] relegated {_pt}: tier1_elo={_t1_elo:.0f} adj={_adj_elo:.0f} "
                           f"DC=(atk={atk[_pt]:.3f}, dfd={dfd[_pt]:.3f})")
                 else:
                     atk[_pt] = _atk_flat
                     dfd[_pt] = _dfd_flat
-                    if _tier2_lid:
-                        print(f"[{lid}] promoted {_pt}: no tier2 ELO in {_tier2_lid}, "
-                              f"flat prior atk={_atk_flat:.3f} dfd={_dfd_flat:.3f}")
-                    else:
-                        print(f"[{lid}] promoted {_pt}: "
-                              f"flat prior atk={_atk_flat:.3f} dfd={_dfd_flat:.3f}")
+                    print(f"[{lid}] new {_pt}: flat prior "
+                          f"atk={_atk_flat:.3f} dfd={_dfd_flat:.3f}")
 
     def dc_probs(h, a):
         return rm._dc_predict(h, a, atk, dfd, ha, rho)
