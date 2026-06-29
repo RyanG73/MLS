@@ -10,3 +10,11 @@ def test_segunda_and_ligue2_registered():
     assert "ligue-2" in fd.GOALS_ONLY
     # they are model sources, not big-5 market sources
     assert "segunda" not in fd.BIG5 and "ligue-2" not in fd.BIG5
+
+
+def test_segunda_ligue2_in_outlook():
+    from scripts.build_league_data import OUTLOOK
+    assert OUTLOOK["segunda"]["source"] == "footballdata"
+    assert OUTLOOK["segunda"]["n"] == 22
+    assert OUTLOOK["ligue-2"]["source"] == "footballdata"
+    assert OUTLOOK["ligue-2"]["n"] == 18

@@ -203,6 +203,10 @@ OUTLOOK = {
                      "buckets": _PROMO(2, [3, 3], 3), "green_line": 3, "red_line": 3},
     "serie-b":      {"name": "Serie B", "source": "footballdata", "n": 20,
                      "buckets": _PROMO(2, [3, 8], 3), "green_line": 8, "red_line": 3},
+    "segunda":      {"name": "LaLiga 2", "source": "footballdata", "n": 22,
+                     "buckets": _PROMO(2, [3, 6], 4), "green_line": 6, "red_line": 4},
+    "ligue-2":      {"name": "Ligue 2", "source": "footballdata", "n": 18,
+                     "buckets": _PROMO(2, [3, 5], 4), "green_line": 5, "red_line": 4},
     # Concacaf — ESPN goals-only (no xG, no market odds)
     # eval_seasons=None → derived dynamically from frame's season integers
     "liga-mx":      {"name": "Liga MX", "source": "espn", "n": 18, "confederation": "Concacaf",
@@ -257,6 +261,20 @@ FD_ESPN: dict[str, dict[str, str]] = {
     },
     "serie-b": {
         "Avellino": "US Avellino",
+    },
+    "segunda": {
+        "Almeria": "Almería", "Andorra": "FC Andorra", "Cadiz": "Cádiz",
+        "Castellon": "Castellón", "Cordoba": "Córdoba",
+        "La Coruna": "Deportivo La Coruña", "Leganes": "Leganés",
+        "Malaga": "Málaga", "Mirandes": "Mirandés", "Santander": "Racing Santander",
+        "Sociedad B": "Real Sociedad II", "Sp Gijon": "Sporting Gijón",
+        "Valladolid": "Real Valladolid", "Zaragoza": "Real Zaragoza",
+    },
+    "ligue-2": {
+        "Clermont": "Clermont Foot", "Laval": "Stade Laval",
+        "Nancy": "AS Nancy Lorraine", "Pau FC": "Pau", "Red Star": "Red Star FC 93",
+        "Reims": "Stade de Reims", "Rodez": "Rodez Aveyron",
+        "St Etienne": "Saint-Étienne", "Amiens": "Amiens SC", "Bastia": "SC Bastia",
     },
 }
 
