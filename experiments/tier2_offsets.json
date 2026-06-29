@@ -1,5 +1,12 @@
 {
   "championship_to_epl": -120.02,
+  "epl_to_championship": 120.01,
   "bundesliga-2_to_bundesliga": -100.02,
-  "serie-b_to_serie-a": -130.02
+  "bundesliga_to_bundesliga-2": 100.0,
+  "serie-b_to_serie-a": -130.02,
+  "serie-a_to_serie-b": 130.01,
+  "segunda_to_la-liga": -120.01,
+  "la-liga_to_segunda": 120.01,
+  "ligue-2_to_ligue-1": -120.01,
+  "ligue-1_to_ligue-2": 120.01
 }
