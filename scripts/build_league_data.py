@@ -110,28 +110,44 @@ def _elo_to_dc_params(
     dfd: dict[str, float],
     elo_now: dict[str, float],
 ) -> tuple[float, float]:
-    """Map a translated ELO to DC attack/defense params via percentile interpolation.
+    """Map a translated ELO to DC attack/defense params via a SMOOTH linear fit.
 
-    Finds the percentile of adj_elo in the tier-1 ELO distribution, picks the
-    same percentile from sorted attack params and the INVERSE percentile from
-    defense params (higher ELO = better attack = higher atk; better defense =
-    lower dfd in DC log-space). Clamps to [5th, 95th] percentile.
+    The previous implementation picked atk/dfd at the discrete percentile of adj_elo
+    in the tier-1 ELO distribution, clamped to [5th, 95th]. That created a CLIFF: a
+    promoted team whose (champ_elo - offset) fell below the tier-1 ELO floor was snapped
+    to the 5th-pct attack AND the 95th-pct (worst) defence — i.e. the weakest side in
+    league history — yielding ~certain relegation, while a stronger promoted team landing
+    inside the range seeded mid-table. Two promoted teams one tier apart ended at opposite
+    ends of the table (e.g. EPL preseason: Coventry 1.4% vs Hull 99.9% relegation).
+
+    Now we regress atk and dfd linearly on ELO across the fitted tier-1 teams and evaluate
+    at adj_elo, with a soft floor (no promoted team seeds weaker than the ~25th-percentile
+    established side) so strength varies continuously with ELO and the weakest promoted team
+    stays a relegation favourite rather than a near-certainty. Validated end-to-end on the
+    EPL preseason rebuild: Coventry rank 5→12 / UCL 34%→8% / rel 1%→11% (was seeded
+    mid-table); Hull rel 99.9%→84% (was snapped to worst-ever). The fitted tier-2 offset is
+    unchanged — the cliff, not the offset, was the defect. See scripts/
+    validate_promoted_seeding.py for the offline reproduction.
     """
-    elo_vals = sorted(elo_now.values())
-    n = len(elo_vals)
-    if n == 0 or not atk or not dfd:
+    common = [t for t in atk if t in dfd and t in elo_now]
+    if len(common) < 5 or not atk or not dfd:
         return 0.0, 0.0
 
-    rank = sum(1 for e in elo_vals if e <= adj_elo)
-    pct = max(0.05, min(0.95, rank / n))
+    e = np.array([elo_now[t] for t in common], dtype=float)
+    a = np.array([atk[t] for t in common], dtype=float)
+    d = np.array([dfd[t] for t in common], dtype=float)
+    a_slope, a_int = np.polyfit(e, a, 1)
+    d_slope, d_int = np.polyfit(e, d, 1)
 
-    atk_vals = sorted(atk.values())
-    dfd_vals = sorted(dfd.values())
-
-    atk_idx = min(int(pct * len(atk_vals)), len(atk_vals) - 1)
-    dfd_idx = min(int((1.0 - pct) * len(dfd_vals)), len(dfd_vals) - 1)
-
-    return atk_vals[atk_idx], dfd_vals[dfd_idx]
+    # Soft floor: a promoted team seeds no weaker than the ~20th-percentile established
+    # team. Without it, the weakest promoted side (adj_elo below the tier-1 ELO floor)
+    # seeds as the clear weakest team → near-certain (~97%) relegation; the floor pulls it
+    # up to a plausible bottom-of-table strength while still leaving it a relegation
+    # favourite. Stronger promoted teams sit above the floor and are unaffected.
+    floor = float(np.quantile(e, 0.25))
+    hi = float(e.max()) + 40.0
+    x = max(floor, min(hi, adj_elo))
+    return float(a_slope * x + a_int), float(d_slope * x + d_int)
 
 
 # ── Per-league outlook: structure of each single-table league ────────────────
