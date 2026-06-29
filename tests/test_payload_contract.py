@@ -16,7 +16,10 @@ from pathlib import Path
 import pytest
 
 WEBAPP_DATA = Path(__file__).parent.parent / "webapp" / "data"
-JS_FILES = sorted(WEBAPP_DATA.glob("*.js"))
+# logos.js is a global team→logo lookup (window.TEAM_LOGOS), not a league/power payload,
+# so it is excluded from the league-payload contract.
+_NON_PAYLOAD = {"logos.js"}
+JS_FILES = sorted(p for p in WEBAPP_DATA.glob("*.js") if p.name not in _NON_PAYLOAD)
 
 
 def _load_payload(path: Path) -> tuple[str, object]:
