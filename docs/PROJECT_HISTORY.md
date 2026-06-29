@@ -226,6 +226,12 @@ Redesigned the single-file dashboard (`webapp/index.html`) onto a distinctive "q
 
 ---
 
+## Second-tier leagues + bidirectional cross-tier bridge (2026-06-29)
+
+Completed second-tier coverage for the big-5 by adding Spanish **Segunda** and French **Ligue 2** as full goals-only dashboard leagues, and made cross-tier promotion/relegation seeding bidirectional and per-league calibrated. The original `tier_bridge` only seeded *promoted* teams into the top flight (and only for England/Italy/Germany); now every big-5 top flight seeds promoted teams from its second tier (fixing Ligue 1's flat-prior cliff — Le Mans/Troyes 97.8% → ~40%), and the bridge runs in reverse too: a team relegated into a second tier seeds from its top-flight ELO as a promotion favourite (`_identify_relegations` + `_collect_relegated_matches` mirror the promotion machinery; `fit_all` fits/validates both directions; `coefficients.tier1_offset` + a reverse seeding path in `build_league_data` consume it). This also carried the promoted-team seeding **cliff fix** — `_elo_to_dc_params` swapped a discrete percentile clamp for a smooth ELO→DC regression with a 25th-pct soft floor (Hull 99.9%→84% relegation, Coventry mid-table→lower-mid). Reverse direction validated offline; no champion-model changes. Branch `feat/second-tier-bidirectional-bridge`.
+
+---
+
 ## Permanent constraints (do not re-litigate without explicit instruction)
 
 See `CLAUDE.md` for the full decision list with dates. Key ones with rationale:

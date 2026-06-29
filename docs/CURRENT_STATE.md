@@ -24,12 +24,16 @@ definitions, data sources, and run commands. Update it when any of these change.
 > +0.0063 (≥13× the noise floor). Platt/beta improve decile calibration but at a real
 > Brier cost. See `docs/feature-hunt-log.md` 2026-06-28.
 
-**Promoted-team seeding (European leagues, added 2026-06-27):**
-- Replaces flat 15th-pct attack / 85th-pct defense with tier-bridge seeding from actual 2nd-tier ELO
-- `scripts/eval/tier_bridge.py` fits one ELO offset δ per league pair (Championship→EPL, 2.Bundesliga→Bundesliga, Serie B→Serie A) from 8 seasons of historical promoted-team first-season outcomes
-- Fitted offsets stored in `experiments/tier2_offsets.json`; static priors used as fallback
-- Validated: LOSO Brier (0.6278 / 0.6292 / 0.6313) well below naive baseline (0.6667); fitted ≈ static priors (ridge penalty active; priors well-calibrated)
-- Power rankings gain a "UEFA Tier 2" group (Championship, 2.Bundesliga, Serie B) on the EPL=0 scale
+**Cross-tier seeding (European leagues — bidirectional as of 2026-06-29):**
+- Replaces the flat 15th-pct attack / 85th-pct defense prior with tier-bridge seeding from actual cross-tier ELO, in BOTH directions.
+- `scripts/eval/tier_bridge.py` fits one ELO offset δ per league pair per direction via LOSO (ridge-shrunk toward static priors), run with `python3 -m scripts.eval.tier_bridge`:
+  - **Forward (tier2→tier1, promoted teams):** all 5 big-5 pairs — Championship→EPL, 2.Bundesliga→Bundesliga, Serie B→Serie A, **Segunda→La Liga, Ligue 2→Ligue 1**. Negative offsets (~−100 to −130).
+  - **Reverse (tier1→tier2, relegated teams):** the 5 mirrors (e.g. EPL→Championship) from `_identify_relegations` + `_collect_relegated_matches`. Positive offsets (~+100 to +130). `coefficients.tier1_offset` reads the reverse key.
+- `_elo_to_dc_params` (2026-06-28 cliff fix): smooth ELO→DC linear regression + 25th-pct soft floor — a promoted/relegated team below the target-tier ELO floor seeds as a relegation/promotion favourite, never snapped to worst/best-ever.
+- 10 offsets stored in `experiments/tier2_offsets.json` (forward + reverse); static priors used as fallback. All LOSO-validated below the naive 0.6667 baseline.
+- `build_league_data._TIER1_FOR_BUILD` + generalised `_get_tier_elo_map` drive the reverse seeding path when building a second-tier league in preseason.
+- Second-tier dashboard leagues: Championship, League One, League Two, 2.Bundesliga, Serie B, **Segunda (SP2)**, **Ligue 2 (F2)** — football-data goals-only source.
+- Power rankings gain a "UEFA Tier 2" group on the EPL=0 scale.
 
 **Walk-forward evaluation config:**
 - Train data: 2017+, 2020 excluded (COVID bubble); 2021 retained in training + as 2022 cal fold (A/B-validated 2026-06-09: excluding it costs +0.0019 Brier)
