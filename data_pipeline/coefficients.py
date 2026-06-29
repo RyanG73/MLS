@@ -203,3 +203,31 @@ def tier2_offset(tier2_league_id: str) -> float:
     if fitted is not None and key in fitted:
         return float(fitted[key])
     return _TIER2_PRIORS.get(key, 0.0)
+
+
+# Reverse-direction static priors: translate a RELEGATED team's tier-1 ELO down to the
+# tier-2 scale. Positive — a dropped top-flight side is strong in the second tier.
+_TIER1_PRIORS: dict[str, float] = {
+    "epl_to_championship": 120.0,
+    "bundesliga_to_bundesliga-2": 100.0,
+    "serie-a_to_serie-b": 130.0,
+    "la-liga_to_segunda": 120.0,
+    "ligue-1_to_ligue-2": 120.0,
+}
+
+
+def tier1_offset(tier2_league_id: str) -> float:
+    """ELO offset translating a RELEGATED team's tier-1 ELO down to the tier-2 scale.
+
+    The reverse of tier2_offset: a team dropped from the top flight is strong in the
+    second tier, so the offset is positive. Returns the fitted reverse offset from
+    experiments/tier2_offsets.json when available, else the static prior. 0.0 for unknown.
+    """
+    tier1_lid = _TIER1_FOR.get(tier2_league_id)
+    if tier1_lid is None:
+        return 0.0
+    key = f"{tier1_lid}_to_{tier2_league_id}"
+    fitted = _load_tier2()
+    if fitted is not None and key in fitted:
+        return float(fitted[key])
+    return _TIER1_PRIORS.get(key, 0.0)

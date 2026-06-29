@@ -69,3 +69,10 @@ def test_tier2_offset_reads_fitted_value_from_json(tmp_path, monkeypatch):
     monkeypatch.setattr(co, "_TIER2_OFFSETS", None)
     assert co.tier2_offset("championship") == -95.5
     assert co.tier2_offset("bundesliga-2") == -80.0
+
+
+def test_tier1_offset_is_positive_for_relegated_seeding():
+    # A team relegated INTO the second tier seeds ABOVE the second-tier field.
+    assert co.tier1_offset("championship") > 0
+    assert co.tier1_offset("segunda") > 0
+    assert co.tier1_offset("nonexistent") == 0.0
