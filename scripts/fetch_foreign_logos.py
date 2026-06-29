@@ -33,7 +33,7 @@ LEAGUES = [
     "rou.1", "hun.1", "rus.1", "isr.1", "bul.1", "cyp.1", "irl.1", "fin.1",
     "isl.1", "slo.1", "svk.1", "aze.1", "kaz.1", "arm.1", "bih.1", "mlt.1",
     "gib.1", "mkd.1", "wal.1", "ksv.1", "mne.1", "lva.1", "ltu.1", "est.1",
-    "lux.1", "alb.1", "geo.1", "fra.2",
+    "lux.1", "alb.1", "geo.1", "fra.2", "esp.2",
     # Concacaf domestic leagues (Leagues Cup / Champions Cup participants)
     "crc.1", "hon.1", "gua.1", "jam.1", "pan.1", "slv.1", "nca.1", "can.1",
     "dom.1", "tri.1", "hai.1", "crb.1",
