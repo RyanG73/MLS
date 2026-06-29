@@ -136,6 +136,35 @@ def test_collect_tier_matches_returns_matches_for_promoted_team():
         assert m.season == 2022
 
 
+# ── _collect_relegated_matches ────────────────────────────────────────────────
+
+def test_collect_relegated_matches_returns_relegated_team_first_tier2_season():
+    """A team relegated from tier1 has its first tier2-season matches collected w/ tier1 ELO."""
+    tier1_df = _make_fd_df([
+        # EPL: R and Y in 2021; in 2022 R is gone (relegated), X arrives
+        ("e1", pd.Timestamp("2021-05-01"), 2021, "R", "Y", 2, 0, None, None, 0, True, 0),
+        ("e2", pd.Timestamp("2022-08-01"), 2022, "X", "Y", 1, 1, None, None, 1, True, 0),
+    ])
+    tier2_df = _make_fd_df([
+        # Championship 2022: relegated R plays its first second-tier season vs W
+        ("c1", pd.Timestamp("2022-09-01"), 2022, "R", "W", 3, 0, None, None, 0, True, 0),
+    ])
+
+    from scripts.eval import tier_bridge as tb
+
+    def _fake_results(league_id, **_):
+        return tier2_df if "championship" in league_id else tier1_df
+
+    with mock.patch("data_pipeline.football_data.match_results", side_effect=_fake_results):
+        tb._FD_ELO_HISTORY_CACHE.clear()
+        by_season = tb._collect_relegated_matches("championship", "epl")
+
+    assert 2022 in by_season
+    r_matches = [m for m in by_season[2022] if m.promoted_team == "R"]
+    assert len(r_matches) == 1
+    assert r_matches[0].promoted_elo > 0 and r_matches[0].season == 2022
+
+
 # ── _fit_offset ───────────────────────────────────────────────────────────────
 
 def test_fit_offset_recovers_known_direction():
@@ -188,30 +217,27 @@ def test_brier_uniform_is_two_thirds():
 
 # ── fit_all ───────────────────────────────────────────────────────────────────
 
-def test_fit_all_dry_run_returns_dict_with_correct_keys():
-    """fit_all(dry_run=True) returns a dict with a forward key for every pair."""
+def test_fit_all_dry_run_returns_both_directions_per_pair():
+    """fit_all(dry_run=True) returns a forward AND reverse key for every pair."""
     from scripts.eval import tier_bridge as tb
 
-    def _fake_collect(tier2_lid, tier1_lid):
-        return {}  # Return too few matches → prior is used.
-
-    with mock.patch.object(tb, "_collect_tier_matches", side_effect=_fake_collect):
+    with mock.patch.object(tb, "_collect_tier_matches", return_value={}), \
+         mock.patch.object(tb, "_collect_relegated_matches", return_value={}):
         results = tb.fit_all(dry_run=True)
 
-    # every supported pair has a forward (tier2_to_tier1) key
     for tier2, tier1 in tb._TIER2_PAIRS:
-        assert f"{tier2}_to_{tier1}" in results
+        assert f"{tier2}_to_{tier1}" in results   # forward (promoted)
+        assert f"{tier1}_to_{tier2}" in results   # reverse (relegated)
 
 
-def test_fit_all_uses_prior_when_too_few_matches():
-    """fit_all falls back to static prior when < _MIN_MATCHES collected."""
+def test_fit_all_uses_priors_when_too_few_matches():
+    """fit_all falls back to the static prior in BOTH directions when < _MIN_MATCHES."""
     from scripts.eval import tier_bridge as tb
     from data_pipeline import coefficients as co
 
-    def _fake_collect(tier2_lid, tier1_lid):
-        return {}  # 0 matches → too few
-
-    with mock.patch.object(tb, "_collect_tier_matches", side_effect=_fake_collect):
+    with mock.patch.object(tb, "_collect_tier_matches", return_value={}), \
+         mock.patch.object(tb, "_collect_relegated_matches", return_value={}):
         results = tb.fit_all(dry_run=True)
 
     assert results["championship_to_epl"] == co._TIER2_PRIORS["championship_to_epl"]
+    assert results["epl_to_championship"] == co._TIER1_PRIORS["epl_to_championship"]

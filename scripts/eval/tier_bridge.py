@@ -244,6 +244,77 @@ def _collect_tier_matches(
     return matches_by_season
 
 
+def _collect_relegated_matches(
+    tier2_lid: str, tier1_lid: str
+) -> dict[int, list[_TierMatch]]:
+    """Collect first tier-2-season matches for teams RELEGATED from tier1, keyed by season.
+
+    The mirror of _collect_tier_matches: a team relegated from tier1 after season Y-1 plays
+    its first tier-2 season in Y. We seed it from its END-OF-TIER1 ELO and record its tier-2
+    results against tier-2-ELO opponents. The _TierMatch.promoted_* fields carry the relegated
+    team and its (tier1) ELO, so _fit_offset / _nll read them unchanged — only the offset's
+    sign differs (positive: a dropped side is strong in the second tier).
+    """
+    from data_pipeline.football_data import match_results
+
+    tier1_df = match_results(tier1_lid)
+    tier2_df = match_results(tier2_lid)
+    tier1_history = _build_fd_elo_history(tier1_lid)
+    tier2_history = _build_fd_elo_history(tier2_lid)
+
+    tier1_df = tier1_df[tier1_df["season"] >= _TRAIN_FROM]
+    relegations = _identify_relegations(tier1_df)
+
+    matches_by_season: dict[int, list[_TierMatch]] = {}
+
+    for season, relegated_teams in sorted(relegations.items()):
+        # Relegated team's end-of-tier1 ELO: most recent ELO on or before June 30 of `season`
+        # (its final tier1 season Y-1 ends in spring of Y).
+        tier1_cutoff = pd.Timestamp(f"{season}-06-30")
+        season_matches: list[_TierMatch] = []
+        tier2_season_df = tier2_df[tier2_df["season"] == season]
+
+        for _, row in tier2_season_df.iterrows():
+            ht, at = row["home_team"], row["away_team"]
+            match_date = pd.Timestamp(row["date"]) if pd.notna(row["date"]) else None
+            if match_date is None:
+                continue
+            hg, ag = int(row["home_goals"]), int(row["away_goals"])
+            outcome = 0 if hg > ag else (1 if hg == ag else 2)
+
+            for is_home, relegated, opponent in [(True, ht, at), (False, at, ht)]:
+                if relegated not in relegated_teams:
+                    continue
+
+                dates_t1, elos_t1 = tier1_history.get(relegated, ([], []))
+                idx_t1 = bisect.bisect_right(dates_t1, tier1_cutoff)
+                if idx_t1 == 0:
+                    continue
+                relegated_elo = elos_t1[idx_t1 - 1]
+
+                dates_t2, elos_t2 = tier2_history.get(opponent, ([], []))
+                idx_t2 = bisect.bisect_left(dates_t2, match_date)
+                opp_elo = elos_t2[idx_t2 - 1] if idx_t2 > 0 else _ELO_INIT
+
+                season_matches.append(_TierMatch(
+                    promoted_team=relegated,
+                    promoted_elo=relegated_elo,
+                    opponent_elo=opp_elo,
+                    is_home=is_home,
+                    outcome=outcome,
+                    season=season,
+                ))
+
+        if season_matches:
+            matches_by_season[season] = season_matches
+            _log.info(
+                "_collect_relegated_matches: %s→%s season %d: %d matches, %d relegated teams",
+                tier1_lid, tier2_lid, season, len(season_matches), len(relegated_teams),
+            )
+
+    return matches_by_season
+
+
 # ── objective and scoring ─────────────────────────────────────────────────────
 
 def _nll(delta: float, matches: list[_TierMatch], prior: float, lam: float) -> float:
@@ -324,60 +395,63 @@ def _loso_validate(
 
 # ── main entry point ──────────────────────────────────────────────────────────
 
-def fit_all(lam: float = 0.01, dry_run: bool = False) -> dict[str, float]:
-    """Fit tier2→tier1 ELO offsets for all supported league pairs.
+def _fit_and_validate(key: str, matches_by_season: dict[int, list[_TierMatch]] | None,
+                      prior: float, lam: float) -> float:
+    """Fit + LOSO-validate one direction's offset. Falls back to the static prior on too-few
+    matches, over-deviation from the prior, or a worse-than-naive held-out Brier."""
+    all_matches = [m for ms in (matches_by_season or {}).values() for m in ms]
+    if len(all_matches) < _MIN_MATCHES:
+        _log.warning("fit_all: only %d matches for %s (need %d) — using prior",
+                     len(all_matches), key, _MIN_MATCHES)
+        return prior
+    fitted = _fit_offset(all_matches, prior, lam)
+    brier_f, brier_p, brier_n = _loso_validate(matches_by_season, fitted, prior, lam)
+    _log.info("fit_all: %s fitted=%.1f  LOSO brier: fitted=%.4f prior=%.4f naive=%.4f",
+              key, fitted, brier_f, brier_p, brier_n)
+    if abs(fitted - prior) > _MAX_DELTA_FROM_PRIOR:
+        _log.warning("fit_all: %s offset %.1f deviates >%.0f ELO from prior %.1f — using prior",
+                     key, fitted, _MAX_DELTA_FROM_PRIOR, prior)
+        return prior
+    if not math.isnan(brier_f) and brier_f > brier_n:
+        _log.warning("fit_all: %s fitted Brier %.4f > naive %.4f — using prior",
+                     key, brier_f, brier_n)
+        return prior
+    return round(fitted, 2)
 
-    Returns a dict mapping key (e.g. ``championship_to_epl``) → fitted offset.
-    Writes ``experiments/tier2_offsets.json`` unless ``dry_run=True``.
-    Falls back to the static prior in _TIER2_PRIORS for any pair that fails
-    validation or has too few matches.
+
+def fit_all(lam: float = 0.01, dry_run: bool = False) -> dict[str, float]:
+    """Fit bidirectional cross-tier ELO offsets for all supported league pairs.
+
+    Per pair, fits the forward (tier2→tier1, promoted teams) and reverse (tier1→tier2,
+    relegated teams) offset, each LOSO-validated. Returns a dict mapping key
+    (``championship_to_epl``, ``epl_to_championship``, …) → offset. Writes
+    ``experiments/tier2_offsets.json`` unless ``dry_run=True``; falls back to the static
+    prior for any direction that fails validation or has too few matches.
     """
     results: dict[str, float] = {}
 
     for tier2_lid, tier1_lid in _TIER2_PAIRS:
-        key = f"{tier2_lid}_to_{tier1_lid}"
-        prior = co._TIER2_PRIORS.get(key, -100.0)
-        _log.info("fit_all: fitting %s → %s (prior=%.1f ELO)", tier2_lid, tier1_lid, prior)
-
+        # forward: tier2 → tier1 (promoted teams)
+        fkey = f"{tier2_lid}_to_{tier1_lid}"
+        fprior = co._TIER2_PRIORS.get(fkey, -100.0)
+        _log.info("fit_all: fitting %s (prior=%.1f ELO)", fkey, fprior)
         try:
-            matches_by_season = _collect_tier_matches(tier2_lid, tier1_lid)
+            fwd = _collect_tier_matches(tier2_lid, tier1_lid)
         except Exception as e:
-            _log.warning("fit_all: failed to collect %s→%s: %s — using prior", tier2_lid, tier1_lid, e)
-            results[key] = prior
-            continue
+            _log.warning("fit_all: failed to collect %s: %s — using prior", fkey, e)
+            fwd = None
+        results[fkey] = _fit_and_validate(fkey, fwd, fprior, lam)
 
-        all_matches = [m for ms in matches_by_season.values() for m in ms]
-
-        if len(all_matches) < _MIN_MATCHES:
-            _log.warning(
-                "fit_all: only %d matches for %s→%s (need %d) — using prior",
-                len(all_matches), tier2_lid, tier1_lid, _MIN_MATCHES,
-            )
-            results[key] = prior
-            continue
-
-        fitted = _fit_offset(all_matches, prior, lam)
-        brier_f, brier_p, brier_n = _loso_validate(matches_by_season, fitted, prior, lam)
-
-        _log.info(
-            "fit_all: %s→%s fitted=%.1f  LOSO brier: fitted=%.4f prior=%.4f naive=%.4f",
-            tier2_lid, tier1_lid, fitted, brier_f, brier_p, brier_n,
-        )
-
-        if abs(fitted - prior) > _MAX_DELTA_FROM_PRIOR:
-            _log.warning(
-                "fit_all: %s→%s offset %.1f deviates >%.0f ELO from prior %.1f — using prior",
-                tier2_lid, tier1_lid, fitted, _MAX_DELTA_FROM_PRIOR, prior,
-            )
-            results[key] = prior
-        elif not math.isnan(brier_f) and brier_f > brier_n:
-            _log.warning(
-                "fit_all: %s→%s fitted Brier %.4f > naive %.4f — using prior",
-                tier2_lid, tier1_lid, brier_f, brier_n,
-            )
-            results[key] = prior
-        else:
-            results[key] = round(fitted, 2)
+        # reverse: tier1 → tier2 (relegated teams)
+        rkey = f"{tier1_lid}_to_{tier2_lid}"
+        rprior = co._TIER1_PRIORS.get(rkey, 100.0)
+        _log.info("fit_all: fitting %s (prior=%.1f ELO)", rkey, rprior)
+        try:
+            rev = _collect_relegated_matches(tier2_lid, tier1_lid)
+        except Exception as e:
+            _log.warning("fit_all: failed to collect %s: %s — using prior", rkey, e)
+            rev = None
+        results[rkey] = _fit_and_validate(rkey, rev, rprior, lam)
 
     if not dry_run:
         _OFFSETS_JSON.parent.mkdir(parents=True, exist_ok=True)
