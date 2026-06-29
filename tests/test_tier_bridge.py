@@ -174,7 +174,7 @@ def test_brier_uniform_is_two_thirds():
 # ── fit_all ───────────────────────────────────────────────────────────────────
 
 def test_fit_all_dry_run_returns_dict_with_correct_keys():
-    """fit_all(dry_run=True) returns a dict with all three pair keys."""
+    """fit_all(dry_run=True) returns a dict with a forward key for every pair."""
     from scripts.eval import tier_bridge as tb
 
     def _fake_collect(tier2_lid, tier1_lid):
@@ -183,11 +183,9 @@ def test_fit_all_dry_run_returns_dict_with_correct_keys():
     with mock.patch.object(tb, "_collect_tier_matches", side_effect=_fake_collect):
         results = tb.fit_all(dry_run=True)
 
-    assert set(results.keys()) == {
-        "championship_to_epl",
-        "bundesliga-2_to_bundesliga",
-        "serie-b_to_serie-a",
-    }
+    # every supported pair has a forward (tier2_to_tier1) key
+    for tier2, tier1 in tb._TIER2_PAIRS:
+        assert f"{tier2}_to_{tier1}" in results
 
 
 def test_fit_all_uses_prior_when_too_few_matches():

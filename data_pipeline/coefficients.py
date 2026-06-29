@@ -162,6 +162,8 @@ _TIER2_PRIORS: dict[str, float] = {
     "championship_to_epl": -120.0,
     "bundesliga-2_to_bundesliga": -100.0,
     "serie-b_to_serie-a": -130.0,
+    "segunda_to_la-liga": -120.0,
+    "ligue-2_to_ligue-1": -120.0,
 }
 
 # Maps tier-2 league ID → tier-1 league ID (used to construct the JSON key).
@@ -169,6 +171,8 @@ _TIER1_FOR: dict[str, str] = {
     "championship": "epl",
     "bundesliga-2": "bundesliga",
     "serie-b": "serie-a",
+    "segunda": "la-liga",
+    "ligue-2": "ligue-1",
 }
 
 

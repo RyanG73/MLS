@@ -56,6 +56,8 @@ _TIER2_PAIRS: list[tuple[str, str]] = [
     ("championship", "epl"),
     ("bundesliga-2", "bundesliga"),
     ("serie-b", "serie-a"),
+    ("segunda", "la-liga"),
+    ("ligue-2", "ligue-1"),
 ]
 
 

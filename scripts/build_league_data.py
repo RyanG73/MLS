@@ -56,6 +56,8 @@ _TIER2_FOR: dict[str, str] = {
     "epl":        "championship",
     "bundesliga": "bundesliga-2",
     "serie-a":    "serie-b",
+    "la-liga":    "segunda",
+    "ligue-1":    "ligue-2",
 }
 
 # ESPN/Understat team name → football-data short name for common promoted teams.

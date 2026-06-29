@@ -18,3 +18,14 @@ def test_segunda_ligue2_in_outlook():
     assert OUTLOOK["segunda"]["n"] == 22
     assert OUTLOOK["ligue-2"]["source"] == "footballdata"
     assert OUTLOOK["ligue-2"]["n"] == 18
+
+
+def test_forward_pairs_cover_all_big5():
+    from scripts.eval.tier_bridge import _TIER2_PAIRS
+    from scripts.build_league_data import _TIER2_FOR
+    from data_pipeline import coefficients as co
+    pairs = set(_TIER2_PAIRS)
+    assert ("segunda", "la-liga") in pairs and ("ligue-2", "ligue-1") in pairs
+    assert _TIER2_FOR["la-liga"] == "segunda" and _TIER2_FOR["ligue-1"] == "ligue-2"
+    # offset readable (falls back to static prior until fitted)
+    assert co.tier2_offset("segunda") < 0 and co.tier2_offset("ligue-2") < 0
