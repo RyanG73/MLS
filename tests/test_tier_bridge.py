@@ -88,6 +88,21 @@ def test_identify_promotions_first_season_has_no_promotions():
     assert 2021 not in promotions
 
 
+# ── _identify_relegations ─────────────────────────────────────────────────────
+
+def test_identify_relegations_detects_dropped_teams():
+    """A team in tier-1 season Y-1 but absent in Y is relegated, keyed by Y."""
+    df = pd.DataFrame({
+        "season": [2023, 2023, 2024, 2024],
+        "home_team": ["A", "B", "A", "B"],
+        "away_team": ["B", "C", "B", "D"],   # 2023={A,B,C}, 2024={A,B,D} → C dropped
+    })
+    from scripts.eval import tier_bridge as tb
+    rel = tb._identify_relegations(df)
+    assert rel[2024] == {"C"}
+    assert 2023 not in rel or rel[2023] == set()   # first season → no relegations
+
+
 # ── _collect_tier_matches ─────────────────────────────────────────────────────
 
 def test_collect_tier_matches_returns_matches_for_promoted_team():

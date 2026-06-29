@@ -140,6 +140,33 @@ def _identify_promotions(tier1_results: pd.DataFrame) -> dict[int, set[str]]:
     return promotions
 
 
+def _identify_relegations(tier1_results: pd.DataFrame) -> dict[int, set[str]]:
+    """Return {tier1_season: set_of_teams_relegated_into_the_tier2_season Y}.
+
+    The mirror of _identify_promotions: a team is relegated for season Y if it appeared
+    in tier1 season Y-1 but NOT in season Y. Keyed by Y — the season it left tier1, which
+    is also the tier-2 season it drops into. Seasons before _TRAIN_FROM are excluded.
+    """
+    relegations: dict[int, set[str]] = {}
+    seasons = sorted(tier1_results["season"].unique())
+    for i, s in enumerate(seasons):
+        if i == 0 or s < _TRAIN_FROM:
+            continue
+        prev = seasons[i - 1]
+        teams_now = set(
+            tier1_results.loc[tier1_results["season"] == s, "home_team"].tolist() +
+            tier1_results.loc[tier1_results["season"] == s, "away_team"].tolist()
+        )
+        teams_prev = set(
+            tier1_results.loc[tier1_results["season"] == prev, "home_team"].tolist() +
+            tier1_results.loc[tier1_results["season"] == prev, "away_team"].tolist()
+        )
+        relegated = teams_prev - teams_now
+        if relegated:
+            relegations[s] = relegated
+    return relegations
+
+
 def _collect_tier_matches(
     tier2_lid: str, tier1_lid: str
 ) -> dict[int, list[_TierMatch]]:
