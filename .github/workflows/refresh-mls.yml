@@ -11,6 +11,7 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: data/
-          key: mls-data-cache-${{ hashFiles('scripts/build_dashboard_data.py') }}
+          key: mls-data-cache-${{ hashFiles('scripts/build_*.py', 'data_pipeline/**/*.py') }}
           restore-keys: mls-data-cache-
 
       - name: Build MLS dashboard data
