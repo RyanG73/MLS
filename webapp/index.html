@@ -1420,8 +1420,7 @@ function renderProfile(team,scroll){
     <div class="pstat"><span class="k">Points · GP</span><span class="v">${s.pts} · ${s.gp}</span></div>
     <div class="pstat"><span class="k">GD · xGD</span><span class="v">${sgn(s.gd)} · ${sgnf(s.xgd)}</span></div>
     <div class="pstat"><span class="k">${rankLabel}</span><span class="v">${rankVal}</span></div>
-    <div class="pstat"><span class="k">Playoff odds</span><span class="v">${s.playoff}%</span></div>
-    <div class="pstat"><span class="k">Shield · Cup</span><span class="v">${s.shield}% · ${s.cup}%</span></div></div>`;
+    ${(D.outlook.cards||[]).filter(c=>s[c.key]!=null).map(c=>`<div class="pstat"><span class="k">${c.label}</span><span class="v">${s[c.key].toFixed(1)}%</span></div>`).join('')}</div>`;
   const upc=gms.filter(g=>g.result==null).slice(0,5).map(g=>{const h=g.home===team,opp=h?g.away:g.home;
     return `<div class="pmini"><span class="d">${g.date.slice(5)}</span><span class="opp">${h?'vs':'@'} ${opp}</span><span class="pr">${((h?g.pH:g.pA)*100).toFixed(0)}% W</span></div>`;}).join('')||'<div class="pstat"><span class="k">No upcoming fixtures</span></div>';
   const rec=gms.filter(g=>g.result).slice(-8).reverse().map(g=>{const h=g.home===team,opp=h?g.away:g.home;
