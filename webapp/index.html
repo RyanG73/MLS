@@ -396,6 +396,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .cbar{display:flex;height:18px;border-radius:4px;overflow:hidden;border:1px solid var(--line-2);background:var(--ink-0)}
 .cbar>span{display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;font-family:var(--mono);overflow:hidden;min-width:0}
 .gr-end{text-align:right;font-size:11px}
+.gr-scores{grid-column:1/-1;font-size:10.5px;color:var(--txt-3);text-align:center;padding:2px var(--s3) 5px;font-family:var(--mono);letter-spacing:.02em}
 .gr-pick{font-family:var(--mono);font-weight:700;color:var(--txt-2);font-size:11px}
 @media(max-width:640px){.grow{grid-template-columns:minmax(0,1fr) 44px 80px minmax(0,1fr);gap:6px}.gr-end{display:none}.gr-odds{display:none}}
 .g-top{display:flex;align-items:center;gap:var(--s3);margin-bottom:10px}
@@ -625,6 +626,14 @@ const cbar=g=>{const S=[[g.pH,vis(g.hcolor),txtOn(g.hcolor)],[g.pD,'var(--draw)'
 /* heatmap background for an odds value */
 function heat(v,rgb,maxv){const a=v<=0?0:Math.min(0.62,0.07+0.55*(v/(maxv||100)));return `background:rgba(${rgb.join(',')},${a.toFixed(3)})`;}
 const RGB={po:[61,220,132],hfa:[244,183,64],sh:[215,222,234],sp:[189,125,78]};
+/* scoreline distribution helpers */
+const _poisPMF=(k,lam)=>{let p=Math.exp(-lam);for(let i=1;i<=k;i++)p*=lam/i;return p;};
+function topScorelines(lam,mu,n=3){
+  const scores=[];
+  for(let h=0;h<=5;h++)for(let a=0;a<=5;a++)scores.push([h,a,_poisPMF(h,lam)*_poisPMF(a,mu)]);
+  scores.sort((x,y)=>y[2]-x[2]);
+  return scores.slice(0,n).map(([h,a,p])=>`${h}–${a} ${(p*100).toFixed(0)}%`).join(' · ');
+}
 /* fair (no-vig) American odds from a probability */
 const american=p=>{if(p==null||p<=0)return'—';const v=p>=0.5?-100*p/(1-p):100*(1-p)/p;const r=Math.round(v);return r>0?`+${r}`:`${r}`;};
 
@@ -1311,7 +1320,12 @@ function renderGames(){
       `<span class="gr-bar">${cbar(g)}</span>`+
       `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${american(g.pA)}</span><span class="tn">${g.away}</span></span>`+
       `<span class="gr-end">${end}</span>`;
-    grp.appendChild(row);});
+    grp.appendChild(row);
+    if(!played && g.lam!=null && g.mu!=null){
+      const strip=el('div','gr-scores');
+      strip.textContent=topScorelines(g.lam,g.mu,3);
+      row.appendChild(strip);
+    }});
   if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
 }
 /* ── Team selector dropdowns (profile + history) ── */
