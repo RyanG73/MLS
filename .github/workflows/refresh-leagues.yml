@@ -43,12 +43,17 @@ jobs:
           if [ -z "$LEAGUES" ]; then
             LEAGUES="epl la-liga serie-a bundesliga ligue-1 championship league-one league-two bundesliga-2 serie-b segunda ligue-2 liga-mx"
           fi
+          FAILED=""
           for league in $LEAGUES; do
             echo "── Building $league ──"
             python scripts/build_league_data.py --league "$league" --sims 20000 || {
               echo "WARNING: $league failed, continuing..."
+              FAILED="$FAILED $league"
             }
           done
+          if [ -n "$FAILED" ]; then
+            echo "::warning::Failed leagues:$FAILED"
+          fi
 
       - name: Commit and push if changed
         run: |
