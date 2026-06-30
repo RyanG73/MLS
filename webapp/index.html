@@ -619,6 +619,9 @@ function hexrgb(h){h=(h||'#888').replace('#','');if(h.length===3)h=h.split('').m
 const lum=([r,g,b])=>(0.2126*r+0.7152*g+0.0722*b)/255;
 function vis(hex){let c=hexrgb(hex);if(lum(c)<0.20){c=c.map(x=>Math.round(x+(255-x)*0.5));}return `rgb(${c.join(',')})`;}
 const txtOn=hex=>lum(hexrgb(hex))>0.6?'#06121d':'#fff';
+const cbar=g=>{const S=[[g.pH,vis(g.hcolor),txtOn(g.hcolor)],[g.pD,'var(--draw)','#0a111e'],[g.pA,vis(g.acolor),txtOn(g.acolor)]];
+  return `<span class="cbar">`+S.map(([p,bg,fg])=>{const w=p*100;
+    return `<span style="width:${w.toFixed(1)}%;background:${bg};color:${fg}">${w>=12?w.toFixed(0)+'%':''}</span>`;}).join('')+`</span>`;};
 /* heatmap background for an odds value */
 function heat(v,rgb,maxv){const a=v<=0?0:Math.min(0.62,0.07+0.55*(v/(maxv||100)));return `background:rgba(${rgb.join(',')},${a.toFixed(3)})`;}
 const RGB={po:[61,220,132],hfa:[244,183,64],sh:[215,222,234],sp:[189,125,78]};
@@ -1295,10 +1298,6 @@ function renderGames(){
   $('#gcount').textContent=`${gs.length} match${gs.length!==1?'es':''}`;
   const list=$('#gameList');list.innerHTML='';let cur=null,grp=null;
   const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-  // probability bar with the % rendered INSIDE each segment (hidden if too thin)
-  const cbar=g=>{const S=[[g.pH,vis(g.hcolor),txtOn(g.hcolor)],[g.pD,'var(--draw)','#0a111e'],[g.pA,vis(g.acolor),txtOn(g.acolor)]];
-    return `<span class="cbar">`+S.map(([p,bg,fg])=>{const w=p*100;
-      return `<span style="width:${w.toFixed(1)}%;background:${bg};color:${fg}">${w>=12?w.toFixed(0)+'%':''}</span>`;}).join('')+`</span>`;};
   gs.forEach(g=>{if(g.date!==cur){cur=g.date;grp=el('div','daygrp');grp.appendChild(el('div','dayhead',fmtDay(g.date)));list.appendChild(grp);}
     const played=g.result!=null;
     const mid=played?`<b>${g.hg}–${g.ag}</b>`:(g.lam!=null?`${g.lam.toFixed(1)}–${g.mu.toFixed(1)}`:'vs');
