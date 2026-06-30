@@ -139,10 +139,12 @@ def main():
     cal = df[df["season"] == ts - 1].dropna(subset=["home_goals", "away_goals"])
     y_cal = cal["label_result"].values.astype(int); y_cal_oh = np.eye(3)[y_cal]
     atk0, dfd0, ha0, rho0 = fit_dc(train)
+    _dc_T = 1.0  # fallback: no calibration if cal set is empty
     _dc_cal_raw = dc_predict_batch(cal, atk0, dfd0, ha0, rho0)
     dccal = calibrate_temperature(_dc_cal_raw, y_cal, _dc_cal_raw)
     dcte = calibrate_temperature(_dc_cal_raw, y_cal, dc_predict_batch(played, atk0, dfd0, ha0, rho0))
-    _dc_T = fit_temperature_scalar(_dc_cal_raw, y_cal)
+    if len(cal) >= 50:
+        _dc_T = fit_temperature_scalar(_dc_cal_raw, y_cal)
     print(f"DC forward temperature T={_dc_T:.4f}")
     clfs, _ = fit_xgb(train, feat)
     xc = bag_proba(clfs, cal[feat].fillna(0).values)
