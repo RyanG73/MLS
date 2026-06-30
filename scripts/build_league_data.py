@@ -41,12 +41,12 @@ from data_pipeline.espn_soccer import liga_mx_frame, season_label as liga_mx_lab
 from data_pipeline.espn_fixtures import european_fixtures
 from models.research_model import (
     bag_proba, blend, calibrate_temperature, dc_predict_batch, fit_capped_blend,
-    fit_dc, fit_xgb,
+    fit_dc, fit_temperature_scalar, fit_xgb,
 )
 import models.research_model as rm
 from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
-from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON
+from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON, CONCLUDED
 from scripts.payload_utils import write_js_payload, health_feature_stats
 from data_pipeline import coefficients as co
 
@@ -427,13 +427,14 @@ def main():
     train = df[df["season"] < ts - 1].dropna(subset=["home_goals", "away_goals"])
     cal = df[df["season"] == ts - 1].dropna(subset=["home_goals", "away_goals"])
     pe = None
+    _dc_T = 1.0  # fallback: no calibration if insufficient data
     if len(train) >= 200 and len(cal) >= 50 and len(played) >= 1:
         y_cal = cal["label_result"].values.astype(int); y_cal_oh = np.eye(3)[y_cal]
         atk0, dfd0, ha0, rho0 = fit_dc(train)
-        dccal = calibrate_temperature(dc_predict_batch(cal, atk0, dfd0, ha0, rho0), y_cal,
-                                      dc_predict_batch(cal, atk0, dfd0, ha0, rho0))
-        dcte = calibrate_temperature(dc_predict_batch(cal, atk0, dfd0, ha0, rho0), y_cal,
-                                     dc_predict_batch(played, atk0, dfd0, ha0, rho0))
+        _dc_cal_raw = dc_predict_batch(cal, atk0, dfd0, ha0, rho0)
+        dccal = calibrate_temperature(_dc_cal_raw, y_cal, _dc_cal_raw)
+        dcte = calibrate_temperature(_dc_cal_raw, y_cal, dc_predict_batch(played, atk0, dfd0, ha0, rho0))
+        _dc_T = fit_temperature_scalar(_dc_cal_raw, y_cal)
         clfs, _ = fit_xgb(train, feat)
         xc = bag_proba(clfs, cal[feat].fillna(0).values)
         xt = bag_proba(clfs, played[feat].fillna(0).values)
@@ -518,7 +519,12 @@ def main():
                           f"atk={_atk_flat:.3f} dfd={_dfd_flat:.3f}")
 
     def dc_probs(h, a):
-        return rm._dc_predict(h, a, atk, dfd, ha, rho)
+        raw = np.array([rm._dc_predict(h, a, atk, dfd, ha, rho)])
+        lp = np.log(np.clip(raw, 1e-9, 1.0)) / _dc_T
+        lp -= lp.max(axis=1, keepdims=True)
+        ep = np.exp(lp)
+        p = (ep / ep.sum(axis=1, keepdims=True))[0]
+        return (float(p[0]), float(p[1]), float(p[2]))
 
     def dc_lam_mu(h, a):
         import math
@@ -815,6 +821,7 @@ def main():
 
     model_card = {
         "arch": ["Dixon-Coles", "Temperature", "XGBoost ×5 bag", "Capped-DC blend", "Temperature"],
+        "forward_arch": ["Dixon-Coles", "Temperature"],
         "config": {"ELO K": 25, "Home adv": 80, "Season regress": "40%", "DC decay": "120d",
                    "XGB weight ½-life": "6 seasons", "Seed bag": 5,
                    "xG / form windows": "3 · 5 · 10 · 15", "features": len(feat)},
@@ -829,7 +836,13 @@ def main():
     pct = round(len([g for g in games if g["result"]]) / max(1, len(games)) * 100)
     _sstate = season_state(len(played), len(upcoming))
     _season_label = f"{ts}-{str(ts + 1)[2:]}" if is_preseason else None
+    # Top-level route state (see docs/CURRENT_STATE.md § Route State Taxonomy).
+    # Derived from the same match-count classification used for `in_season`, so the
+    # webapp can branch on one canonical field instead of inferring from outlook.*.
+    _route_status = {PRESEASON: "preseason", IN_PROGRESS: "live",
+                     CONCLUDED: "completed"}.get(_sstate, "live")
     data = {
+        "status": _route_status,
         "league": {"id": lid, "name": cfg["name"], "logo": _stub_league_logo(lid),
                    "confederation": cfg.get("confederation", "UEFA"),
                    "status": "live", "pct_complete": pct},

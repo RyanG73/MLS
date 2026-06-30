@@ -142,6 +142,16 @@ def calibrate_temperature(raw_cal, y_cal, raw_test):
     return ep / ep.sum(axis=1, keepdims=True)
 
 
+def fit_temperature_scalar(raw_cal, y_cal) -> float:
+    """Fit and return the temperature scalar T without applying it."""
+    def _nll(T):
+        log_p = np.log(np.clip(raw_cal, 1e-9, 1.0)) / max(T, 0.1)
+        log_p -= log_p.max(axis=1, keepdims=True)
+        ep = np.exp(log_p)
+        return float(log_loss(y_cal, ep / ep.sum(axis=1, keepdims=True)))
+    return float(minimize_scalar(_nll, bounds=(0.3, 5.0), method="bounded").x)
+
+
 def multiclass_brier(y_oh, probs):
     """Alias for brier_multiclass_sum (sum-form, canonical for this project)."""
     return brier_multiclass_sum(probs, y_oh)

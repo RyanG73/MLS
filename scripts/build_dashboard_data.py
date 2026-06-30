@@ -97,7 +97,8 @@ def main():
     df["date"] = pd.to_datetime(df["date"])
 
     from models.research_model import (fit_dc, dc_predict_batch, fit_xgb, bag_proba,
-                                        calibrate_temperature, fit_capped_blend, blend)
+                                        calibrate_temperature, fit_temperature_scalar,
+                                        fit_capped_blend, blend)
     from scripts.eval.elo import compute_elo
     from data_pipeline.asa_cache import get_teams, get_games as asa_get_games
     import math
@@ -138,10 +139,11 @@ def main():
     cal = df[df["season"] == ts - 1].dropna(subset=["home_goals", "away_goals"])
     y_cal = cal["label_result"].values.astype(int); y_cal_oh = np.eye(3)[y_cal]
     atk0, dfd0, ha0, rho0 = fit_dc(train)
-    dccal = calibrate_temperature(dc_predict_batch(cal, atk0, dfd0, ha0, rho0), y_cal,
-                                  dc_predict_batch(cal, atk0, dfd0, ha0, rho0))
-    dcte = calibrate_temperature(dc_predict_batch(cal, atk0, dfd0, ha0, rho0), y_cal,
-                                 dc_predict_batch(played, atk0, dfd0, ha0, rho0))
+    _dc_cal_raw = dc_predict_batch(cal, atk0, dfd0, ha0, rho0)
+    dccal = calibrate_temperature(_dc_cal_raw, y_cal, _dc_cal_raw)
+    dcte = calibrate_temperature(_dc_cal_raw, y_cal, dc_predict_batch(played, atk0, dfd0, ha0, rho0))
+    _dc_T = fit_temperature_scalar(_dc_cal_raw, y_cal)
+    print(f"DC forward temperature T={_dc_T:.4f}")
     clfs, _ = fit_xgb(train, feat)
     xc = bag_proba(clfs, cal[feat].fillna(0).values)
     xt = bag_proba(clfs, played[feat].fillna(0).values)
@@ -212,7 +214,12 @@ def main():
     atk, dfd, ha, rho = fit_dc(allplayed)
 
     def dc_probs(htid, atid):
-        return rm._dc_predict(htid, atid, atk, dfd, ha, rho)   # (pH, pD, pA)
+        raw = np.array([rm._dc_predict(htid, atid, atk, dfd, ha, rho)])
+        lp = np.log(np.clip(raw, 1e-9, 1.0)) / _dc_T
+        lp -= lp.max(axis=1, keepdims=True)
+        ep = np.exp(lp)
+        p = (ep / ep.sum(axis=1, keepdims=True))[0]
+        return (float(p[0]), float(p[1]), float(p[2]))
 
     def dc_lam_mu(htid, atid):
         """Raw DC expected goals (home λ, away μ) — projected scoreline."""
@@ -486,6 +493,7 @@ def main():
     champ_brier, champ_cal, champ_run = None, None, "unknown"
     model_card = {
         "arch": ["Dixon-Coles", "Temperature", "XGBoost ×5 bag", "Capped-DC blend", "Temperature"],
+        "forward_arch": ["Dixon-Coles", "Temperature"],
         "config": {"ELO K": 25, "Home adv": 80, "Season regress": "40%", "DC decay": "120d",
                    "XGB weight ½-life": "6 seasons", "Seed bag": 5, "xG / form windows": "3 · 5 · 10 · 15"},
         "per_class": {}, "n_test": None,
