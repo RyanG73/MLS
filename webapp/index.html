@@ -628,12 +628,12 @@ function heat(v,rgb,maxv){const a=v<=0?0:Math.min(0.62,0.07+0.55*(v/(maxv||100))
 const RGB={po:[61,220,132],hfa:[244,183,64],sh:[215,222,234],sp:[189,125,78]};
 /* scoreline distribution helpers */
 const _poisPMF=(k,lam)=>{let p=Math.exp(-lam);for(let i=1;i<=k;i++)p*=lam/i;return p;};
-function topScorelines(lam,mu,n=3){
+const topScorelines=(lam,mu,n=3)=>{
   const scores=[];
-  for(let h=0;h<=5;h++)for(let a=0;a<=5;a++)scores.push([h,a,_poisPMF(h,lam)*_poisPMF(a,mu)]);
+  for(let h=0;h<=7;h++)for(let a=0;a<=7;a++)scores.push([h,a,_poisPMF(h,lam)*_poisPMF(a,mu)]);
   scores.sort((x,y)=>y[2]-x[2]);
   return scores.slice(0,n).map(([h,a,p])=>`${h}–${a} ${(p*100).toFixed(0)}%`).join(' · ');
-}
+};
 /* fair (no-vig) American odds from a probability */
 const american=p=>{if(p==null||p<=0)return'—';const v=p>=0.5?-100*p/(1-p):100*(1-p)/p;const r=Math.round(v);return r>0?`+${r}`:`${r}`;};
 
