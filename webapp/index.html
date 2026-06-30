@@ -1415,12 +1415,19 @@ function renderProfile(team,scroll){
     <div class="pstat"><span class="k">Form (pts/game, 5)</span><span class="v">${fv(inp.form)}</span></div>
     <div class="pstat"><span class="k">GK quality (z)</span><span class="v">${fv(inp.gk_z)}</span></div>
     <div class="pstat"><span class="k">Squad availability</span><span class="v">${inp.avail==null?'—':(inp.avail*100).toFixed(0)+'%'}</span></div></div>`;
+  // Derive outcome card rows: prefer D.outlook.cards (explicit contract); fall back to
+  // MLS legacy keys (playoff/shield/cup) when D.outlook or D.outlook.cards is absent.
+  const _ocRaw=(D.outlook||{}).cards;
+  const _outcomeCards=(_ocRaw&&_ocRaw.length>0)
+    ?_ocRaw
+    :['playoff','shield','cup'].filter(k=>s[k]!=null)
+       .map(k=>({key:k,label:{playoff:'Playoff odds',shield:'Shield',cup:'MLS Cup'}[k]}));
   const seasonCard=`<div class="pcard"><h3>${D.season} season</h3>
     <div class="pstat"><span class="k">Record (W-D-L)</span><span class="v">${w}-${d}-${l}</span></div>
     <div class="pstat"><span class="k">Points · GP</span><span class="v">${s.pts} · ${s.gp}</span></div>
     <div class="pstat"><span class="k">GD · xGD</span><span class="v">${sgn(s.gd)} · ${sgnf(s.xgd)}</span></div>
     <div class="pstat"><span class="k">${rankLabel}</span><span class="v">${rankVal}</span></div>
-    ${(D.outlook.cards||[]).filter(c=>s[c.key]!=null).map(c=>`<div class="pstat"><span class="k">${c.label}</span><span class="v">${s[c.key].toFixed(1)}%</span></div>`).join('')}</div>`;
+    ${_outcomeCards.filter(c=>s[c.key]!=null).map(c=>`<div class="pstat"><span class="k">${c.label}</span><span class="v">${s[c.key].toFixed(1)}%</span></div>`).join('')}</div>`;
   const upc=gms.filter(g=>g.result==null).slice(0,5).map(g=>{const h=g.home===team,opp=h?g.away:g.home;
     return `<div class="pmini"><span class="d">${g.date.slice(5)}</span><span class="opp">${h?'vs':'@'} ${opp}</span><span class="pr">${((h?g.pH:g.pA)*100).toFixed(0)}% W</span></div>`;}).join('')||'<div class="pstat"><span class="k">No upcoming fixtures</span></div>';
   const rec=gms.filter(g=>g.result).slice(-8).reverse().map(g=>{const h=g.home===team,opp=h?g.away:g.home;

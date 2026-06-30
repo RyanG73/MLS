@@ -561,7 +561,8 @@ def main():
     _pct = round(len([g for g in games if g["result"]]) /
                  max(1, len(games)) * 100)
 
-    data = {"league": {"id": "mls", "name": "Major League Soccer", "logo": _lg_logo,
+    data = {"status": "live",  # route state (see docs/CURRENT_STATE.md § Route State Taxonomy)
+            "league": {"id": "mls", "name": "Major League Soccer", "logo": _lg_logo,
                        "confederation": "Concacaf", "status": "live",
                        "pct_complete": _pct},
             "perf_by_year": perf_by_year,
@@ -584,6 +585,13 @@ def main():
                       if champ_brier else None,
                       "cal_err": champ_cal,
                       "name": "research_model", "metric": "brier_sum_form"},
+            "outlook": {"mode": "mls",
+                        "n_teams": len(standings),
+                        "cards": [
+                            {"key": "playoff", "label": "Playoff odds"},
+                            {"key": "shield", "label": "Shield"},
+                            {"key": "cup",    "label": "MLS Cup"},
+                        ]},
             "n_sims": N, "playoff_slots": _PLAYOFF_SLOTS, "hfa_slots": _HFA_SLOTS,
             "standings": standings, "games": games,
             "generated": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC"),
