@@ -61,6 +61,10 @@ Thumbs.db
 
 # Derived parity dataset (regenerable via eval_baseline --dump-frame)
 data/*.parquet
+# ...but the odds/projection time series is accrued history, NOT regenerable (B10)
+!data/odds_history.parquet
+!data/odds_log.parquet
+!data/odds_closers.parquet
 
 data/*.meta.json
 data/roster_profiles/
