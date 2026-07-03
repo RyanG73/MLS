@@ -12,6 +12,22 @@
 > - Draw curve: over-forecast concentrates in high bins (p̄ 0.317→freq 0.270 at 0.30–0.35;
 >   p̄ 0.365→freq 0.273 at 0.35+); low bin 0.15–0.20 under (p̄ 0.189→freq 0.082, n=49).
 
+> **VERDICT A7 (2026-07-03): COMPLETE — the Spurs 42% is miscalibration, and the effect is
+> monotone.** `scripts/eval/club_prior.py` (`club_prior_gap`, `elo_history_from_matches`) +
+> `by_club_prior_gap` tercile slice in `model_report.py`; 6 new tests, suite green.
+> Cohort study (big-5 FD history, 2017–2025, 856 team-seasons, K=25/HA=80/REGRESS=0.40):
+> - **Relegation rate falls monotonically in gap:** gap≤0 → 23.7% · 0–50 → 9.3% ·
+>   50–100 → 1.6% · 100+ → **0.0%** (n=20). Beat-seed margin rises monotonically
+>   (−0.40 → +0.42 → +0.44 → +0.60 ranks).
+> - **Spurs-shaped subset (gap≥50 AND bottom-half seed, n=18): relegation rate 11.1%**
+>   vs 26.6% for all bottom-half seeds; they finish **+4.9 ranks better than seeded**
+>   (vs +1.5 baseline). Exact analogues: Chelsea '23 seed 13 → 6th; Man United '25
+>   seed 16 → 3rd. **A8's gate number: a high-gap bottom-half team's relegation odds
+>   should land near ~11% (Wilson 95% CI ≈ 3–33%), not 42%.**
+> - Top gap decile (≥64 pts, n=86, mostly elites — flat-1500 regression mechanically
+>   drags every strong club): 0 relegations; ELO home-prob Brier on gap≥100 matches
+>   0.2014 vs 0.2463 all (ELO itself recovers in-season; the damage is the SEED).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the remaining gaps from the 2026-06-29 unified deep-dive: route forward projections through the full validated ensemble (not raw DC), make conditional calibration measurable, and upgrade the webapp from "presents outputs" to "enables investigation" (uncertainty, why, trust).
@@ -385,9 +401,9 @@ Zero model risk; extends A1's slice framework. Defines the signal the later task
 - Modify: `scripts/model_report.py` — add `by_club_prior_gap` slice (terciles: high-gap "fallen", neutral, negative-gap "overachiever") reusing A1's `_by` helper
 - Test: `tests/test_club_prior.py`
 
-- [ ] **Step 1:** Failing test: a synthetic ELO history where team X averaged 1600 over 3 seasons then seeds at 1440 → `club_prior_gap == 160`; a team with <2 prior seasons → gap 0 (promoted teams stay with the tier bridge, not this mechanism).
-- [ ] **Step 2:** Implement; suite green; commit.
-- [ ] **Step 3 (the cohort study — scratchpad script, findings into the verdict):** across all leagues/seasons in the frame (2017+), collect team-seasons in the top gap decile; measure (a) their actual next-season finish/relegation rate vs the model's preseason odds, (b) walk-forward Brier on their matches vs the cohort-neutral baseline. This answers empirically whether 42% for Spurs-shaped teams is miscalibration or reality — the number A8's gate is judged against.
+- [x] **Step 1:** Failing test: a synthetic ELO history where team X averaged 1600 over 3 seasons then seeds at 1440 → `club_prior_gap == 160`; a team with <2 prior seasons → gap 0 (promoted teams stay with the tier bridge, not this mechanism).
+- [x] **Step 2:** Implement; suite green; commit.
+- [x] **Step 3 (the cohort study — scratchpad script, findings into the verdict):** across all leagues/seasons in the frame (2017+), collect team-seasons in the top gap decile; measure (a) their actual next-season finish/relegation rate vs the model's preseason odds, (b) walk-forward Brier on their matches vs the cohort-neutral baseline. This answers empirically whether 42% for Spurs-shaped teams is miscalibration or reality — the number A8's gate is judged against.
 
 ### Task A8: Experiment — variable season-to-season ELO regression (target AND rate)
 
