@@ -28,6 +28,30 @@
 >   drags every strong club): 0 relegations; ELO home-prob Brier on gap≥100 matches
 >   0.2014 vs 0.2463 all (ELO itself recovers in-season; the damage is the SEED).
 
+> **VERDICT B1 (2026-07-03): COMPLETE.** Builders already emitted `status` everywhere except
+> power (`build_power_rankings.py` now emits `status: "live"`); the 8 missing payloads were
+> stale, not code gaps. Validator now REQUIRES top-level `status` on every payload
+> (logos.js excluded, mirroring the contract test) + new contract test
+> `test_has_top_level_status`. Rebuilt: ucl/europa/conference/concacaf-champions/leagues-cup
+> (all `completed`), mls (`live`), power (`live`), liga-mx (`completed`). All 21 payloads
+> valid; suite 433 passed. Note: 2 PRE-EXISTING browser-smoke mobile-overflow failures
+> (mls, epl @390px — verified present before any change; flagged as a spin-off task).
+
+> **VERDICT B10 (2026-07-03): COMPLETE — accrual started 2026-07-03 (438 team-rows day one).**
+> `scripts/archive_odds_snapshot.py` appends per-(league, team, build-date) rows —
+> title/playoff/shield/cup/ucl/europa/releg odds + ELO + proj_pts + next-match model probs
+> (market prob columns reserved, populate when B5 ships `mH/mD/mA`) — to
+> `data/odds_history.parquet` (gitignore-excepted; committed by CI). Wired after the build
+> step in both refresh workflows; 3 tests (dedup, second-date append). **odds_log finding:**
+> NOTHING has ever been logged — no `ODDS_API_KEY` anywhere, no CI step, no live launchd job
+> (`daily_build.sh` references a plist but the GH-Actions cron replaced it). Added an
+> openers+closers step to the daily MLS workflow (clean no-op without the key — user must add
+> the `ODDS_API_KEY` repo secret to activate; free-tier quota ≈60 req/mo for MLS both lines).
+> The-Odds-API keys for all 14 covered leagues filed in `config/settings.yaml`
+> `market.league_sport_keys`, fetch NOT enabled (budget-gated per user decision). Caveat: the
+> 7AM-ET daily cron catches closers only for kickoffs within `--minutes 180` of 11:00 UTC —
+> real closer coverage needs a near-kickoff schedule; deferred with the paid-key decision.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the remaining gaps from the 2026-06-29 unified deep-dive: route forward projections through the full validated ensemble (not raw DC), make conditional calibration measurable, and upgrade the webapp from "presents outputs" to "enables investigation" (uncertainty, why, trust).
@@ -519,8 +543,8 @@ shipping. Source-health entry + rights check (FBref ToS) required, per the codex
 - Modify: `scripts/validate_payloads.py` — make top-level `status` REQUIRED for every payload except `logos.js`
 - Test: extend the payload-contract test to assert `status` present on all league keys
 
-- [ ] Step 1: check builders first — `grep -n '"status"' scripts/build_continental_data.py`. If present, rebuild payloads; if absent, add the field.
-- [ ] Step 2: tighten `validate_payloads.py`, run it, rebuild whatever fails, commit.
+- [x] Step 1: check builders first — `grep -n '"status"' scripts/build_continental_data.py`. If present, rebuild payloads; if absent, add the field.
+- [x] Step 2: tighten `validate_payloads.py`, run it, rebuild whatever fails, commit.
 
 ### Task B2: Uncertainty cues on odds
 
