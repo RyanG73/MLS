@@ -110,11 +110,12 @@ jobs:
         with:
           pattern: payload-*
           merge-multiple: true
-      - name: Power rankings + odds archive + ledger + validate
+      - name: Power rankings + odds archive + ledger + edge board + validate
         run: |
           python scripts/build_power_rankings.py
           python scripts/archive_odds_snapshot.py
           python scripts/bet_ledger.py
+          python scripts/build_edge_board.py
           python scripts/validate_payloads.py
       - name: Commit and push if changed
         run: |

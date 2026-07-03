@@ -1,5 +1,16 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-03 — "Today's Edge" cross-league board (B12) ▶ DONE**
+> New `scripts/build_edge_board.py` aggregates every upcoming match (next 48h) across all live,
+> non-knockout league payloads into `webapp/data/edge-board.js`, ranked by model edge over the
+> market; no-`?league=` is now the site's landing route (deep links unchanged). Currently
+> edge-empty everywhere (no payload carries forward market odds yet — same root cause B10
+> already flagged), so the empty-state / next-kickoffs fallback is what actually ships live.
+> Along the way, fixed a real scoping bug: `ledgerStripHTML`/`BET_DISCLAIMER` were trapped
+> inside the per-league render branch (Annex B block-scoped `function` hoisting only assigns on
+> block execution) so the edge board's separate script tag couldn't see them — moved both to
+> shared scope. 7 new tests; suite green.
+
 > **2026-07-03 — Variable ELO season regression, club-prior target (A8) ▶ PARTIAL KEEP — Europe only**
 > `compute_elo` gains `club_prior_beta` (regress toward `(1-β)·1500 + β·mean(prior ≤3-season
 > end-of-season ELO)` instead of flat 1500). MLS harness A/B: β=0.75 clears the gate at seed 42

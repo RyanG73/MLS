@@ -656,6 +656,38 @@ Dependency note: shares `latest_team_features` with A2 — build A2's Step 3 mod
 if the A2 ensemble gate later fails; the module stands alone and B9 consumes it. The TM panel
 additionally depends on A9 Phase 1 (except MLS, which can ship immediately).
 
+> **VERDICT B12 (2026-07-03): COMPLETE.** `scripts/build_edge_board.py` aggregates every
+> upcoming match (next 48h, day-granularity — no kickoff time-of-day exists in any payload,
+> documented rather than faked) across all `status:"live"` non-knockout payloads into
+> `webapp/data/edge-board.js`; rows with a market line and ≥8% edge are separated from
+> priced-no-edge and no-line rows, sorted by edge desc; empty state falls back to a
+> `next_kickoffs` list (verified live — currently ALL leagues are edge-empty since no payload
+> anywhere carries forward `mkt_home` yet, matching B10's finding that the odds log has never
+> fired; the empty state is real, not hypothetical). Reuses `bet_ledger.py`'s
+> `_quarter_kelly_units` and `scripts/payload_utils.write_js_payload` (no third Kelly
+> implementation). 7 new tests (edge/threshold/draw-suppression/window/knockout-exclusion/
+> sort/next-kickoffs), suite green (475 passed, same 3 pre-existing failures unrelated to
+> this change). Webapp: no-`?league=` is now the landing route (`?league=X` deep links
+> unchanged); new pinned "Today's Edge" sidebar entry; ledger strip (B11) reused verbatim.
+> **Bug found and fixed along the way:** `ledgerStripHTML`/`BET_DISCLAIMER` were declared
+> *inside* the per-league render branch that the edge board deliberately skips — a block-scoped
+> `function` there only gets hoisted into the callable outer binding if that block executes
+> (Annex B semantics), so calling them from the edge-board's separate script tag silently threw
+> `ReferenceError`. Moved both to shared top-level scope (visible in webapp/index.html around
+> `american()`) so both call sites work; regression-checked MLS/EPL/Championship/Power routes
+> in-browser after the fix, zero console errors. **Scoped down from the full B12 spec**: inline
+> row expansion currently shows only scorelines (already-available data); B2's bag-spread and
+> B3's why-attribution are NOT wired into `.eb-expand` yet since those tasks haven't shipped —
+> `ebRow()` has a comment marking where they extend it. CI: `build_edge_board.py` added to both
+> `refresh-daily.yml` (finalize job, after `bet_ledger.py`) and `refresh-leagues.yml`.
+> `edge-board.js` excluded from the strict LEAGUE_DATA/POWER_DATA payload contract (mirrors
+> `ledger.js`'s existing treatment — a cross-league aggregate, not a per-league payload).
+> League badges link to `?league=<id>` (stops click propagation so it doesn't also toggle row
+> expansion). Not built this pass: a ledger P/L sparkline on the strip (text summary only) and
+> a JS↔Python Kelly parity test (skipped because the edge board doesn't run JS Kelly math at
+> all — Python precomputes `bet.units`/`bet.edge_pct` server-side; the existing JS
+> `kellyUnits`/`bestBet` remain used only by the per-league match list, unchanged by this task).
+
 ### Task B12: "Today's edge board" — the new landing view (user decision 2026-07-03)
 
 The site's front door becomes a cross-league edge board instead of a single league dashboard.

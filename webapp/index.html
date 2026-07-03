@@ -560,20 +560,25 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 <script src="data/logos.js"></script>
 <script src="data/ledger.js"></script>
 <script>
-// League selected via ?league=<id> (default mls). Synchronous document.write so
-// window.LEAGUE_DATA is set before the main render script runs.
-const LID=new URLSearchParams(location.search).get('league')||'mls';
-// Cache-bust the per-league data file: it's small and rebuilt frequently (e.g. when a
+// League selected via ?league=<id>. No param at all → the cross-league edge board
+// (B12) is the site's landing view; ?league=mls etc. deep links are unchanged.
+// Synchronous document.write so window.LEAGUE_DATA is set before the main render script runs.
+const _rawLeague=new URLSearchParams(location.search).get('league');
+const _isEdgeBoard=!_rawLeague;
+const LID=_rawLeague||'mls';
+// Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
-document.write('<scr'+'ipt src="data/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
+document.write('<scr'+'ipt src="data/'+(_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
 const _isPower = new URLSearchParams(location.search).get('league')==='power';
-// Power-rankings mode loads window.POWER_DATA (a cross-league view, not a single league).
-// Use a benign empty stub so the league render code below no-ops; renderPower() (appended
-// at the end of the page) then hides the league UI and draws the rankings.
-const D = _isPower
-  ? {league:{name:'Cross-League Power Rankings'}, outlook:{mode:'power'}, standings:[], games:[],
+// Power-rankings / edge-board modes load their own cross-league window.*_DATA globals
+// (not a single league's LEAGUE_DATA). Use a benign empty stub so the league render code
+// below no-ops; renderPower()/renderEdgeBoard() (appended at the end of the page) then
+// hide the league UI and draw the real view.
+const D = (_isPower || _isEdgeBoard)
+  ? {league:{name:_isEdgeBoard?"Today's Edge":'Cross-League Power Rankings'},
+     outlook:{mode:_isEdgeBoard?'edge-board':'power'}, standings:[], games:[],
      sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], team_inputs:{}, elo_history:{},
      health:null, model_card:{}, in_season_brier:{}, season:2026}
   : window.LEAGUE_DATA;
@@ -587,14 +592,15 @@ const isKnockout = (D.outlook||{}).mode === 'knockout';
   const wrap=$('#sbLeagues'), groups={};
   (window.LEAGUES||[]).forEach(l=>{(groups[l.confederation]=groups[l.confederation]||[]).push(l);});
   let html='';
-  // Pinned cross-league view at the top — the platform's unique multi-league capability.
-  html+=`<a class="sb-lg sb-power${LID==='power'?' active':''}" href="?league=power"><span class="lgc">🌍</span><span>Power Rankings</span></a>`;
+  // Pinned cross-league views at the top — the platform's unique multi-league capability.
+  html+=`<a class="sb-lg sb-power${_isEdgeBoard?' active':''}" href="${location.pathname}"><span class="lgc">⚡</span><span>Today's Edge</span></a>`;
+  html+=`<a class="sb-lg sb-power${!_isEdgeBoard&&LID==='power'?' active':''}" href="?league=power"><span class="lgc">🌍</span><span>Power Rankings</span></a>`;
   for(const conf of ['Concacaf','UEFA']){
     if(!groups[conf])continue;
     html+=`<div class="sb-grp">${conf}</div>`;
     groups[conf].forEach(l=>{
       const lg=l.logo?`<span class="lgc"><img src="${l.logo}" alt="" onerror="this.remove()"></span>`:`<span class="lgc"></span>`;
-      const active=l.id===LID?' active':'', soon=l.status!=='live'?' soon':'';
+      const active=!_isEdgeBoard&&l.id===LID?' active':'', soon=l.status!=='live'?' soon':'';
       html+=`<a class="sb-lg${active}${soon}" href="?league=${l.id}">${lg}<span>${l.name}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`;
     });
   }
@@ -638,6 +644,23 @@ const topScorelines=(lam,mu,n=3)=>{
 };
 /* fair (no-vig) American odds from a probability */
 const american=p=>{if(p==null||p<=0)return'—';const v=p>=0.5?-100*p/(1-p):100*(1-p)/p;const r=Math.round(v);return r>0?`+${r}`:`${r}`;};
+/* ── B5/B12: shared bet-facing copy + ledger strip. Declared here (outside the
+   per-league render branch below) so both renderMarketPanel() and the B12 edge
+   board — which SKIPS that branch entirely — can call them. ── */
+const BET_DISCLAIMER='Informational only, not betting advice. Probabilities are model estimates; '+
+  'past backtest ROI does not predict future returns. 18+/21+ where applicable. '+
+  'Problem gambling? Call 1-800-GAMBLER (US) / visit begambleaware.org.';
+// B11/B12: live paper-ledger strip (cross-league; window.LEDGER_DATA from data/ledger.js).
+function ledgerStripHTML(){
+  const L=(window.LEDGER_DATA||{}).summary;
+  return L&&L.n_bets>0?`<div class="eb-strip">
+      <span>Paper ledger: <b>${L.n_bets}</b> bets (${L.n_settled} settled)</span>
+      <span>P/L <b style="color:${L.units_pnl>=0?'var(--qualify)':'#e25f4f'}">${L.units_pnl>=0?'+':''}${L.units_pnl}u</b></span>
+      ${L.hit_rate!=null?`<span>hit rate <b>${(L.hit_rate*100).toFixed(0)}%</b></span>`:''}
+      ${L.clv_mean_pp!=null?`<span>CLV <b>${L.clv_mean_pp>=0?'+':''}${L.clv_mean_pp}pp</b></span>`:'<span style="color:var(--txt-3)">CLV pending closers</span>'}
+      <span>max DD <b>${L.max_drawdown}u</b></span></div>`
+    :`<div class="eb-strip" style="color:var(--txt-3)">Paper ledger live from 2026-07-03 — no qualifying forward-odds bets yet; accrues as lines post.</div>`;
+}
 
 /* ── coming-soon leagues: no model → static teams view, stop here ── */
 function renderSoonView(){
@@ -659,6 +682,7 @@ function renderSoonView(){
 }
 if((D.league||{}).status==='soon'){ renderSoonView(); }
 else if(_isPower){ /* power route — renderPower handles this below, skip normal league render */ }
+else if(_isEdgeBoard){ /* edge-board route — renderEdgeBoard handles this below, skip normal league render */ }
 else {
 /* header: % complete + simplified model-vs-naive accuracy card */
 const _pct=(D.league||{}).pct_complete;
@@ -1319,9 +1343,6 @@ function edgePick(g){
 function resultBadge(g){if(g.result==null)return'';const ok=edgePick(g).k===g.result;
   return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${_OL[g.result]}</span>`;}
 /* ── B5: model-vs-market panel (scatter + ROI buckets + honest backtest) ── */
-const BET_DISCLAIMER='Informational only, not betting advice. Probabilities are model estimates; '+
-  'past backtest ROI does not predict future returns. 18+/21+ where applicable. '+
-  'Problem gambling? Call 1-800-GAMBLER (US) / visit begambleaware.org.';
 function renderMarketPanel(){
   const box=$('#marketPanel'); if(!box||box.dataset.done)return;
   const pts=D.games.filter(g=>g.result!=null&&g.mkt_home!=null);
@@ -1353,17 +1374,8 @@ function renderMarketPanel(){
   const buckets=mv?`<h3 style="margin:14px 0 6px">Flat-stake ROI by model-edge bucket</h3>${bkRows}
     <div class="hnote">${mv.note} · ${mv.n_matched_games} matched games${mv.draw_8plus?` · draw-side 8%+ bets: n=${mv.draw_8plus.n}, ROI ${(mv.draw_8plus.roi*100).toFixed(1)}%`:''}</div>`:'';
   const head=bt&&bt.n_bets>0?`<span class="meta">≥${bt.threshold_pct}% edge backtest: ${bt.n_bets} bets · ROI <b style="color:${bt.roi>=0?'var(--qualify)':'#e25f4f'}">${bt.roi>=0?'+':''}${(bt.roi*100).toFixed(1)}%</b></span>`:'<span class="meta">historical closing odds</span>';
-  // B11: live paper-ledger strip (cross-league; window.LEDGER_DATA from data/ledger.js)
-  const L=(window.LEDGER_DATA||{}).summary;
-  const strip=L&&L.n_bets>0?`<div style="padding:8px 16px;border-bottom:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px">
-      <span>Paper ledger: <b>${L.n_bets}</b> bets (${L.n_settled} settled)</span>
-      <span>P/L <b style="color:${L.units_pnl>=0?'var(--qualify)':'#e25f4f'}">${L.units_pnl>=0?'+':''}${L.units_pnl}u</b></span>
-      ${L.hit_rate!=null?`<span>hit rate <b>${(L.hit_rate*100).toFixed(0)}%</b></span>`:''}
-      ${L.clv_mean_pp!=null?`<span>CLV <b>${L.clv_mean_pp>=0?'+':''}${L.clv_mean_pp}pp</b></span>`:'<span style="color:var(--txt-3)">CLV pending closers</span>'}
-      <span>max DD <b>${L.max_drawdown}u</b></span></div>`
-    :`<div style="padding:8px 16px;border-bottom:1px solid var(--line);font-size:11px;color:var(--txt-3)">Paper ledger live from 2026-07-03 — no qualifying forward-odds bets yet; accrues as lines post.</div>`;
   box.innerHTML=`<div class="panel" style="margin-bottom:14px"><div class="panel-h"><span class="dot"></span><h2>Model vs market</h2>${head}</div>
-    ${strip}
+    ${ledgerStripHTML()}
     <div style="padding:12px 16px;display:flex;flex-wrap:wrap;gap:20px"><div style="flex:1;min-width:260px">${scatter}</div><div style="flex:1;min-width:240px">${buckets}</div></div>
     <div style="padding:8px 16px;border-top:1px solid var(--line);font-size:10px;color:var(--txt-3)">${BET_DISCLAIMER}</div></div>`;
 }
@@ -1660,6 +1672,84 @@ if (_isPower && window.POWER_DATA) {
   if(target){
     target.classList.remove('hidden');
     target.innerHTML='<div class="pr-intro">Every team on one comparable strength scale — domestic ELO plus the league’s cross-league offset (the same strength the continental model uses), so a Premier League side can be compared directly against La Liga or Bundesliga. Scales are <b>confederation-relative</b>: UEFA and Concacaf never meet in the data, so they’re ranked separately.</div><div class="pr-grid">'+panels+'</div>';
+  }
+}
+</script>
+
+<style>
+.eb-intro{color:var(--txt-2);font-size:13px;max-width:820px;margin:0 0 14px;line-height:1.55}
+.eb-strip{padding:8px 16px;border-bottom:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px}
+.eb-panel{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px}
+.eb-h{padding:9px 14px;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--line-2);background:var(--ink-2)}
+.eb-row{padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.eb-row:hover{background:var(--ink-2)}
+.eb-row:last-child{border-bottom:none}
+.eb-row.stale{opacity:.6}
+.eb-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.eb-lg{font-size:10px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.04em;min-width:64px}
+.eb-teams{flex:1;min-width:160px;font-size:13px}
+.eb-edge{font-weight:700;color:var(--win)}
+.eb-meta{font-size:10.5px;color:var(--txt-3)}
+.eb-expand{display:none;padding-top:8px;font-size:11.5px;color:var(--txt-2)}
+.eb-row.open .eb-expand{display:block}
+.eb-empty{padding:28px 16px;text-align:center;color:var(--txt-3);font-size:13px;line-height:1.7}
+.eb-warn{color:#e2b04f;font-size:10px}
+</style>
+<script>
+// ── B12: cross-league edge board (pinned sidebar item, the no-?league= landing view).
+// Renders window.EDGE_BOARD_DATA. Row expansion currently shows scorelines only;
+// B2's bag-spread and B3's why-attribution extend ebRow()'s .eb-expand block once shipped.
+function ageHours(builtAt){
+  if(!builtAt)return null;
+  const t=new Date(builtAt.replace(' ','T').replace(' UTC','Z'));
+  return isNaN(t)?null:(Date.now()-t.getTime())/3.6e6;
+}
+// Kickoff-proximity staleness only has day granularity — payloads carry a date, not a
+// kickoff time (see scripts/build_edge_board.py). "Today" is the closest available proxy
+// for "<2h away" and is deliberately conservative (greys out the whole matchday).
+function isNearKickoff(dateStr){ return dateStr===new Date().toISOString().slice(0,10); }
+function ebRow(r){
+  const age=ageHours(r.built_at), agedOut=age!=null&&age>24, near=isNearKickoff(r.date);
+  const stale=agedOut||near;
+  const staleNote=stale?`<span class="eb-warn">⚠ ${agedOut?`priced ${Math.round(age)}h ago — `:''}${near?'kickoff today — ':''}reprice before betting</span>`:'';
+  const bet=r.bet;
+  const betChip=bet
+    ?`<span class="eb-edge">▲ ${bet.edge_pct.toFixed(1)}% edge ${bet.side==='H'?'Home':'Away'}</span> · quarter-Kelly ${bet.units}u`
+    :(r.has_market?'<span class="eb-meta">priced · no qualifying edge</span>':'<span class="eb-meta">no line yet</span>');
+  return `<div class="eb-row${stale?' stale':''}" onclick="this.classList.toggle('open')">
+    <div class="eb-top">
+      <a class="eb-lg" href="?league=${r.league}" onclick="event.stopPropagation()" style="text-decoration:none">${r.league_name}</a>
+      <span class="eb-teams">${crest(r.home,r.hlogo)} <b>${r.home}</b> v <b>${r.away}</b> ${crest(r.away,r.alogo)}</span>
+      <span class="eb-meta">${r.date}</span>
+    </div>
+    <div style="margin-top:6px">${cbar(r)}</div>
+    <div style="margin-top:6px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">${betChip}${staleNote}</div>
+    <div class="eb-expand">${r.lam!=null&&r.mu!=null?('Likely scorelines: '+topScorelines(r.lam,r.mu,3)):''}</div>
+  </div>`;
+}
+if(_isEdgeBoard && window.EDGE_BOARD_DATA){
+  const seg=$('#seg'); if(seg) seg.style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
+  const EB=window.EDGE_BOARD_DATA;
+  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Today's Edge";
+  const sub=$('#sub'); if(sub) sub.textContent=`Cross-league upcoming matches, ranked by model edge vs market · ≥${EB.edge_threshold_pct}% highlighted · built ${EB.generated}`;
+  const priced=EB.priced||[], noLine=EB.no_line||[], nextKo=EB.next_kickoffs||[];
+  let body;
+  if(!priced.length && !noLine.length){
+    body=`<div class="eb-empty">No qualifying edges today.<br>${nextKo.length
+      ? 'Next kickoffs: '+nextKo.map(k=>`${k.league_name}: ${k.home} v ${k.away} (${k.date})`).join(' · ')
+      : 'No upcoming matches in the next '+(EB.window_days*24)+'h across live leagues.'}</div>`;
+  } else {
+    const withEdge=priced.filter(r=>r.bet), noEdge=priced.filter(r=>!r.bet);
+    body=(withEdge.length?`<div class="eb-panel"><div class="eb-h">≥${EB.edge_threshold_pct}% edge — quarter-Kelly sizing</div>${withEdge.map(ebRow).join('')}</div>`:'')
+       +(noEdge.length?`<div class="eb-panel"><div class="eb-h">Priced, below threshold</div>${noEdge.map(ebRow).join('')}</div>`:'')
+       +(noLine.length?`<div class="eb-panel"><div class="eb-h">No line yet</div>${noLine.map(ebRow).join('')}</div>`:'');
+  }
+  const target=$('#view-outlook')||$('main.wrap');
+  if(target){
+    target.classList.remove('hidden');
+    target.innerHTML=`<div class="eb-intro">Every upcoming match in the next ${EB.window_days*24}h across live leagues, model probability vs de-vigged market odds where a line exists. Continental competitions excluded this cycle (no odds source yet). ${BET_DISCLAIMER}</div>`
+      +ledgerStripHTML()+body;
   }
 }
 </script>
