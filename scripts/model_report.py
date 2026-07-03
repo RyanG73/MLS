@@ -241,6 +241,14 @@ def _slice_table(preds: pd.DataFrame) -> dict:
         index=preds.index)
     _by(phase, "by_season_phase")
 
+    # club-prior-gap terciles (A7) — fallen giants vs overachievers.
+    # Column is attached in main() from the frame's ELO history; rank-based
+    # qcut so the many exact-zero gaps (young clubs) can't collapse the bins.
+    if "club_prior_gap" in preds.columns:
+        ranks = preds["club_prior_gap"].rank(method="first")
+        terc = pd.qcut(ranks, 3, labels=["overachiever", "neutral", "fallen"])
+        _by(pd.Series(terc, index=preds.index), "by_club_prior_gap")
+
     # (iii) draw reliability curve — the worst class (max-decile err 0.108)
     curve = []
     for lo in np.arange(0.0, 0.5, 0.05):
@@ -300,6 +308,18 @@ def main() -> int:
         wide_grid=args.wide_grid, n_bags=args.n_bags)
     if preds.empty:
         raise SystemExit("[report] no predictions produced")
+
+    # A7: stamp each match with the larger-|gap| side's club-prior gap so the
+    # slice captures every match INVOLVING a fallen giant, home or away.
+    if {"home_elo", "away_elo"} <= set(df.columns):
+        from scripts.eval.club_prior import (club_prior_gap,
+                                             elo_history_from_matches)
+        gaps = club_prior_gap(elo_history_from_matches(df))
+        def _row_gap(r):
+            gh = gaps.get((r["home_team"], int(r["season"])), 0.0)
+            ga = gaps.get((r["away_team"], int(r["season"])), 0.0)
+            return gh if abs(gh) >= abs(ga) else ga
+        preds["club_prior_gap"] = preds.apply(_row_gap, axis=1)
 
     P = preds[["prob_home", "prob_draw", "prob_away"]].values
     y = preds["label_result"].values.astype(int)

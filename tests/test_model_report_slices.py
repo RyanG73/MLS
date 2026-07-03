@@ -24,6 +24,17 @@ def test_season_phase_slice_present():
     out = _slice_table(_fake_preds())
     assert {"first_60d", "mid", "late"} <= set(out["by_season_phase"])
 
+def test_club_prior_gap_terciles_present_when_column_attached():
+    preds = _fake_preds()
+    rng = np.random.default_rng(1)
+    preds["club_prior_gap"] = rng.normal(0, 80, len(preds))
+    out = _slice_table(preds)
+    assert {"overachiever", "neutral", "fallen"} == set(out["by_club_prior_gap"])
+
+def test_club_prior_gap_slice_absent_without_column():
+    out = _slice_table(_fake_preds())
+    assert "by_club_prior_gap" not in out
+
 def test_draw_reliability_curve_present():
     out = _slice_table(_fake_preds())
     curve = out["draw_reliability"]           # list of {bin, n, p_mean, freq}
