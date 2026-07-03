@@ -22,11 +22,24 @@ logger = logging.getLogger(__name__)
 
 _HEALTH_PATH = Path("data/source_health.parquet")
 
-# Warn when a fetch returns fewer rows than these floors
+# Row-count floors per source — checked against the most recent *significant* endpoint run.
+# Auxiliary endpoints (get_teams, get_players) are excluded from gate checks via
+# _SIGNIFICANT_ENDPOINTS so a lightweight metadata call can't poison the gate.
 _COVERAGE_FLOORS: dict[str, int] = {
-    "asa":      200,   # at least 200 historical matches per backfill run
-    "espn":       1,   # at least 1 fixture in a 14-day window
-    "pinnacle":   1,   # at least 1 odds row when games are upcoming
+    "asa":           400,   # historical MLS match rows across all seasons
+    "espn":           50,   # MLS or Liga MX fixtures for the current season
+    "understat":     100,   # xG match rows for a league season
+    "football_data":  50,   # historical results rows per league
+    "pinnacle":        1,   # at least 1 odds row when games are upcoming
+}
+
+# Which endpoints count for the gate. If a source has recorded runs for both a
+# significant and an auxiliary endpoint, only the significant ones are considered.
+_SIGNIFICANT_ENDPOINTS: dict[str, list[str]] = {
+    "asa":           ["get_games"],
+    "espn":          ["liga_mx_scoreboard", "mls_scoreboard", "scoreboard"],
+    "understat":     ["canonical_frame"],
+    "football_data": ["results"],
 }
 
 _SCHEMA = [
@@ -120,31 +133,49 @@ def _check_coverage_floor(
 
 
 def coverage_gate_status(floors: Optional[dict] = None) -> dict:
-    """Structured pass/fail of the latest run per source against coverage floors.
+    """Structured pass/fail of the latest significant-endpoint run per source.
 
     Returns {source_name: {"parsed": int, "floor": int, "ok": bool,
-                           "success": bool, "error": str|None}}.
-    Consumed by the promotion gate so a model is never promoted on top of a
-    silently-degraded data feed. Returns {} if the health file is missing
-    or empty (caller decides whether absence is a hard fail).
+                           "success": bool, "error": str|None,
+                           "fetched_at": str|None, "endpoint": str}}.
+    For sources listed in _SIGNIFICANT_ENDPOINTS, only runs matching those
+    endpoints are considered — auxiliary calls like get_teams cannot mask a
+    missing match-data fetch. Returns {} if the health file is missing or empty.
     """
     floors = floors or _COVERAGE_FLOORS
-    report = get_source_health_report()
-    if report is None or report.empty:
+    if not _HEALTH_PATH.exists():
+        return {}
+    try:
+        df = pd.read_parquet(_HEALTH_PATH)
+        if df.empty:
+            return {}
+        df["fetched_at"] = pd.to_datetime(df["fetched_at"], utc=True)
+    except Exception as exc:
+        logger.warning("source_health: coverage_gate_status failed — %s", exc)
         return {}
 
     status: dict = {}
-    for _, r in report.iterrows():
-        name = r.get("source_name")
-        floor = floors.get(name, 0)
+    for source_name, floor in floors.items():
+        src = df[df["source_name"] == source_name]
+        if src.empty:
+            continue
+        sig_eps = _SIGNIFICANT_ENDPOINTS.get(source_name)
+        if sig_eps:
+            sig = src[src["endpoint"].isin(sig_eps)]
+            if not sig.empty:
+                src = sig
+        r = src.sort_values("fetched_at", ascending=False).iloc[0]
         parsed = int(r.get("parsed_count") or 0)
         success = bool(r.get("success"))
-        status[name] = {
-            "parsed":  parsed,
-            "floor":   floor,
-            "ok":      success and parsed >= floor,
-            "success": success,
-            "error":   r.get("error_message"),
+        fetched_at = r.get("fetched_at")
+        status[source_name] = {
+            "parsed":     parsed,
+            "floor":      floor,
+            "ok":         success and parsed >= floor,
+            "success":    success,
+            "error":      r.get("error_message"),
+            "fetched_at": fetched_at.isoformat() if hasattr(fetched_at, "isoformat") else str(fetched_at),
+            "endpoint":   str(r.get("endpoint", "")),
         }
     return status
 

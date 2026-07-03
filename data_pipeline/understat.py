@@ -244,7 +244,22 @@ def canonical_frame(league_id: str, seasons: list[int] | None = None,
         combined = _coerce(cached)
 
     df = combined[combined["season"].isin(seasons)].copy()
-    return df.sort_values("date").reset_index(drop=True)
+    df = df.sort_values("date").reset_index(drop=True)
+
+    try:
+        from data_pipeline.source_health import record_source_run
+        played = int(df["is_result"].sum()) if "is_result" in df.columns else len(df)
+        record_source_run(
+            source_name="understat",
+            endpoint="canonical_frame",
+            raw_count=len(df),
+            parsed_count=played,
+            null_rates={"league": league_id, "seasons": len(seasons)},
+        )
+    except Exception as _exc:
+        logger.debug("understat: could not record source health: %s", _exc)
+
+    return df
 
 
 def _report(league_id: str, df: pd.DataFrame) -> None:

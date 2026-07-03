@@ -148,6 +148,27 @@ def evaluate_gate(champion: dict | None, challenger: dict) -> tuple[bool, list]:
                    f"challenger {chal_b:.4f} vs champion {champ_b:.4f} "
                    f"(gain {gain:+.4f}, need >= {MIN_GAIN})"))
 
+    # ── feature completeness (ADVISORY — reported, never blocks) ────────────
+    # A challenger evaluated on mostly-defaulted features can look deceptively
+    # good. Flag any key feature with >20% nulls in the test window so the
+    # operator can investigate before promoting.
+    fc = challenger.get("feature_completeness")
+    if fc:
+        HIGH_NULL = 0.20
+        flagged = [
+            f"{feat}@{season}={null_rate:.0%}"
+            for season, cols in fc.items()
+            for feat, null_rate in cols.items()
+            if null_rate > HIGH_NULL
+        ]
+        checks.append(("feature_completeness", True,
+                       ("ok — all key features < 20% null" if not flagged
+                        else "advisory — high null: " + ", ".join(flagged[:5])
+                             + (" …" if len(flagged) > 5 else ""))))
+    else:
+        checks.append(("feature_completeness", True,
+                       "no feature_completeness in report — skipped (advisory)"))
+
     # ── paired significance (ADVISORY — reported, never blocks) ──────────────
     # When both reports embed per-match Brier vectors (model_report.py
     # "per_match"), bootstrap the mean paired difference on common match_ids.
@@ -303,15 +324,33 @@ def cmd_self_test(args) -> int:
     if not any(name == "data_source_health" and not ok for name, ok, _ in checks):
         failures.append("data_source_health check did not fire on a degraded feed")
 
+    # Case 7: high feature null rate → advisory fires, gate still PASSES
+    hitnull = copy.deepcopy(base); hitnull["run_id"] = "synthetic-hitnull"
+    hitnull["avg_brier"] = 0.6320
+    hitnull["per_season"] = {"2022": 0.6300, "2023": 0.6350, "2024": 0.6310}
+    for s, b in hitnull["per_season"].items():
+        hitnull["slices"]["by_season"][s]["brier_sum"] = b
+    hitnull["feature_completeness"] = {
+        "2022": {"xg_rolling_5": 0.45, "elo_pre": 0.0},  # xg_rolling_5 badly null
+        "2023": {"xg_rolling_5": 0.30, "elo_pre": 0.0},
+    }
+    p, checks = evaluate_gate(base, hitnull)
+    if not p:
+        det = "; ".join(f"{n}:{d}" for n, ok, d in checks if not ok)
+        failures.append(f"high-null-feature challenger was REJECTED (advisory should not block) — {det}")
+    fc_check = next((d for n, _, d in checks if n == "feature_completeness"), None)
+    if fc_check is None or "advisory" not in fc_check:
+        failures.append("feature_completeness advisory did not fire for high null rates")
+
     print("\n=== promotion_gate self-test ===")
     if failures:
         for f in failures:
             print(f"  FAIL: {f}")
         print(f"\n{len(failures)} self-test failure(s).")
         return 1
-    print("  All 6 cases passed: identical→reject, 2024-regress→reject, "
+    print("  All 7 cases passed: identical→reject, 2024-regress→reject, "
           "cal-blowup→reject, improvement→promote, bootstrap→promote, "
-          "degraded-source→reject.")
+          "degraded-source→reject, high-null→advisory-only.")
     return 0
 
 
