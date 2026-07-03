@@ -549,6 +549,7 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
       <span>Score = projected (expected goals)</span>
       <span style="margin-left:auto"><i style="background:var(--qualify)"></i>✓ model's pick was correct</span>
     </div>
+    <div id="marketPanel"></div>
     <div id="gameList"></div>
   </section>
 </main>
@@ -1280,6 +1281,22 @@ $('#teamBtn').onclick=e=>{e.stopPropagation();const o=menu.classList.toggle('ope
 document.addEventListener('click',closeDD);
 $('#resultFilter').onclick=e=>{const b=e.target.closest('button');if(!b)return;fRes=b.dataset.f;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));renderGames();};
 
+/* ── Betting math (B5/B12): devig + Kelly live HERE only, mirroring
+      data_pipeline/market.py semantics. The edge board reuses these. ── */
+function devig(oH,oD,oA){const ih=1/oH,idr=1/oD,ia=1/oA,s=ih+idr+ia;return [ih/s,idr/s,ia/s];}
+function kellyUnits(p,mktP,frac=0.25){ // quarter-Kelly at fair (de-vigged) odds; 1u = 1% bankroll
+  if(!(mktP>0&&mktP<1))return 0;
+  const b=1/mktP-1, f=(p*(b+1)-1)/b;
+  return f>0?Math.round(f*frac*100*10)/10:0;}
+// Best actionable edge for an upcoming game with market probs. Draw-side Kelly
+// is SUPPRESSED (model's known-worst class) until A11 lands a draw-structure KEEP.
+function bestBet(g,thresh=8){
+  if(g.mkt_home==null)return null;
+  const cands=[['H',g.pH,g.mkt_home],['A',g.pA,g.mkt_away]];
+  let best=null;
+  for(const [k,p,m] of cands){const e=(p-m)*100;
+    if(e>=thresh&&(!best||e>best.edge))best={k,edge:e,units:kellyUnits(p,m)};}
+  return best;}
 function topPick(g){return [['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,s)=>s[1]>m[1]?s:m)[0];}
 const _OL={H:'Home',D:'Draw',A:'Away'};
 // pick = biggest model edge over market (model_prob − market_prob) when a market
@@ -1300,6 +1317,45 @@ function edgePick(g){
 }
 function resultBadge(g){if(g.result==null)return'';const ok=edgePick(g).k===g.result;
   return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${_OL[g.result]}</span>`;}
+/* ── B5: model-vs-market panel (scatter + ROI buckets + honest backtest) ── */
+const BET_DISCLAIMER='Informational only, not betting advice. Probabilities are model estimates; '+
+  'past backtest ROI does not predict future returns. 18+/21+ where applicable. '+
+  'Problem gambling? Call 1-800-GAMBLER (US) / visit begambleaware.org.';
+function renderMarketPanel(){
+  const box=$('#marketPanel'); if(!box||box.dataset.done)return;
+  const pts=D.games.filter(g=>g.result!=null&&g.mkt_home!=null);
+  const mv=(D.value_layer||{}).market_view, bt=(D.value_layer||{}).backtest;
+  if(!pts.length&&!mv){box.dataset.done=1;return;}  // no market data for this league
+  box.dataset.done=1;
+  const W=300,H=300,pad=34;
+  const sx=p=>pad+p*(W-2*pad), sy=p=>H-pad-p*(H-2*pad);
+  const dots=pts.map(g=>{const c=g.result==='H'?'var(--qualify)':g.result==='A'?'var(--drop)':'var(--draw)';
+    return `<circle cx="${sx(g.mkt_home).toFixed(1)}" cy="${sy(g.pH).toFixed(1)}" r="3" fill="${c}" fill-opacity="0.65"><title>${g.home} v ${g.away} · model ${(g.pH*100).toFixed(0)}% / market ${(g.mkt_home*100).toFixed(0)}% · ${_OL[g.result]}</title></circle>`;}).join('');
+  const ticks=[0,.25,.5,.75,1].map(v=>
+    `<text x="${sx(v)}" y="${H-pad+14}" font-size="8" fill="var(--txt-3)" text-anchor="middle">${v*100}%</text>`+
+    `<text x="${pad-6}" y="${sy(v)+3}" font-size="8" fill="var(--txt-3)" text-anchor="end">${v*100}%</text>`).join('');
+  const scatter=pts.length?`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:340px" role="img" aria-label="model vs market home-win probability">
+    <line x1="${sx(0)}" y1="${sy(0)}" x2="${sx(1)}" y2="${sy(1)}" stroke="var(--line-2)" stroke-dasharray="3 3"/>
+    <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="var(--line-2)"/>
+    <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="var(--line-2)"/>
+    ${ticks}${dots}
+    <text x="${W/2}" y="${H-4}" font-size="9" fill="var(--txt-3)" text-anchor="middle">market home-win prob (de-vigged)</text>
+    <text x="10" y="${H/2}" font-size="9" fill="var(--txt-3)" text-anchor="middle" transform="rotate(-90 10 ${H/2})">model home-win prob</text>
+  </svg>
+  <div class="hnote">Each dot = one played match with market odds. Off-diagonal = disagreement with the market; dot color = actual result (green home win, red away win, gray draw). Trailing Pinnacle by ~2% Brier is strong for a market-blind model.</div>`:'';
+  const bkRows=(mv&&mv.buckets||[]).map(b=>{const pos=b.roi>=0;
+    return `<div style="display:grid;grid-template-columns:60px 50px 1fr 70px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)">
+      <span style="font-weight:600;font-size:12px">${b.bucket}</span>
+      <span style="font-size:11px;color:var(--txt-3)">n=${b.n}</span>
+      <span style="height:8px;border-radius:4px;background:${pos?'var(--qualify)':'#e25f4f'};width:${Math.min(100,Math.abs(b.roi)*250).toFixed(0)}%;justify-self:${pos?'start':'start'}"></span>
+      <span style="font-size:11.5px;text-align:right;color:${pos?'var(--qualify)':'#e25f4f'}">${pos?'+':''}${(b.roi*100).toFixed(1)}%</span></div>`;}).join('');
+  const buckets=mv?`<h3 style="margin:14px 0 6px">Flat-stake ROI by model-edge bucket</h3>${bkRows}
+    <div class="hnote">${mv.note} · ${mv.n_matched_games} matched games${mv.draw_8plus?` · draw-side 8%+ bets: n=${mv.draw_8plus.n}, ROI ${(mv.draw_8plus.roi*100).toFixed(1)}%`:''}</div>`:'';
+  const head=bt&&bt.n_bets>0?`<span class="meta">≥${bt.threshold_pct}% edge backtest: ${bt.n_bets} bets · ROI <b style="color:${bt.roi>=0?'var(--qualify)':'#e25f4f'}">${bt.roi>=0?'+':''}${(bt.roi*100).toFixed(1)}%</b></span>`:'<span class="meta">historical closing odds</span>';
+  box.innerHTML=`<div class="panel" style="margin-bottom:14px"><div class="panel-h"><span class="dot"></span><h2>Model vs market</h2>${head}</div>
+    <div style="padding:12px 16px;display:flex;flex-wrap:wrap;gap:20px"><div style="flex:1;min-width:260px">${scatter}</div><div style="flex:1;min-width:240px">${buckets}</div></div>
+    <div style="padding:8px 16px;border-top:1px solid var(--line);font-size:10px;color:var(--txt-3)">${BET_DISCLAIMER}</div></div>`;
+}
 function renderGames(){
   let gs=D.games.filter(g=>{if(fTeam!=='All teams'&&g.home!==fTeam&&g.away!==fTeam)return false;
     if(fRes==='played'&&g.result==null)return false; if(fRes==='upcoming'&&g.result!=null)return false;
@@ -1325,6 +1381,14 @@ function renderGames(){
       const strip=el('div','gr-scores');
       strip.textContent=topScorelines(g.lam,g.mu,3);
       row.appendChild(strip);
+    }
+    if(!played){
+      const bb=bestBet(g);  // ≥8% edge, draw-side suppressed (B5)
+      if(bb&&bb.units>0){
+        const chip=el('div','gr-scores');
+        chip.innerHTML=`<b style="color:var(--win)">▲ ${bb.edge.toFixed(1)}% edge ${_OL[bb.k]}</b> · quarter-Kelly ${bb.units}u <span style="color:var(--txt-3)">(1u = 1% bankroll)</span>`;
+        row.appendChild(chip);
+      }
     }});
   if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
 }
@@ -1535,7 +1599,7 @@ $('#teamProfile').addEventListener('mouseleave',()=>eloTip.style.display='none')
 $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));
   const v=b.dataset.view;
   ['outlook','matches','teams','health'].forEach(x=>$('#view-'+x).classList.toggle('hidden',v!==x));
-  if(v==='matches'&&!$('#gameList').children.length)renderGames();
+  if(v==='matches'&&!$('#gameList').children.length){renderMarketPanel();renderGames();}
   if(v==='teams'&&!$('#eloGrid').children.length)renderTeams();
   if(v==='health'&&!$('#healthBody').children.length)renderHealth();};
 // deep-link a team from the League Table → Teams tab

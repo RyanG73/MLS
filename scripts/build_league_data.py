@@ -697,6 +697,7 @@ def main():
     # the bookies?" read. Market odds from football-data.co.uk (Pinnacle/market-avg).
     perf_by_year = []
     backtest = None
+    market_view = None
     try:
         # ESPN leagues use sequential season IDs (1-N), not calendar years.
         # Use last 8 seasons for eval (skip first 2 which lack enough training history).
@@ -745,8 +746,10 @@ def main():
         # "Fair odds" = 1/mkt_p (conservative: de-vigged, ~3-5% better than real Pinnacle).
         _THRESH = 8.0
         backtest = None
+        market_view = None
         if _has_mkt and not _preds.empty:
             _br = []
+            _all_bets = []   # every positive-edge bet, for the ROI-by-bucket table (B5)
             for _, _r in _preds[_preds["mkt_home"].notna()].iterrows():
                 for _oc, _mp, _mkp in [
                     ("home", float(_r["prob_home"]), float(_r["mkt_home"])),
@@ -756,14 +759,39 @@ def main():
                     if _mkp <= 0:
                         continue
                     _edge = (_mp - _mkp) * 100
-                    if _edge < _THRESH:
-                        continue
                     _won = int(_r["label_result"]) == {"home": 0, "draw": 1, "away": 2}[_oc]
                     _fair_odds = 1.0 / _mkp
+                    if _edge >= 0:
+                        _all_bets.append({"outcome": _oc, "edge": _edge, "won": _won,
+                                          "pnl": (_fair_odds - 1.0) if _won else -1.0})
+                    if _edge < _THRESH:
+                        continue
                     _lbl = liga_mx_label(int(_r["season"])) if cfg["source"] == "espn" else str(int(_r["season"]))
                     _br.append({"season": int(_r["season"]), "label": _lbl,
                                  "outcome": _oc, "edge": _edge,
                                  "won": _won, "pnl": (_fair_odds - 1.0) if _won else -1.0})
+            # B5: ROI by edge bucket (0–4 / 4–8 / 8+), plus a draw-only 8+ slice —
+            # the honest trust anchor for the market view (negative ROI shown as-is).
+            _abdf = pd.DataFrame(_all_bets)
+            if not _abdf.empty:
+                _buckets = []
+                for _lo, _hi, _blbl in [(0, 4, "0–4%"), (4, 8, "4–8%"), (8, None, "8%+")]:
+                    _bk = _abdf[(_abdf["edge"] >= _lo) &
+                                ((_abdf["edge"] < _hi) if _hi else True)]
+                    if len(_bk):
+                        _buckets.append({"bucket": _blbl, "n": int(len(_bk)),
+                                         "roi": round(float(_bk["pnl"].mean()), 3),
+                                         "win_rate": round(float(_bk["won"].mean()), 3)})
+                _dr = _abdf[(_abdf["edge"] >= _THRESH) & (_abdf["outcome"] == "draw")]
+                market_view = {
+                    "buckets": _buckets,
+                    "n_matched_games": int(_preds["mkt_home"].notna().sum()),
+                    "draw_8plus": ({"n": int(len(_dr)),
+                                    "roi": round(float(_dr["pnl"].mean()), 3)}
+                                   if len(_dr) else None),
+                    "note": "flat-stake ROI at fair (de-vigged) odds, walk-forward "
+                            "held-out predictions; draw-side Kelly suppressed until "
+                            "A11 lands a draw-structure KEEP"}
             if _br:
                 _bdf = pd.DataFrame(_br)
                 _n = len(_bdf)
@@ -790,6 +818,7 @@ def main():
         traceback.print_exc()
         print(f"[{lid}] perf_by_year/backtest failed: {_e}")
         backtest = None
+        market_view = None
 
     # Headline league Brier = mean of the recent walk-forward folds.
     # ESPN leagues: recent = last 8 torneos (4 years). Others: 2022+.
@@ -879,6 +908,7 @@ def main():
         "n_sims": N,
         "value_layer": {
             "backtest": backtest,
+            "market_view": market_view,  # B5: ROI-by-edge-bucket + matched-game count
             "value_bets": [],  # upcoming matches with edge >= threshold; requires live odds
         },
         "standings": standings, "games": games,
