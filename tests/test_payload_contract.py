@@ -132,6 +132,16 @@ class TestLeaguePayloadRequiredFields:
             pytest.skip(f"{path.name}: knockout payloads do not carry league.id")
         assert data["league"].get("id"), f"{path.name}: league.id is empty or missing"
 
+    def test_has_top_level_status(self, payload):
+        """Every payload must carry the top-level route `status` (B1).
+
+        The route-state taxonomy (docs/CURRENT_STATE.md) defines it for league,
+        continental, and power surfaces alike; the validator enforces the same.
+        """
+        path, var_name, data = payload
+        assert isinstance(data, dict) and data.get("status"), (
+            f"{path.name}: missing top-level 'status'")
+
     def test_has_generated_for_non_placeholder(self, league_payload):
         """Every non-placeholder surface must carry a generated timestamp."""
         path, data = league_payload

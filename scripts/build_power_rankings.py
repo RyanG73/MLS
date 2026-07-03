@@ -69,7 +69,8 @@ def _rank_group(leagues, tier: int = 1) -> list[dict]:
 
 
 def build():
-    data = {"groups": [],
+    data = {"status": "live",  # rankings page is always-on (route state taxonomy)
+            "groups": [],
             "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
     for conf, leagues in _GROUPS.items():
         ranked = _rank_group(leagues)

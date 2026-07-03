@@ -24,10 +24,14 @@ _DATA = Path("webapp/data")
 # Note: MLS uses a flat schema without "outlook"; European table leagues DO have it.
 # The minimal contract is: all live surfaces must have league, standings, games,
 # health, and generated.  Knockout competitions replace health with outlook.
-_REQUIRED_LIVE = {"league", "standings", "games", "health", "generated"}
-_REQUIRED_KNOCKOUT = {"league", "outlook", "games", "generated"}
-_REQUIRED_POWER = {"groups", "generated"}
-_REQUIRED_PLACEHOLDER = {"league"}  # "coming soon" stubs — minimal gate
+_REQUIRED_LIVE = {"status", "league", "standings", "games", "health", "generated"}
+_REQUIRED_KNOCKOUT = {"status", "league", "outlook", "games", "generated"}
+_REQUIRED_POWER = {"status", "groups", "generated"}
+_REQUIRED_PLACEHOLDER = {"status", "league"}  # "coming soon" stubs — minimal gate
+
+# logos.js is a global team→logo lookup (window.TEAM_LOGOS), not a league/power
+# payload — same exclusion as tests/test_payload_contract.py.
+_NON_PAYLOAD = {"logos.js"}
 
 
 def _load_payload(path: Path) -> dict:
@@ -104,7 +108,8 @@ def main(argv: list[str] | None = None) -> int:
     if args:
         paths = [_DATA / f"{lid}.js" for lid in args]
     else:
-        paths = sorted(_DATA.glob("*.js"))
+        paths = [p for p in sorted(_DATA.glob("*.js"))
+                 if p.name not in _NON_PAYLOAD]
 
     if not paths:
         print("No payload files found.", file=sys.stderr)
