@@ -80,10 +80,11 @@ def snapshot_rows(league_id: str, payload: dict) -> list[dict]:
             "nm_ph": nm.get("pH") if nm else None,
             "nm_pd": nm.get("pD") if nm else None,
             "nm_pa": nm.get("pA") if nm else None,
-            # market probs — payloads gain these with B5; archive when present
-            "nm_mh": nm.get("mH") if nm else None,
-            "nm_md": nm.get("mD") if nm else None,
-            "nm_ma": nm.get("mA") if nm else None,
+            # market probs — payloads gain these on upcoming cards when forward
+            # odds land (same mkt_* keys the builder uses on played games)
+            "nm_mh": nm.get("mkt_home") if nm else None,
+            "nm_md": nm.get("mkt_draw") if nm else None,
+            "nm_ma": nm.get("mkt_away") if nm else None,
         })
         rows.append(row)
     return rows

@@ -65,6 +65,7 @@ data/*.parquet
 !data/odds_history.parquet
 !data/odds_log.parquet
 !data/odds_closers.parquet
+!data/bet_ledger.parquet
 
 data/*.meta.json
 data/roster_profiles/

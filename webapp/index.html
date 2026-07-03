@@ -558,6 +558,7 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
 
 <script src="leagues.js"></script>
 <script src="data/logos.js"></script>
+<script src="data/ledger.js"></script>
 <script>
 // League selected via ?league=<id> (default mls). Synchronous document.write so
 // window.LEAGUE_DATA is set before the main render script runs.
@@ -1352,7 +1353,17 @@ function renderMarketPanel(){
   const buckets=mv?`<h3 style="margin:14px 0 6px">Flat-stake ROI by model-edge bucket</h3>${bkRows}
     <div class="hnote">${mv.note} · ${mv.n_matched_games} matched games${mv.draw_8plus?` · draw-side 8%+ bets: n=${mv.draw_8plus.n}, ROI ${(mv.draw_8plus.roi*100).toFixed(1)}%`:''}</div>`:'';
   const head=bt&&bt.n_bets>0?`<span class="meta">≥${bt.threshold_pct}% edge backtest: ${bt.n_bets} bets · ROI <b style="color:${bt.roi>=0?'var(--qualify)':'#e25f4f'}">${bt.roi>=0?'+':''}${(bt.roi*100).toFixed(1)}%</b></span>`:'<span class="meta">historical closing odds</span>';
+  // B11: live paper-ledger strip (cross-league; window.LEDGER_DATA from data/ledger.js)
+  const L=(window.LEDGER_DATA||{}).summary;
+  const strip=L&&L.n_bets>0?`<div style="padding:8px 16px;border-bottom:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px">
+      <span>Paper ledger: <b>${L.n_bets}</b> bets (${L.n_settled} settled)</span>
+      <span>P/L <b style="color:${L.units_pnl>=0?'var(--qualify)':'#e25f4f'}">${L.units_pnl>=0?'+':''}${L.units_pnl}u</b></span>
+      ${L.hit_rate!=null?`<span>hit rate <b>${(L.hit_rate*100).toFixed(0)}%</b></span>`:''}
+      ${L.clv_mean_pp!=null?`<span>CLV <b>${L.clv_mean_pp>=0?'+':''}${L.clv_mean_pp}pp</b></span>`:'<span style="color:var(--txt-3)">CLV pending closers</span>'}
+      <span>max DD <b>${L.max_drawdown}u</b></span></div>`
+    :`<div style="padding:8px 16px;border-bottom:1px solid var(--line);font-size:11px;color:var(--txt-3)">Paper ledger live from 2026-07-03 — no qualifying forward-odds bets yet; accrues as lines post.</div>`;
   box.innerHTML=`<div class="panel" style="margin-bottom:14px"><div class="panel-h"><span class="dot"></span><h2>Model vs market</h2>${head}</div>
+    ${strip}
     <div style="padding:12px 16px;display:flex;flex-wrap:wrap;gap:20px"><div style="flex:1;min-width:260px">${scatter}</div><div style="flex:1;min-width:240px">${buckets}</div></div>
     <div style="padding:8px 16px;border-top:1px solid var(--line);font-size:10px;color:var(--txt-3)">${BET_DISCLAIMER}</div></div>`;
 }
