@@ -10,14 +10,30 @@ on betting odds — so that `edge = model_prob − market_prob` stays meaningful
 Data sources        Feature engineering        Model                Output
 ------------        -------------------        -----                ------
 ASA API (xG)        ELO ratings                Dixon-Coles    ┐
-ESPN scoreboard     Rolling xG / form          XGBoost (bag)  ├─► research_model ─► webapp/data.js ─► webapp/
-ESPN box rosters    GK quality, availability   temperature cal│                      (built on a Mac;
-                    DC + capped blend          capped blend   ┘                       served statically)
+ESPN scoreboard     Rolling xG / form          XGBoost (bag)  ├─► research_model ─► webapp/data/*.js ─► webapp/
+ESPN box rosters    GK quality, availability   temperature cal│                       (built on a Mac;
+Understat (Big-5)   DC + capped blend          capped blend   ┘                        served statically)
 ```
 
 The active system is **database-free**: the research harness validates the model,
-`models/research_model.py` is the single canonical implementation, and
-`scripts/build_dashboard_data.py` renders `webapp/data.js` for the static dashboard.
+`models/research_model.py` is the single canonical implementation, and the build
+scripts render per-league payloads under `webapp/data/*.js` for the static dashboard:
+
+| Build script | Surface | Payload(s) |
+|---|---|---|
+| `scripts/build_dashboard_data.py` | MLS | `webapp/data/mls.js` |
+| `scripts/build_league_data.py` | European / table leagues | `epl.js`, `la-liga.js`, `championship.js`, … |
+| `scripts/build_continental_data.py` | Continental knockouts | `ucl.js`, `europa.js`, `concacaf-champions.js`, … |
+| `scripts/fetch_league_teams.py` | "Coming soon" placeholders + `leagues.js` registry | `canadian-pl.js`, … |
+
+Every payload carries a top-level `status` route-state field
+(`live` / `preseason` / `completed` / `knockout_live` / `placeholder`) — see the
+**Route State Taxonomy** and **Model Card Fields** in [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md).
+Run `python scripts/validate_payloads.py` after any build to enforce the data
+contract (no `NaN`/`Infinity`, required fields per surface type).
+
+Data-source terms, attribution, and redistribution rules are tracked in
+[`docs/data-sources.md`](docs/data-sources.md).
 
 > The original Raspberry Pi + PostgreSQL + Streamlit production stack was archived
 > on 2026-06-11 under `legacy/` (see `legacy/README.md`). It is recoverable but not
@@ -46,15 +62,19 @@ ODDS_API_KEY=...                  # The Odds API — opening-line logging (data_
 
 ```bash
 source venv/bin/activate
-python scripts/build_dashboard_data.py        # writes webapp/data.js
+python scripts/build_dashboard_data.py        # writes webapp/data/mls.js
+python scripts/build_league_data.py           # European / table-league payloads
+python scripts/build_continental_data.py      # continental knockout payloads
+python scripts/validate_payloads.py           # enforce the data contract before serving
 ```
 
-`data.js` carries the current-season standings, per-match predictions and
+`mls.js` carries the current-season standings, per-match predictions and
 projected scores, ELO ratings, playoff / Supporters' Shield / MLS Cup odds (from
 a 20k-sim Monte-Carlo), an in-season Brier readout, and a model-health summary.
 The dashboard (`webapp/index.html`) is a single static file — open it directly,
 or serve `webapp/` with any static server (the `MLS Dashboard.command` launcher
-does this).
+does this). The sidebar league switcher loads one `webapp/data/<league>.js`
+payload per route.
 
 ## Model workflow
 

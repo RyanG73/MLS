@@ -93,8 +93,15 @@ def main():
             print(f"  {lid:18s} live   · logo {'ok' if logo else 'none'} (data built separately: MLS→build_dashboard_data, others→build_league_data)")
             continue
         teams = _teams(code) if code else []
+        # Explicit placeholder reason (see docs/CURRENT_STATE.md § Route State Taxonomy
+        # and codex suggestions Net-New #11): say *why* there are no projections so the
+        # webapp can render a real empty state instead of implying a broken model.
+        reason = ("Projection model not built for this league yet — team list shown for reference."
+                  if teams else
+                  "Projection model and fixture source not yet wired for this league.")
         stub = {
             "status": "placeholder",
+            "reason": reason,
             "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             "league": {"id": lid, "name": name, "logo": logo,
                        "confederation": conf, "status": "soon"},

@@ -481,6 +481,9 @@ def build(comp_id: str, season: int | None, sims: int):
             }
         games = _build_games(comp_id, played, caches_for_games)
         data = {
+            # Top-level route state (see docs/CURRENT_STATE.md § Route State Taxonomy).
+            # "completed" = final results, render with result framing, no projection affordances.
+            "status": "completed",
             "league": {"name": META[comp_id]["name"],
                        "confederation": META[comp_id]["confederation"]},
             "outlook": {
@@ -566,6 +569,9 @@ def build(comp_id: str, season: int | None, sims: int):
     except Exception:
         pass  # fixtures not reachable — played-only games are fine
     data = {
+        # Top-level route state (see docs/CURRENT_STATE.md § Route State Taxonomy).
+        # "knockout_live" = bracket/league phase active, render projection + current path.
+        "status": "knockout_live",
         "league": {"name": META[comp_id]["name"],
                    "confederation": META[comp_id]["confederation"]},
         "outlook": {
