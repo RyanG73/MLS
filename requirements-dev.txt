@@ -1,0 +1,20 @@
+# MLS Dashboard — dev / test / research dependencies (F7)
+#
+# Includes the active build spec via -r, so this file is self-contained:
+#   pip install -r requirements-dev.txt
+#
+# Covers: test runners, browser automation, and optional research tooling
+# used by scripts/eval_baseline.py (lightgbm, optuna, shap are lazy imports
+# behind --lgbm-bag / --optuna flags; not required for the champion model).
+
+-r requirements.txt
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest>=8.0.0,<10.0.0
+pytest-rerunfailures>=14.0,<17.0
+pytest-playwright>=0.5.0,<1.0.0
+
+# ── Research / experimental ───────────────────────────────────────────────────
+lightgbm>=4.3.0,<5.0.0
+optuna>=3.6.0,<5.0.0
+shap>=0.51.0,<1.0.0

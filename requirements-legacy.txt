@@ -1,0 +1,21 @@
+# MLS Dashboard — legacy Pi / Postgres / Streamlit stack (F7)
+#
+# These packages are NOT part of the active dashboard build path.
+# Retained so the archived Raspberry Pi / Postgres / Streamlit system
+# (see legacy/ and legacy/README.md) can be restored if needed.
+#
+#   pip install -r requirements-legacy.txt
+
+-r requirements.txt
+
+# ── Database ─────────────────────────────────────────────────────────────────
+psycopg2-binary>=2.9.9,<3.0.0
+
+# ── Dashboard (Streamlit / Plotly) ───────────────────────────────────────────
+streamlit>=1.35.0,<2.0.0
+plotly>=5.20.0,<7.0.0
+
+# ── News / AI / scheduling (legacy cron) ─────────────────────────────────────
+anthropic>=0.28.0,<1.0.0
+feedparser>=6.0.11,<7.0.0
+APScheduler>=3.10.4,<4.0.0
