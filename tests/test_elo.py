@@ -125,3 +125,64 @@ class TestEloExpectedProbability:
         df = _make_df([(2022, "A", "B", 0, 0)])
         out = compute_elo(df, K=25, home_adv=0, return_expected=True)
         assert out["elo_p_home"].iloc[0] == pytest.approx(0.5, abs=1e-6)
+
+
+class TestClubPriorRegression:
+    """A8: season-boundary regression toward a club-history prior (not flat 1500)."""
+
+    @staticmethod
+    def _four_season_df():
+        # Team A beats B every match for 3 seasons (A ends high, B low),
+        # then a 4th season begins — the boundary behavior is under test.
+        rows = []
+        for season in (2021, 2022, 2023):
+            rows += [(season, "A", "B", 3, 0), (season, "B", "A", 0, 3)]
+        rows.append((2024, "A", "B", 1, 1))
+        return _make_df(rows)
+
+    def test_beta_zero_matches_legacy_flat_regression(self):
+        df = self._four_season_df()
+        legacy = compute_elo(df, K=25, home_adv=80)
+        new = compute_elo(df, K=25, home_adv=80, club_prior_beta=0.0)
+        pd.testing.assert_frame_equal(legacy, new)
+
+    def test_beta_pulls_seed_toward_club_history(self):
+        df = self._four_season_df()
+        flat = compute_elo(df, K=25, home_adv=80)
+        prior = compute_elo(df, K=25, home_adv=80, club_prior_beta=0.5)
+        # A's 2024 seed: history says strong → seed above the flat-1500 version
+        a_flat = flat[flat["season"] == 2024]["home_elo"].iloc[0]
+        a_prior = prior[prior["season"] == 2024]["home_elo"].iloc[0]
+        assert a_prior > a_flat
+        # B mirrors below
+        b_flat = flat[flat["season"] == 2024]["away_elo"].iloc[0]
+        b_prior = prior[prior["season"] == 2024]["away_elo"].iloc[0]
+        assert b_prior < b_flat
+
+    def test_fewer_than_two_prior_seasons_falls_back_to_flat(self):
+        # only one prior season → target stays flat initial even with beta
+        rows = [(2023, "A", "B", 3, 0), (2024, "A", "B", 1, 1)]
+        df = _make_df(rows)
+        flat = compute_elo(df, K=25, home_adv=80)
+        prior = compute_elo(df, K=25, home_adv=80, club_prior_beta=0.75)
+        pd.testing.assert_frame_equal(flat, prior)
+
+    def test_gap_k_regresses_deviant_teams_harder(self):
+        # A is strong for 3 seasons, then loses everything in season 4 (rating
+        # collapses far below its history) — with gap_k, the season-5 boundary
+        # regresses A harder toward the target than the flat rate would.
+        rows = []
+        for season in (2021, 2022, 2023):
+            rows += [(season, "A", "B", 3, 0), (season, "B", "A", 0, 3)]
+        for _ in range(6):
+            rows += [(2024, "A", "B", 0, 3), (2024, "B", "A", 3, 0)]
+        rows.append((2025, "A", "B", 1, 1))
+        df = _make_df(rows)
+        base = compute_elo(df, K=25, home_adv=80, club_prior_beta=1.0)
+        gapk = compute_elo(df, K=25, home_adv=80, club_prior_beta=1.0,
+                           regress_gap_k=0.4)
+        # target = club prior (well above A's collapsed rating); harder rate →
+        # 2025 seed closer to the prior → HIGHER than the base-rate seed
+        a_base = base[base["season"] == 2025]["home_elo"].iloc[0]
+        a_gapk = gapk[gapk["season"] == 2025]["home_elo"].iloc[0]
+        assert a_gapk > a_base

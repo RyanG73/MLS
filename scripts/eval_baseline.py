@@ -84,6 +84,12 @@ def _parse_args() -> "_ap.Namespace":
     p.add_argument("--form-windows", nargs="+", type=int, metavar="N", default=None)
     p.add_argument("--regress",      type=float, default=None,
                    help="ELO season-regression fraction (0..1)")
+    p.add_argument("--elo-club-prior-beta", type=float, default=0.0,
+                   help="A8: season-boundary regression target blends toward the "
+                        "club's 3-season end-ELO mean (0=flat 1500, champion)")
+    p.add_argument("--elo-regress-gap-k", type=float, default=0.0,
+                   help="A8: per-team regression-rate modulation by |club prior − "
+                        "current ELO| (0=constant rate, champion)")
     p.add_argument("--dc-decay-hl",  type=int,   default=None,
                    help="Dixon-Coles time-decay half-life (days)")
     p.add_argument("--weight-hl",    type=float, default=None,
@@ -433,7 +439,9 @@ _best_elo_b, _best_K, _best_HA = float("inf"), 20, 100
 _ELO_K_GRID  = _ARGS.elo_k        if _ARGS.elo_k        else [20, 25, 30]
 _ELO_HA_GRID = _ARGS.elo_home_adv if _ARGS.elo_home_adv else [80, 100, 120]
 for _K, _HA in itertools.product(_ELO_K_GRID, _ELO_HA_GRID):
-    _tmp = compute_elo(df, _K, _HA, REGRESS, INITIAL_ELO, return_expected=True)
+    _tmp = compute_elo(df, _K, _HA, REGRESS, INITIAL_ELO, return_expected=True,
+                       club_prior_beta=_ARGS.elo_club_prior_beta,
+                       regress_gap_k=_ARGS.elo_regress_gap_k)
     _v = _tmp[_tmp["season"].isin(_VAL_S)]
     if len(_v) < 30:
         continue
@@ -448,7 +456,9 @@ for _K, _HA in itertools.product(_ELO_K_GRID, _ELO_HA_GRID):
 
 K, HOME_ADV = _best_K, _best_HA
 print(f"    Best: K={K}, HOME_ADV={HOME_ADV}  (val Brier={_best_elo_b:.4f})")
-df = compute_elo(df, K, HOME_ADV, REGRESS, INITIAL_ELO)
+df = compute_elo(df, K, HOME_ADV, REGRESS, INITIAL_ELO,
+                 club_prior_beta=_ARGS.elo_club_prior_beta,
+                 regress_gap_k=_ARGS.elo_regress_gap_k)
 
 # ─── 4. Rolling features ──────────────────────────────────────────────────────
 

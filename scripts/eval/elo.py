@@ -25,6 +25,8 @@ def compute_elo(
     initial: float = DEFAULT_INITIAL_ELO,
     return_expected: bool = False,
     return_ratings: bool = False,
+    club_prior_beta: float = 0.0,
+    regress_gap_k: float = 0.0,
 ) -> pd.DataFrame:
     """Walk-forward ELO ratings with margin-of-victory multiplier and season regression.
 
@@ -41,6 +43,15 @@ def compute_elo(
         return_ratings: If True, returns ``(out_df, ratings)`` where ratings is the
                         post-final-match {team: elo} dict (current ratings — used by
                         the dashboard build; pre-match columns can't provide these).
+        club_prior_beta: A8 experiment knob. When > 0, the season-boundary
+                        regression target for a team with ≥2 prior seasons is
+                        ``(1-β)·initial + β·mean(end-of-season ELO, prior ≤3 seasons)``
+                        instead of flat ``initial``. Teams with <2 prior seasons
+                        keep the flat target (promoted teams use the tier bridge).
+        regress_gap_k:  A8 experiment knob. When > 0, a team whose pre-boundary
+                        rating deviates from its club prior regresses HARDER:
+                        ``rate = clip(regress + k·|prior − elo|/200, 0.2, 0.6)``.
+                        Teams without a prior (< 2 seasons) keep the base rate.
 
     Returns:
         Copy of ``df`` with columns added:
@@ -51,12 +62,31 @@ def compute_elo(
     elo: dict[str, float] = {}
     h_elo, a_elo, h_exp = [], [], []
     seen: set[object] = set()
+    end_hist: dict[str, list[float]] = {}  # per-team end-of-season ELOs
 
     for _, row in df.iterrows():
         s = row["season"]
         if s not in seen:
             seen.add(s)
-            elo = {t: initial + (r - initial) * (1 - regress) for t, r in elo.items()}
+            # current values ARE the end-of-season ratings of the season closing
+            for t, r in elo.items():
+                end_hist.setdefault(t, []).append(r)
+            new_elo = {}
+            for t, r in elo.items():
+                prior_seasons = end_hist[t][:-1]  # seasons BEFORE the one just closed
+                prior = (sum(prior_seasons[-2:] + [r]) / (len(prior_seasons[-2:]) + 1)
+                         if len(prior_seasons) >= 1 else None)
+                # prior = mean of up to 3 most recent end-of-season ELOs
+                # (the just-closed season + up to 2 before it); needs ≥2 seasons
+                target = initial
+                rate = regress
+                if prior is not None:
+                    if club_prior_beta > 0.0:
+                        target = (1 - club_prior_beta) * initial + club_prior_beta * prior
+                    if regress_gap_k > 0.0:
+                        rate = min(0.6, max(0.2, regress + regress_gap_k * abs(prior - r) / 200.0))
+                new_elo[t] = target + (r - target) * (1 - rate)
+            elo = new_elo
         ht, at = row["home_team"], row["away_team"]
         rh = elo.get(ht, initial)
         ra = elo.get(at, initial)
