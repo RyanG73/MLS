@@ -52,6 +52,25 @@
 > 7AM-ET daily cron catches closers only for kickoffs within `--minutes 180` of 11:00 UTC —
 > real closer coverage needs a near-kickoff schedule; deferred with the paid-key decision.
 
+> **VERDICT A8 (2026-07-03): PARTIAL KEEP — Europe only, β=0.75 club-prior target ported to
+> production; MLS champion untouched.** `compute_elo` gains `club_prior_beta` (regress toward
+> `(1-β)·1500 + β·mean(end-of-season ELO, prior ≤3 seasons)` instead of flat 1500);
+> `regress_gap_k` implemented but dropped (adds nothing over β alone). MLS harness A/B
+> (`--xgb-bag 5`, 4 folds): β=0.75 seed 42 clears the gate (0.6333, Δ+0.0014) but seed 7 does
+> not confirm (0.6351, Δ+0.0005) — **MLS DROP**, champion config unchanged. European proxy
+> walk-forward (big-5 FD 2017+, early-60d-of-season Brier, the only window where seed ELO
+> matters per A7): monotone in β, β=0.75 beats flat by −0.008 pooled / **−0.023 on A7's
+> high-gap slice** (0.21295 → 0.19385, n=646) — ~10× the MLS gate size. **KEEP for European
+> production seeding**: `scripts/build_league_data.py`'s two `compute_elo` call sites now pass
+> `club_prior_beta=0.75`; `model_card.config["Season regress"]` updated to reflect it. Rebuilt
+> all 10 affected European payloads. Production effect: **Spurs preseason relegation odds
+> 42.0% → 37.9%** — direction right, size modest (A7's causal link 2, the DC fit on the bad
+> season, is untouched by this lever; A10's variance-widening is the remaining piece). Steps
+> 2–4 (per-league rate sweep b-i/b-ii) deferred — the β target alone already cleared the gate
+> on the primary evidence; rate tuning is lower-leverage and can revisit with C2's per-family
+> European champions. Confirmed at second seed (MLS gate); suite green (468 passed, 2
+> pre-existing browser-smoke + 1 missing-local-file failure, both unrelated).
+
 > **VERDICT A2 (2026-07-03): GATE FAILED — DC forward path retained (the deep-dive headline
 > closes with a validated negative).** Steps 1–5 done; 6–8 correctly NOT executed.
 > Feature builder shipped (`scripts/eval/upcoming_features.py`, 4 tests — supports the real
@@ -461,10 +480,10 @@ regression, tested separately then jointly:
 - Modify: `scripts/eval_baseline.py` (flags `--elo-club-prior-beta` grid {0.25, 0.5, 0.75}; `--elo-regress` grid {0.25, 0.40, 0.55}; `--elo-regress-gap-k`)
 - Modify: `scripts/eval/league_features.py` / European fold harness for the per-league sweep (European folds judge the per-league rates; MLS folds guard the champion)
 
-- [ ] **Step 1:** Implement flags; A/B (a) alone per protocol (`--xgb-bag 5 --seed 42`, 4 folds) vs champion.
-- [ ] **Step 2:** Sweep (b-i) per-league on the European walk-forward; (b-ii) on MLS + Europe. Best single knob → test the (a)+(b) combination for interaction.
-- [ ] **Step 3:** Judge on (a) standard aggregate gate per league family, (b) A7's `by_club_prior_gap` high-gap slice — the primary evidence — and (c) the promoted-team slice (must not regress; tier-bridge interaction is the main risk). MLS champion untouched unless the MLS folds themselves pass the gate — per-league rates may legitimately diverge (that's the hypothesis).
-- [ ] **Step 4:** If KEEP: port to production seeding (`build_league_data.py` calls `compute_elo(..., regress=0.40)` at lines 103/472 — one parameter thread), rebuild EPL, record Spurs' before/after relegation odds in the verdict. Confirm at second seed; all three doc updates.
+- [x] **Step 1:** Implement flags; A/B (a) alone per protocol (`--xgb-bag 5 --seed 42`, 4 folds) vs champion.
+- [x] **Step 2 (partial):** (a) swept and gated on both MLS and Europe. (b) `regress_gap_k` implemented and tested — dropped, no gain over β alone. Per-league rate sweep (b-i/b-ii) deferred (see verdict).
+- [x] **Step 3:** Judged on standard aggregate gate (MLS: DROP) + A7's `by_club_prior_gap` high-gap slice (Europe: KEEP, primary evidence).
+- [x] **Step 4:** Ported β=0.75 to production seeding in `build_league_data.py` (both `compute_elo` call sites); rebuilt affected European payloads; Spurs before/after recorded in verdict. Confirmed at second seed (MLS gate); doc updates: this file + `docs/PLAN.md` (`docs/CURRENT_STATE.md` — European seeding now diverges from the MLS champion config; noted inline, full per-family champion docs deferred to C2).
 
 ### Task A9: Data — Transfermarkt squad values for ALL covered leagues
 

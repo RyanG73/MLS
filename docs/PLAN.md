@@ -1,5 +1,16 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-03 — Variable ELO season regression, club-prior target (A8) ▶ PARTIAL KEEP — Europe only**
+> `compute_elo` gains `club_prior_beta` (regress toward `(1-β)·1500 + β·mean(prior ≤3-season
+> end-of-season ELO)` instead of flat 1500). MLS harness A/B: β=0.75 clears the gate at seed 42
+> (Δ+0.0014) but not seed 7 (Δ+0.0005) — **MLS DROP**, champion untouched. European proxy
+> walk-forward: monotone in β, −0.023 on A7's high-gap slice (0.213→0.194, n=646), ~10× the MLS
+> gate size — **KEEP for production seeding**. Ported to `build_league_data.py`'s two
+> `compute_elo` sites; 10 European payloads rebuilt. Spurs preseason relegation 42.0% → 37.9%.
+> `regress_gap_k` (per-team rate modulation) tested and dropped — no gain over β alone. Full
+> detail in `docs/superpowers/plans/2026-07-02-model-and-ui-improvements.md` and
+> `docs/feature-hunt-log.md`.
+
 > **2026-07-03 — Full-ensemble forward path (A2) ▶ DONE — GATE FAILED, DC forward retained**
 > The 2026-06-29 deep-dive headline item closes with a validated negative. Built the carry-forward feature builder (`scripts/eval/upcoming_features.py`: latest side-prefixed values per team re-stamped onto unplayed fixtures, derived diff columns recomputed; 4 tests) and backtested `predict_upcoming` vs the production temperature-scaled DC forward path on the 2025 fold at 3 checkpoints (next-30-days matches, n=208 pooled): ensemble **0.6439** vs DC **0.6383** (Δ −0.0056, paired-bootstrap CI [−0.0216, +0.0103]). The ensemble wins at +60d then loses from mid-season — `predict_upcoming` fits train<cal<current so current-season rows are invisible to it, while production DC re-fits on all played matches. Production forward numbers stay DC+temperature; the module ships anyway (B9 consumes `latest_team_features`). Full table in `docs/feature-hunt-log.md`. Same session: A1 conditional reliability slices + A7 club-prior-gap slice/cohort study (Spurs 42% relegation = miscalibration; high-gap bottom-half cohort base rate ≈11%), B1 status-required payloads, B10 odds-history archiver accruing from 2026-07-03.
 

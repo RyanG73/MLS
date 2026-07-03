@@ -101,6 +101,7 @@ def _get_tier_elo_map(lid: str) -> dict[str, float]:
             _TIER2_ELO_CACHE[lid] = {}
             return {}
         _, elo_now_t = compute_elo(df, K=25, home_adv=80, regress=0.40,
+                                   club_prior_beta=0.75,  # A8: club-prior target
                                    return_ratings=True)
         _TIER2_ELO_CACHE[lid] = dict(elo_now_t)
     except Exception as e:  # noqa: BLE001
@@ -469,7 +470,8 @@ def main():
     allplayed = df.dropna(subset=["home_goals", "away_goals"])
     atk, dfd, ha, rho = fit_dc(allplayed)
     _elo_df, elo_now = compute_elo(allplayed.sort_values("date"), K=25, home_adv=80,
-                                   regress=0.40, return_ratings=True)
+                                   regress=0.40, return_ratings=True,
+                                   club_prior_beta=0.75)  # A8: European seeding
 
     if is_preseason:
         # Identify teams from the prior season (ts-1) as the "established" set.
@@ -851,7 +853,7 @@ def main():
     model_card = {
         "arch": ["Dixon-Coles", "Temperature", "XGBoost ×5 bag", "Capped-DC blend", "Temperature"],
         "forward_arch": ["Dixon-Coles", "Temperature"],
-        "config": {"ELO K": 25, "Home adv": 80, "Season regress": "40%", "DC decay": "120d",
+        "config": {"ELO K": 25, "Home adv": 80, "Season regress": "40% → club prior (β=0.75)", "DC decay": "120d",
                    "XGB weight ½-life": "6 seasons", "Seed bag": 5,
                    "xG / form windows": "3 · 5 · 10 · 15", "features": len(feat)},
         "per_class": {}, "n_test": None}

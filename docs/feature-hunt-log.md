@@ -1,5 +1,49 @@
 # MLS Feature Hunt Log
 
+## 2026-07-03 — Variable ELO season regression (A8): club-prior target β — MLS DROP / EUROPE KEEP
+
+**Experiment:** Season-boundary regression toward `(1-β)·1500 + β·mean(end-of-season ELO,
+prior ≤3 seasons)` instead of flat 1500 (`compute_elo(club_prior_beta=…)`, harness flag
+`--elo-club-prior-beta`); plus a per-team rate knob `regress_gap_k` (regress harder when the
+rating deviates from the club prior).
+
+**MLS harness A/B** (`--xgb-bag 5 --test-seasons 2022 2023 2024 2025`, ens_stacked avg):
+
+| Config | seed 42 | seed 7 |
+|---|---|---|
+| baseline (flat 1500) | 0.6347 | 0.6356 |
+| β=0.25 | 0.6338 | — |
+| β=0.50 | 0.6339 | — |
+| β=0.75 | 0.6333 (Δ +0.0014) | 0.6351 (Δ +0.0005) |
+
+**MLS verdict: DROP for the champion** — seed 42 clears the 0.001 gate but seed 7 does not
+confirm (+0.0005). Consistent sub-signal: the 2025 fold improves at BOTH seeds (−0.0044,
+−0.0053); 2024 regresses ≤ +0.001. MLS champion config unchanged.
+
+**European verdict: KEEP for production seeding (β=0.75).** ELO-proxy walk-forward, big-5 FD
+2017+, home-prob Brier restricted to each season's first 60 days (the only window where the
+seed matters — A7 showed in-season ELO recovers):
+
+| Variant | early-60d Brier (n=3409) | high-gap slice (n=646) |
+|---|---|---|
+| flat (champion) | 0.24993 | 0.21295 |
+| β=0.5 | 0.24406 | 0.19910 |
+| β=0.75 | 0.24184 | 0.19385 |
+| β=1.0 | 0.24031 | 0.18998 |
+| β=0.75 + gap_k=0.4 | 0.24223 | 0.19427 |
+
+Monotone in β, ~10× the MLS gate size on the pooled slice and −0.023 on A7's high-gap slice
+(the primary evidence). **gap_k adds nothing over β alone → DROPPED.** β=0.75 ported to
+`build_league_data.py`'s two `compute_elo` seeding sites (top of the plan's grid; β=1.0 was
+best on the proxy but untested in the full-harness sense — revisit with the per-family
+European champions from C2). MLS (`build_dashboard_data.py`) stays flat per its own gate.
+Per-league regression RATES (b-i) not swept — deferred to the European-family champion work.
+
+**Production effect (EPL preseason rebuild):** Spurs ELO 1442 → 1474, relegation 42.0% →
+37.9%. Direction right, size modest — the preseason odds are dominated by the DC fit on the
+bad season (A7 causal link 2), which β does not touch; the remaining lever is A10
+(squad-value prior + preseason variance widening).
+
 ## 2026-07-03 — Full-ensemble forward path (A2, carry-forward features) — NOT KEPT
 
 **Experiment:** Route forward projections through `predict_upcoming` instead of the

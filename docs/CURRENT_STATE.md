@@ -40,7 +40,11 @@ definitions, data sources, and run commands. Update it when any of these change.
 - Test seasons: 2022–2025 (2022 evaluates with the 2021 cal fold; 2025 added 2026-06-09 once the
   season completed — 540 matches, cal fold 2024)
 - 2026 in-progress: used for training only, never in test window
-- ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07; synergistic with whl=6)
+- ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07; synergistic with whl=6). MLS-only —
+  A8 (2026-07-03) tested a club-prior regression target (β=0.75, regress toward each team's
+  own 3-season history instead of flat 1500) and it did not clear the MLS gate at both seeds.
+  **European production seeding diverges**: `build_league_data.py` uses `club_prior_beta=0.75`
+  (KEEP on A7's high-gap slice, −0.023 Brier); the MLS champion config above is unaffected.
 - DC decay: 120-day half-life
 - XGB feature windows: xG and form over (3, 5, 10, 15) matches (all four; eval harness default)
 - Edge threshold: 8% before live betting
