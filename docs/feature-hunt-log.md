@@ -1,5 +1,62 @@
 # MLS Feature Hunt Log
 
+## 2026-07-03 — Full-ensemble forward path (A2, carry-forward features) — NOT KEPT
+
+**Experiment:** Route forward projections through `predict_upcoming` instead of the
+temperature-scaled DC fit. Carry-forward feature matrix (`scripts/eval/upcoming_features.py`):
+each team's latest observed side-prefixed values re-stamped onto unplayed fixtures, derived
+diff columns recomputed. Backtest on the 2025 MLS fold at 3 checkpoints (+60/+120/+180d),
+scoring the next 30 days of then-future matches against actuals; DC comparator mirrors
+production exactly (fit on all played ≤ checkpoint, forward temperature T=2.09 from cal 2024).
+
+| Checkpoint | n | Ensemble | DC forward | Winner |
+|---|---|---|---|---|
+| +60d | 73 | **0.6299** | 0.6444 | ensemble |
+| +120d | 84 | 0.6446 | **0.6246** | DC |
+| +180d | 51 | 0.6630 | **0.6523** | DC |
+| **pooled** | 208 | 0.6439 | **0.6383** | **DC (Δ −0.0056)** |
+
+Paired bootstrap Δ 95% CI [−0.0216, +0.0103]. No all-null feature rows (carry-forward
+coverage was complete — staleness, not missingness, is the failure mode).
+
+**Verdict:** NOT KEPT — the gate's decision rule fires: ensemble is not better, production
+keeps DC+temperature forward. **Root cause hypothesis (checkpoint pattern):**
+`predict_upcoming` fits train < cal < current season, so current-season played rows are
+invisible to XGB/blend/temperature; early in the season this doesn't matter and the
+ensemble wins (+0.0145 at 60d), but from mid-season the DC path (re-fit on all played
+matches, 120d decay) has absorbed the current campaign while the ensemble's carried
+features go stale. **Next:** if revisited, the lever is a `predict_upcoming` variant that
+includes current-season rows in the DC member and re-fits the blend/temperature on a
+rolling cal window — a model change (governance: new experiment), not a feature build.
+The feature-builder module ships anyway: B9's team-profile input panel consumes
+`latest_team_features` directly.
+
+## 2026-06-28 — Calibration method sweep — NOT KEPT (temperature confirmed)
+
+**Experiment:** Swept all 6 `--calibration` methods on the single bagged run
+(`--xgb-bag 5 --seed 42`, 3-fold 2022–24) to find a calibrator that lowers decile
+calibration error without regressing Brier. Metric: ensemble-stacked Brier and
+home-win max-decile calibration error.
+
+| Method | Stacked Brier | Δ Brier | Cal err | Δ Cal |
+|--------|--------------|---------|---------|-------|
+| **temperature** (champion) | 0.6343 | — | 0.1659 | — |
+| platt | 0.6370 | +0.0027 | 0.1285 | −0.0374 |
+| isotonic | 0.6406 | +0.0063 | 0.1621 | −0.0038 |
+| beta¹ | 0.6370 | +0.0027 | 0.1285 | −0.0374 |
+| temp_then_isotonic | 0.6393 | +0.0050 | 0.1358 | −0.0301 |
+| temp_then_platt | 0.6369 | +0.0026 | 0.1656 | −0.0003 |
+
+¹ `betacal` not installed → beta falls back to Platt (identical numbers); true beta
+calibration untested. Unlikely to beat temperature given the pattern.
+
+**Verdict:** NOT KEPT. No method beats temperature — every alternative regresses
+Brier by +0.0026 to +0.0063, all ≥13× the σ≈0.0002 single-bagged-run noise floor.
+Platt/beta buy substantial calibration (−0.037) but at a real Brier cost; isotonic
+overfits the ~500-row cal fold; the two-stage `temp_then_*` variants don't recover
+the trade-off. The champion's temperature scaling is the right choice — confirmed,
+not improved. Calibration question closed for this feature envelope.
+
 ## 2026-06-26 — DC Roster Prior Injection — NOT KEPT
 
 **Experiment:** Position-split roster-value z-scores (new_att, new_def, new_gk) injected

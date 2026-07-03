@@ -52,6 +52,18 @@
 > 7AM-ET daily cron catches closers only for kickoffs within `--minutes 180` of 11:00 UTC —
 > real closer coverage needs a near-kickoff schedule; deferred with the paid-key decision.
 
+> **VERDICT A2 (2026-07-03): GATE FAILED — DC forward path retained (the deep-dive headline
+> closes with a validated negative).** Steps 1–5 done; 6–8 correctly NOT executed.
+> Feature builder shipped (`scripts/eval/upcoming_features.py`, 4 tests — supports the real
+> home_/away_ prefixes AND recomputes derived diff columns; B9 consumes it regardless).
+> Backtest (2025 fold, 3 checkpoints, next-30d matches, production-mirrored DC comparator):
+> pooled ensemble **0.6439** vs DC **0.6383** (Δ −0.0056, bootstrap CI [−0.0216, +0.0103]).
+> Ensemble wins at +60d (0.6299 vs 0.6444) then loses +120/+180 — root cause:
+> `predict_upcoming` never sees current-season rows (train<cal<current) while production DC
+> re-fits on them; carried features go stale as the season accrues. Full table in
+> `docs/feature-hunt-log.md`. Revisit path = rolling-cal `predict_upcoming` variant
+> (a new experiment, not this task).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the remaining gaps from the 2026-06-29 unified deep-dive: route forward projections through the full validated ensemble (not raw DC), make conditional calibration measurable, and upgrade the webapp from "presents outputs" to "enables investigation" (uncertainty, why, trust).
@@ -219,7 +231,7 @@ git commit -m "feat(report): conditional reliability slices (favorite decile, se
 - Modify: `scripts/build_league_data.py` (mirror fork, ~lines 520–576) — after MLS validates
 - Test: `tests/test_upcoming_features.py` (new)
 
-- [ ] **Step 1: Write the failing test for the feature builder**
+- [x] **Step 1: Write the failing test for the feature builder**
 
 ```python
 # tests/test_upcoming_features.py
@@ -258,12 +270,12 @@ def test_unseen_team_returns_none_values():
     assert row["a_elo"] is None   # caller decides DC-fallback
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `venv/bin/pytest tests/test_upcoming_features.py -v`
 Expected: FAIL — `ModuleNotFoundError`
 
-- [ ] **Step 3: Implement `scripts/eval/upcoming_features.py`**
+- [x] **Step 3: Implement `scripts/eval/upcoming_features.py`**
 
 ```python
 """Carry-forward feature matrix for unplayed fixtures.
@@ -323,11 +335,11 @@ def build_upcoming_features(frame: pd.DataFrame, pairs: list[tuple[str, str]],
     return pd.DataFrame(rows)
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `venv/bin/pytest tests/test_upcoming_features.py -v` → PASS.
 
-- [ ] **Step 5: MEASURE before wiring (deep-dive Part 3 item 1 — the gate for this task)**
+- [x] **Step 5: MEASURE before wiring (deep-dive Part 3 item 1 — the gate for this task)**
 
 Backtest the forward-ensemble vs forward-DC on known outcomes: for the 2025 MLS fold, at 3 checkpoints (after 60d / 120d / 180d of season), build carry-forward features for the *next 30 days* of then-future matches, score both paths against actuals. Write this as a throwaway script in the scratchpad (not the repo), reusing `walk_forward`-style fitting from `models/research_model.py`.
 
