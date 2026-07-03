@@ -213,6 +213,44 @@ def _slice_table(preds: pd.DataFrame) -> dict:
                 max_err = max(max_err, abs(pc[m].mean() - ac[m].mean()))
         cal[cname] = round(float(max_err), 6)
     out["per_class_calibration_error"] = cal
+
+    # (i) favorite-probability decile — conditional calibration by confidence
+    fav_p = P.max(axis=1)
+    fav_cls = P.argmax(axis=1)
+    dec = pd.cut(fav_p, bins=np.arange(0.3, 1.0001, 0.07), include_lowest=True)
+    by_fav = {}
+    for b, idx in pd.Series(range(len(preds))).groupby(dec, observed=True):
+        ii = idx.values
+        if len(ii) < 25:
+            continue
+        yoh = np.eye(3)[y[ii]]
+        by_fav[str(b)] = {
+            "n": int(len(ii)),
+            "brier": round(float(np.mean(np.sum((P[ii] - yoh) ** 2, axis=1))), 4),
+            "fav_prob_mean": round(float(fav_p[ii].mean()), 4),
+            "fav_hit_rate": round(float((fav_cls[ii] == y[ii]).mean()), 4),
+        }
+    out["by_favorite_prob"] = by_fav
+
+    # (ii) season phase — early-season staleness is a known suspect (§1.3d)
+    doy = pd.to_datetime(preds["date"])
+    start = doy.groupby(preds["season"]).transform("min")
+    days_in = (doy - start).dt.days
+    phase = pd.Series(np.select(
+        [days_in <= 60, days_in <= 180], ["first_60d", "mid"], default="late"),
+        index=preds.index)
+    _by(phase, "by_season_phase")
+
+    # (iii) draw reliability curve — the worst class (max-decile err 0.108)
+    curve = []
+    for lo in np.arange(0.0, 0.5, 0.05):
+        m = (P[:, 1] >= lo) & (P[:, 1] < lo + 0.05)
+        if m.sum() < 25:
+            continue
+        curve.append({"bin": f"{lo:.2f}", "n": int(m.sum()),
+                      "p_mean": round(float(P[m, 1].mean()), 4),
+                      "freq": round(float((y[m] == 1).mean()), 4)})
+    out["draw_reliability"] = curve
     return out
 
 
