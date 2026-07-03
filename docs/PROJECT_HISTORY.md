@@ -232,6 +232,78 @@ Completed second-tier coverage for the big-5 by adding Spanish **Segunda** and F
 
 ---
 
+## Season rollover + preseason projection mode (2026-06-20 → 2026-06-23)
+
+Flipped the European leagues to 2026-27 before Understat published any data: a new ESPN fixtures
+adapter (`data_pipeline/espn_fixtures.py`) supplies the official schedule, carry-over ELO with
+season regression seeds continuing teams, and a new `preseason` season-state renders full-season
+Monte-Carlo projections labeled as such. Promoted teams initially seeded at a flat baseline —
+superseded within the week by the tier-bridge work below.
+
+---
+
+## Roadmap round + data contracts (2026-06-21)
+
+A prioritized roadmap doc whose Section 1 (data contracts) shipped immediately:
+`scripts/payload_utils.py` (`write_js_payload`, `health_feature_stats`), NaN-free preseason
+health blocks, and `scripts/validate_payloads.py` wired into `build_all.sh` as a post-build
+gate. The remaining roadmap items (preseason prior calibration, promoted-team strength,
+market/CLV) were absorbed into the subsequent dedicated plans rather than executed from this doc.
+
+---
+
+## DC roster prior injection (2026-06-26) — NOT KEPT
+
+Position-split roster-value z-scores injected as a post-fit adjustment to DC attack/defence
+parameters (`--roster-dc-prior`, α grid-tuned per fold on the cal fold). Rejected by the gate:
+season-static Transfermarkt values add nothing the 120-day time-decayed match history hasn't
+already priced in (α* landed at 0.02–0.12, i.e. near-zero shrinkage). Full record in
+`docs/feature-hunt-log.md`; the follow-up idea (dated intra-season TM snapshots) lives on in
+the 2026-07-02 plan's A9 Phase 2.
+
+---
+
+## Market evaluation + CLV primitives (2026-06-27)
+
+Built the betting-measurement layer: `data_pipeline/market.py` (`devig`, `edge_pct`, `clv_pp`),
+`odds_log.log_closers()` writing `data/odds_closers.parquet`, and `scripts/market_eval.py`
+(`brier_vs_market`, `roi_by_edge_bucket`) reading European closing odds from existing payloads.
+Headline: the model trails Pinnacle by ~2% Brier (strong for a market-blind model); EPL backtest
+ROI at the 8% edge threshold was −4.6%. `model_report.py` gained `--market-eval` slices.
+
+---
+
+## Promoted teams + cross-league strength (2026-06-27)
+
+`scripts/eval/tier_bridge.py` fits ELO offsets from 8 seasons × 3 promotion pairs (912/578/912
+first-season promoted-team matches); fitted offsets ≈ static priors (ridge active, priors
+well-calibrated), LOSO Brier 0.628–0.631 vs naive 0.667. Promoted teams now seed from their
+actual second-tier ELO via `tier2_offset` (e.g. Ipswich 1625 → 1505 adjusted) instead of a flat
+weak prior; power rankings gained a "UEFA Tier 2" group. Extended 2026-06-29 to bidirectional
+seeding (see entry above).
+
+---
+
+## Testing and verification harness (2026-06-27)
+
+Four tasks shipped: the walk-forward COVID-constant fix; Playwright + pytest-rerunfailures in
+`requirements-dev.txt`; payload-contract tests (`tests/test_payload_contract.py`) with
+parse-level NaN guards over every `webapp/data/*.js`; and browser smoke tests
+(`tests/test_browser_smoke.py`) covering five route families, console errors, rendered-NaN
+checks, and 390px mobile overflow. These gates are what later plans' "suite green" verdicts
+refer to.
+
+---
+
+## Public hosting on GitHub Pages (2026-06-30 → 2026-07-01)
+
+The dashboard went public: `deploy.yml` publishes `webapp/` to GitHub Pages on every push to
+main, `refresh-mls.yml` rebuilds MLS daily at 7 AM ET, and `refresh-leagues.yml` refreshes the
+European leagues weekly on Mondays (30-min timeout, failed leagues surfaced as Actions warning
+annotations). Live at `https://ryang73.github.io/MLS/`.
+
+---
+
 ## Permanent constraints (do not re-litigate without explicit instruction)
 
 See `CLAUDE.md` for the full decision list with dates. Key ones with rationale:
