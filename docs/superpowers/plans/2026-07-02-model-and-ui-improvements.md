@@ -618,6 +618,18 @@ The 5-seed bag and 20k-sim distributions exist but render as point estimates.
 
 Verification: rebuild MLS + EPL, open both in browser, zero console errors, chips render only where data exists (older payloads without `spread` must not break — guard with `g.spread!=null`).
 
+> **VERDICT B3 (2026-07-03): COMPLETE.** `whyStrip(home,away)` — pure render over
+> `D.team_inputs`, no model math — computes 4 home-minus-away deltas (ELO, xG form, GK z,
+> availability pp), color-coded by sign (`var(--qualify)` favors home, `#e25f4f` favors away),
+> hides any row where either team lacks that input. Match rows (`renderGames()`'s `.grow`) are
+> now clickable to expand a `.gr-why` strip (CSS-toggled via `.grow.open`, mirrors B12's
+> `.eb-row` pattern — no framework, no re-render). Verified live: MLS (full inputs) shows all 4
+> rows, e.g. `ELO −36 · xG form +0.4 · GK z −1.3 · Availability ±0pp`; Championship (no
+> `gk_z`/`avail` keys in that league's `team_inputs`) correctly shows only `ELO`/`xG form`, no
+> `undefined`. Mobile: clean, no overflow. No new tests (pure presentational JS matching the
+> existing untested render-function convention in this file — `cbar`/`edgePick`/`bestBet` etc.
+> aren't unit tested either); verification was live in-browser per the task's own instruction.
+
 ### Task B3: "Why this pick" attribution on match cards
 
 `D.team_inputs` (elo, xg_for, xg_against, form, gk_z, avail) is already client-side (used on team profile ~line 1404).

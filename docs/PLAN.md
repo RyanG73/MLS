@@ -1,5 +1,11 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-03 — "Why this pick" attribution (B3) ▶ DONE**
+> Match rows expand (click) to a 4-row delta strip (ELO/xG form/GK z/availability, home minus
+> away, color-coded by sign), pure render over the already-shipped `D.team_inputs` — no model
+> math. Rows hide (not zero/undefined) when a league lacks that input, verified on MLS (full)
+> vs Championship (ELO + xG form only).
+
 > **2026-07-03 — Uncertainty cues on odds (B2) ▶ PARTIAL — standings tooltip shipped, match-card
 > chip blocked on A2**
 > Standings odds cells get a p10–p90 projected-finish tooltip, reusing the existing

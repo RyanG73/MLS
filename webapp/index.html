@@ -403,6 +403,11 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .cbar>span{display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;font-family:var(--mono);overflow:hidden;min-width:0}
 .gr-end{text-align:right;font-size:11px}
 .gr-scores{grid-column:1/-1;font-size:10.5px;color:var(--txt-3);text-align:center;padding:2px var(--s3) 5px;font-family:var(--mono);letter-spacing:.02em}
+.grow{cursor:pointer}
+.gr-why{grid-column:1/-1;display:none;flex-wrap:wrap;gap:14px;padding:8px var(--s3) 6px;border-top:1px solid var(--line);margin-top:4px}
+.grow.open .gr-why{display:flex}
+.why-chip{font-size:11px;color:var(--txt-3);display:flex;gap:5px}
+.why-chip b{color:var(--txt-2);font-weight:600}
 .gr-pick{font-family:var(--mono);font-weight:700;color:var(--txt-2);font-size:11px}
 @media(max-width:640px){.grow{grid-template-columns:minmax(0,1fr) 44px 80px minmax(0,1fr);gap:6px}.gr-end{display:none}.gr-odds{display:none}}
 .g-top{display:flex;align-items:center;gap:var(--s3);margin-bottom:10px}
@@ -1384,6 +1389,23 @@ function edgePick(g){
 }
 function resultBadge(g){if(g.result==null)return'';const ok=edgePick(g).k===g.result;
   return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${_OL[g.result]}</span>`;}
+/* ── B3: "why this pick" — pure render over D.team_inputs, no model math.
+   Rows hidden (not zero) when either team lacks that input (goals-only leagues). ── */
+function whyStrip(home,away){
+  const T=D.team_inputs||{}, h=T[home]||{}, a=T[away]||{};
+  const rows=[
+    ['ELO',           h.elo,      a.elo,      d=>Math.round(d).toString(),      ''],
+    ['xG form',       h.xg_for,   a.xg_for,   d=>d.toFixed(1),                  ''],
+    ['GK z',          h.gk_z,     a.gk_z,     d=>d.toFixed(1),                  ''],
+    ['Availability',  h.avail,    a.avail,    d=>Math.round(d*100).toString(),  'pp'],
+  ];
+  const chips=rows.filter(([,hv,av])=>hv!=null&&av!=null).map(([label,hv,av,fmt,suf])=>{
+    const d=hv-av, sign=d>0?'+':d<0?'':'±', color=d>0?'var(--qualify)':d<0?'#e25f4f':'var(--txt-3)';
+    return `<span class="why-chip"><b>${label}</b><span style="color:${color}">${sign}${fmt(d)}${suf}</span></span>`;
+  });
+  return chips.length?chips.join('')
+    :'<span style="color:var(--txt-3)">No model inputs available for this matchup.</span>';
+}
 /* ── B5: model-vs-market panel (scatter + ROI buckets + honest backtest) ── */
 function renderMarketPanel(){
   const box=$('#marketPanel'); if(!box||box.dataset.done)return;
@@ -1441,6 +1463,9 @@ function renderGames(){
       `<span class="gr-bar">${cbar(g)}</span>`+
       `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${american(g.pA)}</span><span class="tn">${g.away}</span></span>`+
       `<span class="gr-end">${end}</span>`;
+    row.onclick=()=>row.classList.toggle('open');  // B3: expand for the why-strip
+    const why=el('div','gr-why',whyStrip(g.home,g.away));
+    row.appendChild(why);
     grp.appendChild(row);
     if(!played && g.lam!=null && g.mu!=null){
       const strip=el('div','gr-scores');
