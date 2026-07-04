@@ -717,6 +717,22 @@ buys forward European openers/closers and real CLV.
 - Modify: `scripts/build_league_data.py` — for leagues with market history, emit per-match `{model_p, market_p}` pairs (played games) + the ROI-by-edge-bucket table into a `market_view` block
 - Modify: `webapp/index.html` — Matches tab gains a "vs market" panel: scatter of model home-prob vs market home-prob (off-diagonal = disagreement, dot color = outcome) + the ROI bucket bar. Frame honestly: trailing Pinnacle ~2% is strong for a market-blind model.
 
+> **VERDICT B6 (2026-07-04): COMPLETE.** Four new `#resultFilter` buttons — Model
+> miss, High-conf miss, Biggest edge, High leverage — all computed client-side from
+> `D.games`, no new payload fields. Model miss / high-conf miss are plain predicates
+> (played matches only, ≥60% favorite that lost for the latter). Biggest edge and
+> high leverage are ranked top-20 views (not boolean predicates) — sorted by
+> `edgeMag()`/`leverageScore()` and sliced, since "top N by magnitude" doesn't fit the
+> existing chronological day-grouped render loop as a filter predicate. Leverage
+> approximates stakes as `(1 − |pH−pA|) × 1/(1+|rank gap|)` — a toss-up between
+> table-adjacent teams — per the plan's own scoping (a full playoff/title-swing
+> simulation was explicitly out of scope). Verified live: MLS (edge=0 — correctly
+> matches B10's finding that MLS market odds have never been logged, not a bug;
+> leverage=20); La Liga (edge=20, real non-null `mkt_home` data, spot-checked sort
+> order 0.269→0.194 descending); leverage=0 on leagues with zero upcoming fixtures
+> (season concluded) is the honest empty state, not a bug. Suite green (484 passed,
+> same 3 pre-existing unrelated failures), no mobile overflow.
+
 ### Task B6: Richer match filters
 
 **Files:**
