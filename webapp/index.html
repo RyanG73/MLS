@@ -573,6 +573,10 @@ footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6
         <button data-f="upcoming" aria-selected="false">Upcoming</button>
         <button data-f="played" aria-selected="false">Played</button>
         <button data-f="hit" aria-selected="false">Model hit</button>
+        <button data-f="miss" aria-selected="false">Model miss</button>
+        <button data-f="hcmiss" aria-selected="false">High-conf miss</button>
+        <button data-f="edge" aria-selected="false">Biggest edge</button>
+        <button data-f="leverage" aria-selected="false">High leverage</button>
       </div>
       <span class="count" id="gcount"></span>
     </div>
@@ -1457,6 +1461,24 @@ function edgePick(g){
 }
 function resultBadge(g){if(g.result==null)return'';const ok=edgePick(g).k===g.result;
   return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${_OL[g.result]}</span>`;}
+// B6: max |model−market| across outcomes, or null when no market line exists.
+function edgeMag(g){
+  const mkt=g.mkt&&g.mkt.length===3?g.mkt:(g.mkt_home!=null?[g.mkt_home,g.mkt_draw,g.mkt_away]:null);
+  if(!mkt)return null;
+  const mp=[g.pH,g.pD,g.pA];
+  return Math.max(...mp.map((p,i)=>Math.abs(p-mkt[i])));
+}
+// B6: upcoming-match "stakes" proxy — high when the match itself is a toss-up
+// (model win-prob close to 50/50) AND the two teams sit close together in the
+// table (a result there is more likely to swing final standings for both).
+// table-rank map computed once per call from the current standings snapshot.
+function leverageScore(g,rankOf){
+  const rH=rankOf.get(g.home),rA=rankOf.get(g.away);
+  if(rH==null||rA==null)return -1;
+  const closeness=1-Math.abs(g.pH-g.pA);
+  const proximity=1/(1+Math.abs(rH-rA));
+  return closeness*proximity;
+}
 /* ── B3: "why this pick" — pure render over D.team_inputs, no model math.
    Rows hidden (not zero) when either team lacks that input (goals-only leagues). ── */
 function whyStrip(home,away){
@@ -1514,7 +1536,21 @@ function renderMarketPanel(){
 function renderGames(){
   let gs=D.games.filter(g=>{if(fTeam!=='All teams'&&g.home!==fTeam&&g.away!==fTeam)return false;
     if(fRes==='played'&&g.result==null)return false; if(fRes==='upcoming'&&g.result!=null)return false;
-    if(fRes==='hit'){if(g.result==null)return false;if(edgePick(g).k!==g.result)return false;} return true;});
+    if(fRes==='hit'){if(g.result==null)return false;if(edgePick(g).k!==g.result)return false;}
+    // B6: model miss / high-confidence miss (played only — need a result to grade against)
+    if(fRes==='miss'){if(g.result==null)return false;if(topPick(g)===g.result)return false;}
+    if(fRes==='hcmiss'){if(g.result==null)return false;
+      if(Math.max(g.pH,g.pD,g.pA)<0.6)return false;if(topPick(g)===g.result)return false;}
+    // biggest-edge / high-leverage are ranked top-20 views, not plain predicates —
+    // the actual filtering+ordering happens below, this just excludes non-candidates
+    if(fRes==='edge'&&edgeMag(g)==null)return false;
+    if(fRes==='leverage'&&g.result!=null)return false;
+    return true;});
+  if(fRes==='edge')gs=[...gs].sort((a,b)=>edgeMag(b)-edgeMag(a)).slice(0,20);
+  if(fRes==='leverage'){
+    const rankOf=new Map([...D.standings].sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)).map((s,i)=>[s.team,i]));
+    gs=[...gs].sort((a,b)=>leverageScore(b,rankOf)-leverageScore(a,rankOf)).slice(0,20);
+  }
   $('#gcount').textContent=`${gs.length} match${gs.length!==1?'es':''}`;
   const list=$('#gameList');list.innerHTML='';let cur=null,grp=null;
   const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
@@ -1545,6 +1581,12 @@ function renderGames(){
       if(bb&&bb.units>0){
         const chip=el('div','gr-scores');
         chip.innerHTML=`<b style="color:var(--win)">▲ ${bb.edge.toFixed(1)}% edge ${_OL[bb.k]}</b> · quarter-Kelly ${bb.units}u <span style="color:var(--txt-3)">(1u = 1% bankroll)</span>`;
+        row.appendChild(chip);
+      }
+      if(fRes==='leverage'){
+        const rH=STAND.get(g.home),rA=STAND.get(g.away);
+        const chip=el('div','gr-scores');
+        chip.innerHTML=`Toss-up (${(Math.min(g.pH,g.pA)*100).toFixed(0)}–${(Math.max(g.pH,g.pA)*100).toFixed(0)}%) between close-table sides <span style="color:var(--txt-3)">(${rH?.pts??'—'} vs ${rA?.pts??'—'} pts)</span>`;
         row.appendChild(chip);
       }
     }});
