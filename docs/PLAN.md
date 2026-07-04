@@ -1,5 +1,12 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-03 — Promoted-team Brier advisory gate (A3) ▶ DONE**
+> `scripts/eval/promoted_team_brier.py` gains `pooled_summary()` (match-weighted Brier across
+> all 5 European tier2→tier1 pairs vs naive 2/3); wired into `model_report.py` (best-effort,
+> attached to every report — MLS has no promotion, so this is an independent diagnostic like
+> `source_health`) and `promotion_gate.py` as a non-blocking advisory. Current real value: pooled
+> 0.6304 vs naive 0.6667 — clear, doesn't fire today. 6 new tests, suite green.
+
 > **2026-07-03 — Sidebar country/region groups + favorites (B13) ▶ DONE**
 > League registry gains a `group` field (Americas/England/Spain/Italy/Germany/France/Cups);
 > sidebar now groups by country instead of confederation, collapsible per group, plus a

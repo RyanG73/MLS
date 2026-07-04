@@ -60,6 +60,28 @@ def evaluate_pair(tier2_lid: str, tier1_lid: str) -> dict:
     }
 
 
+def pooled_summary(pairs: list[tuple[str, str]] | None = None) -> dict:
+    """Pool evaluate_pair() results across every tier2/tier1 pair into one
+    match-count-weighted Brier number (A3): the promotion-gate advisory flags
+    on this pooled figure against naive (2/3), independent of whether any
+    individual pair beats its own flat prior (evaluate_pair's own "passes").
+    """
+    pairs = pairs if pairs is not None else _TIER2_PAIRS
+    results = [evaluate_pair(t2, t1) for t2, t1 in pairs]
+    weighted = [(r["n_matches"], r["brier_tier_bridge"]) for r in results
+                if r["n_matches"] and r["brier_tier_bridge"] is not None]
+    total_n = sum(n for n, _ in weighted)
+    pooled = (sum(n * b for n, b in weighted) / total_n) if total_n else None
+    return {
+        "n_matches": total_n,
+        "n_pairs": len(results),
+        "pooled_brier": round(pooled, 4) if pooled is not None else None,
+        "naive_brier": round(_NAIVE_BRIER, 4),
+        "exceeds_naive": bool(pooled is not None and pooled > _NAIVE_BRIER),
+        "by_pair": results,
+    }
+
+
 if __name__ == "__main__":
     print("Promoted-team Brier validation\n" + "=" * 40)
     all_pass = True

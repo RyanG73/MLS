@@ -169,6 +169,23 @@ def evaluate_gate(champion: dict | None, challenger: dict) -> tuple[bool, list]:
         checks.append(("feature_completeness", True,
                        "no feature_completeness in report — skipped (advisory)"))
 
+    # ── promoted-team Brier (ADVISORY — reported, never blocks) ──────────────
+    # A3: European tier-bridge promoted-team Brier pooled across all supported
+    # pairs (championship→epl, etc.). Flags if it exceeds naive (2/3) — a small
+    # cohort, so this is informational, not a promotion blocker (CLAUDE.md /
+    # the task's own framing: a blocking gate here would be noise-driven).
+    ptb = challenger.get("promoted_team_brier")
+    if ptb and ptb.get("pooled_brier") is not None:
+        checks.append(("promoted_team_brier", True,
+                       (f"ok — pooled {ptb['pooled_brier']:.4f} vs naive "
+                        f"{ptb['naive_brier']:.4f} (n={ptb['n_matches']})"
+                        if not ptb["exceeds_naive"] else
+                        f"advisory — pooled promoted-team Brier {ptb['pooled_brier']:.4f} "
+                        f"exceeds naive {ptb['naive_brier']:.4f} (n={ptb['n_matches']})")))
+    else:
+        checks.append(("promoted_team_brier", True,
+                       "no promoted_team_brier in report — skipped (advisory)"))
+
     # ── paired significance (ADVISORY — reported, never blocks) ──────────────
     # When both reports embed per-match Brier vectors (model_report.py
     # "per_match"), bootstrap the mean paired difference on common match_ids.
@@ -342,15 +359,34 @@ def cmd_self_test(args) -> int:
     if fc_check is None or "advisory" not in fc_check:
         failures.append("feature_completeness advisory did not fire for high null rates")
 
+    # Case 8 (A3): promoted-team pooled Brier above naive → advisory fires, gate still PASSES
+    badpromo = copy.deepcopy(base); badpromo["run_id"] = "synthetic-badpromo"
+    badpromo["avg_brier"] = 0.6320
+    badpromo["per_season"] = {"2022": 0.6300, "2023": 0.6350, "2024": 0.6310}
+    for s, b in badpromo["per_season"].items():
+        badpromo["slices"]["by_season"][s]["brier_sum"] = b
+    badpromo["promoted_team_brier"] = {
+        "n_matches": 250, "n_pairs": 5, "pooled_brier": 0.6820,
+        "naive_brier": 0.6667, "exceeds_naive": True,
+    }
+    p, checks = evaluate_gate(base, badpromo)
+    if not p:
+        det = "; ".join(f"{n}:{d}" for n, ok, d in checks if not ok)
+        failures.append(f"high-promoted-Brier challenger was REJECTED (advisory should not block) — {det}")
+    ptb_check = next((d for n, _, d in checks if n == "promoted_team_brier"), None)
+    if ptb_check is None or "advisory" not in ptb_check:
+        failures.append("promoted_team_brier advisory did not fire when pooled Brier exceeds naive")
+
     print("\n=== promotion_gate self-test ===")
     if failures:
         for f in failures:
             print(f"  FAIL: {f}")
         print(f"\n{len(failures)} self-test failure(s).")
         return 1
-    print("  All 7 cases passed: identical→reject, 2024-regress→reject, "
+    print("  All 8 cases passed: identical→reject, 2024-regress→reject, "
           "cal-blowup→reject, improvement→promote, bootstrap→promote, "
-          "degraded-source→reject, high-null→advisory-only.")
+          "degraded-source→reject, high-null→advisory-only, "
+          "high-promoted-Brier→advisory-only.")
     return 0
 
 

@@ -386,6 +386,20 @@ git commit -m "feat(forward): route upcoming projections through the full ensemb
 
 ---
 
+> **VERDICT A3 (2026-07-03): COMPLETE.** `scripts/eval/promoted_team_brier.py` gains
+> `pooled_summary()` — match-count-weighted Brier across all 5 tier2→tier1 pairs, flagged
+> against naive (2/3) independent of each pair's own flat-prior comparison. Wired into
+> `scripts/model_report.py` as `promoted_team_brier` (best-effort, try/except, mirrors
+> `_source_health_snapshot` — attached to every report as an independent diagnostic since MLS
+> itself has no promotion) and into `scripts/promotion_gate.py` as a non-blocking advisory
+> (self-test case 8: pooled Brier above naive → gate still PASSES, advisory string fires). 6 new
+> tests (3 pooling/threshold unit tests + gate self-test case), suite green (480 passed, same 3
+> pre-existing unrelated failures). Current real number: pooled **0.6304** vs naive 0.6667
+> (n=3984 across 5 pairs) — comfortably clear, advisory does not fire today; this is
+> infrastructure for catching future regressions, not evidence of a current problem. Runtime
+> cost ~12s (live football-data.co.uk history processing per pair) — acceptable overhead on a
+> report-generation step that already takes much longer end-to-end; no new flag added to skip it.
+
 ### Task A3: Promoted/relegated calibration gate (advisory)
 
 `scripts/eval/promoted_team_brier.py` exists but isn't wired as a check. Make it an advisory line in the promotion gate + champion report, like `feature_completeness`.

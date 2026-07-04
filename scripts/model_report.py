@@ -74,6 +74,22 @@ def _source_health_snapshot() -> dict:
         return {}
 
 
+def _promoted_team_brier_snapshot() -> dict:
+    """Best-effort European tier-bridge promoted-team Brier (A3), pooled across
+    all supported pairs. MLS has no promotion, so this is an independent
+    project-health diagnostic attached to every report — like
+    _source_health_snapshot, not scoped to this report's own frame/seasons.
+    Returns {} if the tier-bridge data/coefficients aren't available.
+    """
+    try:
+        from scripts.eval.promoted_team_brier import pooled_summary
+        summary = pooled_summary()
+        summary.pop("by_pair", None)  # per-pair detail stays in the dedicated script's output
+        return summary
+    except Exception:
+        return {}
+
+
 def _feature_completeness(df: pd.DataFrame, test_seasons: list) -> dict:
     """Per-season null rates for key feature families in the test window.
 
@@ -360,6 +376,7 @@ def main() -> int:
         },
         "source_health": _source_health_snapshot(),
         "feature_completeness": _feature_completeness(df, test_seasons),
+        "promoted_team_brier": _promoted_team_brier_snapshot(),
         "asa_cache_freshness": _asa_cache_freshness(),
         "market_slices": _load_market_slices(getattr(args, "market_eval", None)),
     }
