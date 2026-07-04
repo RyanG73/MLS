@@ -866,6 +866,11 @@ function runSim(N=10000){
   return out;
 }
 const vals=t=>simVals?Object.assign({},t,simVals[t.team]):t;
+// B2: standings-cell tooltip. Reuses the existing finishVals/ensureFinish() base sim
+// (below, backs the "Projected finish" plot panel) rather than running a second one —
+// only falls back to it when no what-if is active (simVals already covers that case).
+const finTip=t=>{const f=t.fin_p10!=null?t:(finishVals&&finishVals[t.team]);
+  return f&&f.fin_p10!=null?` title="Projected finish: ${f.fin_p10}–${f.fin_p90} (median ${f.fin_med})"`:'';};
 let simTimer=null;
 function scheduleSim(){clearTimeout(simTimer);simTimer=setTimeout(()=>{
   const n=Object.keys(forced).length;
@@ -1001,12 +1006,13 @@ function runSimTable(N=10000){
   return out;
 }
 function tableLadder(){
+  ensureFinish();  // B2: back the standings-cell tooltip with the same base sim as the finish plot
   const ol=D.outlook, cols=ol.columns, hasUp=NF>0;
   const teams=D.standings.map(vals).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
   const mx={};cols.forEach(c=>mx[c.key]=Math.max(...teams.map(s=>s[c.key]||0),1));
   const BRGB={title:[244,183,64],promo:[244,183,64],liguilla:[244,183,64],ucl:[61,220,132],europa:[74,163,255],conf:[74,163,255],playoff:[61,220,132],releg:[255,93,93]};
   const brgb=k=>BRGB[k]||[120,120,120];
-  const hc=(v,k)=>v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}">${v.toFixed(0)}</span>`;
+  const hc=(v,k,t)=>v<0.05?`<span class="heat z"${finTip(t)}>·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}"${finTip(t)}>${v.toFixed(0)}</span>`;
   // dense column template: # · Club · Pts · Proj · ELO · <one 34px per outcome> · [Next5]
   const grid=`18px minmax(90px,1fr) 36px 34px 34px ${'34px '.repeat(cols.length)}${hasUp?'80px':''}`.trim();
   const box=el('div','panel ladder tlad'+(hasUp?' tlad-w':''));
@@ -1027,7 +1033,7 @@ function tableLadder(){
     r.innerHTML=`<span class="rank">${rank}</span>`+
       `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname tlink" data-team="${t.team}">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
       `<span class="pts">${t.pts}</span><span class="projc">${t.proj_pts}</span><span class="eloc">${t.elo}</span>`+
-      cols.map(c=>hc(t[c.key]||0,c.key)).join('')+
+      cols.map(c=>hc(t[c.key]||0,c.key,t)).join('')+
       (hasUp?whatifCell(t.team):'');
     box.appendChild(r);
     if(ol.green_line&&rank===ol.green_line)

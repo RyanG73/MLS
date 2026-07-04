@@ -591,6 +591,23 @@ shipping. Source-health entry + rights check (FBref ToS) required, per the codex
 - [x] Step 1: check builders first — `grep -n '"status"' scripts/build_continental_data.py`. If present, rebuild payloads; if absent, add the field.
 - [x] Step 2: tighten `validate_payloads.py`, run it, rebuild whatever fails, commit.
 
+> **VERDICT B2 (2026-07-03): PARTIAL — standings p10–p90 tooltip shipped; match-card bag-spread
+> chip BLOCKED on A2.** Standings odds cells (`tableLadder()`'s `hc()`) now carry a
+> `title="Projected finish: p10–p90 (median …)"` tooltip, reusing the *existing* `finishVals`/
+> `ensureFinish()` base sim that already backs the "Projected finish" plot panel — no new sim
+> call, no duplicate logic. Verified live (EPL preseason): Arsenal 1–3, mid-table teams widen to
+> 3–13, correctly tracking table position. **The match-card `±x.x` bag-spread chip could not be
+> built as scoped**: it requires `max−min home-win prob across the 5 bag members` for upcoming
+> matches, but A2's verdict (same day) confirms the production forward path for upcoming/unplayed
+> matches is DC+temperature ONLY — `build_dashboard_data.py` line ~466 literally comments "Game
+> cards: played (ensemble) + upcoming (DC)". There is no bagged XGB prediction for any upcoming
+> match in production today, so a "bag spread" chip would have to be fabricated from something
+> that isn't actually 5-seed disagreement — declined rather than ship a fake uncertainty number.
+> Revisit if/when a rolling-cal `predict_upcoming` variant (A2's own suggested revisit path)
+> lands. **Bug caught before commit**: my first draft duplicated `finishVals`/`ensureFinish()`
+> with a second `baseFin`/lazy-`runSimTable()` call — found by reading the "Projected finish"
+> panel's existing code before assuming none existed; removed in favor of reuse.
+
 ### Task B2: Uncertainty cues on odds
 
 The 5-seed bag and 20k-sim distributions exist but render as point estimates.

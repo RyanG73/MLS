@@ -1,5 +1,13 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-03 — Uncertainty cues on odds (B2) ▶ PARTIAL — standings tooltip shipped, match-card
+> chip blocked on A2**
+> Standings odds cells get a p10–p90 projected-finish tooltip, reusing the existing
+> `finishVals`/`ensureFinish()` base sim (already backs the "Projected finish" panel) rather than
+> adding a duplicate. The match-card bag-spread chip could not ship: it needs 5-seed disagreement
+> on upcoming matches, but A2 confirmed the production forward path is DC-only for unplayed
+> fixtures — there is no bagged prediction to source a spread from. Declined to fabricate one.
+
 > **2026-07-03 — Promoted-team Brier advisory gate (A3) ▶ DONE**
 > `scripts/eval/promoted_team_brier.py` gains `pooled_summary()` (match-weighted Brier across
 > all 5 European tier2→tier1 pairs vs naive 2/3); wired into `model_report.py` (best-effort,
