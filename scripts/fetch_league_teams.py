@@ -27,30 +27,39 @@ urllib3.disable_warnings()
 _ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 _HDR = {"User-Agent": "Mozilla/5.0"}
 
-# (id, display name, ESPN slug | None, confederation, status)
+# (id, display name, ESPN slug | None, confederation, status, group)
 # espn_code None → menu entry only (no ESPN team data available under a clean code yet).
+# `group` drives the sidebar's collapsible country/region sections (B13); confederation
+# stays for the Power Rankings cross-league grouping, which is coarser by design.
 REGISTRY = [
-    # Concacaf
-    ("mls",                 "Major League Soccer",      "usa.1",            "Concacaf", "live"),
-    ("liga-mx",             "Liga MX",                  "mex.1",            "Concacaf", "live"),
-    ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "soon"),
-    ("leagues-cup",         "Leagues Cup",              "concacaf.leagues.cup","Concacaf", "live"),
-    ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "live"),
+    # Concacaf / Americas
+    ("mls",                 "Major League Soccer",      "usa.1",            "Concacaf", "live", "Americas"),
+    ("liga-mx",             "Liga MX",                  "mex.1",            "Concacaf", "live", "Americas"),
+    ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "soon", "Americas"),
+    ("leagues-cup",         "Leagues Cup",              "concacaf.leagues.cup","Concacaf", "live", "Cups"),
+    ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "live", "Cups"),
     # Concacaf League removed 2026-06-17 — discontinued after 2023 (absorbed into the Champions Cup).
-    # UEFA
-    ("epl",                 "English Premier League",   "eng.1",            "UEFA", "live"),
-    ("championship",        "EFL Championship",         "eng.2",            "UEFA", "live"),
-    ("league-one",          "EFL League One",           "eng.3",            "UEFA", "live"),
-    ("league-two",          "EFL League Two",           "eng.4",            "UEFA", "live"),
-    ("bundesliga",          "Bundesliga",               "ger.1",            "UEFA", "live"),
-    ("bundesliga-2",        "2. Bundesliga",            "ger.2",            "UEFA", "live"),
-    ("ligue-1",             "Ligue 1",                  "fra.1",            "UEFA", "live"),
-    ("la-liga",             "La Liga",                  "esp.1",            "UEFA", "live"),
-    ("serie-a",             "Serie A",                  "ita.1",            "UEFA", "live"),
-    ("serie-b",             "Serie B",                  "ita.2",            "UEFA", "live"),
-    ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "live"),
-    ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "live"),
-    ("conference",          "UEFA Conference League",   "uefa.europa.conf", "UEFA", "live"),
+    # UEFA — England
+    ("epl",                 "English Premier League",   "eng.1",            "UEFA", "live", "England"),
+    ("championship",        "EFL Championship",         "eng.2",            "UEFA", "live", "England"),
+    ("league-one",          "EFL League One",           "eng.3",            "UEFA", "live", "England"),
+    ("league-two",          "EFL League Two",           "eng.4",            "UEFA", "live", "England"),
+    # UEFA — Germany
+    ("bundesliga",          "Bundesliga",               "ger.1",            "UEFA", "live", "Germany"),
+    ("bundesliga-2",        "2. Bundesliga",            "ger.2",            "UEFA", "live", "Germany"),
+    # UEFA — France
+    ("ligue-1",             "Ligue 1",                  "fra.1",            "UEFA", "live", "France"),
+    ("ligue-2",             "Ligue 2",                  "fra.2",            "UEFA", "live", "France"),
+    # UEFA — Spain
+    ("la-liga",             "La Liga",                  "esp.1",            "UEFA", "live", "Spain"),
+    ("segunda",             "LaLiga 2",                 "esp.2",            "UEFA", "live", "Spain"),
+    # UEFA — Italy
+    ("serie-a",             "Serie A",                  "ita.1",            "UEFA", "live", "Italy"),
+    ("serie-b",             "Serie B",                  "ita.2",            "UEFA", "live", "Italy"),
+    # UEFA — continental cups
+    ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "live", "Cups"),
+    ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "live", "Cups"),
+    ("conference",          "UEFA Conference League",   "uefa.europa.conf", "UEFA", "live", "Cups"),
 ]
 
 
@@ -85,9 +94,9 @@ def main():
     out_dir = Path("webapp/data")
     out_dir.mkdir(parents=True, exist_ok=True)
     registry = []
-    for lid, name, code, conf, status in REGISTRY:
+    for lid, name, code, conf, status, group in REGISTRY:
         logo = _league_logo(code) if code else None
-        registry.append({"id": lid, "name": name, "confederation": conf,
+        registry.append({"id": lid, "name": name, "confederation": conf, "group": group,
                          "status": status, "logo": logo, "espn_code": code})
         if status == "live":
             print(f"  {lid:18s} live   · logo {'ok' if logo else 'none'} (data built separately: MLS→build_dashboard_data, others→build_league_data)")

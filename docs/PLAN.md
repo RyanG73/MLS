@@ -1,5 +1,14 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-03 — Sidebar country/region groups + favorites (B13) ▶ DONE**
+> League registry gains a `group` field (Americas/England/Spain/Italy/Germany/France/Cups);
+> sidebar now groups by country instead of confederation, collapsible per group, plus a
+> star-to-pin Favorites section — both `localStorage`-persisted, mobile drawer included for
+> free. Found `ligue-2`/`segunda` had drifted out of the Python `REGISTRY` while staying in the
+> committed `webapp/leagues.js` — regenerating would have silently dropped two live leagues from
+> the sidebar. Fixed + added a regression test (`tests/test_fetch_league_teams.py`) so a future
+> registry regen can't silently drop a league again.
+
 > **2026-07-03 — "Today's Edge" cross-league board (B12) ▶ DONE**
 > New `scripts/build_edge_board.py` aggregates every upcoming match (next 48h) across all live,
 > non-knockout league payloads into `webapp/data/edge-board.js`, ranked by model edge over the

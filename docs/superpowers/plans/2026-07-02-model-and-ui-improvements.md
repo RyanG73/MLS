@@ -720,6 +720,24 @@ The site's front door becomes a cross-league edge board instead of a single leag
 Depends on: B5's edge/Kelly math (share one JS helper — devig + kelly live in ONE place,
 mirroring `data_pipeline/market.py` semantics; add a JS↔Python parity test like the sim's).
 
+> **VERDICT B13 (2026-07-03): COMPLETE.** `scripts/fetch_league_teams.py`'s `REGISTRY` gains a
+> `group` field (Americas/England/Spain/Italy/Germany/France/Cups — "Other Europe" reserved for
+> C1); sidebar groups by it (plan order) instead of the coarser confederation, collapsible per
+> group with a chevron, state persisted in `localStorage`. Star-to-pin favorites section renders
+> above the groups, also `localStorage`-persisted. Mobile drawer needed zero extra work — same
+> DOM/JS, existing responsive CSS handles it (verified: favorites + a collapsed group both
+> carried over correctly into the mobile drawer). **Found and fixed a real drift bug along the
+> way**: `REGISTRY` was missing `ligue-2` and `segunda` — both are live leagues with real
+> payloads and were already present in the committed `webapp/leagues.js`, but not in the Python
+> source that generates it. Running `fetch_league_teams.py` (as this task required, to add the
+> `group` field) would have silently dropped both from the sidebar on the next regen. Added
+> both entries with their real ESPN codes; new `tests/test_fetch_league_teams.py` guards this
+> class of bug going forward (asserts every on-disk payload has a `REGISTRY` entry). Regenerated
+> `webapp/leagues.js` (18 → 20 leagues). 2 new tests; suite green (477 passed, same 3
+> pre-existing unrelated failures). **Bug in my own first draft, caught before commit**: a
+> template-literal typo produced a stray `"` in the group-body `<div>` attribute — caught by
+> reading the generated HTML in-browser rather than trusting the diff.
+
 ### Task B13: Sidebar — country/region groups + favorites (user decision 2026-07-03)
 
 **Files:** `scripts/fetch_league_teams.py` (registry gains `group` field: England / Spain /
