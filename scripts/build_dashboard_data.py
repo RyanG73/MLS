@@ -24,8 +24,147 @@ import pandas as pd
 
 from data_pipeline.http import espn_get  # noqa: E402
 from scripts.payload_utils import write_js_payload, health_feature_stats  # noqa: E402
+from scripts.eval.upcoming_features import latest_team_features  # noqa: E402
 
 _ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1"
+
+# B9: canonical family grouping for the full model-input panel. Every suffix here
+# is looked up for every team; suffixes missing from `feat_base` (e.g. gk_z /
+# avail_share for European leagues without those columns at all) or missing for a
+# given team (never played, or the column doesn't exist in this league's frame)
+# render as explicit None — absence is information, not hidden.
+FEATURE_FAMILIES = {
+    "ELO":                       ["elo"],
+    "xG For (rolling windows)":  ["xg_roll_3", "xg_roll_5", "xg_roll_10", "xg_roll_15"],
+    "xG Against (rolling windows)": ["xga_roll_3", "xga_roll_5", "xga_roll_10", "xga_roll_15"],
+    "Form (rolling windows)":   ["form_3", "form_5", "form_10", "form_15"],
+    "Goalkeeper":                ["gk_z"],
+    "Availability":              ["avail_share"],
+}
+
+
+def _clean(v):
+    """NaN/None -> None, else round to 3dp float. Never emits NaN (allow_nan=False)."""
+    if v is None:
+        return None
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return round(float(v), 3)
+
+
+def build_team_inputs_full(df: pd.DataFrame, feat_cols: list[str],
+                           tids: list, id2name: dict) -> dict:
+    """{team_name: {family: {suffix: value_or_None}}} — every FEATURE_FAMILIES
+    suffix present for every team, default-filled to None when
+    latest_team_features() omits it (column absent from this league's frame
+    entirely, or team has no played rows)."""
+    raw = latest_team_features(df, feat_cols)
+    out = {}
+    for t in tids:
+        name = id2name.get(t, t)
+        team_raw = raw.get(t, {})
+        out[name] = {
+            fam: {suf: _clean(team_raw.get(suf)) for suf in sufs}
+            for fam, sufs in FEATURE_FAMILIES.items()
+        }
+    return out
+
+
+def _load_tm_name_map() -> dict:
+    """Transfermarkt raw team name -> ASA team id (config/team_name_to_asa_id.yaml).
+
+    Same map scripts/import_transfermarkt.py uses to build the mapped CSV —
+    reused here (rather than re-derived) so the raw per-player CSV (which has
+    no asa_team_id column) can be joined the identical way.
+    """
+    import yaml
+    path = Path("config/team_name_to_asa_id.yaml")
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text()) or {}
+    return data.get("transfermarkt", {}) or {}
+
+
+def build_squad_value_mls(tids: list, id2name: dict, abbr2id: dict, season: int) -> dict | None:
+    """B9 squad-value panel data for MLS (A9 Phase 1 — MLS ships now, other
+    leagues render the panel's null state until Transfermarkt import lands
+    for them). Best-effort: any read/parse failure returns None (the "not
+    available" state), matching the _source_health_snapshot /
+    promoted_team_brier convention — stale or missing squad-value data must
+    never break the build.
+    """
+    try:
+        mapped_path = Path(f"data/transfermarkt_squad_values_{season}_mapped.csv")
+        raw_path = Path(f"data/transfermarkt_squad_values_{season}_raw.csv")
+        if not mapped_path.exists() or not raw_path.exists():
+            return None
+        mapped = pd.read_csv(mapped_path)
+        raw = pd.read_csv(raw_path)
+        if mapped.empty:
+            return None
+
+        mapped = mapped.dropna(subset=["squad_value_eur"])
+        mapped = mapped[mapped["squad_value_eur"] > 0]
+        if mapped.empty:
+            return None
+
+        mapped = mapped.sort_values("squad_value_eur", ascending=False).reset_index(drop=True)
+        n_teams = len(mapped)
+        league_mean_age = float(mapped["value_wtd_age"].mean()) if "value_wtd_age" in mapped else None
+
+        name_map = _load_tm_name_map()
+        # raw CSV has no asa_team_id — join via tm_team_name -> asa id (same map
+        # import_transfermarkt.py uses), so we can find each team's player rows.
+        raw = raw.copy()
+        raw["asa_team_id"] = raw["tm_team_name"].map(name_map)
+
+        # config/team_name_to_asa_id.yaml's "transfermarkt" map (and therefore
+        # both CSVs' "asa_team_id" column) is keyed on ASA's 3-letter
+        # team_abbreviation ("ATL"), NOT the real team_id ("KAqBN0Vqbg") despite
+        # the column name — resolve through abbr2id before comparing to tids.
+        out = {}
+        for i, row in mapped.iterrows():
+            abbr = str(row.get("asa_team_id") or "")
+            tid = abbr2id.get(abbr)
+            if not tid or tid not in tids:
+                continue
+            name = id2name.get(tid, tid)
+            rank = i + 1  # mapped is sorted desc by value; i is 0-based
+            pct = (n_teams - rank) / (n_teams - 1) * 100 if n_teams > 1 else 100.0
+            team_players = raw[raw["asa_team_id"] == abbr].copy()
+            team_players = team_players.sort_values("market_value_eur", ascending=False)
+            players = [
+                {"name": str(p.get("player_name") or ""),
+                 "position": str(p.get("position") or "") or None,
+                 "age": int(p["age"]) if pd.notna(p.get("age")) else None,
+                 # 0 means "not scraped this season" (TM/R-script gap), not a real
+                 # €0 valuation — render as unavailable like every other null here.
+                 "value_eur": _clean(p.get("market_value_eur")) or None}
+                for _, p in team_players.head(10).iterrows()
+            ]
+            out[name] = {
+                "available": True,
+                "squad_value_eur": _clean(row.get("squad_value_eur")),
+                "league_rank": int(rank),
+                "n_teams": int(n_teams),
+                "percentile": round(pct, 1),
+                "value_wtd_age": _clean(row.get("value_wtd_age")),
+                "league_avg_value_wtd_age": _clean(league_mean_age),
+                "att_value_pct": _clean(row.get("att_value_pct")),
+                "def_value_pct": _clean(row.get("def_value_pct")),
+                "tilt": _clean(row.get("tilt")),
+                "dp_value_share": _clean(row.get("dp_value_share")),
+                "n_players": int(row["n_players"]) if pd.notna(row.get("n_players")) else None,
+                "players": players,
+            }
+        return out if out else None
+    except Exception as e:
+        print(f"[warn] squad-value panel unavailable ({e})")
+        return None
+
 
 # MLS 2026 conferences (30 teams; San Diego FC added 2025)
 _EAST = {"atlanta united fc", "charlotte fc", "chicago fire fc", "fc cincinnati",
@@ -424,6 +563,19 @@ def main():
             _snap[_lab] = round(float(_v), 3) if _v is not None and pd.notna(_v) else None
         _team_inputs[_name] = _snap
 
+    # B9: full model-input snapshot (every feat_base suffix, family-grouped,
+    # explicit null where the league/team lacks it). Reuses latest_team_features
+    # (A2's carry-forward builder) rather than re-deriving the "most recent
+    # played row" lookup done above for the abbreviated panel.
+    _team_inputs_full = build_team_inputs_full(df, feat, tids, id2name)
+
+    # B9 squad-value panel (MLS only this pass — A9 Phase 1 for other leagues
+    # is queued). Keyed by ASA-mapped team name to match _team_inputs_full.
+    _abbr2id = {r.team_abbreviation: r.team_id for r in teams.itertuples()}
+    _squad_value = build_squad_value_mls(tids, id2name, _abbr2id, ts)
+    print(f"Squad value: {'available' if _squad_value else 'unavailable'} for {ts}"
+          + (f" ({len(_squad_value)} teams)" if _squad_value else ""))
+
     # ── ELO history (per-team trajectory, downsampled) + trophy annotations ───
     # Computed over the FULL ASA game history (2013+, deeper than the 2017+ model
     # frame) so the chart shows the complete trajectory under each trophy.
@@ -585,6 +737,8 @@ def main():
             "in_season_brier": in_season_brier,
             "market_brier": market_brier,
             "team_inputs": _team_inputs,
+            "team_inputs_full": _team_inputs_full,
+            "squad_value": _squad_value,
             "elo_history": _elo_hist,
             "trophies": _trophies,
             "health": health,

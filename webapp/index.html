@@ -335,6 +335,27 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .pmini .opp{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pmini .pr{font-family:"Archivo";font-weight:700;font-size:12px;flex:none}
 .pmini .res{font-size:9.5px;padding:2px 6px}
+/* B9: full model-input + squad-value panels (collapsible, full-width in prof-grid) */
+.fi-panel h3,.sv-panel h3{cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.fi-chev{color:var(--txt-3);font-size:10px;transition:transform .12s}
+.fi-panel.open .fi-chev{transform:rotate(180deg)}
+.fi-body{display:none;margin-top:8px}
+.fi-panel.open .fi-body{display:block}
+.fi-fam{margin-bottom:12px}
+.fi-fam:last-child{margin-bottom:0}
+.fi-fam h4{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3);margin-bottom:6px}
+.fi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.fi-cell{display:flex;justify-content:space-between;gap:6px;font-size:12px;padding:5px 9px;background:var(--ink-0);border:1px solid var(--line);border-radius:6px}
+.fi-cell .fi-k{color:var(--txt-3);text-transform:capitalize}
+.fi-cell .fi-v{font-family:var(--mono);font-weight:700;color:var(--txt-1)}
+.fi-cell .fi-v.na{color:var(--txt-3);font-weight:400;cursor:help}
+.sv-body{display:none;margin-top:8px}
+.sv-panel.open .sv-body{display:block}
+.sv-prow{display:grid;grid-template-columns:1fr 44px 34px 70px;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.sv-prow:last-child{border-bottom:none}
+.sv-prow .sv-pn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-prow .sv-pp,.sv-prow .sv-pa{color:var(--txt-3);font-size:11px;text-align:center}
+.sv-prow .sv-pv{font-family:var(--mono);font-weight:700;text-align:right}
 /* history / ELO chart */
 .chart-wrap{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s4);overflow-x:auto}
 .chart-svg{display:block;width:100%;min-width:560px;height:auto}
@@ -1551,6 +1572,50 @@ function eloTier(elo){const n=_eloVals.length;if(!n)return 'var(--floodlight)';
   return elo>=q3?'var(--qualify)':elo<=q1?'var(--drop)':'#5a6b7a';}
 
 let _selTeam=null;
+// B9: full model-input panel — every feat_base suffix, family-grouped, explicit
+// null rendered as a muted "—" (not hidden, not zero — absence is information).
+// Falls back to nothing (legacy inputsCard above stays as-is) when the payload
+// predates team_inputs_full.
+function fullInputsPanel(team){
+  const full=(D.team_inputs_full||{})[team];
+  if(!full)return '';
+  const fams=Object.entries(full).map(([fam,vals])=>{
+    const cells=Object.entries(vals).map(([suf,v])=>{
+      const label=suf.replace(/_/g,' ');
+      return v==null
+        ?`<div class="fi-cell"><span class="fi-k">${label}</span><span class="fi-v na" title="Not available for this league">—</span></div>`
+        :`<div class="fi-cell"><span class="fi-k">${label}</span><span class="fi-v">${v}</span></div>`;
+    }).join('');
+    return `<div class="fi-fam"><h4>${fam}</h4><div class="fi-grid">${cells}</div></div>`;
+  }).join('');
+  return `<div class="pcard fi-panel" style="grid-column:1/-1">
+    <h3 onclick="this.closest('.fi-panel').classList.toggle('open')">Model inputs — full panel <span class="fi-chev">▾</span></h3>
+    <div class="fi-body">${fams}</div></div>`;
+}
+// B9: Transfermarkt squad-value panel. Renders the panel's null state (not a
+// missing section) when a league has no TM import yet — same convention as the
+// input-panel nulls above, so an empty league doesn't look like a broken build.
+function squadValuePanel(team){
+  const sv=(D.squad_value||{})[team];
+  if(!sv)return `<div class="pcard sv-panel" style="grid-column:1/-1"><h3 style="cursor:default">Squad value (Transfermarkt)</h3>
+    <div class="pstat"><span class="k">Not available for this league</span></div></div>`;
+  const players=(sv.players||[]).map(p=>`<div class="sv-prow">
+      <span class="sv-pn">${p.name}</span><span class="sv-pp">${p.position||'—'}</span>
+      <span class="sv-pa">${p.age??'—'}</span>
+      <span class="sv-pv">${p.value_eur==null?'—':'€'+(p.value_eur/1e6).toFixed(1)+'m'}</span></div>`).join('')
+    ||'<div class="pstat"><span class="k">No player rows</span></div>';
+  return `<div class="pcard sv-panel" style="grid-column:1/-1">
+    <h3 onclick="this.closest('.sv-panel').classList.toggle('open')">Squad value (Transfermarkt) <span class="fi-chev">▾</span></h3>
+    <div class="sv-body">
+    <div class="pstat"><span class="k">Total squad value</span><span class="v">€${(sv.squad_value_eur/1e6).toFixed(1)}m</span></div>
+    <div class="pstat"><span class="k">League rank</span><span class="v">#${sv.league_rank} of ${sv.n_teams} · ${sv.percentile.toFixed(0)}th percentile</span></div>
+    <div class="pc-track" style="margin:6px 0 10px"><span style="width:${sv.percentile}%"></span></div>
+    <div class="pstat"><span class="k">Value-wtd age</span><span class="v">${sv.value_wtd_age??'—'}<span style="color:var(--txt-3);font-weight:400"> (league avg ${sv.league_avg_value_wtd_age??'—'})</span></span></div>
+    <div class="pstat"><span class="k">ATT / DEF value split</span><span class="v">${sv.att_value_pct==null?'—':(sv.att_value_pct*100).toFixed(1)+'%'} / ${sv.def_value_pct==null?'—':(sv.def_value_pct*100).toFixed(1)+'%'}</span></div>
+    <div class="pstat"><span class="k">Squad size</span><span class="v">${sv.n_players??'—'}</span></div>
+    <div class="fi-fam" style="margin-top:10px"><h4>Top players by value</h4>${players}</div>
+    </div></div>`;
+}
 function renderProfile(team,scroll){
   const s=stdByTeam.get(team); if(!s)return;
   _selTeam=team;
@@ -1604,7 +1669,7 @@ function renderProfile(team,scroll){
   $('#teamProfile').innerHTML=
     `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div></div>
      <div class="chart-wrap big">${chart}${trophLegend}<div class="troph-list">${chips}</div></div>
-     <div class="prof-grid">${inputsCard}${seasonCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div></div>`;
+     <div class="prof-grid">${inputsCard}${seasonCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}</div>`;
   if(scroll)$('#teamProfile').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 

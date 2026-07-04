@@ -47,8 +47,52 @@ import models.research_model as rm
 from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
 from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON, CONCLUDED
+from scripts.eval.upcoming_features import latest_team_features
 from scripts.payload_utils import write_js_payload, health_feature_stats
 from data_pipeline import coefficients as co
+
+# B9: same canonical family grouping as build_dashboard_data.py (kept as an
+# independent copy per-file, not a shared module — two ~10-line dicts don't
+# warrant one). European pipelines have no gk_z / avail_share columns at all
+# (not a per-league gap — the feature pipeline never computes them), so those
+# families render as an explicit null block for every European league via the
+# same "suffix missing from feat_cols/frame -> None" default-fill mechanism
+# used for goals-only leagues' xG columns.
+FEATURE_FAMILIES = {
+    "ELO":                       ["elo"],
+    "xG For (rolling windows)":  ["xg_roll_3", "xg_roll_5", "xg_roll_10", "xg_roll_15"],
+    "xG Against (rolling windows)": ["xga_roll_3", "xga_roll_5", "xga_roll_10", "xga_roll_15"],
+    "Form (rolling windows)":   ["form_3", "form_5", "form_10", "form_15"],
+    "Goalkeeper":                ["gk_z"],
+    "Availability":              ["avail_share"],
+}
+
+
+def _clean(v):
+    """NaN/None -> None, else round to 3dp float. Never emits NaN (allow_nan=False)."""
+    if v is None:
+        return None
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return round(float(v), 3)
+
+
+def build_team_inputs_full(df: pd.DataFrame, feat_cols: list[str],
+                           tids: list, tname) -> dict:
+    """{team_name: {family: {suffix: value_or_None}}} — see build_dashboard_data.py's
+    twin for the full contract. `tname` is this builder's team-key -> display-name fn."""
+    raw = latest_team_features(df, feat_cols)
+    out = {}
+    for t in tids:
+        team_raw = raw.get(t, {})
+        out[tname(t)] = {
+            fam: {suf: _clean(team_raw.get(suf)) for suf in sufs}
+            for fam, sufs in FEATURE_FAMILIES.items()
+        }
+    return out
 
 # ── tier-2 promoted-team seeding ──────────────────────────────────────────────
 # Maps top-flight league ID → its feeder tier-2 league ID.
@@ -638,6 +682,12 @@ def main():
             snap[_lab] = round(float(_v), 3) if _v is not None and pd.notna(_v) else None
         team_inputs[tname(t)] = snap
 
+    # B9: full model-input snapshot (canonical suffix superset, family-grouped,
+    # explicit null for suffixes this league's pipeline never computes — e.g.
+    # gk_z/avail_share don't exist for European leagues at all — or that a
+    # given team has no played rows for, e.g. goals-only leagues' xG columns).
+    team_inputs_full = build_team_inputs_full(df, feat, tids, tname)
+
     # ── ELO history (full Understat depth, 2014+) per team, downsampled ───────
     elo_hist = {}
     for t in tids:
@@ -898,6 +948,12 @@ def main():
         "in_season_brier": in_season_brier,
         "market_brier": market_brier,
         "team_inputs": team_inputs,
+        "team_inputs_full": team_inputs_full,
+        # B9 squad-value panel: TM data not yet imported for non-MLS leagues (A9
+        # Phase 1 pending). Explicit null-state, same convention as the model-input
+        # nulls above — the frontend renders the "not available" treatment, not a
+        # missing key (which would look like an older/broken payload).
+        "squad_value": None,
         "elo_history": elo_hist,
         "trophies": {},   # European trophy data is a future enhancement
         "health": health,

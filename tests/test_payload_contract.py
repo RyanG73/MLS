@@ -189,3 +189,67 @@ class TestPowerPayload:
         assert "groups" in data, "power.js: missing 'groups' key"
         assert isinstance(data["groups"], list), "power.js: 'groups' must be a list"
         assert len(data["groups"]) > 0, "power.js: 'groups' is empty"
+
+
+# ── B9: team_inputs_full leaf-value contract ─────────────────────────────────
+
+class TestTeamInputsFullLeaves:
+    """team_inputs_full leaf values must be numbers or null, never a NaN token.
+
+    json.loads() already rejects a literal NaN token at parse time (see
+    TestPayloadParseable), so this test targets a subtler regression: a builder
+    that accidentally serialises the *string* "NaN" (e.g. via str(nan) before
+    round()) rather than a JSON null. team_inputs_full is absent from older
+    payloads (build_league_data.py leagues not yet rebuilt) — skip those, don't
+    fail them; the frontend's fallback-to-legacy-panel handles that case.
+    """
+
+    @pytest.fixture(params=_LEAGUE_FILES, ids=[p.name for p in _LEAGUE_FILES])
+    def league_payload(self, request):
+        path = request.param
+        var_name, data = _load_payload(path)
+        if var_name != "LEAGUE_DATA":
+            pytest.skip(f"{path.name} is not a LEAGUE_DATA payload (var={var_name})")
+        return path, data
+
+    def test_leaves_are_numeric_or_null(self, league_payload):
+        path, data = league_payload
+        tif = data.get("team_inputs_full")
+        if not tif:
+            pytest.skip(f"{path.name}: no team_inputs_full (legacy/older payload)")
+        bad = []
+        for team, families in tif.items():
+            if not isinstance(families, dict):
+                bad.append(f"{team} is not a dict")
+                continue
+            for fam, suffixes in families.items():
+                if not isinstance(suffixes, dict):
+                    bad.append(f"{team}.{fam} is not a dict")
+                    continue
+                for suf, val in suffixes.items():
+                    if val is None:
+                        continue
+                    if isinstance(val, bool) or not isinstance(val, (int, float)):
+                        bad.append(f"{team}.{fam}.{suf} = {val!r} ({type(val).__name__})")
+        assert not bad, (
+            f"{path.name}: team_inputs_full has non-numeric, non-null leaves:\n"
+            + "\n".join(f"  {b}" for b in bad[:20])
+        )
+
+    def test_no_literal_nan_string(self, league_payload):
+        """Guard the specific regression this test exists for: a 'NaN' string
+        leaf sneaking through instead of JSON null."""
+        path, data = league_payload
+        tif = data.get("team_inputs_full")
+        if not tif:
+            pytest.skip(f"{path.name}: no team_inputs_full (legacy/older payload)")
+        offenders = [
+            f"{team}.{fam}.{suf}"
+            for team, families in tif.items() if isinstance(families, dict)
+            for fam, suffixes in families.items() if isinstance(suffixes, dict)
+            for suf, val in suffixes.items()
+            if isinstance(val, str) and val.strip().lower() == "nan"
+        ]
+        assert not offenders, (
+            f"{path.name}: literal 'NaN' string leaves found: {offenders[:20]}"
+        )
