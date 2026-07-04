@@ -668,6 +668,32 @@ Verification: rebuild MLS + EPL, open both in browser, zero console errors, chip
 
 Verification: browser check MLS (full inputs) and a goals-only league like Championship (sparse inputs → rows hidden, no `undefined`).
 
+> **VERDICT B4 (2026-07-04): COMPLETE.** Health tab now renders A1's reliability
+> scatter (favorite-probability deciles + draw curve vs observed frequency, dashed
+> diagonal), a Brier-by-season-phase table, a Brier-by-favorite-decile table, and A3's
+> pooled promoted-team advisory banner. Numbers match A1's original verdict exactly
+> (first_60d 0.6314 n=497 · mid 0.6379 n=971 · late 0.6264 n=604) and A3's (pooled
+> 0.6304 vs naive 0.6667, n=3984). **Data-source problem found and solved**: neither
+> existing report file had both A1's slices and A3's `promoted_team_brier` — those
+> fields were added to `model_report.py` at different points in the campaign, after
+> the reports that would need them were already generated. Rather than touch the
+> pinned `experiments/challenger-bag5.report.json` (CLAUDE.md names it as the
+> promotion-time artifact), regenerated the identical champion config into a new
+> `experiments/b4-trust-baseline.report.json` (avg_brier 0.6330, cal_err 0.0182 —
+> reproduced at parity) and added a documented gitignore exception (matching the
+> existing `league_offsets.json`/`tier2_offsets.json` precedent) so it ships with the
+> repo instead of silently regenerating empty on every fresh checkout. European
+> leagues get an explicit `trust: None` and render the honest "not available" empty
+> state — no per-league-family champion report exists yet (C2). **Bug found and
+> fixed before commit**: `const _PHASE_LABEL` was declared textually after the page's
+> own eager `renderHealth()` pre-render call — a TDZ violation that threw
+> synchronously and left literally every function in the 84KB main script block
+> undefined (not just the new B4 ones), since the throw happened before the script's
+> later statements ran. `typeof renderHealth` etc. all read "undefined" in the
+> console until traced to this one line; moved the const earlier. Verified live: MLS
+> shows the full panel, EPL shows the empty state, no mobile overflow. Suite green
+> (484 passed, same 3 pre-existing unrelated failures).
+
 ### Task B4: "Model Trust" upgrade of the Health tab
 
 Render A1's conditional slices publicly: reliability curve, Brier by favorite decile / season phase, draw curve, promoted-team advisory (A3).
