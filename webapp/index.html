@@ -1286,6 +1286,7 @@ function renderKnockout(){
     : D.outlook.format_label+' · ~ marks teams estimated from coefficients (not fully modeled)';
 }
 (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();
+const _PHASE_LABEL={first_60d:'First 60 days',mid:'Mid-season',late:'Late season'};
 renderHealth();   // eager: pre-render so NaN/undefined issues surface at load, not only on tab click
 $('#ladders').addEventListener('click',e=>{
   const tl=e.target.closest('.tlink');if(tl){openTeam(tl.dataset.team);return;}
@@ -1304,6 +1305,24 @@ $('#ladders').addEventListener('click',e=>{
 $('#wreset').onclick=()=>{forced={};simVals=null;$('#wbanner').classList.remove('on');(isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();};
 
 /* model health tab — card-based, digestible model dimensions */
+// B4: reliability scatter — predicted-probability vs observed frequency, one dot
+// per bin, dashed diagonal = perfect calibration. Two series share the same axes:
+// favorite-probability deciles (A1) and the draw curve (A1 — named the worst class).
+function reliabilitySVG(trust,w=460,h=230){
+  const pad=32;
+  const px=v=>pad+v*(w-2*pad), py=v=>h-pad-v*(h-2*pad);
+  const favPts=Object.values(trust.by_favorite_prob||{}).map(m=>({x:m.fav_prob_mean,y:m.fav_hit_rate,n:m.n}));
+  const drawPts=(trust.draw_reliability||[]).map(m=>({x:m.p_mean,y:m.freq,n:m.n}));
+  const grid=[0,0.25,0.5,0.75,1].map(v=>
+    `<line x1="${px(v)}" y1="${pad}" x2="${px(v)}" y2="${h-pad}" class="grid"/>`+
+    `<line x1="${pad}" y1="${py(v)}" x2="${w-pad}" y2="${py(v)}" class="grid"/>`).join('');
+  const diag=`<line x1="${px(0)}" y1="${py(0)}" x2="${px(1)}" y2="${py(1)}" stroke="var(--txt-3)" stroke-dasharray="4 3" stroke-width="1"/>`;
+  const dots=(pts,color)=>pts.map(p=>
+    `<circle cx="${px(p.x)}" cy="${py(p.y)}" r="5" fill="${color}" fill-opacity="0.85"><title>predicted ${(p.x*100).toFixed(0)}% · observed ${(p.y*100).toFixed(0)}% · n=${p.n}</title></circle>`).join('');
+  const axLbl=v=>`<text x="${px(v)}" y="${h-pad+14}" class="axis" text-anchor="middle">${(v*100).toFixed(0)}%</text>`+
+    `<text x="${pad-6}" y="${py(v)+4}" class="axis" text-anchor="end">${(v*100).toFixed(0)}%</text>`;
+  return `<svg viewBox="0 0 ${w} ${h}" class="chart-svg" style="min-width:0">${grid}${diag}${dots(favPts,'var(--floodlight)')}${dots(drawPts,'#e25f4f')}${[0,0.5,1].map(axLbl).join('')}</svg>`;
+}
 function renderHealth(){
   const h=D.health, m=D.model||{}, mc=D.model_card||{}, live=D.in_season_brier||{};
   if(!h)return;
@@ -1360,7 +1379,35 @@ function renderHealth(){
   const fresh=`<div class="h-fresh"><span>Feature frame <b>${h.frame_file.split('/').pop()}</b> · ${h.frame_mtime||''}</span>
     <span>${h.espn_ok!=null?`ESPN schedule <b style="color:${h.espn_ok?'var(--qualify)':'#e25f4f'}">${h.espn_ok?'OK':'FAILED'}</b> · ${h.espn_events??'—'} events`:`Source <b>${h.frame_file.split(':')[0]}</b>`}</span>
     <span>${h.season_rows} season rows (${h.played_rows} played)</span><span>Built ${D.generated}</span></div>`;
-  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+btCard+fresh;
+  // B4: "Model Trust" — A1's conditional reliability slices + A3's promoted-team
+  // advisory. `D.trust` is null for leagues without a per-family champion report
+  // (all non-MLS leagues today, pending C2) — render the empty state, not NaN.
+  const trust=D.trust;
+  let trustBlock;
+  if(trust&&(Object.keys(trust.by_favorite_prob||{}).length||trust.draw_reliability?.length)){
+    const favRows=Object.entries(trust.by_favorite_prob).map(([bin,m])=>
+      `<div class="pc-row"><span class="pc-l" style="font-size:11px">${bin}</span>`+
+      `<span class="pc-track"></span><span class="pc-v">${(m.fav_prob_mean*100).toFixed(0)}%→${(m.fav_hit_rate*100).toFixed(0)}%</span>`+
+      `<span class="pc-n">n=${m.n}</span></div>`).join('')
+      ||'<div class="hnote">No favorite-decile data.</div>';
+    const phaseRows=['first_60d','mid','late'].filter(k=>trust.by_season_phase?.[k]).map(k=>{
+      const m=trust.by_season_phase[k];
+      return `<div class="pc-row"><span class="pc-l">${_PHASE_LABEL[k]}</span>`+
+        `<span class="pc-track"></span><span class="pc-v">${m.brier_sum.toFixed(4)}</span><span class="pc-n">n=${m.n}</span></div>`;
+    }).join('')||'<div class="hnote">No season-phase data.</div>';
+    const adv=trust.promoted_team_brier;
+    const advBanner=adv?`<div class="h-fresh"${adv.exceeds_naive?' style="border-color:#e25f4f"':''}>
+      <span>Promoted-team advisory (A3): pooled Brier <b>${adv.pooled_brier}</b> vs naive <b>${adv.naive_brier}</b> · n=${adv.n_matches} across ${adv.n_pairs} pairs`+
+      `${adv.exceeds_naive?' — <b style="color:#e25f4f">above naive, investigate</b>':' — within expected range'}</span></div>`:'';
+    trustBlock=`<div class="hgrid2">
+      <div class="hcard2"><h3>Reliability — predicted vs observed</h3>${reliabilitySVG(trust)}
+        <div class="hnote"><span style="color:var(--floodlight)">●</span>&nbsp;favorite-probability deciles &nbsp; <span style="color:#e25f4f">●</span>&nbsp;draw curve (model's worst class) &nbsp; dashed = perfect calibration</div></div>
+      <div class="hcard2"><h3>Brier by season phase</h3>${phaseRows}</div>
+    </div><div class="hcard2"><h3>Brier by favorite-probability decile</h3>${favRows}</div>${advBanner}`;
+  }else{
+    trustBlock=`<div class="hcard2"><h3>Reliability</h3><div class="hnote">Not available for this league — conditional-calibration slices are computed from the MLS champion report only; per-league-family champion reports are future work (Part C).</div></div>`;
+  }
+  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+btCard+trustBlock+fresh;
 }
 
 /* matches */

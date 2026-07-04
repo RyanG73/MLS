@@ -664,6 +664,27 @@ def main():
     except Exception as e:
         print(f"[warn] champion report unreadable ({e}); model card will lack metrics")
 
+    # B4: "Model Trust" — A1's conditional reliability slices + A3's promoted-team
+    # advisory, surfaced publicly. Sourced from a dedicated diagnostic report
+    # (experiments/b4-trust-baseline.report.json — same champion config, regenerated
+    # with the current model_report.py so the slice/advisory fields are populated),
+    # NOT from champion.json's own report — that file is the frozen promotion-time
+    # artifact CLAUDE.md pins by name, and predates A1/A3's fields. Best-effort:
+    # None means "not available", never a fabricated number.
+    trust = None
+    try:
+        _trust_rep = json.loads(Path("experiments/b4-trust-baseline.report.json").read_text())
+        _slices = _trust_rep.get("slices", {})
+        trust = {
+            "by_favorite_prob": _slices.get("by_favorite_prob", {}),
+            "by_season_phase": _slices.get("by_season_phase", {}),
+            "draw_reliability": _slices.get("draw_reliability", []),
+            "promoted_team_brier": _trust_rep.get("promoted_team_brier") or None,
+            "run_id": _trust_rep.get("run_id", "unknown"),
+        }
+    except Exception as e:
+        print(f"[warn] trust report unreadable ({e}); Model Trust panel will show the empty state")
+
     # ── Model-health block: feature-family completeness over current-season rows
     _FAMS = {
         "ELO":          [c for c in feat if "elo" in c],
@@ -743,6 +764,7 @@ def main():
             "trophies": _trophies,
             "health": health,
             "model_card": model_card,
+            "trust": trust,
             "model": {"best_brier": round(champ_brier, 4) if champ_brier else None,
                       "naive": _naive,
                       "improve_pct": round((_naive - champ_brier) / _naive * 100, 2)

@@ -958,6 +958,11 @@ def main():
         "trophies": {},   # European trophy data is a future enhancement
         "health": health,
         "model_card": model_card,
+        # B4 "Model Trust" slices (A1/A3) are sourced from the MLS champion report —
+        # no per-league-family champion report exists yet (that's C2's per-family
+        # champion pointer work). Explicit null rather than borrowing MLS's
+        # calibration numbers for a European league they don't describe.
+        "trust": None,
         "model": {"best_brier": league_brier, "naive": league_naive, "market": league_market,
                   "improve_pct": round((league_naive - league_brier) / league_naive * 100, 2)
                   if league_brier and league_naive else None,
