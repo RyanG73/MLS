@@ -83,6 +83,35 @@
 > `docs/feature-hunt-log.md`. Revisit path = rolling-cal `predict_upcoming` variant
 > (a new experiment, not this task).
 
+> **VERDICT B9 (2026-07-04): COMPLETE.** `build_team_inputs_full()` (both builders)
+> emits every `feat_base` suffix family-grouped (ELO / xG for / xG against / form /
+> goalkeeper / availability) via A2's `latest_team_features` carry-forward lookup;
+> explicit `null` where a league/team lacks the signal (never hidden, never zero).
+> Team profile gets a collapsible "Model inputs — full panel" + a Transfermarkt
+> squad-value panel (MLS ships now; other leagues render the null state pending A9).
+> **Bug found and fixed before commit**: `config/team_name_to_asa_id.yaml`'s
+> `transfermarkt` map is keyed on ASA's 3-letter `team_abbreviation` ("ATL"), not the
+> real `team_id` ("KAqBN0Vqbg") the column name implies — `build_squad_value_mls`'s
+> membership check against `tids` never matched, so `squad_value` silently built as
+> `None` for every MLS team despite real TM data existing on disk. Fixed by resolving
+> through an `abbr2id` map built from `get_teams()`. Also fixed: att/def value-split
+> displayed as "0.507%" instead of "50.7%" (the `_pct`-named fields are 0–1 fractions,
+> confirmed against `eval_baseline.py`'s existing usage); and scraped-but-zero player
+> market values rendering as a fake "€0.0m" — the 2026 raw TM snapshot has no
+> per-player values yet (a real upstream scrape gap, `data/transfermarkt_squad_values_2026_raw.csv`
+> is 100% zero), now shown as "—" like every other null in this panel. **Corrected a
+> plan assumption**: the spec expected League Two (goals-only) to show the xG family
+> as null — instead `xg_roll_*`/`xga_roll_*` populate via the existing goals-proxy
+> fallback (`feature_builders.py`: `float(row["home_xg"]) if notna else float(hg)`);
+> only `gk_z`/`avail_share` (genuinely MLS-only signals) are null for European
+> leagues. Verified live: MLS (Inter Miami: €85.8m squad value, #2/30, 97th
+> percentile) and League Two (goalkeeper/availability rows correctly null, xG rows
+> populated from goals). No mobile overflow introduced. Suite green (484 passed, same
+> 3 pre-existing unrelated failures). Rebuilt `mls.js` + `league-two.js`; remaining
+> league payloads pick up `team_inputs_full` on their next scheduled rebuild (the
+> frontend's absence-check already treats older payloads as a no-op fallback to the
+> legacy abbreviated panel).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the remaining gaps from the 2026-06-29 unified deep-dive: route forward projections through the full validated ensemble (not raw DC), make conditional calibration measurable, and upgrade the webapp from "presents outputs" to "enables investigation" (uncertainty, why, trust).
