@@ -100,6 +100,124 @@ def fit_dc(matches: pd.DataFrame, decay_hl: int = DEFAULT_DC_DECAY_HL, recent_se
     return atk, dfd, res.x[2*n], res.x[2*n+1]
 
 
+def fit_dc_dynamic_ha(matches: pd.DataFrame, decay_hl: int = DEFAULT_DC_DECAY_HL,
+                      recent_seasons: int = 4, k_grid=(50, 100, 200),
+                      cal_matches: pd.DataFrame = None):
+    """A4: season-level home-advantage, shrunk toward the pooled estimate.
+
+    Attack/defence/rho are fit once on the pooled recent-seasons window (as
+    fit_dc does — static HFA can't track the documented 2024/25 home-win
+    collapse). Home advantage is then re-estimated per season with atk/dfd/rho
+    held fixed (ha alone makes the NLL a 1-D concave function, cheap to
+    optimize), and shrunk toward the pooled ha:
+        ha_s = (n_s * ha_hat_s + k * ha_pool) / (n_s + k)
+    so a season with few matches leans on the pooled estimate while a
+    well-observed season trusts its own data. k is chosen from k_grid by
+    DC-only Brier on `cal_matches` (if given), else the grid midpoint.
+
+    Returns (atk, dfd, ha_by_season, ha_pool, rho, k_used). Forward/unseen-
+    season prediction should use ha_by_season[max(ha_by_season)] (the latest
+    fitted season) — mirrors fit_dc's own single-ha forward convention.
+    """
+    max_s = matches["season"].max()
+    recent = matches[matches["season"] >= max_s - recent_seasons + 1].copy()
+    atk, dfd, ha_pool, rho = fit_dc(matches, decay_hl, recent_seasons)
+    teams = sorted(set(recent["home_team"]) | set(recent["away_team"]))
+    tidx = {t: i for i, t in enumerate(teams)}
+    ref = recent["date"].max()
+    atk_arr = np.array([atk.get(t, 0.0) for t in teams])
+    dfd_arr = np.array([dfd.get(t, 0.0) for t in teams])
+
+    def _season_arr(season_df):
+        return np.array([
+            [(ref - r["date"]).days, tidx.get(r["home_team"], 0),
+             tidx.get(r["away_team"], 0), r["home_goals"], r["away_goals"]]
+            for _, r in season_df.iterrows()
+        ], dtype=float)
+
+    def _ha_nll(ha_val, arr):
+        params = np.concatenate([atk_arr, dfd_arr, [ha_val, rho]])
+        return dc_nll(params, teams, arr, decay_hl)
+
+    ha_hat, n_s = {}, {}
+    for s, sdf in recent.groupby("season"):
+        if len(sdf) < 10:
+            continue
+        arr = _season_arr(sdf)
+        r = minimize(lambda x, _arr=arr: _ha_nll(x[0], _arr), [ha_pool],
+                    method="L-BFGS-B", bounds=[(0.0, 1.0)])
+        ha_hat[s] = float(r.x[0])
+        n_s[s] = len(sdf)
+
+    def _shrink(k):
+        return {s: (n_s[s] * ha_hat[s] + k * ha_pool) / (n_s[s] + k) for s in ha_hat}
+
+    if cal_matches is not None and len(cal_matches) > 0 and ha_hat:
+        best_k, best_brier = k_grid[len(k_grid) // 2], float("inf")
+        for k in k_grid:
+            ha_by_season = _shrink(k)
+            latest = max(ha_by_season)
+            preds, y = [], []
+            for _, r in cal_matches.iterrows():
+                ha_s = ha_by_season.get(r["season"], ha_by_season[latest])
+                preds.append(dc_predict(r["home_team"], r["away_team"], atk, dfd, ha_s, rho))
+                y.append(0 if r["home_goals"] > r["away_goals"]
+                        else (1 if r["home_goals"] == r["away_goals"] else 2))
+            P = np.array(preds)
+            yoh = np.eye(3)[y]
+            brier = float(np.mean(np.sum((P - yoh) ** 2, axis=1)))
+            if brier < best_brier:
+                best_brier, best_k = brier, k
+    else:
+        best_k = k_grid[len(k_grid) // 2]
+
+    ha_by_season = _shrink(best_k) if ha_hat else {}
+    return atk, dfd, ha_by_season, ha_pool, rho, best_k
+
+
+def _ha_for_row(ha_by_season, ha_pool, season):
+    """Resolve the shrunk ha for a match's season, falling back to the latest
+    fitted season (forward prediction) or the pooled estimate (no fit at all)."""
+    if not ha_by_season:
+        return ha_pool
+    return ha_by_season.get(season, ha_by_season[max(ha_by_season)])
+
+
+def dc_predict_batch_dynamic_ha(split_df, atk, dfd, ha_by_season, ha_pool, rho):
+    """Like dc_predict_batch, but ha varies by each row's season (A4)."""
+    return np.array([
+        dc_predict(r.home_team, r.away_team, atk, dfd,
+                  _ha_for_row(ha_by_season, ha_pool, r.season), rho)
+        for _, r in split_df.iterrows()
+    ])
+
+
+def dc_lam_mu_batch_dynamic_ha(split_df, atk, dfd, ha_by_season, ha_pool):
+    """Like dc_lam_mu_batch, but ha varies by each row's season (A4)."""
+    lams, mus = [], []
+    for _, r in split_df.iterrows():
+        ha = _ha_for_row(ha_by_season, ha_pool, r["season"])
+        lam = math.exp(atk.get(r["home_team"], 0) + dfd.get(r["away_team"], 0) + ha)
+        mu = math.exp(atk.get(r["away_team"], 0) + dfd.get(r["home_team"], 0))
+        lams.append(lam); mus.append(mu)
+    return np.array(lams), np.array(mus)
+
+
+def dc_draw_prob_batch_dynamic_ha(split_df, atk, dfd, ha_by_season, ha_pool, rho, max_g: int = 8):
+    """Like dc_draw_prob_batch, but ha varies by each row's season (A4)."""
+    result = []
+    for _, r in split_df.iterrows():
+        ha = _ha_for_row(ha_by_season, ha_pool, r["season"])
+        lam = math.exp(atk.get(r["home_team"], 0) + dfd.get(r["away_team"], 0) + ha)
+        mu = math.exp(atk.get(r["away_team"], 0) + dfd.get(r["home_team"], 0))
+        p_draw = sum(
+            dc_tau(k, k, lam, mu, rho) * poisson.pmf(k, lam) * poisson.pmf(k, mu)
+            for k in range(max_g + 1)
+        )
+        result.append(float(p_draw))
+    return np.array(result)
+
+
 def dc_predict(ht, at, atk, dfd, ha, rho, max_g=8):
     """Predict (P_home, P_draw, P_away) for a single fixture."""
     lam = math.exp(atk.get(ht, 0) + dfd.get(at, 0) + ha)

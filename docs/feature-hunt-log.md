@@ -1,5 +1,35 @@
 # MLS Feature Hunt Log
 
+## 2026-07-04 — Time-varying home-field advantage (A4) — DROP
+
+**Experiment:** Replace DC's single pooled home-advantage with a season-level estimate shrunk
+toward the pooled value — `ha_s = (n_s·ha_hat_s + k·ha_pool)/(n_s+k)`, atk/dfd/rho held fixed
+from the pooled fit, `k` chosen per fold from `{50, 100, 200}` on cal-fold DC Brier
+(`fit_dc_dynamic_ha` in `scripts/eval/dixon_coles.py`, `--hfa-dynamic` flag). Motivated by the
+documented 2024/25 home-win collapse and the draw class's 0.108 max decile cal-err (A1) — the
+thesis was that a static HFA can't track the regime shift and mis-priced home mass leaks into
+draws.
+
+**MLS harness A/B** (`--xgb-bag 5 --seed 42 --test-seasons 2022 2023 2024 2025`, ens_stacked avg):
+
+| Config | avg (4-fold) | 2024 fold |
+|---|---|---|
+| champion (static HFA, pinned `challenger-bag5.report.json`) | 0.632977 | 0.634913 |
+| `--hfa-dynamic` | 0.635075 | 0.6397 |
+| Δ | **−0.0021** | **−0.0048** |
+
+**Verdict: DROP.** Both the standard aggregate gate and the 2024-fold-specific check this task
+was designed around move the wrong way, well past the ±0.001 noise floor — the lever hurts
+worst on the exact fold it was meant to help. Per-fold `k` bounced between the grid extremes
+(50/200/200/50) rather than settling near a stable value, another sign this is fitting cal-fold
+noise rather than a real seasonal signal. Because the result is a clean double-failure (not a
+narrow miss where a calibration win might be hiding behind a small aggregate loss), the A1
+`draw_reliability` slice re-check was skipped — it cannot rescue a verdict that already fails on
+both of the task's own judging criteria. No second-seed confirmation needed (DROP verdicts are
+unambiguous per `docs/experiment-protocol.md`; second-seed confirmation is reserved for
+gate-bound KEEP claims). Code kept as an opt-in, off-by-default flag (matches A8/A2 precedent for
+documented negative results) — champion config unchanged.
+
 ## 2026-07-03 — Variable ELO season regression (A8): club-prior target β — MLS DROP / EUROPE KEEP
 
 **Experiment:** Season-boundary regression toward `(1-β)·1500 + β·mean(end-of-season ELO,

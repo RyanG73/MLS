@@ -442,6 +442,21 @@ Steps follow the same pattern as Task A1 (failing test → implement → suite g
 
 ---
 
+> **VERDICT A4 (2026-07-04): DROP.** `fit_dc_dynamic_ha` (season-level HFA shrunk toward the
+> pooled estimate, atk/dfd/rho fixed, `k` tuned per fold over {50, 100, 200} on cal-fold DC
+> Brier) — `scripts/eval/dixon_coles.py` + `--hfa-dynamic` flag. MLS harness A/B
+> (`--xgb-bag 5 --seed 42 --test-seasons 2022 2023 2024 2025`, ens_stacked avg): champion
+> 0.632977 vs hfa-dynamic 0.635075 (**Δ −0.0021**, aggregate); 2024 fold (the primary evidence
+> for this lever) champion 0.634913 vs hfa-dynamic 0.6397 (**Δ −0.0048**, worse than the
+> aggregate) — both of the task's own judging criteria fail decisively, past the noise floor, in
+> the wrong direction. Per-fold `k` bounced between grid extremes (50/200/200/50) rather than
+> converging, consistent with fitting cal-fold noise rather than a real seasonal HFA drift. The
+> A1 `draw_reliability` re-check was skipped: it exists to catch a hidden calibration win behind
+> a small aggregate loss, which cannot apply to a result that already loses on both criteria. No
+> second-seed confirmation (reserved for gate-bound KEEP claims, not DROPs). Champion config
+> unchanged; code kept as an opt-in, off-by-default flag (A8/A2 precedent for documented
+> negative results). Full numbers in `docs/feature-hunt-log.md`.
+
 ### Task A4: Experiment — time-varying home-field advantage
 
 Static DC `home_adv` can't track the documented 2024/25 home-win collapse, and mass mis-priced out of "home win" lands on "draw" (draw cal-err 0.108). Both reviews converged here.
@@ -449,10 +464,10 @@ Static DC `home_adv` can't track the documented 2024/25 home-win collapse, and m
 **Files:**
 - Modify: `scripts/eval_baseline.py` (new flag `--hfa-dynamic`, DC-fit section only)
 
-- [ ] **Step 1:** Implement `--hfa-dynamic`: replace the single fitted `ha` with a season-level HFA shrunk toward the pooled estimate — `ha_s = (n_s * ha_hat_s + k * ha_pool) / (n_s + k)`, k tuned on the cal fold over {50, 100, 200}. Forward prediction uses the latest season's `ha_s`.
-- [ ] **Step 2:** A/B: `venv/bin/python scripts/eval_baseline.py --xgb-bag 5 --seed 42 --hfa-dynamic` vs champion baseline (no flag), 4 folds.
-- [ ] **Step 3:** Judge on (a) the standard KEEP/DROP Brier gate AND (b) A1's `draw_reliability` + 2024-fold Brier specifically — this lever exists for the regime shift, so the 2024 fold is the primary evidence.
-- [ ] **Step 4:** Confirm at second base seed if gate-bound; append verdict to `docs/feature-hunt-log.md` and this plan; blockquote in `docs/PLAN.md`.
+- [x] **Step 1:** Implement `--hfa-dynamic`: replace the single fitted `ha` with a season-level HFA shrunk toward the pooled estimate — `ha_s = (n_s * ha_hat_s + k * ha_pool) / (n_s + k)`, k tuned on the cal fold over {50, 100, 200}. Forward prediction uses the latest season's `ha_s`.
+- [x] **Step 2:** A/B: `venv/bin/python scripts/eval_baseline.py --xgb-bag 5 --seed 42 --hfa-dynamic` vs champion baseline (no flag), 4 folds.
+- [x] **Step 3:** Judge on (a) the standard KEEP/DROP Brier gate AND (b) A1's `draw_reliability` + 2024-fold Brier specifically — this lever exists for the regime shift, so the 2024 fold is the primary evidence.
+- [x] **Step 4:** Confirm at second base seed if gate-bound; append verdict to `docs/feature-hunt-log.md` and this plan; blockquote in `docs/PLAN.md`.
 
 ### Task A5: Experiment — xG-blended ELO update
 

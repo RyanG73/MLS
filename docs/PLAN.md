@@ -1,5 +1,12 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-04 — Time-varying home-field advantage (A4) ▶ DROP**
+> Season-level DC home-advantage shrunk toward the pooled estimate (`--hfa-dynamic`,
+> `fit_dc_dynamic_ha`) tested against the champion on both the standard aggregate gate and the
+> 2024 fold specifically (the regime-shift fold this lever targets). Both move the wrong way,
+> past noise: aggregate Δ −0.0021, 2024-fold Δ −0.0048. Champion config unchanged; full numbers
+> in `docs/feature-hunt-log.md`.
+
 > **2026-07-03 — "Why this pick" attribution (B3) ▶ DONE**
 > Match rows expand (click) to a 4-row delta strip (ELO/xG form/GK z/availability, home minus
 > away, color-coded by sign), pure render over the already-shipped `D.team_inputs` — no model

@@ -192,6 +192,12 @@ def _parse_args() -> "_ap.Namespace":
                         "new_def_value_z, new_gk_value_z). Requires --transfermarkt "
                         "data. α shrinkage tuned per fold on cal-fold raw DC Brier "
                         "from grid {0.0, 0.02, 0.05, 0.08, 0.12, 0.18}.")
+    p.add_argument("--hfa-dynamic", action="store_true",
+                   help="A4 experiment: replace the single pooled home-advantage with "
+                        "a season-level estimate shrunk toward the pooled value "
+                        "(ha_s = (n_s*ha_hat_s + k*ha_pool)/(n_s+k)); k tuned per fold "
+                        "on cal-fold DC Brier from grid {50, 100, 200}. Mutually "
+                        "exclusive with --roster-dc-prior (not combined this pass).")
     return p.parse_args()
 
 
@@ -2462,6 +2468,8 @@ if _ARGS.ab_only:
 from scripts.eval.dixon_coles import (        # noqa: E402
     dc_tau, dc_nll, fit_dc, dc_predict, dc_predict_batch, dc_lam_mu_batch,
     dc_draw_prob_batch, apply_roster_dc_prior,
+    fit_dc_dynamic_ha, dc_predict_batch_dynamic_ha, dc_lam_mu_batch_dynamic_ha,
+    dc_draw_prob_batch_dynamic_ha,
 )
 
 
@@ -2552,26 +2560,37 @@ for test_season in TEST_SEASONS:
     # ── Dixon-Coles ──────────────────────────────────────────────────────────
     dc_ok = False
     _dc_prior_alpha = 0.0
+    _ha_by_season, _ha_pool, _hfa_k_used = {}, None, None
     try:
-        atk, dfd, ha, rho = fit_dc(train_raw, decay_hl=DC_DECAY_HL)
-        if _ARGS.roster_dc_prior and _HAS_ROSTER_DELTA:
-            _best_pr_b, _dc_prior_alpha = float("inf"), 0.0
-            for _a in (0.0, 0.02, 0.05, 0.08, 0.12, 0.18):
-                _a_atk, _a_dfd = apply_roster_dc_prior(
-                    atk, dfd, test_season, _rd_z, _hex_to_short, _a)
-                _pr_b = multiclass_brier(
-                    y_cal_oh, dc_predict_batch(cal_raw, _a_atk, _a_dfd, ha, rho))
-                if _pr_b < _best_pr_b:
-                    _best_pr_b, _dc_prior_alpha = _pr_b, _a
-            atk, dfd = apply_roster_dc_prior(
-                atk, dfd, test_season, _rd_z, _hex_to_short, _dc_prior_alpha)
-            print(f" | α={_dc_prior_alpha:.2f}", end="", flush=True)
-        dc_pred_cal = dc_predict_batch(cal_raw, atk, dfd, ha, rho)
-        dc_pred_te  = dc_predict_batch(test_raw, atk, dfd, ha, rho)
+        if _ARGS.hfa_dynamic:
+            # A4: season-level HFA shrunk toward the pooled estimate — not
+            # combined with --roster-dc-prior this pass (orthogonal levers,
+            # scope-limited to one isolated change per experiment-protocol.md).
+            atk, dfd, _ha_by_season, _ha_pool, rho, _hfa_k_used = fit_dc_dynamic_ha(
+                train_raw, decay_hl=DC_DECAY_HL, cal_matches=cal_raw)
+            ha = _ha_by_season.get(max(_ha_by_season), _ha_pool) if _ha_by_season else _ha_pool
+            dc_pred_cal = dc_predict_batch_dynamic_ha(cal_raw, atk, dfd, _ha_by_season, _ha_pool, rho)
+            dc_pred_te  = dc_predict_batch_dynamic_ha(test_raw, atk, dfd, _ha_by_season, _ha_pool, rho)
+        else:
+            atk, dfd, ha, rho = fit_dc(train_raw, decay_hl=DC_DECAY_HL)
+            if _ARGS.roster_dc_prior and _HAS_ROSTER_DELTA:
+                _best_pr_b, _dc_prior_alpha = float("inf"), 0.0
+                for _a in (0.0, 0.02, 0.05, 0.08, 0.12, 0.18):
+                    _a_atk, _a_dfd = apply_roster_dc_prior(
+                        atk, dfd, test_season, _rd_z, _hex_to_short, _a)
+                    _pr_b = multiclass_brier(
+                        y_cal_oh, dc_predict_batch(cal_raw, _a_atk, _a_dfd, ha, rho))
+                    if _pr_b < _best_pr_b:
+                        _best_pr_b, _dc_prior_alpha = _pr_b, _a
+                atk, dfd = apply_roster_dc_prior(
+                    atk, dfd, test_season, _rd_z, _hex_to_short, _dc_prior_alpha)
+                print(f" | α={_dc_prior_alpha:.2f}", end="", flush=True)
+            dc_pred_cal = dc_predict_batch(cal_raw, atk, dfd, ha, rho)
+            dc_pred_te  = dc_predict_batch(test_raw, atk, dfd, ha, rho)
         dc_cal_te3  = calibrate_multiclass(dc_pred_cal, y_cal_r, dc_pred_te)
         dc_cal_cal3 = calibrate_multiclass(dc_pred_cal, y_cal_r, dc_pred_cal)
         dc_ok = True
-        print(" | DC✓", end="", flush=True)
+        print(f" | DC✓{f' k={_hfa_k_used}' if _hfa_k_used is not None else ''}", end="", flush=True)
     except Exception as e:
         dc_pred_cal = dc_pred_te = dc_cal_te3 = dc_cal_cal3 = None
         print(f" | DC✗({e})", end="", flush=True)
@@ -2579,12 +2598,20 @@ for test_season in TEST_SEASONS:
     # Add DC λ/μ and draw probability features to train/cal/test splits
     if dc_ok:
         train = train_raw.copy(); cal = cal_raw.copy(); test = test_raw.copy()
-        train["dc_lam"], train["dc_mu"] = dc_lam_mu_batch(train, atk, dfd, ha)
-        cal["dc_lam"],   cal["dc_mu"]   = dc_lam_mu_batch(cal,   atk, dfd, ha)
-        test["dc_lam"],  test["dc_mu"]  = dc_lam_mu_batch(test,  atk, dfd, ha)
-        train["dc_p_draw"] = dc_draw_prob_batch(train, atk, dfd, ha, rho)
-        cal["dc_p_draw"]   = dc_draw_prob_batch(cal,   atk, dfd, ha, rho)
-        test["dc_p_draw"]  = dc_draw_prob_batch(test,  atk, dfd, ha, rho)
+        if _ARGS.hfa_dynamic:
+            train["dc_lam"], train["dc_mu"] = dc_lam_mu_batch_dynamic_ha(train, atk, dfd, _ha_by_season, _ha_pool)
+            cal["dc_lam"],   cal["dc_mu"]   = dc_lam_mu_batch_dynamic_ha(cal,   atk, dfd, _ha_by_season, _ha_pool)
+            test["dc_lam"],  test["dc_mu"]  = dc_lam_mu_batch_dynamic_ha(test,  atk, dfd, _ha_by_season, _ha_pool)
+            train["dc_p_draw"] = dc_draw_prob_batch_dynamic_ha(train, atk, dfd, _ha_by_season, _ha_pool, rho)
+            cal["dc_p_draw"]   = dc_draw_prob_batch_dynamic_ha(cal,   atk, dfd, _ha_by_season, _ha_pool, rho)
+            test["dc_p_draw"]  = dc_draw_prob_batch_dynamic_ha(test,  atk, dfd, _ha_by_season, _ha_pool, rho)
+        else:
+            train["dc_lam"], train["dc_mu"] = dc_lam_mu_batch(train, atk, dfd, ha)
+            cal["dc_lam"],   cal["dc_mu"]   = dc_lam_mu_batch(cal,   atk, dfd, ha)
+            test["dc_lam"],  test["dc_mu"]  = dc_lam_mu_batch(test,  atk, dfd, ha)
+            train["dc_p_draw"] = dc_draw_prob_batch(train, atk, dfd, ha, rho)
+            cal["dc_p_draw"]   = dc_draw_prob_batch(cal,   atk, dfd, ha, rho)
+            test["dc_p_draw"]  = dc_draw_prob_batch(test,  atk, dfd, ha, rho)
     else:
         train, cal, test = train_raw, cal_raw, test_raw
 
