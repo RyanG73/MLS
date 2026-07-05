@@ -27,6 +27,7 @@ def compute_elo(
     return_ratings: bool = False,
     club_prior_beta: float = 0.0,
     regress_gap_k: float = 0.0,
+    xg_blend: float = 0.0,
 ) -> pd.DataFrame:
     """Walk-forward ELO ratings with margin-of-victory multiplier and season regression.
 
@@ -52,6 +53,12 @@ def compute_elo(
                         rating deviates from its club prior regresses HARDER:
                         ``rate = clip(regress + k·|prior − elo|/200, 0.2, 0.6)``.
                         Teams without a prior (< 2 seasons) keep the base rate.
+        xg_blend:       A5 experiment knob (λ, 0..1). The ELO update uses an
+                        effective score ``s_eff = (1-λ)·s_result + λ·s_xg`` instead
+                        of the raw match result, where ``s_xg`` is the outcome
+                        implied by match xG totals (win/draw/loss on ``home_xg -
+                        away_xg`` with a ±0.25 dead-zone for draws). Matches
+                        missing ``home_xg``/``away_xg`` fall back to λ=0.
 
     Returns:
         Copy of ``df`` with columns added:
@@ -63,6 +70,7 @@ def compute_elo(
     h_elo, a_elo, h_exp = [], [], []
     seen: set[object] = set()
     end_hist: dict[str, list[float]] = {}  # per-team end-of-season ELOs
+    has_xg = xg_blend > 0.0 and "home_xg" in df.columns and "away_xg" in df.columns
 
     for _, row in df.iterrows():
         s = row["season"]
@@ -93,12 +101,19 @@ def compute_elo(
         e_h = 1.0 / (1.0 + 10.0 ** ((ra - (rh + home_adv)) / 400.0))
         hg, ag = row["home_goals"], row["away_goals"]
         s_h = 1.0 if hg > ag else (0.5 if hg == ag else 0.0)
+        s_eff = s_h
+        if has_xg:
+            hxg, axg = row["home_xg"], row["away_xg"]
+            if pd.notna(hxg) and pd.notna(axg):
+                xg_diff = hxg - axg
+                s_xg = 1.0 if xg_diff > 0.25 else (0.0 if xg_diff < -0.25 else 0.5)
+                s_eff = (1 - xg_blend) * s_h + xg_blend * s_xg
         mov = 1.0 + math.log(abs(hg - ag) + 1) * 0.1
         h_elo.append(rh)
         a_elo.append(ra)
         h_exp.append(e_h)
-        elo[ht] = rh + K * mov * (s_h - e_h)
-        elo[at] = ra + K * mov * ((1.0 - s_h) - (1.0 - e_h))
+        elo[ht] = rh + K * mov * (s_eff - e_h)
+        elo[at] = ra + K * mov * ((1.0 - s_eff) - (1.0 - e_h))
 
     out = df.copy()
     out["home_elo"] = h_elo

@@ -90,6 +90,10 @@ def _parse_args() -> "_ap.Namespace":
     p.add_argument("--elo-regress-gap-k", type=float, default=0.0,
                    help="A8: per-team regression-rate modulation by |club prior − "
                         "current ELO| (0=constant rate, champion)")
+    p.add_argument("--elo-xg-blend", type=float, default=0.0,
+                   help="A5: λ blending the ELO update's effective score toward "
+                        "the xG-implied result, s_eff=(1-λ)*s_result+λ*s_xg "
+                        "(0=raw result, champion)")
     p.add_argument("--dc-decay-hl",  type=int,   default=None,
                    help="Dixon-Coles time-decay half-life (days)")
     p.add_argument("--weight-hl",    type=float, default=None,
@@ -456,7 +460,8 @@ _ELO_HA_GRID = _ARGS.elo_home_adv if _ARGS.elo_home_adv else [80, 100, 120]
 for _K, _HA in itertools.product(_ELO_K_GRID, _ELO_HA_GRID):
     _tmp = compute_elo(df, _K, _HA, REGRESS, INITIAL_ELO, return_expected=True,
                        club_prior_beta=_ARGS.elo_club_prior_beta,
-                       regress_gap_k=_ARGS.elo_regress_gap_k)
+                       regress_gap_k=_ARGS.elo_regress_gap_k,
+                       xg_blend=_ARGS.elo_xg_blend)
     _v = _tmp[_tmp["season"].isin(_VAL_S)]
     if len(_v) < 30:
         continue
@@ -473,7 +478,8 @@ K, HOME_ADV = _best_K, _best_HA
 print(f"    Best: K={K}, HOME_ADV={HOME_ADV}  (val Brier={_best_elo_b:.4f})")
 df = compute_elo(df, K, HOME_ADV, REGRESS, INITIAL_ELO,
                  club_prior_beta=_ARGS.elo_club_prior_beta,
-                 regress_gap_k=_ARGS.elo_regress_gap_k)
+                 regress_gap_k=_ARGS.elo_regress_gap_k,
+                 xg_blend=_ARGS.elo_xg_blend)
 
 # ─── 4. Rolling features ──────────────────────────────────────────────────────
 
