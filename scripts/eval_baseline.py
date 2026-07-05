@@ -198,6 +198,15 @@ def _parse_args() -> "_ap.Namespace":
                         "(ha_s = (n_s*ha_hat_s + k*ha_pool)/(n_s+k)); k tuned per fold "
                         "on cal-fold DC Brier from grid {50, 100, 200}. Mutually "
                         "exclusive with --roster-dc-prior (not combined this pass).")
+    p.add_argument("--dc-rho-per-season", action="store_true",
+                   help="A11(b) experiment: replace the single pooled Dixon-Coles "
+                        "low-score correction rho with a season-level estimate "
+                        "shrunk toward the pooled value (rho_s = (n_s*rho_hat_s + "
+                        "k*rho_pool)/(n_s+k)), mirroring A4's --hfa-dynamic shrinkage "
+                        "pattern; k tuned per fold on cal-fold DC Brier from grid "
+                        "{50, 100, 200}. rho governs the low-score (draw-heavy) "
+                        "diagonal correction. Mutually exclusive with --hfa-dynamic "
+                        "and --roster-dc-prior (not combined this pass).")
     return p.parse_args()
 
 
@@ -2470,6 +2479,8 @@ from scripts.eval.dixon_coles import (        # noqa: E402
     dc_draw_prob_batch, apply_roster_dc_prior,
     fit_dc_dynamic_ha, dc_predict_batch_dynamic_ha, dc_lam_mu_batch_dynamic_ha,
     dc_draw_prob_batch_dynamic_ha,
+    fit_dc_dynamic_rho, dc_predict_batch_dynamic_rho, dc_lam_mu_batch_dynamic_rho,
+    dc_draw_prob_batch_dynamic_rho,
 )
 
 
@@ -2538,6 +2549,11 @@ results: list[dict] = []
 ab_records: list[dict] = []
 all_imp: list[dict] = []
 
+# A11: pooled (p_draw, is_draw) pairs across folds, for the draw_reliability
+# curve comparison between the champion ensemble and --draw-hurdle. Only
+# populated when --draw-hurdle is set — no effect on the default path.
+_draw_rel_pool = {"champion": [], "hurdle": []}
+
 for test_season in TEST_SEASONS:
     cal_season = test_season - 1
     train_raw = df[(df["season"] < cal_season)
@@ -2561,6 +2577,7 @@ for test_season in TEST_SEASONS:
     dc_ok = False
     _dc_prior_alpha = 0.0
     _ha_by_season, _ha_pool, _hfa_k_used = {}, None, None
+    _rho_by_season, _rho_pool, _rho_k_used = {}, None, None
     try:
         if _ARGS.hfa_dynamic:
             # A4: season-level HFA shrunk toward the pooled estimate — not
@@ -2571,6 +2588,15 @@ for test_season in TEST_SEASONS:
             ha = _ha_by_season.get(max(_ha_by_season), _ha_pool) if _ha_by_season else _ha_pool
             dc_pred_cal = dc_predict_batch_dynamic_ha(cal_raw, atk, dfd, _ha_by_season, _ha_pool, rho)
             dc_pred_te  = dc_predict_batch_dynamic_ha(test_raw, atk, dfd, _ha_by_season, _ha_pool, rho)
+        elif _ARGS.dc_rho_per_season:
+            # A11(b): season-level rho shrunk toward the pooled estimate,
+            # mirroring A4's ha shrinkage pattern — not combined with
+            # --hfa-dynamic or --roster-dc-prior this pass (isolated lever).
+            atk, dfd, ha, _rho_by_season, _rho_pool, _rho_k_used = fit_dc_dynamic_rho(
+                train_raw, decay_hl=DC_DECAY_HL, cal_matches=cal_raw)
+            rho = _rho_by_season.get(max(_rho_by_season), _rho_pool) if _rho_by_season else _rho_pool
+            dc_pred_cal = dc_predict_batch_dynamic_rho(cal_raw, atk, dfd, ha, _rho_by_season, _rho_pool)
+            dc_pred_te  = dc_predict_batch_dynamic_rho(test_raw, atk, dfd, ha, _rho_by_season, _rho_pool)
         else:
             atk, dfd, ha, rho = fit_dc(train_raw, decay_hl=DC_DECAY_HL)
             if _ARGS.roster_dc_prior and _HAS_ROSTER_DELTA:
@@ -2590,7 +2616,9 @@ for test_season in TEST_SEASONS:
         dc_cal_te3  = calibrate_multiclass(dc_pred_cal, y_cal_r, dc_pred_te)
         dc_cal_cal3 = calibrate_multiclass(dc_pred_cal, y_cal_r, dc_pred_cal)
         dc_ok = True
-        print(f" | DC✓{f' k={_hfa_k_used}' if _hfa_k_used is not None else ''}", end="", flush=True)
+        _dc_k_note = (f' k={_hfa_k_used}' if _hfa_k_used is not None
+                     else (f' rk={_rho_k_used}' if _rho_k_used is not None else ''))
+        print(f" | DC✓{_dc_k_note}", end="", flush=True)
     except Exception as e:
         dc_pred_cal = dc_pred_te = dc_cal_te3 = dc_cal_cal3 = None
         print(f" | DC✗({e})", end="", flush=True)
@@ -2605,6 +2633,13 @@ for test_season in TEST_SEASONS:
             train["dc_p_draw"] = dc_draw_prob_batch_dynamic_ha(train, atk, dfd, _ha_by_season, _ha_pool, rho)
             cal["dc_p_draw"]   = dc_draw_prob_batch_dynamic_ha(cal,   atk, dfd, _ha_by_season, _ha_pool, rho)
             test["dc_p_draw"]  = dc_draw_prob_batch_dynamic_ha(test,  atk, dfd, _ha_by_season, _ha_pool, rho)
+        elif _ARGS.dc_rho_per_season:
+            train["dc_lam"], train["dc_mu"] = dc_lam_mu_batch_dynamic_rho(train, atk, dfd, ha)
+            cal["dc_lam"],   cal["dc_mu"]   = dc_lam_mu_batch_dynamic_rho(cal,   atk, dfd, ha)
+            test["dc_lam"],  test["dc_mu"]  = dc_lam_mu_batch_dynamic_rho(test,  atk, dfd, ha)
+            train["dc_p_draw"] = dc_draw_prob_batch_dynamic_rho(train, atk, dfd, ha, _rho_by_season, _rho_pool)
+            cal["dc_p_draw"]   = dc_draw_prob_batch_dynamic_rho(cal,   atk, dfd, ha, _rho_by_season, _rho_pool)
+            test["dc_p_draw"]  = dc_draw_prob_batch_dynamic_rho(test,  atk, dfd, ha, _rho_by_season, _rho_pool)
         else:
             train["dc_lam"], train["dc_mu"] = dc_lam_mu_batch(train, atk, dfd, ha)
             cal["dc_lam"],   cal["dc_mu"]   = dc_lam_mu_batch(cal,   atk, dfd, ha)
@@ -3075,6 +3110,16 @@ for test_season in TEST_SEASONS:
         r["hur_draw_brier"] = _hd
         r["hur_cal_err_max"], _ = decile_cal_error(ens_hur[:, 0], (y_te_r == 0))
 
+        # A11: pool draw-column predictions (champion ens_stacked vs hurdle
+        # ens_hur) across folds to build a draw_reliability curve, mirroring
+        # model_report.py's _slice_table binning (0.05-wide bins, min n=25).
+        _is_draw = (y_te_r == 1).astype(int)
+        if ens_stacked is not None:
+            _draw_rel_pool["champion"].append(
+                np.column_stack([ens_stacked[:, 1], _is_draw]))
+        _draw_rel_pool["hurdle"].append(
+            np.column_stack([ens_hur[:, 1], _is_draw]))
+
     # ── Roster-change slice evaluation ──────────────────────────────────────────
     # Evaluates the best available model on targeted subsets to test whether
     # roster-delta features capture signal in roster-disruption matches.
@@ -3123,6 +3168,42 @@ for test_season in TEST_SEASONS:
     )
     best = f"{r[best_key]:.4f}" if best_key else "?"
     print(f" | Best={best} vs Naive={r['naive_brier']:.4f}")
+
+
+# ─── A11: draw_reliability curve comparison (champion vs --draw-hurdle) ───────
+# Mirrors scripts/model_report.py's _slice_table binning (0.05-wide bins over
+# [0, 0.5), min n=25) so the curve is directly comparable to A1's recorded
+# champion baseline. Pooled across all test folds.
+if _ARGS.draw_hurdle and _draw_rel_pool["hurdle"]:
+    def _draw_curve(pairs_list):
+        arr = np.concatenate(pairs_list, axis=0)
+        p, is_draw = arr[:, 0], arr[:, 1]
+        curve = []
+        for lo in np.arange(0.0, 0.5, 0.05):
+            m = (p >= lo) & (p < lo + 0.05)
+            if m.sum() < 25:
+                continue
+            curve.append({
+                "bin": f"{lo:.2f}", "n": int(m.sum()),
+                "p_mean": round(float(p[m].mean()), 4),
+                "freq": round(float(is_draw[m].mean()), 4),
+            })
+        return curve
+
+    print("\n" + "=" * 70)
+    print("A11 — draw_reliability: champion (ens_stacked) vs --draw-hurdle")
+    print("=" * 70)
+    if _draw_rel_pool["champion"]:
+        print("champion:")
+        for row in _draw_curve(_draw_rel_pool["champion"]):
+            print(f"  bin={row['bin']}-{float(row['bin'])+0.05:.2f}  n={row['n']:4d}  "
+                  f"p_mean={row['p_mean']:.4f}  freq={row['freq']:.4f}  "
+                  f"gap={row['p_mean']-row['freq']:+.4f}")
+    print("hurdle:")
+    for row in _draw_curve(_draw_rel_pool["hurdle"]):
+        print(f"  bin={row['bin']}-{float(row['bin'])+0.05:.2f}  n={row['n']:4d}  "
+              f"p_mean={row['p_mean']:.4f}  freq={row['freq']:.4f}  "
+              f"gap={row['p_mean']-row['freq']:+.4f}")
 
 
 # ─── 8. Report ────────────────────────────────────────────────────────────────

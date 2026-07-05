@@ -306,3 +306,117 @@ def apply_roster_dc_prior(
         atk_adj[team_id] += float(np.clip(alpha * att_z,           -max_adj, max_adj))
         dfd_adj[team_id] -= float(np.clip(alpha * (def_z + gk_z),  -max_adj, max_adj))
     return atk_adj, dfd_adj
+
+
+def fit_dc_dynamic_rho(matches: pd.DataFrame, decay_hl: int = DEFAULT_DC_DECAY_HL,
+                       recent_seasons: int = 4, k_grid=(50, 100, 200),
+                       cal_matches: pd.DataFrame = None):
+    """A11(b): season-level Dixon-Coles low-score correction `rho`, shrunk
+    toward the pooled estimate — mirrors A4's `fit_dc_dynamic_ha` shrinkage
+    pattern (`rho_s = (n_s*rho_hat_s + k*rho_pool) / (n_s+k)`), but for rho
+    instead of home-advantage. rho directly governs the diagonal (draw) mass
+    of the score matrix, so a per-season fit lets draw-proneness (e.g. a
+    congested-fixture, low-scoring season) move independently of the pooled
+    estimate while small seasons still lean on the pool.
+
+    Attack/defence/ha are fit once on the pooled recent-seasons window (as
+    fit_dc does); rho alone is then re-estimated per season with atk/dfd/ha
+    held fixed (rho makes the NLL a 1-D concave function on its bounded
+    interval, cheap to optimize).
+
+    Returns (atk, dfd, ha, rho_by_season, rho_pool, k_used). Forward/unseen-
+    season prediction should use rho_by_season[max(rho_by_season)] (the
+    latest fitted season) — mirrors fit_dc_dynamic_ha's own forward convention.
+    """
+    max_s = matches["season"].max()
+    recent = matches[matches["season"] >= max_s - recent_seasons + 1].copy()
+    atk, dfd, ha, rho_pool = fit_dc(matches, decay_hl, recent_seasons)
+    teams = sorted(set(recent["home_team"]) | set(recent["away_team"]))
+    tidx = {t: i for i, t in enumerate(teams)}
+    ref = recent["date"].max()
+    atk_arr = np.array([atk.get(t, 0.0) for t in teams])
+    dfd_arr = np.array([dfd.get(t, 0.0) for t in teams])
+
+    def _season_arr(season_df):
+        return np.array([
+            [(ref - r["date"]).days, tidx.get(r["home_team"], 0),
+             tidx.get(r["away_team"], 0), r["home_goals"], r["away_goals"]]
+            for _, r in season_df.iterrows()
+        ], dtype=float)
+
+    def _rho_nll(rho_val, arr):
+        params = np.concatenate([atk_arr, dfd_arr, [ha, rho_val]])
+        return dc_nll(params, teams, arr, decay_hl)
+
+    rho_hat, n_s = {}, {}
+    for s, sdf in recent.groupby("season"):
+        if len(sdf) < 10:
+            continue
+        arr = _season_arr(sdf)
+        r = minimize(lambda x, _arr=arr: _rho_nll(x[0], _arr), [rho_pool],
+                    method="L-BFGS-B", bounds=[(-0.5, 0.0)])
+        rho_hat[s] = float(r.x[0])
+        n_s[s] = len(sdf)
+
+    def _shrink(k):
+        return {s: (n_s[s] * rho_hat[s] + k * rho_pool) / (n_s[s] + k) for s in rho_hat}
+
+    if cal_matches is not None and len(cal_matches) > 0 and rho_hat:
+        best_k, best_brier = k_grid[len(k_grid) // 2], float("inf")
+        for k in k_grid:
+            rho_by_season = _shrink(k)
+            latest = max(rho_by_season)
+            preds, y = [], []
+            for _, r in cal_matches.iterrows():
+                rho_s = rho_by_season.get(r["season"], rho_by_season[latest])
+                preds.append(dc_predict(r["home_team"], r["away_team"], atk, dfd, ha, rho_s))
+                y.append(0 if r["home_goals"] > r["away_goals"]
+                        else (1 if r["home_goals"] == r["away_goals"] else 2))
+            P = np.array(preds)
+            yoh = np.eye(3)[y]
+            brier = float(np.mean(np.sum((P - yoh) ** 2, axis=1)))
+            if brier < best_brier:
+                best_brier, best_k = brier, k
+    else:
+        best_k = k_grid[len(k_grid) // 2]
+
+    rho_by_season = _shrink(best_k) if rho_hat else {}
+    return atk, dfd, ha, rho_by_season, rho_pool, best_k
+
+
+def _rho_for_row(rho_by_season, rho_pool, season):
+    """Resolve the shrunk rho for a match's season, falling back to the latest
+    fitted season (forward prediction) or the pooled estimate (no fit at all)."""
+    if not rho_by_season:
+        return rho_pool
+    return rho_by_season.get(season, rho_by_season[max(rho_by_season)])
+
+
+def dc_predict_batch_dynamic_rho(split_df, atk, dfd, ha, rho_by_season, rho_pool):
+    """Like dc_predict_batch, but rho varies by each row's season (A11b)."""
+    return np.array([
+        dc_predict(r.home_team, r.away_team, atk, dfd, ha,
+                  _rho_for_row(rho_by_season, rho_pool, r.season))
+        for _, r in split_df.iterrows()
+    ])
+
+
+def dc_lam_mu_batch_dynamic_rho(split_df, atk, dfd, ha):
+    """lam/mu don't depend on rho, so this is identical to dc_lam_mu_batch —
+    provided for call-site symmetry with the dynamic-ha helpers (A11b)."""
+    return dc_lam_mu_batch(split_df, atk, dfd, ha)
+
+
+def dc_draw_prob_batch_dynamic_rho(split_df, atk, dfd, ha, rho_by_season, rho_pool, max_g: int = 8):
+    """Like dc_draw_prob_batch, but rho varies by each row's season (A11b)."""
+    result = []
+    for _, r in split_df.iterrows():
+        rho = _rho_for_row(rho_by_season, rho_pool, r["season"])
+        lam = math.exp(atk.get(r["home_team"], 0) + dfd.get(r["away_team"], 0) + ha)
+        mu = math.exp(atk.get(r["away_team"], 0) + dfd.get(r["home_team"], 0))
+        p_draw = sum(
+            dc_tau(k, k, lam, mu, rho) * poisson.pmf(k, lam) * poisson.pmf(k, mu)
+            for k in range(max_g + 1)
+        )
+        result.append(float(p_draw))
+    return np.array(result)

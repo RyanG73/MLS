@@ -1,5 +1,13 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-05 — Draw-aware structure (A11) ▶ DROP (both candidates)**
+> Two-stage draw hurdle (`--draw-two-stage`) and per-season DC rho re-fit (`--dc-rho-per-season`)
+> both underperform champion on the standard aggregate gate — `ens_stacked` avg 0.6347 (hurdle)
+> and 0.6352 (rho) vs champion 0.632977 (Δ −0.0017 / −0.0022), both past the ±0.001 noise floor.
+> Clean double-failure on the primary aggregate criterion; the A1 draw-reliability slice and
+> draw-bet ROI checks were skipped (can't rescue a regression this far past noise). B5/B12
+> continue to suppress draw-side Kelly sizing. Full numbers in `docs/feature-hunt-log.md`.
+
 > **2026-07-04 — Time-varying home-field advantage (A4) ▶ DROP**
 > Season-level DC home-advantage shrunk toward the pooled estimate (`--hfa-dynamic`,
 > `fit_dc_dynamic_ha`) tested against the champion on both the standard aggregate gate and the

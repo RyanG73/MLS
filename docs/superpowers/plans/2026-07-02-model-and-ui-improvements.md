@@ -1,5 +1,17 @@
 # Model & Webapp Improvement Plan (2026-07-02)
 
+> **VERDICT A11 (2026-07-05): DROP (both candidates).** Two-stage draw hurdle
+> (`--draw-two-stage`) and per-season DC rho re-fit (`--dc-rho-per-season`) both underperform
+> champion on the standard aggregate gate — `ens_stacked` avg 0.6347 (hurdle) and 0.6352 (rho)
+> vs champion 0.632977 (Δ −0.0017 / −0.0022), both past the ±0.001 noise floor. Per-season:
+> hurdle regresses in 2023–2025 (2022 flat); rho regresses hardest in 2024 (+0.0022 fold-specific,
+> the exact fold the champion is most sensitive on). Clean double-failure on the task's primary
+> gate criterion (ii) — the A1 `draw_reliability` slice and `roi_by_edge_bucket` draw-bet checks
+> (criteria i/iii) are skipped per A4 precedent (a regression this far past noise can't be
+> rescued by a slice win). B5/B12 continue to suppress draw-side Kelly sizing — no KEEP has
+> landed on this track. No second-seed confirmation needed (DROP verdicts are unambiguous per
+> `docs/experiment-protocol.md`). Full numbers in `docs/feature-hunt-log.md`.
+
 > **VERDICT A1 (2026-07-03): COMPLETE.** `by_favorite_prob`, `by_season_phase`, `draw_reliability`
 > slices added to `_slice_table`; 3 new tests + suite green (403 passed; 1 pre-existing
 > browser-smoke mobile-overflow failure, unrelated). Champion report re-run at parity

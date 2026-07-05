@@ -1,5 +1,48 @@
 # MLS Feature Hunt Log
 
+## 2026-07-05 — Draw-aware structure (A11): hurdle head + per-season DC rho — DROP
+
+**Experiment:** Two candidates targeting the draw class (worst decile cal-err 0.108, per A1),
+tested separately per the task spec:
+- **(a) Two-stage hurdle:** `P(draw)` binary model × win-direction model conditional on
+  non-draw, recombined (`--draw-two-stage`).
+- **(b) DC rho re-fit:** Dixon-Coles low-score correlation `rho` fit per-season instead of
+  pooled (`--dc-rho-per-season`), then re-checked through the temperature pass.
+
+**MLS harness A/B** (`--xgb-bag 5 --seed 42 --test-seasons 2022 2023 2024 2025`, `ens_stacked` avg
+— the champion-comparable metric; the harness's "Ensemble avg" line is the unstacked blend and
+is not the gate metric):
+
+| Config | avg (4-fold) | Δ vs champion |
+|---|---|---|
+| champion (pinned `challenger-bag5.report.json`) | 0.632977 | — |
+| `--draw-two-stage` (hurdle) | 0.6347 | **−0.0017** |
+| `--dc-rho-per-season` | 0.6352 | **−0.0022** |
+
+Per-season `ens_stacked_brier`:
+
+| season | champion-era n | hurdle | rho |
+|---|---|---|---|
+| 2022 | 489 | 0.6288 | 0.6288 |
+| 2023 | 521 | 0.6359 | 0.6359 |
+| 2024 | 522 | 0.6382 | 0.6404 |
+| 2025 | 540 | 0.6359 | 0.6360 |
+
+**Verdict: DROP (both).** Both candidates regress the standard aggregate gate — criterion (ii)
+from the task spec, "must not regress beyond noise" — well past the ±0.001 threshold. Hurdle is
+flat in 2022 but degrades every season after; rho is worst on 2024 specifically (+0.0022 on that
+fold alone). Because this is a clean double-failure on the gate's own primary criterion (not a
+narrow miss where a calibration win might offset a small aggregate loss), the A1
+`draw_reliability` slice check (criterion i) and the `roi_by_edge_bucket` draw-bet backtest
+(criterion iii) were skipped — same precedent as A4: neither can rescue a result this far past
+noise. No second-seed confirmation needed (DROP verdicts are unambiguous per
+`docs/experiment-protocol.md`; second-seed confirmation is reserved for gate-bound KEEP claims).
+`--draw-two-stage` and `--dc-rho-per-season` remain in the harness as opt-in, off-by-default
+flags (matches A4/A8/A2 precedent for documented negative results) — champion config unchanged.
+Per the task text, B5/B12 continue to suppress draw-side Kelly sizing (probs shown, no unit
+sizing) until a KEEP lands on this track.
+**experiment_ids:** a11-hurdle-s42-20260705, a11-rho-s42-20260705
+
 ## 2026-07-04 — Time-varying home-field advantage (A4) — DROP
 
 **Experiment:** Replace DC's single pooled home-advantage with a season-level estimate shrunk
