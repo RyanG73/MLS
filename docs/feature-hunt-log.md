@@ -1,5 +1,30 @@
 # MLS Feature Hunt Log
 
+## 2026-07-05 — xG-blended ELO update (A5): `--elo-xg-blend` — DROP
+
+**Experiment:** ELO banks finishing luck via the raw match result (`s_h`); A5 tests replacing it
+with an effective score blended toward the xG-implied result — `s_eff = (1-λ)*s_result + λ*s_xg`,
+where `s_xg` is win/draw/loss on `home_xg - away_xg` with a ±0.25 dead-zone, λ=0.3. Matches
+missing xG fall back to the raw result (λ=0 for that row).
+
+**MLS harness A/B** (`--xgb-bag 5 --seed 42 --elo-xg-blend 0.3 --test-seasons 2022 2023 2024 2025`,
+`ens_stacked_brier`):
+
+| season | n | ens_stacked_brier |
+|---|---|---|
+| 2022 | 489 | 0.6302 |
+| 2023 | 521 | 0.6336 |
+| 2024 | 522 | 0.6396 |
+| 2025 | 540 | 0.6349 |
+| **mean** | | **0.6346** |
+
+**Verdict: DROP.** Mean 0.6346 vs champion 0.6330 (**+0.0016**) — a consistent regression across
+all four folds, roughly 8× the single-bagged-run noise floor (σ≈0.0002 per
+`docs/experiment-protocol.md`). Blending xG into the ELO update rule does not help the downstream
+ensemble even though `elo_diff` remains the top individual feature by gain. No second-seed
+confirmation needed (DROP verdicts are unambiguous). `--elo-xg-blend` remains in the harness as an
+opt-in, off-by-default flag — champion config unchanged.
+
 ## 2026-07-05 — Draw-aware structure (A11): hurdle head + per-season DC rho — DROP
 
 **Experiment:** Two candidates targeting the draw class (worst decile cal-err 0.108, per A1),

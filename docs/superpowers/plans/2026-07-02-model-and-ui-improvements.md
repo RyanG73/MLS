@@ -1,5 +1,10 @@
 # Model & Webapp Improvement Plan (2026-07-02)
 
+> **VERDICT A5 (2026-07-05): DROP.** `--elo-xg-blend 0.3`, 4-fold walk-forward (2022–2025),
+> bag-5 seed 42. Mean ens Brier = 0.6346 vs champion 0.6330 (+0.0016). Consistent regression
+> across all four folds; blending xG into ELO updates hurts the ensemble. Flag left as opt-in
+> experimental. Champion unchanged.
+
 > **VERDICT A11 (2026-07-05): DROP (both candidates).** Two-stage draw hurdle
 > (`--draw-two-stage`) and per-season DC rho re-fit (`--dc-rho-per-season`) both underperform
 > champion on the standard aggregate gate — `ens_stacked` avg 0.6347 (hurdle) and 0.6352 (rho)
@@ -488,8 +493,8 @@ ELO banks finishing luck (`s_h` from goals with MoV multiplier, scripts/eval/elo
 **Files:**
 - Modify: `scripts/eval/elo.py` + `scripts/eval_baseline.py` (flag `--elo-xg-blend LAMBDA`)
 
-- [ ] **Step 1:** Implement: effective score `s_eff = (1-λ)*s_result + λ*s_xg` where `s_xg` is the result implied by the match xG totals (win/draw/loss on xG difference with a ±0.25 dead-zone for draws). λ grid {0.25, 0.5, 0.75} on the cal fold. Matches without xG (older/second-tier rows) fall back to λ=0.
-- [ ] **Step 2–4:** Same A/B, gate, and dual-judging (aggregate + A1 slices, esp. `by_season_phase.first_60d` — where banked luck from last season should hurt most) as A4. Verdict + logs.
+- [x] **Step 1:** Implement: effective score `s_eff = (1-λ)*s_result + λ*s_xg` where `s_xg` is the result implied by the match xG totals (win/draw/loss on xG difference with a ±0.25 dead-zone for draws). λ grid {0.25, 0.5, 0.75} on the cal fold. Matches without xG (older/second-tier rows) fall back to λ=0.
+- [x] **Step 2–4:** Same A/B, gate, and dual-judging (aggregate + A1 slices, esp. `by_season_phase.first_60d` — where banked luck from last season should hurt most) as A4. Verdict + logs.
 
 ### Task A6: Re-judge `pythag_luck` on conditional calibration
 
