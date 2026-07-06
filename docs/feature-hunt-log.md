@@ -1,5 +1,49 @@
 # MLS Feature Hunt Log
 
+## 2026-07-06 — Preseason variance widening (A10b): per-sim strength perturbations — KEEP σ=60 uniform (Europe), DROP γ gap-scaling
+
+**Experiment:** The production season sim samples outcomes from FIXED per-fixture DC
+probabilities — zero strength uncertainty, so preseason odds are overconfident point estimates
+(the Spurs-42% failure mode). New `scripts/eval/sim_variance.py`: per simulated season, draw
+δ_t ~ N(0, σ_t) per team (ELO-point scale) and tilt each fixture's home/away log-odds by
+±δ·ln10/800 (a δ differential moves home-vs-away log-odds exactly like the ELO expectation
+curve). The A10(b) hypothesis: σ_t = σ_base·min(1 + γ·|club_prior_gap_t|/200, 1.5) — wider
+uncertainty for teams whose seed disagrees with their own history.
+
+**Judged on the A7 big-5 FD cohort replay** (not aggregate match Brier — preseason odds have
+no per-match Brier): 2018–2025 × big-5 = 40 league-seasons, production-mirrored preseason sims
+(DC fit on <S with recent-4 window, temperature from <S−1 scored on S−1, ELO seeds with the
+production `club_prior_beta=0.75`, promoted teams on the 15/85-pct fallback, 4 000 sims/config).
+Binary Brier of P(bottom-3 finish) vs actual bottom-3, plus title/top-4 guards:
+
+| σ_base (γ=0) | releg Brier | title Brier | top-4 Brier |
+|---|---|---|---|
+| 0 (baseline) | 0.12628 | 0.03145 | 0.09200 |
+| 30 | 0.12348 | 0.03148 | 0.09139 |
+| **60** | **0.11862** | 0.03178 | **0.09062** |
+| 90 | 0.11432 | 0.03260 | 0.09136 |
+| 120 | 0.11175 | 0.03380 | 0.09390 |
+| 150 | 0.11071 | 0.03520 | 0.09759 |
+
+Relegation improves monotonically but title/top-4 degrade past σ≈60–90: the table's bottom is
+overconfident, its top is not. σ=60 — which equals the empirically observed sd of seed→end
+ELO drift (62) — is the only grid point improving relegation AND top-4 with title flat.
+Confirmed at a second RNG stream (rel 0.12635→0.11878, top-4 −0.0014, title +0.0004).
+
+**γ gap-scaling: DROP.** At σ=90 the high-gap cohort's own relegation Brier worsens as γ rises
+(0.0498 → 0.0507 → 0.0517 for γ 0/1/2); pooled effect ≈ 0. Root cause: the fallen-giant error
+is a LOCATION error (bottom-half high-gap teams: predicted 0.238 vs observed 0.143 — the DC fit
+on the bad season, A7 causal link 2), and symmetric variance cannot fix location; meanwhile
+extra variance on top-half fallen giants (observed relegation 0%) is pure harm. Post-A8 the
+Spurs-shaped cohort is nearly empty anyway (n=4; the pooled top-gap-decile threshold fell from
+A7's 64 to 34 — β=0.75 seeding already closed most of the gap).
+
+**Shipped:** `PRESEASON_SIGMA = 60.0`, applied in `build_league_data.py`'s Monte-Carlo when
+`is_preseason` only (in-season sims and MLS unchanged; family governance). EPL preseason
+rebuild: Spurs relegation 36.7→32.4% (42.0% before A8; A7's cohort CI is ≈3–33%), Hull
+89.7→78.0%, Arsenal title 51.1→45.2%, proj_pts essentially unchanged (variance, not drift).
+7 unit tests incl. a widening-contract statistical test; suite green (504 passed).
+
 ## 2026-07-05 — xG-blended ELO update (A5): `--elo-xg-blend` — DROP
 
 **Experiment:** ELO banks finishing luck via the raw match result (`s_h`); A5 tests replacing it

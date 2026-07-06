@@ -47,6 +47,7 @@ import models.research_model as rm
 from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
 from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON, CONCLUDED
+from scripts.eval.sim_variance import PRESEASON_SIGMA, perturb_probs
 from scripts.eval.upcoming_features import latest_team_features
 from scripts.payload_utils import write_js_payload, health_feature_stats
 from data_pipeline import coefficients as co
@@ -697,12 +698,24 @@ def main():
     buckets = cfg["buckets"]
     counts = {b["key"]: np.zeros(nT) for b in buckets}
     proj = np.zeros(nT); rank_sum = np.zeros(nT)
-    print(f"[{lid}] simulating {N:,} seasons · {len(remaining)} remaining · {nT} teams...")
+    # A10(b): preseason-only per-sim strength perturbations (δ_t ~ N(0, 60 ELO
+    # pts), uniform — γ gap-scaling judged and dropped on the big-5 FD cohort
+    # replay). Without this the preseason table sim treats the seed strengths
+    # as certain and its relegation odds are overconfident.
+    _widen = is_preseason and len(remaining) > 0
+    _LRP = np.log(np.clip(RP, 1e-12, 1.0)) if _widen else None
+    print(f"[{lid}] simulating {N:,} seasons · {len(remaining)} remaining · {nT} teams..."
+          + (f" [preseason widening σ={PRESEASON_SIGMA:g}]" if _widen else ""))
     for _ in range(N):
         p = base_pts.copy()
         if len(remaining):
+            if _widen:
+                _delta = rng.standard_normal(nT) * PRESEASON_SIGMA
+                _RP = perturb_probs(_LRP, RH, RA, _delta)
+            else:
+                _RP = RP
             u = rng.random(len(remaining))
-            o = np.where(u < RP[:, 0], 0, np.where(u < RP[:, 0] + RP[:, 1], 1, 2))
+            o = np.where(u < _RP[:, 0], 0, np.where(u < _RP[:, 0] + _RP[:, 1], 1, 2))
             np.add.at(p, RH[o == 0], 3)
             np.add.at(p, RH[o == 1], 1); np.add.at(p, RA[o == 1], 1)
             np.add.at(p, RA[o == 2], 3)

@@ -45,6 +45,12 @@ definitions, data sources, and run commands. Update it when any of these change.
   own 3-season history instead of flat 1500) and it did not clear the MLS gate at both seeds.
   **European production seeding diverges**: `build_league_data.py` uses `club_prior_beta=0.75`
   (KEEP on A7's high-gap slice, −0.023 Brier); the MLS champion config above is unaffected.
+- **European preseason sim widening (A10b, 2026-07-06):** `build_league_data.py`'s Monte-Carlo
+  applies per-sim team-strength perturbations δ_t ~ N(0, 60 ELO pts) in PRESEASON builds only
+  (`scripts/eval/sim_variance.py`, `PRESEASON_SIGMA=60` ≈ the observed sd of seed→end-of-season
+  ELO drift). Big-5 FD cohort replay: relegation Brier −0.008, top-4 −0.001, title flat. The
+  gap-scaled variant (γ·|club_prior_gap|) was tested and DROPPED. In-season sims and MLS
+  (`build_dashboard_data.py`) are unchanged.
 - DC decay: 120-day half-life
 - XGB feature windows: xG and form over (3, 5, 10, 15) matches (all four; eval harness default)
 - Edge threshold: 8% before live betting

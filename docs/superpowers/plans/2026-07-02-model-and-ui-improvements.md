@@ -1,5 +1,21 @@
 # Model & Webapp Improvement Plan (2026-07-02)
 
+> **VERDICT A10(b) (2026-07-06): KEEP uniform preseason widening σ=60 (Europe); DROP the γ
+> gap-scaling that was the task's hypothesis.** Per the re-scope, per-sim strength
+> perturbations were introduced first (`scripts/eval/sim_variance.py`: δ_t ~ N(0, σ) ELO-scale,
+> fixture log-odds tilt ±δ·ln10/800, 7 tests), then judged on the A7 big-5 FD cohort replay
+> (40 league-seasons 2018–2025, production-mirrored preseason sims, P(bottom-3) binary Brier
+> + title/top-4 guards). Uniform σ=60 — exactly the observed seed→end ELO drift sd (62) —
+> improves relegation Brier 0.1263→0.1186 and top-4 0.0920→0.0906, title flat; confirmed at a
+> second RNG stream. γ·|club_prior_gap| scaling hurts the high-gap cohort itself (0.0498→0.0517
+> as γ 0→2 at σ90): the fallen-giant error is LOCATION (DC fit on the bad season, A7 link 2),
+> not variance — and post-A8 the Spurs-shaped cohort is nearly empty (n=4). Wired into
+> `build_league_data.py` preseason MC only (`PRESEASON_SIGMA`); MLS + in-season sims untouched.
+> EPL rebuilt: Spurs releg 36.7→32.4% (was 42.0 pre-A8), Hull 89.7→78.0%, Arsenal title
+> 51.1→45.2%, proj_pts unmoved. All 21 payloads valid; suite 504 passed (same 3 pre-existing).
+> Full numbers in `docs/feature-hunt-log.md`. **The A10 task is now fully closed** (a: DROP on
+> MLS / Europe deferred to A9-Phase-2 data; b: shipped as above).
+
 > **VERDICT A10(a) (2026-07-06): DROP on MLS; European test deferred.** `--elo-value-beta`
 > implemented (log-value→ELO map fit walk-forward on each closed season, applied to
 > incoming-season TM values in the boundary target; 4 unit tests). MLS A/B, full grid

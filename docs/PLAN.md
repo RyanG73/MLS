@@ -1,5 +1,16 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — Preseason variance widening (A10b) ▶ KEEP uniform σ=60 (Europe), DROP γ gap-scaling**
+> The season sim had NO strength uncertainty (fixed per-fixture DC probs). New
+> `scripts/eval/sim_variance.py`: per-sim δ_t ~ N(0, σ) ELO-scale perturbations tilting fixture
+> log-odds. Big-5 FD cohort replay (2018–2025, 40 league-seasons, production-mirrored preseason
+> sims): uniform σ=60 (= observed seed→end ELO drift sd 62) improves relegation Brier 0.1263→0.1186
+> and top-4 0.0920→0.0906 with title flat (+0.0003); confirmed at a second RNG stream. The
+> hypothesized γ·|club_prior_gap| scaling is a null-to-negative on the very cohort it targets
+> (σ90: 0.0498→0.0517 as γ 0→2) — symmetric variance can't fix the location error on fallen
+> giants (that's the DC fit, A7 link 2). Wired into `build_league_data.py` preseason sims only;
+> EPL rebuilt: Spurs releg 36.7→32.4% (42.0 pre-A8), Hull 89.7→78.0%, Arsenal title 51.1→45.2%.
+
 > **2026-07-06 — Squad-value-informed ELO seed (A10a) ▶ DROP on MLS, Europe deferred**
 > `--elo-value-beta` grid {0.25, 0.5, 0.75}, bag-5 seed 42, 4 folds: Δ −0.0011 / +0.0002 /
 > −0.0006 vs champion 0.632977 — best point sub-noise, non-monotone (null effect); 2024 fold
