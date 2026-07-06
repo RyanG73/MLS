@@ -28,6 +28,8 @@ def compute_elo(
     club_prior_beta: float = 0.0,
     regress_gap_k: float = 0.0,
     xg_blend: float = 0.0,
+    value_beta: float = 0.0,
+    season_values: dict | None = None,
 ) -> pd.DataFrame:
     """Walk-forward ELO ratings with margin-of-victory multiplier and season regression.
 
@@ -59,6 +61,19 @@ def compute_elo(
                         implied by match xG totals (win/draw/loss on ``home_xg -
                         away_xg`` with a ±0.25 dead-zone for draws). Matches
                         missing ``home_xg``/``away_xg`` fall back to λ=0.
+        value_beta:     A10(a) experiment knob (β₂). When > 0 and ``season_values``
+                        is provided, the season-boundary target gains a squad-value
+                        term: at each boundary a linear map ``log(value) → ELO`` is
+                        fit on the JUST-CLOSED season (end-of-season ratings vs that
+                        season's values — walk-forward safe, ≥6 pairs required),
+                        then applied to each team's INCOMING-season value. The
+                        target becomes ``(1-β₁-β₂)·initial + β₁·prior + β₂·value_elo``
+                        where a missing component redistributes its weight to
+                        ``initial`` (teams without a new-season value, or boundaries
+                        where the fit is not possible, get no value term).
+        season_values:  ``{(team_key, season): squad_value_eur}`` with team keys
+                        matching ``df``'s home_team/away_team. Only consulted when
+                        ``value_beta > 0``.
 
     Returns:
         Copy of ``df`` with columns added:
@@ -71,6 +86,8 @@ def compute_elo(
     seen: set[object] = set()
     end_hist: dict[str, list[float]] = {}  # per-team end-of-season ELOs
     has_xg = xg_blend > 0.0 and "home_xg" in df.columns and "away_xg" in df.columns
+    use_values = value_beta > 0.0 and bool(season_values)
+    prev_season = None
 
     for _, row in df.iterrows():
         s = row["season"]
@@ -79,6 +96,25 @@ def compute_elo(
             # current values ARE the end-of-season ratings of the season closing
             for t, r in elo.items():
                 end_hist.setdefault(t, []).append(r)
+
+            # A10(a): fit log(squad value) → end-of-season ELO on the season just
+            # closed, apply to incoming-season values. Walk-forward safe: the fit
+            # sees only ratings/values of completed play.
+            value_elo: dict[str, float] = {}
+            if use_values and prev_season is not None and elo:
+                xs, ys = [], []
+                for t, r in elo.items():
+                    v = season_values.get((t, prev_season))
+                    if v is not None and v > 0:
+                        xs.append(math.log(v))
+                        ys.append(r)
+                if len(xs) >= 6 and float(np.std(xs)) > 1e-9:
+                    b, a = np.polyfit(np.array(xs), np.array(ys), 1)
+                    for t in elo:
+                        v_new = season_values.get((t, s))
+                        if v_new is not None and v_new > 0:
+                            value_elo[t] = a + b * math.log(v_new)
+
             new_elo = {}
             for t, r in elo.items():
                 prior_seasons = end_hist[t][:-1]  # seasons BEFORE the one just closed
@@ -86,15 +122,17 @@ def compute_elo(
                          if len(prior_seasons) >= 1 else None)
                 # prior = mean of up to 3 most recent end-of-season ELOs
                 # (the just-closed season + up to 2 before it); needs ≥2 seasons
-                target = initial
                 rate = regress
-                if prior is not None:
-                    if club_prior_beta > 0.0:
-                        target = (1 - club_prior_beta) * initial + club_prior_beta * prior
-                    if regress_gap_k > 0.0:
-                        rate = min(0.6, max(0.2, regress + regress_gap_k * abs(prior - r) / 200.0))
+                b1 = club_prior_beta if (prior is not None and club_prior_beta > 0.0) else 0.0
+                b2 = value_beta if t in value_elo else 0.0
+                target = ((1.0 - b1 - b2) * initial
+                          + (b1 * prior if b1 else 0.0)
+                          + (b2 * value_elo[t] if b2 else 0.0))
+                if prior is not None and regress_gap_k > 0.0:
+                    rate = min(0.6, max(0.2, regress + regress_gap_k * abs(prior - r) / 200.0))
                 new_elo[t] = target + (r - target) * (1 - rate)
             elo = new_elo
+        prev_season = s
         ht, at = row["home_team"], row["away_team"]
         rh = elo.get(ht, initial)
         ra = elo.get(at, initial)

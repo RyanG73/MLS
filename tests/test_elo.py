@@ -186,3 +186,67 @@ class TestClubPriorRegression:
         a_base = base[base["season"] == 2025]["home_elo"].iloc[0]
         a_gapk = gapk[gapk["season"] == 2025]["home_elo"].iloc[0]
         assert a_gapk > a_base
+
+
+class TestValueInformedTarget:
+    """A10(a): season-boundary target blends toward a squad-value-implied ELO
+    (log-value → end-of-season-ELO map fit walk-forward on the closed season)."""
+
+    TEAMS = list("ABCDEFGH")
+
+    @classmethod
+    def _two_season_df(cls):
+        # 2022: A/B/C/D beat E/F/G/H home and away → clean strong/weak split.
+        rows = []
+        for w, l in zip("ABCD", "HGFE"):
+            rows += [(2022, w, l, 3, 0), (2022, l, w, 0, 3)]
+        # 2023 openers: one fixture per team so every seed is observable.
+        rows += [(2023, "A", "B", 1, 1), (2023, "C", "D", 1, 1),
+                 (2023, "E", "F", 1, 1), (2023, "H", "G", 1, 1)]
+        return _make_df(rows)
+
+    @classmethod
+    def _values(cls, h_2023=30e6):
+        # 2022 values descend with strength (A rich → H poor) so the fitted
+        # log-value→ELO slope is positive; 2023 keeps everyone flat except H.
+        vals = {}
+        for i, t in enumerate(cls.TEAMS):
+            vals[(t, 2022)] = (100 - 10 * i) * 1e6
+            vals[(t, 2023)] = (100 - 10 * i) * 1e6
+        vals[("H", 2023)] = h_2023
+        return vals
+
+    def test_beta_zero_is_legacy(self):
+        df = self._two_season_df()
+        legacy = compute_elo(df, K=25, home_adv=80)
+        off = compute_elo(df, K=25, home_adv=80,
+                          value_beta=0.0, season_values=self._values())
+        pd.testing.assert_frame_equal(legacy, off)
+
+    def test_big_new_value_lifts_seed(self):
+        df = self._two_season_df()
+        flat = compute_elo(df, K=25, home_adv=80)
+        rich = compute_elo(df, K=25, home_adv=80, value_beta=0.5,
+                           season_values=self._values(h_2023=120e6))
+        # H opens 2023 at home vs G — home_elo of that row is H's seed.
+        h_flat = flat[(flat["season"] == 2023) & (flat["home_team"] == "H")]["home_elo"].iloc[0]
+        h_rich = rich[(rich["season"] == 2023) & (rich["home_team"] == "H")]["home_elo"].iloc[0]
+        assert h_rich > h_flat
+
+    def test_missing_new_value_falls_back_to_flat(self):
+        df = self._two_season_df()
+        vals = self._values()
+        del vals[("E", 2023)]  # E has no incoming-season value
+        flat = compute_elo(df, K=25, home_adv=80)
+        val = compute_elo(df, K=25, home_adv=80, value_beta=0.5, season_values=vals)
+        e_flat = flat[(flat["season"] == 2023) & (flat["home_team"] == "E")]["home_elo"].iloc[0]
+        e_val = val[(val["season"] == 2023) & (val["home_team"] == "E")]["home_elo"].iloc[0]
+        assert e_val == pytest.approx(e_flat)
+
+    def test_fit_needs_six_pairs(self):
+        # Only 4 teams have 2022 values → no fit → identical to flat everywhere.
+        df = self._two_season_df()
+        vals = {(t, s): 50e6 for t in "ABCD" for s in (2022, 2023)}
+        flat = compute_elo(df, K=25, home_adv=80)
+        val = compute_elo(df, K=25, home_adv=80, value_beta=0.5, season_values=vals)
+        pd.testing.assert_frame_equal(flat, val)

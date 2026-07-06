@@ -94,6 +94,11 @@ def _parse_args() -> "_ap.Namespace":
                    help="A5: λ blending the ELO update's effective score toward "
                         "the xG-implied result, s_eff=(1-λ)*s_result+λ*s_xg "
                         "(0=raw result, champion)")
+    p.add_argument("--elo-value-beta", type=float, default=0.0,
+                   help="A10a: β₂ weight on the squad-value-implied ELO in the "
+                        "season-boundary regression target — log(TM value)→ELO "
+                        "map fit walk-forward on each just-closed season "
+                        "(0=off, champion)")
     p.add_argument("--dc-decay-hl",  type=int,   default=None,
                    help="Dixon-Coles time-decay half-life (days)")
     p.add_argument("--weight-hl",    type=float, default=None,
@@ -451,6 +456,41 @@ print("\n[3/9] ELO hyperparameter grid search (val: 2019)...")
 # compute_elo imported from scripts.eval.elo
 
 
+def _load_tm_season_values() -> dict:
+    """A10(a): {(hex_team_id, season): squad_value_eur} for compute_elo's
+    value-informed boundary target. Lightweight twin of section 6b's TM loader
+    (which runs AFTER the ELO section, so it can't be reused here) — MLS rows
+    only (asa_team_id present), keyed back to the match df's hex ids."""
+    import glob as _g
+    overrides = {"DCU": "DC", "FCD": "DAL", "NER": "NE", "SJE": "SJ"}
+    try:
+        short_to_hex = {
+            overrides.get(r["team_abbreviation"], r["team_abbreviation"]): r["team_id"]
+            for _, r in asa.get_teams(leagues="mls").iterrows()}
+    except Exception:
+        return {}
+    out: dict = {}
+    for csv_p in sorted(_g.glob(os.path.join(
+            os.path.dirname(__file__), "..", "data",
+            "transfermarkt_squad_values_*_mapped.csv"))):
+        try:
+            tm = pd.read_csv(csv_p)
+        except Exception:
+            continue
+        for _, r in tm.iterrows():
+            short = r.get("asa_team_id")
+            hexid = short_to_hex.get(short) if isinstance(short, str) else None
+            v = r.get("squad_value_eur")
+            if hexid and pd.notna(v) and float(v) > 0:
+                out[(hexid, int(r["season"]))] = float(v)
+    return out
+
+
+_ELO_SEASON_VALUES = _load_tm_season_values() if _ARGS.elo_value_beta > 0 else None
+if _ARGS.elo_value_beta > 0:
+    print(f"    A10a value target ON (β₂={_ARGS.elo_value_beta}): "
+          f"{len(_ELO_SEASON_VALUES or {})} (team, season) squad values loaded")
+
 _VAL_S = {2019}
 _val_draw_rate = df[df["season"] < min(_VAL_S)]["label_result"].eq(1).mean()
 _best_elo_b, _best_K, _best_HA = float("inf"), 20, 100
@@ -461,7 +501,9 @@ for _K, _HA in itertools.product(_ELO_K_GRID, _ELO_HA_GRID):
     _tmp = compute_elo(df, _K, _HA, REGRESS, INITIAL_ELO, return_expected=True,
                        club_prior_beta=_ARGS.elo_club_prior_beta,
                        regress_gap_k=_ARGS.elo_regress_gap_k,
-                       xg_blend=_ARGS.elo_xg_blend)
+                       xg_blend=_ARGS.elo_xg_blend,
+                       value_beta=_ARGS.elo_value_beta,
+                       season_values=_ELO_SEASON_VALUES)
     _v = _tmp[_tmp["season"].isin(_VAL_S)]
     if len(_v) < 30:
         continue
@@ -479,7 +521,9 @@ print(f"    Best: K={K}, HOME_ADV={HOME_ADV}  (val Brier={_best_elo_b:.4f})")
 df = compute_elo(df, K, HOME_ADV, REGRESS, INITIAL_ELO,
                  club_prior_beta=_ARGS.elo_club_prior_beta,
                  regress_gap_k=_ARGS.elo_regress_gap_k,
-                 xg_blend=_ARGS.elo_xg_blend)
+                 xg_blend=_ARGS.elo_xg_blend,
+                 value_beta=_ARGS.elo_value_beta,
+                 season_values=_ELO_SEASON_VALUES)
 
 # ─── 4. Rolling features ──────────────────────────────────────────────────────
 
