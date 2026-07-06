@@ -1,5 +1,18 @@
 # Model & Webapp Improvement Plan (2026-07-02)
 
+> **VERDICT A10(a) (2026-07-06): DROP on MLS; European test deferred.** `--elo-value-beta`
+> implemented (log-value→ELO map fit walk-forward on each closed season, applied to
+> incoming-season TM values in the boundary target; 4 unit tests). MLS A/B, full grid
+> {0.25, 0.5, 0.75}, bag-5 seed 42, 4 folds: Δ vs champion −0.0011 / **+0.0002** / −0.0006 —
+> best point is sub-noise parity, curve non-monotone around zero (null effect). The 2024 fold
+> regresses at EVERY β (+0.003–0.005), the same fingerprint as A8's MLS DROP: value/identity
+> priors hurt the regime-shift fold in a parity league. Champion unchanged; flag opt-in.
+> **European A/B (the Spurs-cluster target) deferred** — on-disk European value history is
+> leakage-contaminated (2024-roster pages scraped 2026-07); revisit once A9 Phase 2's weekly
+> snapshots accrue a season of dated data. A10(b) remains open, re-scoped (see the A10
+> section's 2026-07-06 correction: the sim has no parameter noise to widen — it must be
+> introduced first). Full numbers in `docs/feature-hunt-log.md`.
+
 > **VERDICT A12 (2026-07-06): BLOCKED at the source — validated negative, no adapter
 > shipped.** FBref no longer serves xG data publicly: probed schedule pages AND team match
 > logs via `soccerdata` (custom league_dict verified against FBref's live comps index) for
@@ -650,6 +663,12 @@ Two consumers of A9, gated separately:
   `1 + γ·|club_prior_gap|/200` (γ tuned so a Spurs-gap team's finish distribution widens
   visibly; capped at 1.5×). Judged on A7's cohort calibration, not aggregate Brier (preseason
   odds have no per-match Brier). Renders in the UI via B2's uncertainty machinery.
+  **Scoping correction (2026-07-06, verified in code):** the season sim has NO existing DC
+  parameter noise to scale — `build_league_data.py` samples outcomes from fixed per-fixture
+  DC probabilities (`RP`, ~line 693); the only stochasticity is the categorical draw + tie
+  jitter. (b) therefore first requires introducing per-sim team-strength perturbations
+  (e.g. per-sim δ_t adjusting fixture log-probs, vectorized), then scaling σ per team by the
+  gap factor. Bigger task than the plan assumed; judge via the A7 big-5 FD cohort replay.
 
 Coach-change and individual injury-return signals were considered and **deliberately excluded**:
 no structured data source in reach, weak effect sizes in the literature, and squad value already

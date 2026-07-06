@@ -1,5 +1,11 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — Squad-value-informed ELO seed (A10a) ▶ DROP on MLS, Europe deferred**
+> `--elo-value-beta` grid {0.25, 0.5, 0.75}, bag-5 seed 42, 4 folds: Δ −0.0011 / +0.0002 /
+> −0.0006 vs champion 0.632977 — best point sub-noise, non-monotone (null effect); 2024 fold
+> regresses at every β (A8-MLS fingerprint). Champion unchanged, flag opt-in. European test
+> (the real target) deferred until A9 Phase 2 snapshots accrue leakage-clean value history.
+
 > **2026-07-06 — FBref match xG for goals-only leagues (A12) ▶ BLOCKED at source**
 > FBref has withdrawn public xG: schedule pages and team match logs carry zero xG cells in
 > raw HTML for Championship/League One/Liga MX/Eredivisie AND an EPL control (the control

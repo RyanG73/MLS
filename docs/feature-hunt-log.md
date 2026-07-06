@@ -518,3 +518,40 @@ per-league coverage gap and not a parser bug. Consequences:
 - Re-probe trigger: if FBref restores public xG (or a paid Opta feed is
   bought), the probe script pattern + league_dict entries in
   `data/fbref_cache/config/` make the adapter a one-day task.
+
+## A10(a) — squad-value-informed ELO regression target (2026-07-06)
+
+**Verdict: DROP on MLS; European test deferred pending clean value history.**
+
+`--elo-value-beta` (e501729): at each season boundary a log(TM squad value) →
+end-of-season-ELO linear map is fit on the just-closed season (walk-forward
+safe, ≥6 pairs; 276 (team, season) MLS values loaded, 2017–2026) and applied
+to incoming-season values; target = (1-β₁-β₂)·1500 + β₁·club_prior + β₂·value_elo.
+
+MLS A/B (`--cache --xgb-bag 5 --seed 42 --test-seasons 2022 2023 2024 2025`,
+`ens_stacked` avg vs champion 0.632977):
+
+| β₂   | avg Brier | Δ         | 2024 fold |
+|------|-----------|-----------|-----------|
+| 0.25 | 0.634125  | −0.0011   | 0.640271  |
+| 0.50 | 0.632823  | +0.0002   | 0.638220  |
+| 0.75 | 0.633568  | −0.0006   | 0.638319  |
+
+No grid point clears the screening KEEP bar (>0.001); the best (β=0.5) is
+sub-noise parity, and the curve is non-monotone around zero — a null effect,
+not a dose-response. The consistent signal is the **2024 fold regressing at
+every β** (+0.003–0.005 vs champion 0.634913), matching A8's MLS DROP
+fingerprint: in a parity league with heavy roster churn, identity/value
+priors at the season boundary systematically hurt the regime-shift fold.
+Champion config unchanged; flag stays opt-in/off-by-default (A4/A5/A8
+precedent). No second-seed confirmation (reserved for gate-bound KEEPs).
+Result JSONs: `experiments/a10a-value-beta{025,050,075}.json` (local).
+
+**European deferral (the lever's actual target — the Spurs cluster):** the
+only European value history on disk was scraped 2026-07 for 2024-season
+roster pages, which `docs/data-sources.md`'s leakage rule bars from
+historical joins (season pages reflect current page state, not at-the-time
+values). A9 Phase 2's weekly snapshot cron started 2026-07-06; revisit the
+European A/B once ≥1 season of dated snapshots exists (or a paid historical
+feed is bought). A8's β=0.75 club-ELO prior remains the shipped European
+seeding lever in the meantime.
