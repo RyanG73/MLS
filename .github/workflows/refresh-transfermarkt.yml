@@ -1,0 +1,80 @@
+name: Weekly Transfermarkt Snapshot
+
+# A9 Phase 2: dated squad-value snapshots accrue passively so roster-timing
+# experiments become testable once a few months of history exist. Runs before
+# the 04:00 Monday league rebuild so fresh values are committed when leagues
+# rebuild their squad-value panels.
+#
+# Data-rights rule (docs/data-sources.md): only team-level *_mapped.csv
+# aggregates are committed. Raw player-level scrapes stay in the runner's
+# workspace and are discarded with it.
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'   # 02:00 UTC every Monday
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true   # binary packages — much faster than source installs
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-tm-${{ runner.os }}-${{ hashFiles('models/r_bridge/transfermarkt_squad_values.R') }}
+          restore-keys: r-tm-${{ runner.os }}-
+
+      - name: Install R packages
+        run: |
+          Rscript -e 'pkgs <- c("worldfootballR","dplyr","readr","stringr","rvest","httr");
+                      need <- pkgs[!pkgs %in% rownames(installed.packages())];
+                      if (length(need)) install.packages(need)'
+
+      - name: Fetch snapshots (all covered leagues + MLS, serial)
+        run: |
+          # European TM season label: 2026-27 pages are saison_id=2026 from July on;
+          # January–June the current season is the previous calendar year.
+          EUR_SEASON=$(python -c "from datetime import date; d=date.today(); print(d.year if d.month>=7 else d.year-1)")
+          MLS_SEASON=$(date -u +%Y)
+          python scripts/import_transfermarkt.py --all-leagues --season "$EUR_SEASON" \
+            || echo "::warning::one or more European league fetches failed"
+          python scripts/import_transfermarkt.py --season "$MLS_SEASON" \
+            || echo "::warning::MLS fetch failed"
+
+      - name: Copy dated snapshot (team-level aggregates only)
+        run: |
+          SNAP="data/transfermarkt_snapshots/$(date -u +%Y-%m-%d)"
+          mkdir -p "$SNAP"
+          cp data/transfermarkt_squad_values_*_mapped.csv "$SNAP/"
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/transfermarkt_squad_values_*_mapped.csv data/transfermarkt_snapshots/
+          git diff --staged --quiet && echo "No changes." || (
+            git commit -m "chore(data): weekly Transfermarkt snapshot [$(date -u +%Y-%m-%d)]"
+            git push
+          )

@@ -3,6 +3,10 @@ data/*.duckdb
 data/*.pkl
 data/*.csv
 !data/transfermarkt_squad_values_*_mapped.csv
+# TM weekly snapshots (A9 Phase 2): dated team-level aggregates only —
+# raw player-level scrapes are never committed (docs/data-sources.md)
+data/transfermarkt_snapshots/*/*.csv
+!data/transfermarkt_snapshots/*/*_mapped.csv
 data/*.rds
 data/raw/
 data/eval_cache/
