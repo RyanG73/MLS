@@ -18,10 +18,11 @@ suppressPackageStartupMessages({
   library(httr)
 })
 
-args     <- commandArgs(trailingOnly = TRUE)
-season   <- if (length(args) >= 1) as.integer(args[[1]]) else as.integer(format(Sys.Date(), "%Y"))
-out_path <- if (length(args) >= 2) args[[2]] else
-              sprintf("data/transfermarkt_squad_values_%d.csv", season)
+args        <- commandArgs(trailingOnly = TRUE)
+season      <- if (length(args) >= 1) as.integer(args[[1]]) else as.integer(format(Sys.Date(), "%Y"))
+out_path    <- if (length(args) >= 2) args[[2]] else
+                 sprintf("data/transfermarkt_squad_values_%d.csv", season)
+league_code <- if (length(args) >= 3 && nzchar(args[[3]])) args[[3]] else NA_character_
 
 dir.create(dirname(out_path), recursive = TRUE, showWarnings = FALSE)
 
@@ -95,11 +96,31 @@ empty_csv <- function() {
   ), out_path)
 }
 
+# MLS (default, no league_code): resolve via country_name against worldfootballR's
+# season-index CSV, same as always. Non-MLS leagues: bypass that index entirely and
+# hit the competition page directly — the wettbewerb/<CODE> segment is all TM actually
+# parses, the slug text before it is cosmetic (verified against transfermarkt.com).
+league_url <- if (!is.na(league_code)) {
+  paste0("https://www.transfermarkt.com/league/startseite/wettbewerb/", league_code)
+} else {
+  NA_character_
+}
+
 team_urls <- tryCatch(
-  tm_league_team_urls(country_name = "United States", start_year = season),
+  if (!is.na(league_url)) {
+    tm_league_team_urls(country_name = NA_character_, start_year = season, league_url = league_url)
+  } else {
+    tm_league_team_urls(country_name = "United States", start_year = season)
+  },
   error = function(e) {
     message("tm_league_team_urls failed: ", conditionMessage(e))
-    # worldfootballR index may lag the current season.
+    if (!is.na(league_url)) {
+      # Direct league_url path already targets the requested season via ?saison_id=;
+      # a failure here means the competition code or season itself is bad, not a
+      # season-index lag, so there is no useful prior-year fallback to try.
+      return(character(0))
+    }
+    # worldfootballR index may lag the current season (MLS path only).
     # Try up to 2 prior years to get the team URL list, then substitute the target season.
     for (fallback_year in c(season - 1, season - 2)) {
       prior <- tryCatch(
