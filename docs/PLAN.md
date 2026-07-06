@@ -1,5 +1,20 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-05 — `pythag_luck` re-judge (A6) ▶ KEEP**
+> Re-ran `--ab-only "+PythagLuck"` (previously dropped at Δ+0.0008 on 3 folds) now that A1's
+> conditional slices exist, 4-fold walk-forward bag-5 seed 42. Mean ensemble Brier 0.6327 vs
+> champion 0.6330 (**−0.0003**), selected as BestAB in all 4 folds. Narrow margin (~1.5σ); the
+> A/B harness's XGBoost-only metric disagrees (0.6343) but ensemble Brier is the project gate.
+> No new code required (feature already registered as an AB set). Full numbers in
+> `docs/feature-hunt-log.md`.
+
+> **2026-07-05 — xG-blended ELO update (A5) ▶ DROP**
+> Effective ELO update score blended toward the xG-implied result (`--elo-xg-blend 0.3`,
+> `s_eff = (1-λ)·s_result + λ·s_xg`) vs champion, 4-fold walk-forward bag-5 seed 42. Mean
+> `ens_stacked_brier` 0.6346 vs champion 0.6330 (**+0.0016**), a consistent regression across all
+> four folds (~8× the noise floor) despite `elo_diff` remaining the top feature by gain. Kept as
+> an opt-in flag; champion config unchanged. Full numbers in `docs/feature-hunt-log.md`.
+
 > **2026-07-05 — Draw-aware structure (A11) ▶ DROP (both candidates)**
 > Two-stage draw hurdle (`--draw-two-stage`) and per-season DC rho re-fit (`--dc-rho-per-season`)
 > both underperform champion on the standard aggregate gate — `ens_stacked` avg 0.6347 (hurdle)
