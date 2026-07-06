@@ -41,7 +41,7 @@ jobs:
         run: |
           LEAGUES="${{ github.event.inputs.league }}"
           if [ -z "$LEAGUES" ]; then
-            LEAGUES="epl la-liga serie-a bundesliga ligue-1 championship league-one league-two bundesliga-2 serie-b segunda ligue-2 liga-mx"
+            LEAGUES="epl la-liga serie-a bundesliga ligue-1 championship league-one league-two bundesliga-2 serie-b segunda ligue-2 liga-mx eredivisie primeira super-lig scottish-prem greek-super belgian-pro"
           fi
           FAILED=""
           for league in $LEAGUES; do

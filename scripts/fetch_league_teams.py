@@ -56,6 +56,13 @@ REGISTRY = [
     # UEFA — Italy
     ("serie-a",             "Serie A",                  "ita.1",            "UEFA", "live", "Italy"),
     ("serie-b",             "Serie B",                  "ita.2",            "UEFA", "live", "Italy"),
+    # UEFA — Other Europe (C1 batch; flip each to "live" as its build ships)
+    ("eredivisie",          "Eredivisie",               "ned.1",            "UEFA", "live", "Other Europe"),
+    ("primeira",            "Primeira Liga",            "por.1",            "UEFA", "live", "Other Europe"),
+    ("super-lig",           "Süper Lig",                "tur.1",            "UEFA", "live", "Other Europe"),
+    ("scottish-prem",       "Scottish Premiership",     "sco.1",            "UEFA", "live", "Other Europe"),
+    ("belgian-pro",         "Belgian Pro League",       "bel.1",            "UEFA", "live", "Other Europe"),
+    ("greek-super",         "Greek Super League",       "gre.1",            "UEFA", "live", "Other Europe"),
     # UEFA — continental cups
     ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "live", "Cups"),
     ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "live", "Cups"),

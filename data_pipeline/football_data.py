@@ -45,10 +45,15 @@ DIV = {
     "championship": "E1", "league-one": "E2", "league-two": "E3",
     "bundesliga-2": "D2", "serie-b": "I2",
     "segunda": "SP2", "ligue-2": "F2",
+    # C1 batch (2026-07): non-big-5 top flights from football-data's "extra" set.
+    "eredivisie": "N1", "primeira": "P1", "super-lig": "T1",
+    "scottish-prem": "SC0", "belgian-pro": "B1", "greek-super": "G1",
 }
 BIG5 = ["epl", "la-liga", "serie-a", "bundesliga", "ligue-1"]
 GOALS_ONLY = ["championship", "league-one", "league-two", "bundesliga-2", "serie-b",
-              "segunda", "ligue-2"]
+              "segunda", "ligue-2",
+              "eredivisie", "primeira", "super-lig",
+              "scottish-prem", "belgian-pro", "greek-super"]
 
 _RESULTS_CACHE_DIR = Path("data/football_data")
 _RAW_CACHE_DIR = _RESULTS_CACHE_DIR / "raw"

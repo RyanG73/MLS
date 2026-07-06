@@ -48,6 +48,7 @@ from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
 from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON, CONCLUDED
 from scripts.eval.sim_variance import PRESEASON_SIGMA, perturb_probs
+from scripts.eval.season_format import FORMATS, format_classification, regular_phase_mask
 from scripts.eval.upcoming_features import latest_team_features
 from scripts.payload_utils import write_js_payload, health_feature_stats
 from data_pipeline import coefficients as co
@@ -285,12 +286,12 @@ def _elo_to_dc_params(
 # next place, Conference = the one after (domestic-cup-winner spots are unmodelable
 # and omitted, so these are approximate). `card=False` keeps a bucket as a table
 # COLUMN only — the favorite cards stay simple (Title / UCL / Relegation).
-_TOP = lambda ucl=4: [
+_TOP = lambda ucl=4, rel=3: [
     {"key": "title", "label": "Title", "col": "Title", "top": 1},
     {"key": "ucl", "label": "Champions Lg", "col": "UCL", "top": ucl},
     {"key": "europa", "label": "Europa Lg", "col": "Europa", "band": [ucl + 1, ucl + 1], "card": False},
     {"key": "conf", "label": "Conference Lg", "col": "Conf", "band": [ucl + 2, ucl + 2], "card": False},
-    {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": 3}]
+    {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}]
 _PROMO = lambda promo, play, rel: [
     {"key": "promo", "label": "Promotion", "col": "Promo", "top": promo},
     {"key": "playoff", "label": "Playoff", "col": "Playoff", "band": play},
@@ -327,6 +328,24 @@ OUTLOOK = {
                      "buckets": _PROMO(2, [3, 6], 4), "green_line": 6, "red_line": 4},
     "ligue-2":      {"name": "Ligue 2", "source": "footballdata", "n": 18,
                      "buckets": _PROMO(2, [3, 5], 4), "green_line": 5, "red_line": 4},
+    # C1: non-big-5 top flights (football-data goals-only + market odds).
+    # UCL/Europa/Conference spots are the coefficient-based approximations the
+    # _TOP docstring already caveats; relegation counts include playoff spots
+    # (the bundesliga precedent: bottom N = direct + playoff berths).
+    "eredivisie":   {"name": "Eredivisie", "source": "footballdata", "n": 18,
+                     "buckets": _TOP(2), "green_line": 2, "red_line": 3},
+    "primeira":     {"name": "Primeira Liga", "source": "footballdata", "n": 18,
+                     "buckets": _TOP(2), "green_line": 2, "red_line": 3},
+    "super-lig":    {"name": "Süper Lig", "source": "footballdata", "n": 18,
+                     "buckets": _TOP(2), "green_line": 2, "red_line": 3},
+    # Split/points-transform formats (Scotland split, Belgium halving+playoffs,
+    # Greece playoff round) — sim format config lands with each league's ship.
+    "scottish-prem": {"name": "Scottish Premiership", "source": "footballdata", "n": 12,
+                      "buckets": _TOP(1, rel=2), "green_line": 1, "red_line": 2},
+    "belgian-pro":  {"name": "Belgian Pro League", "source": "footballdata", "n": 18,
+                     "buckets": _TOP(2, rel=2), "green_line": 2, "red_line": 2},
+    "greek-super":  {"name": "Greek Super League", "source": "footballdata", "n": 14,
+                     "buckets": _TOP(1, rel=2), "green_line": 1, "red_line": 2},
     # Concacaf — ESPN goals-only (no xG, no market odds)
     # eval_seasons=None → derived dynamically from frame's season integers
     "liga-mx":      {"name": "Liga MX", "source": "espn", "n": 18, "confederation": "Concacaf",
@@ -395,6 +414,40 @@ FD_ESPN: dict[str, dict[str, str]] = {
         "Nancy": "AS Nancy Lorraine", "Pau FC": "Pau", "Red Star": "Red Star FC 93",
         "Reims": "Stade de Reims", "Rodez": "Rodez Aveyron",
         "St Etienne": "Saint-Étienne", "Amiens": "Amiens SC", "Bastia": "SC Bastia",
+    },
+    "eredivisie": {
+        "Ajax": "Ajax Amsterdam", "Den Haag": "ADO Den Haag",
+        "Cambuur": "SC Cambuur", "For Sittard": "Fortuna Sittard",
+        "Feyenoord": "Feyenoord Rotterdam", "Groningen": "FC Groningen",
+        "Twente": "FC Twente", "Utrecht": "FC Utrecht",
+        "Nijmegen": "NEC Nijmegen", "Zwolle": "PEC Zwolle",
+    },
+    "primeira": {
+        "Famalicao": "FC Famalicao", "Guimaraes": "Vitória de Guimaraes",
+        "Nacional": "C.D. Nacional", "Porto": "FC Porto",
+        "Sp Braga": "Braga", "Sp Lisbon": "Sporting CP",
+    },
+    "super-lig": {
+        "Buyuksehyr": "Istanbul Basaksehir", "Gaziantep": "Gaziantep FK",
+        "Goztep": "Goztepe", "Karagumruk": "Fatih Karagümrük",
+        "Rizespor": "Caykur Rizespor",
+    },
+    "scottish-prem": {
+        "Hearts": "Heart of Midlothian",
+    },
+    "belgian-pro": {
+        "Cercle Brugge": "Cercle Brugge KSV", "Charleroi": "Royal Charleroi SC",
+        "Genk": "Racing Genk", "Gent": "KAA Gent", "Mechelen": "KV Mechelen",
+        "Oud-Heverlee Leuven": "OH Leuven", "RAAL La Louviere": "RAAL La Louvière",
+        "St Truiden": "Sint-Truidense", "St. Gilloise": "Union St.-Gilloise",
+        "Standard": "Standard Liege", "Waregem": "Zulte-Waregem",
+        "Westerlo": "KVC Westerlo",
+    },
+    "greek-super": {
+        "AEK": "AEK Athens", "Asteras Tripolis": "Asteras Tripoli",
+        "Larisa": "Larissa FC", "Levadeiakos": "Levadiakos",
+        "Olympiakos": "Olympiacos", "PAOK": "PAOK Salonika",
+        "Panserraikos": "Panserraikos FC",
     },
 }
 
@@ -682,6 +735,26 @@ def main():
     base_pts = np.array([pts.get(t, 0) for t in tids], dtype=float)
     base_gd = np.array([gf.get(t, 0) - ga.get(t, 0) for t in tids], dtype=float)
 
+    # C1 format leagues (Scottish split / Belgian points-halving / Greek playoff
+    # round): the raw points table is NOT the official classification. Override
+    # points with the carry-transformed totals and rank inside classification
+    # groups (a bottom-six team can never classify above the split line). The
+    # group constraint only binds once the regular phase is complete — before
+    # that the classification equals the plain table.
+    _fmt = FORMATS.get(lid)
+    _grp_bonus = np.zeros(nT)
+    _grp_of = None
+    if _fmt is not None and len(played):
+        _cls = format_classification(played.sort_values("date"), _fmt, tids)
+        base_pts = np.array([_cls[t]["pts"] for t in tids], dtype=float)
+        base_gd = np.array([_cls[t]["gd"] for t in tids], dtype=float)
+        _reg_games = _fmt["rr"] * (nT - 1)
+        _reg_complete = bool(regular_phase_mask(
+            played.sort_values("date"), _reg_games).sum() >= _reg_games * nT / 2)
+        if _reg_complete:
+            _grp_of = {t: _cls[t]["group"] for t in tids}
+            _grp_bonus = np.array([-_cls[t]["group"] * 1e7 for t in tids])
+
     # Pairing-probability matrix (powers the client what-if sim; row = host)
     PM = np.zeros((nT, nT, 3))
     for hi, th in enumerate(tids):
@@ -720,8 +793,9 @@ def main():
             np.add.at(p, RH[o == 1], 1); np.add.at(p, RA[o == 1], 1)
             np.add.at(p, RA[o == 2], 3)
         proj += p
-        # Final ranking: points → current real GD → random (tie jitter)
-        key = p * 10000 + base_gd * 10 + rng.random(nT) * 10
+        # Final ranking: [format group when applicable] → points → current real
+        # GD → random (tie jitter)
+        key = _grp_bonus + p * 10000 + base_gd * 10 + rng.random(nT) * 10
         order = np.argsort(-key)  # best first
         for b in buckets:
             counts[b["key"]][_bucket_idx(b, order, nT)] += 1
@@ -740,8 +814,10 @@ def main():
         for b in buckets:
             row[b["key"]] = round(counts[b["key"]][i] / N * 100, 1)
         row["xgd"] = round(xgf.get(t, 0) - xga.get(t, 0), 1) if has_xg else None
+        if _grp_of is not None:
+            row["grp"] = _grp_of[t]   # classification group (0 = championship)
         standings.append(row)
-    standings.sort(key=lambda s: (-s["pts"], -s["gd"], -s["proj_pts"]))
+    standings.sort(key=lambda s: (s.get("grp", 0), -s["pts"], -s["gd"], -s["proj_pts"]))
 
     # ── Per-team current model inputs (latest rolling snapshot) ───────────────
     team_inputs = {}

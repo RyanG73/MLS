@@ -60,6 +60,10 @@ _REF_LEAGUE = "epl"
 _LEAGUE_COEFF: dict[str, float] = {
     "epl": 94.0, "la-liga": 79.0, "serie-a": 76.0, "bundesliga": 74.0,
     "ligue-1": 67.0,
+    # C1 leagues (2026-07): same coefficient scale. Used by the fallback path
+    # only — experiments/league_offsets.json has no bridge fit for these yet.
+    "eredivisie": 61.0, "primeira": 60.0, "belgian-pro": 55.0,
+    "super-lig": 45.0, "greek-super": 38.0, "scottish-prem": 32.0,
 }
 
 # Concacaf-internal league offsets (ELO points). These are RELATIVE only — Concacaf

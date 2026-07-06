@@ -1,5 +1,26 @@
 # Model & Webapp Improvement Plan (2026-07-02)
 
+> **VERDICT C1 (2026-07-06): COMPLETE — all six leagues live.** Eredivisie (N1) shipped
+> end-to-end first, then Primeira (P1), Süper Lig (T1), Scotland (SC0), Greece (G1), Belgium
+> (B1) as config-driven repeats (per league: DIV code, OUTLOOK buckets, FD→ESPN name map,
+> ESPN registry entry + crests, UEFA-coefficient power-rankings offset, weekly-CI list).
+> **Format machinery shipped** (`scripts/eval/season_format.py`, 5 tests): classification
+> groups + carry transforms — Belgian regular-season points HALVED (rounded up) at the
+> playoff boundary, Scottish split / Greek playoff groups constrain final ranks. Groups are
+> **inferred from the observed post-phase pairing graph** (connected components) rather than
+> re-derived from the table — this caught two things the table-seeding got wrong: Greece
+> 2025-26 actually ran top-4/next-4 pools (not top-6), and Panathinaikos/Levadiakos split on
+> an unmodelled head-to-head tie-break. Verified classifications: Genk (38 pts) correctly
+> 7th behind Mechelen/Gent (29, Champions PO); OFI (39) 6th above Atromitos (46, playout);
+> Celtic/Club Brugge/AEK/Porto/Galatasaray/PSV champions. Relegation buckets corrected to
+> bottom-2 for SCO/GRE/BEL via `_TOP(rel=)`. In-season Brier beats naive in every league
+> (best: Primeira 0.551 vs 0.659). FD frames carry no scheduled fixtures, so these payloads
+> ship as concluded-2025 season replays (consistent with all footballdata leagues — upcoming
+> fixtures for FD leagues remain a platform-wide gap, not a C1 one). Payloads 27/27 valid;
+> suite 577 passed (same 3 pre-existing); browser-checked eredivisie + belgian-pro, zero
+> console errors. Squad-value panels render the null state pending TM codes for these
+> leagues (A9 cron extension — follow-up).
+
 > **VERDICT A10(b) (2026-07-06): KEEP uniform preseason widening σ=60 (Europe); DROP the γ
 > gap-scaling that was the task's hypothesis.** Per the re-scope, per-sim strength
 > perturbations were introduced first (`scripts/eval/sim_variance.py`: δ_t ~ N(0, σ) ELO-scale,

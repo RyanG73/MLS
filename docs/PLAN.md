@@ -1,5 +1,15 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — C1 league expansion ▶ SHIPPED: Eredivisie, Primeira, Süper Lig, Scotland, Greece, Belgium**
+> Six football-data leagues live (goals-only model + market odds), bringing the platform to 19
+> league builds. New `scripts/eval/season_format.py` handles the non-round-robin formats:
+> Belgian points-halving (ceil at playoff entry), Scottish split and Greek playoff groups
+> constrain final classification; pools are inferred from the observed post-phase pairing
+> graph (caught Greece's actual top-4/next-4 2025-26 pools and a head-to-head tie-break the
+> table can't see). Every league beats naive walk-forward; payloads validated; power rankings
+> span 11 UEFA leagues via UEFA-coefficient offsets. FD leagues ship as concluded-season
+> replays (no scheduled-fixture source — pre-existing platform gap).
+
 > **2026-07-06 — Preseason variance widening (A10b) ▶ KEEP uniform σ=60 (Europe), DROP γ gap-scaling**
 > The season sim had NO strength uncertainty (fixed per-fixture DC probs). New
 > `scripts/eval/sim_variance.py`: per-sim δ_t ~ N(0, σ) ELO-scale perturbations tilting fixture

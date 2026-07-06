@@ -25,7 +25,11 @@ _DATA = Path("webapp/data")
 # Which leagues form each confederation's comparable scale, with display names.
 _GROUPS = {
     "UEFA": [("epl", "EPL"), ("la-liga", "La Liga"), ("serie-a", "Serie A"),
-             ("bundesliga", "Bundesliga"), ("ligue-1", "Ligue 1")],
+             ("bundesliga", "Bundesliga"), ("ligue-1", "Ligue 1"),
+             # C1 leagues join as their payloads ship (missing payloads no-op).
+             ("eredivisie", "Eredivisie"), ("primeira", "Primeira"),
+             ("super-lig", "Süper Lig"), ("scottish-prem", "SPFL"),
+             ("belgian-pro", "Pro League"), ("greek-super", "Super League GR")],
     "Concacaf": [("mls", "MLS"), ("liga-mx", "Liga MX")],
 }
 
