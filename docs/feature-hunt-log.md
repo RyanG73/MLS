@@ -489,3 +489,32 @@ model plateaued at 0.6363 within the free ASA+ESPN data envelope.**
   `experiments/champion.json` untouched, no `promotion_gate.py` run. Left as the existing
   opt-in `+PythagLuck` AB set; champion unchanged. Per-team Brier spread (the task's real
   judging criterion, 0.52–0.70 range) was never measured — only the aggregate was reported.
+
+## A12 — FBref match xG for goals-only leagues (2026-07-06)
+
+**Verdict: BLOCKED at the source — validated negative, no adapter shipped.**
+
+Premise (plan 2026-07-02): FBref publishes Opta xG for leagues Understat lacks
+(Championship, League One/Two, Liga MX; later the C1 set). Probed via
+`soccerdata` 1.9.0 (rate-limited, cached under `data/fbref_cache/`), custom
+league_dict entries verified against FBref's live comps index (EFL Championship
+id 10, EFL League One 15, EFL League Two 16, Liga MX 31, Eredivisie 23).
+
+Findings, each verified in the raw cached HTML (not just the parsed frame):
+- Schedule pages (`scores-and-fixtures`): full tables served (date, teams,
+  score, attendance, referee) but **zero `data-stat="*xg*"` cells** — for
+  Championship, League One, Liga MX, Eredivisie, **and the EPL control**.
+- Team match logs (Arsenal 2024-25): 38 rows, GF/GA/Poss/Formation present,
+  **no xG columns**.
+- Every cached FBref page family greps 0 for xG data-stats.
+
+The EPL control is the decisive piece: real Opta coverage exists for the EPL,
+so an empty EPL column set means FBref (as served to this client, 2026-07-06)
+has withdrawn public xG from schedule/matchlog pages entirely — not a
+per-league coverage gap and not a parser bug. Consequences:
+- Goals-only leagues keep the existing goals-proxy xG fallback (production
+  behavior unchanged; B9 verdict documents it).
+- Understat remains the only xG source (big-5 top flights) — unaffected.
+- Re-probe trigger: if FBref restores public xG (or a paid Opta feed is
+  bought), the probe script pattern + league_dict entries in
+  `data/fbref_cache/config/` make the adapter a one-day task.

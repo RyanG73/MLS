@@ -1,5 +1,17 @@
 # Model & Webapp Improvement Plan (2026-07-02)
 
+> **VERDICT A12 (2026-07-06): BLOCKED at the source — validated negative, no adapter
+> shipped.** FBref no longer serves xG data publicly: probed schedule pages AND team match
+> logs via `soccerdata` (custom league_dict verified against FBref's live comps index) for
+> Championship, League One, Liga MX, Eredivisie, **and an EPL control** — zero
+> `data-stat="*xg*"` cells in the raw cached HTML anywhere. The EPL control proves this is
+> a source-side withdrawal, not a per-league coverage gap or parser bug. Goals-only leagues
+> keep the existing goals-proxy fallback (production unchanged); Understat (big-5) is
+> unaffected. Rights entry updated in `docs/data-sources.md`; full probe record in
+> `docs/feature-hunt-log.md`. Re-probe if FBref restores public xG or a paid Opta feed is
+> bought — the cached league_dict config makes the adapter a one-day task then. A5's
+> xG-ELO eligibility extension is moot (A5 was DROP anyway).
+
 > **VERDICT A9 (2026-07-06): PHASE 1 + PHASE 2 SHIPPED — squad values live for all covered
 > leagues; European B9 panels populated.** Continued a prior session's uncommitted fetch work
 > (14 leagues on disk, observed_at 2026-07-06 ~01:00 UTC) and finished it: (1) **name

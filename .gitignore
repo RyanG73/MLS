@@ -16,6 +16,7 @@ data/espn_soccer/
 data/espn_continental/
 data/espn_fixtures/
 data/asa_cache/
+data/fbref_cache/
 data/source_health.parquet
 logs/
 

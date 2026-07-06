@@ -1,5 +1,11 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — FBref match xG for goals-only leagues (A12) ▶ BLOCKED at source**
+> FBref has withdrawn public xG: schedule pages and team match logs carry zero xG cells in
+> raw HTML for Championship/League One/Liga MX/Eredivisie AND an EPL control (the control
+> proves source-side withdrawal, not a coverage gap). No adapter shipped; goals-proxy
+> fallback stays; Understat unaffected. Probe record in `docs/feature-hunt-log.md`.
+
 > **2026-07-06 — Squad-value rights conformance (user decision) ▶ MLS player table removed**
 > `docs/data-sources.md` rules player-level TM values local-only; the MLS payload's public
 > top-10 player table contradicted it. Code now conforms everywhere: team aggregates +

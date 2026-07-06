@@ -211,6 +211,25 @@ devtools::install_github("JaseZiv/worldfootballR")
 
 **Leakage rule:** Prior-club performance data must stop at the transfer date. A player's FBref stats from after they joined MLS cannot be used to predict their first MLS matches.
 
+**A12 addendum (2026-07-06) — match xG for goals-only leagues.** Second use case:
+per-match Opta xG (`home_xg`/`away_xg` from FBref schedule pages) for leagues Understat
+lacks (Championship, League One/Two, Liga MX; C1 leagues when built). Rules:
+- **Access:** `soccerdata`'s `FBref` reader only — it enforces Sports Reference's
+  rate limits and caches every page on disk; never raw `requests` against fbref.com.
+- **Cache path (actual):** `data/fbref_cache/` (soccerdata's own layout; gitignored,
+  local-only, same treatment as `asa_cache`).
+- **Publication:** raw match-xG rows stay local. Payloads may ship *derived rolling
+  aggregates* (`xg_roll_*` in team inputs) — identical to the Understat treatment
+  already in production. Attribution: FBref/Sports Reference added to the site footer
+  when the first FBref-fed payload ships (feature is gate-bound, off by default).
+- **Leakage:** match xG is stamped by match date (an as-played stat, not a
+  retro-mutable page) — safe to join historically, unlike Transfermarkt values.
+- **OUTCOME (2026-07-06): BLOCKED — FBref no longer serves xG publicly.**
+  Verified in raw cached HTML across schedule pages and team match logs for
+  Championship/League One/Liga MX/Eredivisie AND an EPL control: zero xG
+  data-stat cells anywhere. The rules above stand if the data returns; see
+  `docs/feature-hunt-log.md` A12 entry for the full probe record.
+
 ---
 
 ### StatsBomb Open Data
