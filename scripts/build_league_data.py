@@ -1018,7 +1018,7 @@ def main():
         # aggregates keyed on canonical names; None (the "not available" state) when
         # no mapped CSV exists for the league — same convention as the model-input
         # nulls above, the frontend renders the honest empty treatment either way.
-        "squad_value": build_squad_value_league(lid, set(team_inputs)),
+        "squad_value": build_squad_value_league(lid, {tname(t) for t in tids}),
         "elo_history": elo_hist,
         "trophies": {},   # European trophy data is a future enhancement
         "health": health,

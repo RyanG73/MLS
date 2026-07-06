@@ -457,6 +457,8 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .legend-band span{display:inline-flex;align-items:center;gap:6px}
 .legend-band i{width:10px;height:10px;border-radius:3px;display:inline-block}
 footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6);padding-top:var(--s4);border-top:1px solid var(--line)}
+footer a{color:var(--txt-3);text-decoration:underline;text-underline-offset:2px}
+footer a:hover{color:var(--txt-2)}
 .hidden{display:none!important}
 
 @media(max-width:1280px){
@@ -716,6 +718,12 @@ const american=p=>{if(p==null||p<=0)return'—';const v=p>=0.5?-100*p/(1-p):100*
 const BET_DISCLAIMER='Informational only, not betting advice. Probabilities are model estimates; '+
   'past backtest ROI does not predict future returns. 18+/21+ where applicable. '+
   'Problem gambling? Call 1-800-GAMBLER (US) / visit begambleaware.org.';
+// Source attribution (docs/data-sources.md register — footer must match it).
+const FOOT_ATTR='Data: <a href="https://www.americansocceranalysis.com" target="_blank" rel="noopener">American Soccer Analysis</a>'+
+  ' · <a href="https://www.espn.com" target="_blank" rel="noopener">ESPN</a>'+
+  ' · <a href="https://understat.com" target="_blank" rel="noopener">Understat</a>'+
+  ' · <a href="https://www.football-data.co.uk" target="_blank" rel="noopener">football-data.co.uk</a>'+
+  ' · squad values <a href="https://www.transfermarkt.com" target="_blank" rel="noopener">Transfermarkt.com</a>';
 // B11/B12: live paper-ledger strip (cross-league; window.LEDGER_DATA from data/ledger.js).
 function ledgerStripHTML(){
   const L=(window.LEDGER_DATA||{}).summary;
@@ -744,7 +752,7 @@ function renderSoonView(){
   $('#soonTeams').innerHTML=(D.teams||[]).map(t=>
     `<div class="soon-team">${crest(t.name,t.logo)}<span>${t.name}</span></div>`).join('')
     ||'<div style="color:var(--txt-3)">Team list coming soon.</div>';
-  $('#foot').textContent='';
+  $('#foot').innerHTML=FOOT_ATTR;
 }
 if((D.league||{}).status==='soon'){ renderSoonView(); }
 else if(_isPower){ /* power route — renderPower handles this below, skip normal league render */ }
@@ -802,7 +810,7 @@ $('#sub').textContent = isKnockout
      </div>
      <div class="acc-tracks">${row('vs naive',naiveMap)}${row('vs market',mktMap)}</div>`;
 })();
-$('#foot').textContent='';
+$('#foot').innerHTML=FOOT_ATTR;
 
 /* ═══════════════ WHAT-IF SIM ENGINE ═══════════════
    SIM PORTING CONTRACT (JS here ↔ Python in scripts/build_dashboard_data.py —
@@ -1687,7 +1695,7 @@ function fullInputsPanel(team){
 function squadValuePanel(team){
   const sv=(D.squad_value||{})[team];
   if(!sv)return `<div class="pcard sv-panel" style="grid-column:1/-1"><h3 style="cursor:default">Squad value (Transfermarkt)</h3>
-    <div class="pstat"><span class="k">Not available for this league</span></div></div>`;
+    <div class="pstat"><span class="k">No Transfermarkt data for this team${(D.squad_value&&Object.keys(D.squad_value).length)?' (roster changed since the last snapshot)':' — league not yet covered'}</span></div></div>`;
   // Player table renders only where the payload ships player rows (MLS today).
   // European payloads carry team-level aggregates only (data-rights decision:
   // player-level TM values are local-only) — hide the section, don't show an

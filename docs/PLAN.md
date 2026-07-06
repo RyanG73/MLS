@@ -1,5 +1,20 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — Transfermarkt squad values, all covered leagues (A9) ▶ SHIPPED**
+> `import_transfermarkt.py` league-parameterized (`--league <TM_CODE>` / `--all-leagues`, 14
+> leagues; CanPL code corrected KAN1→CDN1 — the spec's guess doesn't resolve on TM). Canonical
+> name resolution: exact → explicit alias table → FD_ESPN → `norm()` → unique token-subset
+> (ambiguous hits refuse to guess); canonical list reads the payload's **standings** roster
+> (team_inputs misses promoted teams with zero played rows — the Coventry case). 2026-27
+> preseason snapshots fetched (GB1 20/20 teams, 99% valued); `build_league_data.py` now emits
+> `squad_value` (team-level aggregates only — player values local-only per
+> `docs/data-sources.md`; attribution footer added). Weekly snapshot cron
+> (`refresh-transfermarkt.yml`, Mondays 02:00 UTC) accrues dated snapshots into
+> `data/transfermarkt_snapshots/` for future roster-timing experiments. Coverage test:
+> every current EPL payload team resolves to a TM row (green). Unblocks A10 (value-informed
+> prior) and B9's European squad-value panels (EPL + League Two rebuilt; rest pick it up on
+> the weekly refresh).
+
 > **2026-07-05 — `pythag_luck` re-judge (A6) ▶ marginal (correction 2026-07-05)**
 > Re-ran `--ab-only "+PythagLuck"` (previously dropped at Δ+0.0008 on 3 folds) now that A1's
 > conditional slices exist, 4-fold walk-forward bag-5 seed 42. Mean ensemble Brier 0.6327 vs

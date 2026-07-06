@@ -1,6 +1,33 @@
 # Model & Webapp Improvement Plan (2026-07-02)
 
-> **VERDICT A5 (2026-07-05): DROP.** `--elo-xg-blend 0.3`, 4-fold walk-forward (2022–2025),
+> **VERDICT A9 (2026-07-06): PHASE 1 + PHASE 2 SHIPPED — squad values live for all covered
+> leagues; European B9 panels populated.** Continued a prior session's uncommitted fetch work
+> (14 leagues on disk, observed_at 2026-07-06 ~01:00 UTC) and finished it: (1) **name
+> resolution rebuilt** — the fuzzy matcher missed "Tottenham Hotspur"→"Tottenham"-class drift;
+> added a unique-token-subset tier (refuses ambiguous hits: "RCD Espanyol Barcelona"
+> subset-matches both Espanyol AND Barcelona → explicit alias instead) + a 17-entry alias
+> table (Leipzig/Gladbach/Rennes/Atlas…). (2) **Canonical list bug**: resolution read
+> `team_inputs` keys, which omit promoted teams with zero played rows — Coventry City (EPL
+> 2026-27) was invisible; now reads the `standings` roster. (3) **Roster-vintage finding**:
+> the prior session fetched season 2024/2025 labels = last season's squads; re-fetched
+> **2026** (TM already serves 2026-27 rosters: GB1 20 teams, 588 players, 99% valued,
+> promoted Hull/Ipswich/Coventry included). GB2/GB3 2026 pages still empty at TM (headers-only
+> fetch) — those leagues serve their freshest older snapshot until the weekly cron catches
+> the flip. (4) **CanPL code corrected** KAN1→CDN1 (spec's guess redirects to TM's generic
+> hub — verified by fetch). (5) **Wiring**: `build_league_data.py` `squad_value` block
+> (freshest mapped CSV per league, keyed on canon names, best-effort None); webapp panel gains
+> as-of date, thin-coverage badge, TM attribution link; player table renders only where the
+> payload ships players (MLS) — **European payloads carry team-level aggregates only** per
+> `docs/data-sources.md` (player values local-only). Site footer now carries the full source
+> attribution the rights register requires (was empty). (6) **Phase 2 shipped same pass**:
+> `refresh-transfermarkt.yml` weekly cron (Mon 02:00 UTC, before the 04:00 league rebuild)
+> re-fetches all leagues + MLS and commits dated team-level snapshots to
+> `data/transfermarkt_snapshots/` (gitignore blocks raw player CSVs there). Coverage gate
+> test green: every current EPL payload team resolves to a TM row. Verified live: EPL 20/20
+> teams (Arsenal €1.31bn #2 · Hull €72m; Tottenham €964.5m #5 — the A7 fallen-giant now has
+> a market-value signal on its profile), League Two thin-coverage path, MLS player table
+> regression-clean, zero console errors. Suite: 491 passed (same 3 pre-existing unrelated
+> failures). Unblocks A10 (a)+(b). MLS champion untouched (data/UI task, no model change). `--elo-xg-blend 0.3`, 4-fold walk-forward (2022–2025),
 > bag-5 seed 42. Mean ens Brier = 0.6346 vs champion 0.6330 (+0.0016). Consistent regression
 > across all four folds; blending xG into ELO updates hurts the ensemble. Flag left as opt-in
 > experimental. Champion unchanged.
@@ -591,7 +618,7 @@ item 6) and dated-snapshot roadmap (old item 8) for Europe.
   experiments (the ones that failed on season-static data) become testable in a few months.
   No experiment consumes it in this plan; accrual is the deliverable.
 
-- [ ] Steps: fetch one league (EPL) → mapping test green → extend to all covered leagues → commit → add the weekly cron workflow. **Rights check first** per `codex suggestions.md` (TM scrape terms) before committing scraped data.
+- [x] Steps: fetch one league (EPL) → mapping test green → extend to all covered leagues → commit → add the weekly cron workflow. **Rights check first** per `codex suggestions.md` (TM scrape terms) before committing scraped data. *(Rights gate satisfied via the existing `docs/data-sources.md` TM register entry: team-level aggregates public with attribution, player-level values local-only — enforced in the builder, the gitignore, and the new footer attribution.)*
 
 ### Task A10: Experiment — squad-value-informed prior + preseason variance widening
 

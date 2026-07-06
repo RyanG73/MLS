@@ -153,7 +153,7 @@ def _load_canonical_team_names(league_id: str) -> list[str]:
     live webapp payload so this always matches "today's" roster (promoted/relegated
     teams included) rather than a hand-maintained list that drifts.
 
-    Returns [] if the payload doesn't exist yet or has no team_inputs (e.g.
+    Returns [] if the payload doesn't exist yet or has no teams (e.g.
     canadian-pl, still `status: "soon"` with no live payload).
     """
     payload_path = REPO_ROOT / "webapp" / "data" / f"{league_id}.js"
@@ -169,8 +169,12 @@ def _load_canonical_team_names(league_id: str) -> list[str]:
         print(f"  WARN: could not read {payload_path.name} for canonical names: {exc}",
               file=sys.stderr)
         return []
-    names = list((data.get("team_inputs") or {}).keys())
-    return names
+    # standings is the COMPLETE roster; team_inputs omits teams with zero played
+    # rows in the frame (a freshly promoted side preseason — Coventry City,
+    # EPL 2026-27, had no top-flight rows and therefore no team_inputs entry).
+    names = {s.get("team") for s in (data.get("standings") or []) if s.get("team")}
+    names |= set((data.get("team_inputs") or {}).keys())
+    return sorted(names)
 
 
 # Explicit TM-name → canonical-payload-name overrides for cases no generic rule
