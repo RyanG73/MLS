@@ -94,6 +94,71 @@ def build_team_inputs_full(df: pd.DataFrame, feat_cols: list[str],
         }
     return out
 
+
+def build_squad_value_league(lid: str, team_names: set[str]) -> dict | None:
+    """B9 squad-value panel for non-MLS leagues (A9). Reads the freshest
+    `data/transfermarkt_squad_values_<TM_CODE>_<season>_mapped.csv` for this
+    league and keys rows on `canon_team_name` (already resolved to this
+    builder's team_inputs naming by import_transfermarkt.canonical_team_name).
+
+    Team-level aggregates ONLY — per docs/data-sources.md, player-level TM
+    market values are local-only (redistribution uncertain); the MLS builder's
+    player table is deliberately NOT mirrored here.
+
+    Best-effort like build_dashboard_data.build_squad_value_mls: any read/parse
+    failure returns None (the panel's "not available" state) — stale or missing
+    squad-value data must never break a league build.
+    """
+    try:
+        from scripts.import_transfermarkt import TM_CODE_TO_LEAGUE_ID
+        codes = [c for c, l in TM_CODE_TO_LEAGUE_ID.items() if l == lid]
+        if not codes:
+            return None
+        files = sorted(Path("data").glob(
+            f"transfermarkt_squad_values_{codes[0]}_*_mapped.csv"))
+        if not files:
+            return None
+        mapped = pd.read_csv(files[-1])  # lexicographic == chronological (…_<season>_)
+        mapped = mapped[mapped["canon_team_name"].fillna("") != ""]
+        mapped = mapped.dropna(subset=["squad_value_eur"])
+        mapped = mapped[mapped["squad_value_eur"] > 0]
+        if mapped.empty:
+            return None
+        mapped = mapped.sort_values("squad_value_eur", ascending=False).reset_index(drop=True)
+        n_teams = len(mapped)
+        league_mean_age = float(mapped["value_wtd_age"].mean()) \
+            if "value_wtd_age" in mapped else None
+        as_of = str(mapped["observed_at"].iloc[0])[:10] \
+            if "observed_at" in mapped.columns else None
+        out = {}
+        for i, row in mapped.iterrows():
+            name = row["canon_team_name"]
+            if name not in team_names:
+                continue  # e.g. relegated out since the snapshot season
+            rank = i + 1
+            pct = (n_teams - rank) / (n_teams - 1) * 100 if n_teams > 1 else 100.0
+            out[name] = {
+                "available": True,
+                "squad_value_eur": _clean(row.get("squad_value_eur")),
+                "league_rank": int(rank),
+                "n_teams": int(n_teams),
+                "percentile": round(pct, 1),
+                "value_wtd_age": _clean(row.get("value_wtd_age")),
+                "league_avg_value_wtd_age": _clean(league_mean_age),
+                "att_value_pct": _clean(row.get("att_value_pct")),
+                "def_value_pct": _clean(row.get("def_value_pct")),
+                "tilt": _clean(row.get("tilt")),
+                "dp_value_share": _clean(row.get("dp_value_share")),
+                "n_players": int(row["n_players"]) if pd.notna(row.get("n_players")) else None,
+                "coverage": str(row.get("coverage_confidence") or "full"),
+                "as_of": as_of,
+            }
+        return out or None
+    except Exception as e:
+        print(f"[{lid}] warn: squad-value panel unavailable ({e})")
+        return None
+
+
 # ── tier-2 promoted-team seeding ──────────────────────────────────────────────
 # Maps top-flight league ID → its feeder tier-2 league ID.
 _TIER2_FOR: dict[str, str] = {
@@ -949,11 +1014,11 @@ def main():
         "market_brier": market_brier,
         "team_inputs": team_inputs,
         "team_inputs_full": team_inputs_full,
-        # B9 squad-value panel: TM data not yet imported for non-MLS leagues (A9
-        # Phase 1 pending). Explicit null-state, same convention as the model-input
-        # nulls above — the frontend renders the "not available" treatment, not a
-        # missing key (which would look like an older/broken payload).
-        "squad_value": None,
+        # B9 squad-value panel (A9): freshest TM snapshot for this league, team-level
+        # aggregates keyed on canonical names; None (the "not available" state) when
+        # no mapped CSV exists for the league — same convention as the model-input
+        # nulls above, the frontend renders the honest empty treatment either way.
+        "squad_value": build_squad_value_league(lid, set(team_inputs)),
         "elo_history": elo_hist,
         "trophies": {},   # European trophy data is a future enhancement
         "health": health,

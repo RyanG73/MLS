@@ -1688,21 +1688,31 @@ function squadValuePanel(team){
   const sv=(D.squad_value||{})[team];
   if(!sv)return `<div class="pcard sv-panel" style="grid-column:1/-1"><h3 style="cursor:default">Squad value (Transfermarkt)</h3>
     <div class="pstat"><span class="k">Not available for this league</span></div></div>`;
-  const players=(sv.players||[]).map(p=>`<div class="sv-prow">
+  // Player table renders only where the payload ships player rows (MLS today).
+  // European payloads carry team-level aggregates only (data-rights decision:
+  // player-level TM values are local-only) — hide the section, don't show an
+  // empty "No player rows" that reads like a bug.
+  const playersHtml=Array.isArray(sv.players)&&sv.players.length
+    ?`<div class="fi-fam" style="margin-top:10px"><h4>Top players by value</h4>${sv.players.map(p=>`<div class="sv-prow">
       <span class="sv-pn">${p.name}</span><span class="sv-pp">${p.position||'—'}</span>
       <span class="sv-pa">${p.age??'—'}</span>
-      <span class="sv-pv">${p.value_eur==null?'—':'€'+(p.value_eur/1e6).toFixed(1)+'m'}</span></div>`).join('')
-    ||'<div class="pstat"><span class="k">No player rows</span></div>';
+      <span class="sv-pv">${p.value_eur==null?'—':'€'+(p.value_eur/1e6).toFixed(1)+'m'}</span></div>`).join('')}</div>`
+    :'';
+  const lowConf=sv.coverage==='low'
+    ?` <span style="font-size:10px;color:var(--txt-3);border:1px solid var(--line);border-radius:3px;padding:1px 5px;vertical-align:middle" title="Transfermarkt prices few players in this squad — treat the total as a floor, not an estimate">thin coverage</span>`
+    :'';
+  const asOf=sv.as_of?`<span style="color:var(--txt-3);font-size:11px;font-weight:400"> · as of ${sv.as_of}</span>`:'';
   return `<div class="pcard sv-panel" style="grid-column:1/-1">
-    <h3 onclick="this.closest('.sv-panel').classList.toggle('open')">Squad value (Transfermarkt) <span class="fi-chev">▾</span></h3>
+    <h3 onclick="this.closest('.sv-panel').classList.toggle('open')">Squad value (Transfermarkt)${lowConf} <span class="fi-chev">▾</span></h3>
     <div class="sv-body">
-    <div class="pstat"><span class="k">Total squad value</span><span class="v">€${(sv.squad_value_eur/1e6).toFixed(1)}m</span></div>
+    <div class="pstat"><span class="k">Total squad value</span><span class="v">€${(sv.squad_value_eur/1e6).toFixed(1)}m${asOf}</span></div>
     <div class="pstat"><span class="k">League rank</span><span class="v">#${sv.league_rank} of ${sv.n_teams} · ${sv.percentile.toFixed(0)}th percentile</span></div>
     <div class="pc-track" style="margin:6px 0 10px"><span style="width:${sv.percentile}%"></span></div>
     <div class="pstat"><span class="k">Value-wtd age</span><span class="v">${sv.value_wtd_age??'—'}<span style="color:var(--txt-3);font-weight:400"> (league avg ${sv.league_avg_value_wtd_age??'—'})</span></span></div>
     <div class="pstat"><span class="k">ATT / DEF value split</span><span class="v">${sv.att_value_pct==null?'—':(sv.att_value_pct*100).toFixed(1)+'%'} / ${sv.def_value_pct==null?'—':(sv.def_value_pct*100).toFixed(1)+'%'}</span></div>
     <div class="pstat"><span class="k">Squad size</span><span class="v">${sv.n_players??'—'}</span></div>
-    <div class="fi-fam" style="margin-top:10px"><h4>Top players by value</h4>${players}</div>
+    ${playersHtml}
+    <div style="margin-top:8px;font-size:10px;color:var(--txt-3)">Values: <a href="https://www.transfermarkt.com" target="_blank" rel="noopener" style="color:var(--txt-3)">Transfermarkt.com</a></div>
     </div></div>`;
 }
 function renderProfile(team,scroll){
