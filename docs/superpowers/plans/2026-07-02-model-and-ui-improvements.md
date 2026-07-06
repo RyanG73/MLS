@@ -27,7 +27,15 @@
 > teams (Arsenal €1.31bn #2 · Hull €72m; Tottenham €964.5m #5 — the A7 fallen-giant now has
 > a market-value signal on its profile), League Two thin-coverage path, MLS player table
 > regression-clean, zero console errors. Suite: 491 passed (same 3 pre-existing unrelated
-> failures). Unblocks A10 (a)+(b). MLS champion untouched (data/UI task, no model change). `--elo-xg-blend 0.3`, 4-fold walk-forward (2022–2025),
+> failures). Unblocks A10 (a)+(b). MLS champion untouched (data/UI task, no model change).
+> **Addendum (2026-07-06, user decision): full register conformance — MLS player table
+> removed.** B9 had shipped a public top-10 player-value table in `mls.js`, contradicting
+> `docs/data-sources.md` ("player market values … local-only"). User chose conforming code
+> over revising the register: `build_squad_value_mls` now emits team-level aggregates +
+> positional value split only (same contract as the European builder), no player rows
+> anywhere public. Side fix: the function no longer requires the local-only *raw* CSV, so
+> CI rebuilds stop silently emitting `squad_value: None` for MLS. Attribution retained
+> (per-panel TM link + site footer). `--elo-xg-blend 0.3`, 4-fold walk-forward (2022–2025),
 > bag-5 seed 42. Mean ens Brier = 0.6346 vs champion 0.6330 (+0.0016). Consistent regression
 > across all four folds; blending xG into ELO updates hurts the ensemble. Flag left as opt-in
 > experimental. Champion unchanged.

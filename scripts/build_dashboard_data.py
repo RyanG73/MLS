@@ -73,21 +73,6 @@ def build_team_inputs_full(df: pd.DataFrame, feat_cols: list[str],
     return out
 
 
-def _load_tm_name_map() -> dict:
-    """Transfermarkt raw team name -> ASA team id (config/team_name_to_asa_id.yaml).
-
-    Same map scripts/import_transfermarkt.py uses to build the mapped CSV —
-    reused here (rather than re-derived) so the raw per-player CSV (which has
-    no asa_team_id column) can be joined the identical way.
-    """
-    import yaml
-    path = Path("config/team_name_to_asa_id.yaml")
-    if not path.exists():
-        return {}
-    data = yaml.safe_load(path.read_text()) or {}
-    return data.get("transfermarkt", {}) or {}
-
-
 def build_squad_value_mls(tids: list, id2name: dict, abbr2id: dict, season: int) -> dict | None:
     """B9 squad-value panel data for MLS (A9 Phase 1 — MLS ships now, other
     leagues render the panel's null state until Transfermarkt import lands
@@ -98,11 +83,9 @@ def build_squad_value_mls(tids: list, id2name: dict, abbr2id: dict, season: int)
     """
     try:
         mapped_path = Path(f"data/transfermarkt_squad_values_{season}_mapped.csv")
-        raw_path = Path(f"data/transfermarkt_squad_values_{season}_raw.csv")
-        if not mapped_path.exists() or not raw_path.exists():
+        if not mapped_path.exists():
             return None
         mapped = pd.read_csv(mapped_path)
-        raw = pd.read_csv(raw_path)
         if mapped.empty:
             return None
 
@@ -115,14 +98,17 @@ def build_squad_value_mls(tids: list, id2name: dict, abbr2id: dict, season: int)
         n_teams = len(mapped)
         league_mean_age = float(mapped["value_wtd_age"].mean()) if "value_wtd_age" in mapped else None
 
-        name_map = _load_tm_name_map()
-        # raw CSV has no asa_team_id — join via tm_team_name -> asa id (same map
-        # import_transfermarkt.py uses), so we can find each team's player rows.
-        raw = raw.copy()
-        raw["asa_team_id"] = raw["tm_team_name"].map(name_map)
+        as_of = str(mapped["observed_at"].iloc[0])[:10] \
+            if "observed_at" in mapped.columns else None
 
+        # Team-level aggregates ONLY (docs/data-sources.md: player-level TM
+        # market values are local-only — user decision 2026-07-06 removed the
+        # public top-10 player table; positional value split is the finest
+        # granularity published). Aggregates need only the committed mapped
+        # CSV, so CI rebuilds work without the local-only raw player file.
+        #
         # config/team_name_to_asa_id.yaml's "transfermarkt" map (and therefore
-        # both CSVs' "asa_team_id" column) is keyed on ASA's 3-letter
+        # the CSV's "asa_team_id" column) is keyed on ASA's 3-letter
         # team_abbreviation ("ATL"), NOT the real team_id ("KAqBN0Vqbg") despite
         # the column name — resolve through abbr2id before comparing to tids.
         out = {}
@@ -134,17 +120,6 @@ def build_squad_value_mls(tids: list, id2name: dict, abbr2id: dict, season: int)
             name = id2name.get(tid, tid)
             rank = i + 1  # mapped is sorted desc by value; i is 0-based
             pct = (n_teams - rank) / (n_teams - 1) * 100 if n_teams > 1 else 100.0
-            team_players = raw[raw["asa_team_id"] == abbr].copy()
-            team_players = team_players.sort_values("market_value_eur", ascending=False)
-            players = [
-                {"name": str(p.get("player_name") or ""),
-                 "position": str(p.get("position") or "") or None,
-                 "age": int(p["age"]) if pd.notna(p.get("age")) else None,
-                 # 0 means "not scraped this season" (TM/R-script gap), not a real
-                 # €0 valuation — render as unavailable like every other null here.
-                 "value_eur": _clean(p.get("market_value_eur")) or None}
-                for _, p in team_players.head(10).iterrows()
-            ]
             out[name] = {
                 "available": True,
                 "squad_value_eur": _clean(row.get("squad_value_eur")),
@@ -158,7 +133,7 @@ def build_squad_value_mls(tids: list, id2name: dict, abbr2id: dict, season: int)
                 "tilt": _clean(row.get("tilt")),
                 "dp_value_share": _clean(row.get("dp_value_share")),
                 "n_players": int(row["n_players"]) if pd.notna(row.get("n_players")) else None,
-                "players": players,
+                "as_of": as_of,
             }
         return out if out else None
     except Exception as e:

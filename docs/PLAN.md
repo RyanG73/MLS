@@ -1,5 +1,11 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — Squad-value rights conformance (user decision) ▶ MLS player table removed**
+> `docs/data-sources.md` rules player-level TM values local-only; the MLS payload's public
+> top-10 player table contradicted it. Code now conforms everywhere: team aggregates +
+> positional split only, attribution per panel + footer. Bonus fix: MLS squad values no
+> longer depend on the local-only raw CSV, so CI rebuilds carry them correctly.
+
 > **2026-07-06 — Transfermarkt squad values, all covered leagues (A9) ▶ SHIPPED**
 > `import_transfermarkt.py` league-parameterized (`--league <TM_CODE>` / `--all-leagues`, 14
 > leagues; CanPL code corrected KAN1→CDN1 — the spec's guess doesn't resolve on TM). Canonical
