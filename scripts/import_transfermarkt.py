@@ -191,6 +191,7 @@ TM_CANON_ALIASES: dict[str, str] = {
     "Athletic Bilbao": "Athletic Club",   # payload uses the club's own styling
     "Real Betis Balompié": "Real Betis",
     "Deportivo A Coruña": "Deportivo La Coruña",
+    "Real Sociedad B": "Real Sociedad II",
     # Italy
     "Inter Milan": "Inter",               # serie-a payload uses the short form
     # Germany
