@@ -1,5 +1,22 @@
 # Model & Webapp Improvement Plan (2026-07-02)
 
+> **VERDICT C2 (2026-07-06): EVAL GATES + GOVERNANCE SHIPPED; dashboard builders remain.**
+> The plan's own sequencing (eval BEFORE shipping odds) is satisfied: (1)
+> `eval_baseline.py --asa-league` threads all 22 ASA call sites (MLS smoke-test PASS at
+> 0.6343 — behavior preserved; `_cf` cache keys hash the league, so no cross-league cache
+> hits); harness reports gain gate-compatible `avg_brier`/`coverage_by_season` fields.
+> (2) `promotion_gate.py --champion-ptr` gives each family its own pointer (self-test 8/8).
+> (3) **USL Championship: strong pass** — ens_stacked 0.6246 vs naive 0.6460 (+3.3%),
+> beats naive in all 4 folds → bootstrap-promoted to `experiments/champion_usl.json`.
+> (4) **NWSL: weak pass** — 0.6474 vs 0.6507 (+0.5% pooled, 2/4 folds; calibrated DC is
+> −1.9% on NWSL and drags the stack, XGB-cal alone is +0.8%) → promoted to
+> `experiments/champion_nwsl.json` with the finding that the NWSL family config should
+> drop/curb the DC leg before a dashboard ships. ASA endpoint degradation is graceful
+> (NWSL salaries: 0 rows, features skip). NWSL (16) + USL (25) sidebar stubs live with
+> crests (ESPN `usa.nwsl`/`usa.usl.1` verified). **Remaining for C2**: NWSL/USL dashboard
+> builders (playoff/conference sim configs), per the eval-first gate now in place; also
+> big-5/tiers family pointers (deferred with their per-family evals).
+
 > **VERDICT C1 (2026-07-06): COMPLETE — all six leagues live.** Eredivisie (N1) shipped
 > end-to-end first, then Primeira (P1), Süper Lig (T1), Scotland (SC0), Greece (G1), Belgium
 > (B1) as config-driven repeats (per league: DIV code, OUTLOOK buckets, FD→ESPN name map,

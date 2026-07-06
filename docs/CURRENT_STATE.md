@@ -80,6 +80,25 @@ Previous baseline before calibration fix: avg 0.6381, cal_err 0.1567.
 
 ---
 
+## League-Family Champions (C2 governance, 2026-07-06)
+
+Championed configs are governed per data family (user decision 2026-07-03); experiments are
+judged per family — a KEEP in one family does not auto-apply to another.
+`promotion_gate.py --champion-ptr <path>` selects the family; `eval_baseline.py --asa-league`
+routes every ASA endpoint call (MLS smoke-verified behavior-preserving).
+
+| Family | Champion pointer | Baseline (ens_stacked vs naive, 4 folds 2022–25) | Notes |
+|---|---|---|---|
+| MLS | `experiments/champion.json` | 0.6330 (existing champion) | untouched |
+| NWSL | `experiments/champion_nwsl.json` | 0.6474 vs 0.6507 (**+0.5%**, 2/4 folds) | DC hurts (−1.9%); XGB-cal alone 0.6458 (+0.8%) — family config should lean XGB-only before a dashboard ships |
+| USL Championship | `experiments/champion_usl.json` | 0.6246 vs 0.6460 (**+3.3%**, 4/4 folds) | architecture transfers cleanly |
+| xG-rich Europe (big-5) | `experiments/champion_eur_big5.json` | not yet created | per-family eval pending |
+| Goals-only tiers + C1 | `experiments/champion_eur_tiers.json` | not yet created | per-family eval pending |
+
+NWSL/USL dashboards are NOT yet built (registry entries are `soon` stubs with team lists);
+the plan gates shipping odds on these evals, which now exist. 2020 excluded for all ASA
+leagues (`_COVID` is global).
+
 ## Metric Convention
 
 **Canonical: sum-form Brier** — `sum((p - y)^2)` over 3 classes, no division.

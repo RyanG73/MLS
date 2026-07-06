@@ -28,6 +28,11 @@ experiments/*.json
 !experiments/champion.json
 !experiments/champion.report.json
 !experiments/champion-4fold.report.json
+# C2 per-league-family champion pointers + their baseline reports (small, blessed)
+!experiments/champion_nwsl.json
+!experiments/champion_usl.json
+!experiments/nwsl-baseline-4fold.report.json
+!experiments/usl-baseline-4fold.report.json
 # Track the Approach C bridge-regression fitted offsets (small, deterministic output)
 !experiments/league_offsets.json
 # Track the tier-2 → tier-1 ELO offsets (small, deterministic output of tier_bridge.py)

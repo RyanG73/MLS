@@ -1,0 +1,6 @@
+{
+  "report": "experiments/usl-baseline-4fold.report.json",
+  "run_id": null,
+  "avg_brier": 0.624596,
+  "promoted_at": "2026-07-06T21:48:32Z"
+}

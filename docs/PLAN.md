@@ -1,5 +1,15 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — C2 eval gates + five-family champion governance ▶ NWSL weak-pass, USL strong-pass**
+> `eval_baseline.py --asa-league {mls,nwsl,uslc,…}` threads every ASA call (MLS smoke PASS —
+> behavior preserved); `promotion_gate.py --champion-ptr` parameterizes the per-family pointer.
+> 4-fold walk-forwards (2022–25, bag-5 seed 42, 2020 excluded): **USL** ens_stacked 0.6246 vs
+> naive 0.6460 (+3.3%, 4/4 folds — architecture transfers) → `champion_usl.json`. **NWSL**
+> 0.6474 vs 0.6507 (+0.5%, 2/4 folds; DC −1.9% is a liability, XGB-cal alone +0.8%) →
+> `champion_nwsl.json` with an XGB-lean recommendation before any dashboard ships. NWSL/USL
+> sidebar stubs live (ESPN usa.nwsl / usa.usl.1 verified); dashboard builders are the
+> remaining C2 step — the plan gates odds-shipping on exactly these evals.
+
 > **2026-07-06 — C1 league expansion ▶ SHIPPED: Eredivisie, Primeira, Süper Lig, Scotland, Greece, Belgium**
 > Six football-data leagues live (goals-only model + market odds), bringing the platform to 19
 > league builds. New `scripts/eval/season_format.py` handles the non-round-robin formats:
