@@ -500,7 +500,7 @@ ELO banks finishing luck (`s_h` from goals with MoV multiplier, scripts/eval/elo
 
 Dropped at Δ=+0.0008 on the aggregate bar, directionally right 2 of 3 seasons. With A1 in place, rerun `--ab-only "+PythagLuck"` (existing section in `eval_baseline.py`) and judge on favorite-decile calibration + per-team Brier spread, not just aggregate Brier. One eval run + verdict; no new code. If it narrows the 0.52–0.70 per-team spread without regressing aggregate beyond noise, promote via the standard gate flow.
 
-> **Verdict — KEEP.** `--ab-only "+PythagLuck"`, 4-fold walk-forward (2022–2025), bag-5 seed 42. Mean ens Brier = 0.6327 vs champion 0.6330 (−0.0003). Selected as BestAB in all 4 folds; per-fold ensemble beats baseline consistently. Narrow margin (≈1.5σ); A/B harness XGBoost-only metric says NO (0.6343), but ensemble Brier is the project gate. PythagLuck promoted to production feature set.
+> **Verdict — marginal (corrected 2026-07-05).** `--ab-only "+PythagLuck"`, 4-fold walk-forward (2022–2025), bag-5 seed 42. Mean ens Brier = 0.6327 vs champion 0.6330 (−0.0003). Selected as BestAB in all 4 folds; per-fold ensemble beats baseline consistently, but the margin (Δ=0.0003, ≈1.5σ) is below both the screening KEEP bar (>0.001) and the promotion-gate core_metric bar (≥0.0005) from `docs/experiment-protocol.md`. **This was originally logged as "KEEP — promoted to production feature set"; that was wrong** — no code changed, `experiments/champion.json` is untouched, no `promotion_gate.py` run exists. Corrected to marginal per the protocol's own decision table. The per-team Brier spread check the task actually calls for (0.52–0.70 range) was never run. Left as the existing opt-in `+PythagLuck` AB set; champion unchanged.
 
 ---
 

@@ -483,4 +483,9 @@ model plateaued at 0.6363 within the free ASA+ESPN data envelope.**
 - **Date:** 2026-07-05
 - **Hypothesis:** Re-evaluate pythag_luck with conditional calibration slice; previous narrow miss (Δ=+0.0008 on 3 folds) may have been noise
 - **Result:** Mean ens Brier 0.6327 vs 0.6330 (−0.0003); BestAB=+PythagLuck in all 4 folds
-- **Verdict:** KEEP — promoted to production feature set
+- **Verdict:** marginal (corrected 2026-07-05) — Δ=0.0003 is below both the screening KEEP bar
+  (>0.001) and the promotion-gate core_metric bar (≥0.0005). A same-day pass logged this as
+  "KEEP — promoted to production feature set", which was never actually done: no code changed,
+  `experiments/champion.json` untouched, no `promotion_gate.py` run. Left as the existing
+  opt-in `+PythagLuck` AB set; champion unchanged. Per-team Brier spread (the task's real
+  judging criterion, 0.52–0.70 range) was never measured — only the aggregate was reported.

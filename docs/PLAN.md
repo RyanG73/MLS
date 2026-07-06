@@ -1,11 +1,16 @@
 # MLS Prediction Dashboard — Implementation Plan
 
-> **2026-07-05 — `pythag_luck` re-judge (A6) ▶ KEEP**
+> **2026-07-05 — `pythag_luck` re-judge (A6) ▶ marginal (correction 2026-07-05)**
 > Re-ran `--ab-only "+PythagLuck"` (previously dropped at Δ+0.0008 on 3 folds) now that A1's
 > conditional slices exist, 4-fold walk-forward bag-5 seed 42. Mean ensemble Brier 0.6327 vs
-> champion 0.6330 (**−0.0003**), selected as BestAB in all 4 folds. Narrow margin (~1.5σ); the
-> A/B harness's XGBoost-only metric disagrees (0.6343) but ensemble Brier is the project gate.
-> No new code required (feature already registered as an AB set). Full numbers in
+> champion 0.6330 (**−0.0003**), selected as BestAB in all 4 folds. **Corrected verdict**: a
+> same-day pass had marked this KEEP and logged "promoted to production feature set" — false;
+> no code changed in that commit, `experiments/champion.json` is untouched, and Δ=0.0003 is
+> below both the screening KEEP bar (>0.001, `docs/experiment-protocol.md` §4) and the
+> promotion-gate core_metric bar (≥0.0005, §10). Per the protocol table this is **marginal**
+> (0 < Δ ≤ 0.001): code stays available as the existing opt-in `+PythagLuck` AB set, not
+> promoted, champion unchanged. The task's own per-team Brier spread check (0.52–0.70 range)
+> was never actually run — only the aggregate number was reported. Full numbers in
 > `docs/feature-hunt-log.md`.
 
 > **2026-07-05 — xG-blended ELO update (A5) ▶ DROP**
