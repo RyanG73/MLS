@@ -644,6 +644,24 @@ bets from the model's known-worst class.
   flags kept as opt-in/off-by-default (A4/A8/A2 precedent); B5/B12 draw-side Kelly suppression
   stays in place until a KEEP lands on this track.
 
+- [x] **Step 1a:** Implement `--draw-two-stage`: binary `P(draw)` XGB head (same features,
+  target `y == draw`) × a win/loss-direction model conditioned on non-draw matches, recombined
+  as `P(home) = P(¬draw)·P(home|¬draw)`, `P(away) = P(¬draw)·P(away|¬draw)`, `P(draw) = P(draw)`.
+- [x] **Step 1b:** Implement `--dc-rho-per-season`: season-level DC `rho` shrunk toward the
+  pooled estimate (`fit_dc_dynamic_rho`, mirrors A4's `fit_dc_dynamic_ha` shrinkage), re-checked
+  through the temperature-scaling pass.
+- [x] **Step 2:** A/B each candidate separately (never combined): `--xgb-bag 5 --seed 42
+  --test-seasons 2022 2023 2024 2025` vs champion baseline (`challenger-bag5.report.json`,
+  0.632977), 4 folds each.
+- [x] **Step 3:** Judge on the standard aggregate gate first (criterion ii); both candidates
+  fail it decisively past the ±0.001 noise floor (hurdle Δ −0.0017, rho Δ −0.0022), so the A1
+  `draw_reliability` slice (i) and `roi_by_edge_bucket` draw-bet backtest (iii) were skipped per
+  A4 precedent — a regression this far past noise can't be rescued by a slice win.
+- [x] **Step 4:** No second-seed confirmation needed (reserved for gate-bound KEEP claims, not
+  DROPs). Verdict appended to `docs/feature-hunt-log.md`, this plan, and `docs/PLAN.md`; both
+  flags kept as opt-in/off-by-default (A4/A8/A2 precedent); B5/B12 draw-side Kelly suppression
+  stays in place until a KEEP lands on this track.
+
 ### Task A12: Data — FBref/Opta match xG for goals-only leagues (user decision 2026-07-03)
 
 FBref publishes Opta xG for many leagues Understat lacks (Championship + lower English tiers,
