@@ -478,3 +478,9 @@ last untested feature class (interactions). Singles marginal/DROP, interactions 
 hyperparameters/architecture settled, availability DROP. **Feature space comprehensively exhausted;
 model plateaued at 0.6363 within the free ASA+ESPN data envelope.**
 **experiment_id:** p-interaction-tz-pythag-20260531T022509
+
+## A6 — pythag_luck re-judge (`--ab-only "+PythagLuck"`)
+- **Date:** 2026-07-05
+- **Hypothesis:** Re-evaluate pythag_luck with conditional calibration slice; previous narrow miss (Δ=+0.0008 on 3 folds) may have been noise
+- **Result:** Mean ens Brier 0.6327 vs 0.6330 (−0.0003); BestAB=+PythagLuck in all 4 folds
+- **Verdict:** KEEP — promoted to production feature set
