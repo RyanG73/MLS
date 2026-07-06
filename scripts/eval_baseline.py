@@ -187,6 +187,10 @@ def _parse_args() -> "_ap.Namespace":
                         "scalar T, this CAN track a class-prior regime shift "
                         "(2024 home-rate collapse). Evaluates alpha in {50,150,"
                         "300}; reported as ens_isp{a}_brier alongside standard.")
+    p.add_argument("--asa-league", type=str, default="mls",
+                   choices=["mls", "nwsl", "uslc", "usl1", "mlsnp"],
+                   help="ASA league to evaluate (C2: per-league-family champions; "
+                        "every ASA endpoint call routes through this)")
     p.add_argument("--out",          type=str,   default=None,
                    help="Write results JSON to this file path")
     p.add_argument("--dump-frame",   type=str,   default=None,
@@ -220,6 +224,7 @@ def _parse_args() -> "_ap.Namespace":
 
 
 _ARGS = _parse_args()
+_ASA_LEAGUE = _ARGS.asa_league
 
 if _ARGS.seed is not None:
     import random as _random
@@ -328,7 +333,7 @@ asa = AmericanSoccerAnalysis()
 # Setting verify=False disables cert checking for all ASA requests.
 asa.session.verify = False
 
-games_raw = _cf(asa.get_games, leagues="mls")
+games_raw = _cf(asa.get_games, leagues=_ASA_LEAGUE)
 _avail = set(games_raw.columns)
 
 _stage_col = next(
@@ -358,7 +363,7 @@ else:
     games["is_playoff"] = 0
 
 # xG — also try to pull set-piece split if available
-gxg_raw = _cf(asa.get_game_xgoals, leagues="mls")
+gxg_raw = _cf(asa.get_game_xgoals, leagues=_ASA_LEAGUE)
 gxg_want = {
     "game_id": "match_id",
     "home_team_xgoals": "home_xg",
@@ -421,7 +426,7 @@ _HAS_PPDA = False
 _HAS_POSS = False
 
 try:
-    gxpass = _cf(asa.get_game_xpass, leagues="mls")
+    gxpass = _cf(asa.get_game_xpass, leagues=_ASA_LEAGUE)
     cols = list(gxpass.columns)
     print(f"    Available columns: {cols[:12]}{'...' if len(cols) > 12 else ''}")
 
@@ -466,7 +471,7 @@ def _load_tm_season_values() -> dict:
     try:
         short_to_hex = {
             overrides.get(r["team_abbreviation"], r["team_abbreviation"]): r["team_id"]
-            for _, r in asa.get_teams(leagues="mls").iterrows()}
+            for _, r in asa.get_teams(leagues=_ASA_LEAGUE).iterrows()}
     except Exception:
         return {}
     out: dict = {}
@@ -635,7 +640,7 @@ _squad_raw: dict[tuple, float] = {}
 
 for _s in _SQUAD_SEASONS:
     try:
-        _pxg = _cf(asa.get_player_xgoals, leagues="mls", season_name=str(_s))
+        _pxg = _cf(asa.get_player_xgoals, leagues=_ASA_LEAGUE, season_name=str(_s))
         _pxg_s = _pxg[
             _pxg["team_id"].apply(lambda x: isinstance(x, str))
             & (_pxg["minutes_played"] >= 500)
@@ -685,7 +690,7 @@ _GK_MIN_MINUTES = 500   # minimum minutes to qualify as team's main GK
 _gk_raw_dict: dict[tuple, float] = {}
 for _s in _SQUAD_SEASONS:
     try:
-        _gkxg_s = _cf(asa.get_goalkeeper_xgoals, leagues="mls", season_name=str(_s))
+        _gkxg_s = _cf(asa.get_goalkeeper_xgoals, leagues=_ASA_LEAGUE, season_name=str(_s))
         _gk_cols = list(_gkxg_s.columns)
         _gk_tid_c  = next((c for c in ["team_id"] if c in _gk_cols), None)
         _gk_min_c  = next((c for c in ["minutes_played", "minutes"] if c in _gk_cols), None)
@@ -703,7 +708,7 @@ for _s in _SQUAD_SEASONS:
         pass
 
 if _gk_raw_dict:
-    _gk_cols_disp = list(_cf(asa.get_goalkeeper_xgoals, leagues="mls", season_name="2023").columns)
+    _gk_cols_disp = list(_cf(asa.get_goalkeeper_xgoals, leagues=_ASA_LEAGUE, season_name="2023").columns)
     print(f"    GK columns (sample): {_gk_cols_disp[:8]}")
     for _s in sorted({ss for (_, ss) in _gk_raw_dict}):
         _vals = [v for (t, ss), v in _gk_raw_dict.items() if ss == _s]
@@ -747,7 +752,7 @@ _team_poss_season: dict[tuple, float] = {}   # (team_id, season) → possession
 
 for _s in _SQUAD_SEASONS:
     try:
-        _txpass_s = _cf(asa.get_team_xpass, leagues="mls", season_name=str(_s))
+        _txpass_s = _cf(asa.get_team_xpass, leagues=_ASA_LEAGUE, season_name=str(_s))
         _tp_cols = list(_txpass_s.columns)
         _tp_tid  = next((c for c in ["team_id"] if c in _tp_cols), None)
         _tp_ppda = next((c for c in ["ppda", "passes_allowed_per_defensive_action"]
@@ -767,7 +772,7 @@ for _s in _SQUAD_SEASONS:
         pass
 
 if _team_ppda_season or _team_poss_season:
-    _sample_cols = list(_cf(asa.get_team_xpass, leagues="mls", season_name="2023").columns)
+    _sample_cols = list(_cf(asa.get_team_xpass, leagues=_ASA_LEAGUE, season_name="2023").columns)
     print(f"    Team xpass columns: {_sample_cols[:8]}{'...' if len(_sample_cols) > 8 else ''}")
     print(f"    Season PPDA: {len(_team_ppda_season)} | Possession: {len(_team_poss_season)}")
 else:
@@ -811,7 +816,7 @@ _ga_raw: dict[tuple, float] = {}
 _pga_players: dict[tuple, list[float]] = {}   # (team_id, season) → per-outfielder ga list (Top-N source)
 for _s in _SQUAD_SEASONS:
     try:
-        _pga_s = _cf(asa.get_player_goals_added, leagues="mls", season_name=str(_s))
+        _pga_s = _cf(asa.get_player_goals_added, leagues=_ASA_LEAGUE, season_name=str(_s))
         _pga_cols = list(_pga_s.columns)
         _pga_tid = next((c for c in ["team_id"] if c in _pga_cols), None)
         _pga_min = next((c for c in ["minutes_played", "minutes"] if c in _pga_cols), None)
@@ -948,7 +953,7 @@ _team_xpass_oe_z: dict[tuple, float] = {}
 
 for _s in _SQUAD_SEASONS:
     try:
-        _pxp = _cf(asa.get_player_xpass, leagues="mls", season_name=str(_s))
+        _pxp = _cf(asa.get_player_xpass, leagues=_ASA_LEAGUE, season_name=str(_s))
         _pxp_cols = list(_pxp.columns)
         _pxp_tid  = next((c for c in ["team_id"] if c in _pxp_cols), None)
         _pxp_min  = next((c for c in ["minutes_played", "minutes"] if c in _pxp_cols), None)
@@ -1015,7 +1020,7 @@ _team_xg_oe_z:    dict[tuple, float] = {}
 
 for _s in _SQUAD_SEASONS:
     try:
-        _txg = _cf(asa.get_team_xgoals, leagues="mls", season_name=str(_s))
+        _txg = _cf(asa.get_team_xgoals, leagues=_ASA_LEAGUE, season_name=str(_s))
         _txg_cols = list(_txg.columns)
         _txg_tid  = next((c for c in ["team_id"] if c in _txg_cols), None)
         _txg_xg   = next((c for c in ["xgoals", "xgoals_for", "xg"] if c in _txg_cols), None)
@@ -1160,7 +1165,7 @@ if FETCH_TRANSFERMARKT:
     # Four ASA abbreviations differ from our YAML short codes:
     _ASA_ABBREV_OVERRIDES = {"DCU": "DC", "FCD": "DAL", "NER": "NE", "SJE": "SJ"}
     try:
-        _asa_teams_df = asa.get_teams(leagues="mls")
+        _asa_teams_df = asa.get_teams(leagues=_ASA_LEAGUE)
         _hex_to_short: dict[str, str] = {
             row["team_id"]: _ASA_ABBREV_OVERRIDES.get(row["team_abbreviation"],
                                                         row["team_abbreviation"])
@@ -1552,7 +1557,7 @@ _FEAT_AVAIL_ST: list = []
 _FEAT_SALARY: list = []
 if _HAS_AVAIL:
     print("\n[5g/9] Building ESPN availability-weighted xG+xA features...")
-    _pl = _cf(asa.get_players, leagues="mls")
+    _pl = _cf(asa.get_players, leagues=_ASA_LEAGUE)
     _id2name = {r.player_id: _norm_nm(r.player_name)
                 for r in _pl.dropna(subset=["player_id", "player_name"]).itertuples()}
     _qual: dict[tuple, float] = {}      # (norm_name, season) -> xG+xA
@@ -1560,7 +1565,7 @@ if _HAS_AVAIL:
         _px = None
         for _att in range(3):           # retry: ASA list-cols block caching, so fetched live
             try:
-                _px = _cf(asa.get_player_xgoals, leagues="mls", season_name=str(_s))
+                _px = _cf(asa.get_player_xgoals, leagues=_ASA_LEAGUE, season_name=str(_s))
                 break
             except Exception:
                 _px = None
@@ -1573,7 +1578,7 @@ if _HAS_AVAIL:
             if nm and pd.notna(v):
                 _qual[(nm, _s)] = _qual.get((nm, _s), 0.0) + float(v)
     print(f"    Quality map: {len(_qual):,} (player,season) entries")
-    _tm = _cf(asa.get_teams, leagues="mls")
+    _tm = _cf(asa.get_teams, leagues=_ASA_LEAGUE)
     _SUFFIX = {"fc", "sc", "cf"}   # ESPN drops these; ASA keeps them
 
     def _team_tok(n):
@@ -1662,7 +1667,7 @@ if _HAS_AVAIL:
     _top_paid: dict[tuple, str] = {}     # (team_id, season) -> norm_name of top earner
     for _s in _SQUAD_SEASONS:
         try:
-            _sl = _cf(asa.get_player_salaries, leagues="mls", season_name=str(_s))
+            _sl = _cf(asa.get_player_salaries, leagues=_ASA_LEAGUE, season_name=str(_s))
         except Exception:
             continue
         if "guaranteed_compensation" not in _sl.columns:
@@ -1731,7 +1736,7 @@ _pay: dict[tuple, float] = {}     # (team_id, season) -> total payroll
 _conc: dict[tuple, float] = {}    # (team_id, season) -> std/avg (coefficient of variation)
 for _s in _SQUAD_SEASONS:
     try:
-        _ts = _cf(asa.get_team_salaries, leagues="mls", season_name=str(_s))
+        _ts = _cf(asa.get_team_salaries, leagues=_ASA_LEAGUE, season_name=str(_s))
     except Exception:
         continue
     _tot_c = next((c for c in ["total_guaranteed_compensation"] if c in _ts.columns), None)
@@ -1786,7 +1791,7 @@ _gk_dist: dict[tuple, float] = {}     # (team_id, season) -> non-shotstopping g+
 _gk_dist_raw: dict[tuple, float] = {}
 for _s in _SQUAD_SEASONS:
     try:
-        _gga = _cf(asa.get_goalkeeper_goals_added, leagues="mls", season_name=str(_s))
+        _gga = _cf(asa.get_goalkeeper_goals_added, leagues=_ASA_LEAGUE, season_name=str(_s))
     except Exception:
         continue
     if "data" not in _gga.columns:
@@ -1848,7 +1853,7 @@ _def_ga_raw:      dict[tuple, float] = {}
 for _s in _SQUAD_SEASONS:
     # roster xpoints_added rate (get_player_xgoals, all players ≥90 min)
     try:
-        _pxg_s = _cf(asa.get_player_xgoals, leagues="mls", season_name=str(_s))
+        _pxg_s = _cf(asa.get_player_xgoals, leagues=_ASA_LEAGUE, season_name=str(_s))
         _px    = list(_pxg_s.columns)
         _px_tid = "team_id" if "team_id" in _px else None
         _px_min = next((c for c in ["minutes_played", "minutes"] if c in _px), None)
@@ -1868,7 +1873,7 @@ for _s in _SQUAD_SEASONS:
 
     # positional g+ split (get_player_goals_added)
     try:
-        _pga_s  = _cf(asa.get_player_goals_added, leagues="mls", season_name=str(_s))
+        _pga_s  = _cf(asa.get_player_goals_added, leagues=_ASA_LEAGUE, season_name=str(_s))
         _pg     = list(_pga_s.columns)
         _pg_tid = "team_id" if "team_id" in _pg else None
         _pg_min = next((c for c in ["minutes_played", "minutes"] if c in _pg), None)
@@ -1953,7 +1958,7 @@ try:
 
     # Build FBref squad-name → ASA team_id map from ASA player records
     try:
-        _all_players = _cf(asa.get_players, leagues="mls")
+        _all_players = _cf(asa.get_players, leagues=_ASA_LEAGUE)
         _ap_cols = list(_all_players.columns)
         _ap_tid  = "team_id" if "team_id" in _ap_cols else None
         _ap_nm   = next((c for c in ["team_name", "club_name", "team"] if c in _ap_cols), None)
@@ -3530,6 +3535,14 @@ if _ARGS.out:
         "best_brier":                  _best_b3,
         "improvement_pct_vs_naive":    _pct_safe(_best_b3, _nb),
         "max_decile_calibration_error": _avg_safe("cal_stage_stacked"),
+        # C2 family-gate compatibility: promotion_gate.evaluate_gate reads
+        # avg_brier / max_decile_cal_error / coverage_by_season, so a harness
+        # report can serve directly as a per-league-family champion report.
+        "asa_league":                  _ASA_LEAGUE,
+        "avg_brier":                   _avg_safe("ens_stacked_brier"),
+        "max_decile_cal_error":        _avg_safe("cal_stage_stacked"),
+        "coverage_by_season": {str(int(_row["season"])): int(_row["n"])
+                               for _, _row in rd.iterrows()},
         "per_class_brier": {
             "home":  _avg_safe("xgb_cal_h"),
             "draw":  _avg_safe("xgb_cal_d"),

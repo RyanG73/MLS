@@ -55,10 +55,10 @@ def _load(path: str) -> dict:
     return json.loads(p.read_text())
 
 
-def _champion_report() -> dict | None:
-    if not CHAMPION_PTR.exists():
+def _champion_report(ptr_path: Path = CHAMPION_PTR) -> dict | None:
+    if not ptr_path.exists():
         return None
-    ptr = json.loads(CHAMPION_PTR.read_text())
+    ptr = json.loads(ptr_path.read_text())
     rep_path = REPO_ROOT / ptr["report"]
     if not rep_path.exists():
         return None
@@ -238,7 +238,8 @@ def _print_checks(champion, challenger, passed, checks) -> None:
 
 def cmd_evaluate(args) -> int:
     challenger = _load(args.challenger)
-    champion = _load(args.champion) if args.champion else _champion_report()
+    champion = (_load(args.champion) if args.champion
+                else _champion_report(Path(args.champion_ptr)))
     passed, checks = evaluate_gate(champion, challenger)
     _print_checks(champion, challenger, passed, checks)
     return 0 if passed else 1
@@ -246,15 +247,16 @@ def cmd_evaluate(args) -> int:
 
 def cmd_promote(args) -> int:
     challenger = _load(args.challenger)
-    champion = _champion_report()
+    ptr = Path(args.champion_ptr)
+    champion = _champion_report(ptr)
     passed, checks = evaluate_gate(champion, challenger)
     _print_checks(champion, challenger, passed, checks)
     if not passed and not args.force:
         print("[gate] challenger did not pass — not promoting (use --force to override).")
         return 1
     rel = str(Path(args.challenger).resolve().relative_to(REPO_ROOT))
-    CHAMPION_PTR.parent.mkdir(parents=True, exist_ok=True)
-    CHAMPION_PTR.write_text(json.dumps({
+    ptr.parent.mkdir(parents=True, exist_ok=True)
+    ptr.write_text(json.dumps({
         "report": rel,
         "run_id": challenger.get("run_id"),
         "avg_brier": challenger.get("avg_brier"),
@@ -398,10 +400,15 @@ def main() -> int:
     pe = sub.add_parser("evaluate", help="Run the gate (challenger vs champion)")
     pe.add_argument("--challenger", required=True)
     pe.add_argument("--champion", default=None,
-                    help="Champion report path (default: experiments/champion.json pointer)")
+                    help="Champion report path (default: the pointer file)")
+    pe.add_argument("--champion-ptr", default=str(CHAMPION_PTR),
+                    help="Champion POINTER file — C2 per-league-family champions "
+                         "(e.g. experiments/champion_nwsl.json). Default: MLS.")
 
     pp = sub.add_parser("promote", help="Set a challenger as the champion")
     pp.add_argument("--challenger", required=True)
+    pp.add_argument("--champion-ptr", default=str(CHAMPION_PTR),
+                    help="Champion POINTER file to write (per-family). Default: MLS.")
     pp.add_argument("--force", action="store_true", help="Promote even if the gate fails")
 
     sub.add_parser("self-test", help="Assert the gate rejects a worse challenger")
