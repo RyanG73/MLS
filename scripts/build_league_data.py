@@ -51,7 +51,7 @@ from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON, CONC
 from scripts.eval.sim_variance import preseason_sigma_for_source, perturb_probs
 from scripts.eval.season_format import FORMATS, format_classification, regular_phase_mask
 from scripts.eval.upcoming_features import latest_team_features
-from scripts.payload_utils import write_js_payload, health_feature_stats
+from scripts.payload_utils import write_js_payload, health_feature_stats, outcome_skill_block
 from data_pipeline import coefficients as co
 
 # B9: same canonical family grouping as build_dashboard_data.py (kept as an
@@ -1232,6 +1232,10 @@ def main():
         # champion pointer work). Explicit null rather than borrowing MLS's
         # calibration numbers for a European league they don't describe.
         "trust": None,
+        # U1 (2026-07-07): season-outcome skill by checkpoint from the replay
+        # baseline — how much better than base rates the title/promo/releg odds
+        # are, and when they become trustworthy. None → honest empty state.
+        "outcome_skill": outcome_skill_block(lid),
         "model": {"best_brier": league_brier, "naive": league_naive, "market": league_market,
                   "improve_pct": round((league_naive - league_brier) / league_naive * 100, 2)
                   if league_brier and league_naive else None,

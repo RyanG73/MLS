@@ -1419,7 +1419,30 @@ function renderHealth(){
   }else{
     trustBlock=`<div class="hcard2"><h3>Reliability</h3><div class="hnote">Not available for this league — conditional-calibration slices are computed from the MLS champion report only; per-league-family champion reports are future work (Part C).</div></div>`;
   }
-  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+btCard+trustBlock+fresh;
+  // U1 (2026-07-07): season-outcome skill by checkpoint from the replay baseline.
+  // skill: 1 = perfect, 0 = no better than base rates, negative = worse.
+  const osk=D.outcome_skill;
+  let oskBlock;
+  if(osk&&Object.keys(osk).length){
+    const CP_LABEL={cp0:'Preseason','cp0.25':'25% played','cp0.5':'50% played','cp0.75':'75% played'};
+    const keys=[...new Set(Object.values(osk).flatMap(o=>Object.keys(o)))];
+    const head=`<tr><th style="text-align:left">Checkpoint</th>${keys.map(k=>`<th>${k}</th>`).join('')}</tr>`;
+    const rows=Object.keys(CP_LABEL).filter(cp=>osk[cp]).map(cp=>
+      `<tr><td style="text-align:left">${CP_LABEL[cp]}</td>`+keys.map(k=>{
+        const m=osk[cp][k];
+        if(!m||m.skill==null)return '<td class="hnote">—</td>';
+        const c=m.skill<=0.05?'#e25f4f':(m.skill<0.25?'var(--ink-dim,#8a93a6)':'var(--qualify,#41d18c)');
+        return `<td style="color:${c}">${m.skill.toFixed(2)}</td>`;
+      }).join('')+'</tr>').join('');
+    oskBlock=`<div class="hcard2"><h3>Season-outcome skill — when to trust the odds</h3>
+      <table class="osk-table" style="width:100%;border-collapse:collapse;font-size:12px;text-align:center">${head}${rows}</table>
+      <div class="hnote">Skill vs always quoting historical base rates (1 = perfect, 0 = none, red = little/none).
+      Preseason relegation/promotion odds carry little skill — they sharpen by ~25% of the season.
+      Measured on 2018–2025 replays (<code>season-outcomes-baseline</code>).</div></div>`;
+  }else{
+    oskBlock=`<div class="hcard2"><h3>Season-outcome skill</h3><div class="hnote">Not measured for this league yet — the season-outcome replay covers leagues with sufficient history.</div></div>`;
+  }
+  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+btCard+trustBlock+oskBlock+fresh;
 }
 
 /* matches */

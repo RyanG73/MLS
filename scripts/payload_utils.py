@@ -57,3 +57,36 @@ def health_feature_stats(rows: pd.DataFrame, cols: list[str]) -> dict:
         "nondefault_pct": round(float((subset != 0).mean().mean() * 100), 1),
         "status": "ok",
     }
+
+
+def outcome_skill_block(league_id: str) -> dict | None:
+    """Per-league outcome-skill summary for the Health tab (U1, 2026-07-07).
+
+    Reads `experiments/season-outcomes-baseline.report.json` (the season-outcome
+    replay baseline) and returns
+        {checkpoint: {outcome: {brier, skill, p_on_achievers}}}
+    where skill = 1 − brier / (obs·(1−obs)) — 0 means no better than always
+    quoting the base rate, negative means worse. None when the league isn't in
+    the baseline (e.g. liga-mx) or the report is missing: the UI renders the
+    honest empty state, mirroring the B4 `trust` convention.
+    """
+    rep_path = Path(__file__).parent.parent / "experiments" / "season-outcomes-baseline.report.json"
+    try:
+        rep = json.loads(rep_path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    league = rep.get("per_league", {}).get(league_id)
+    if not league:
+        return None
+    out: dict = {}
+    for cp, outcomes in league.items():
+        row = {}
+        for k, m in outcomes.items():
+            p = m.get("obs_rate") or 0.0
+            clim = p * (1.0 - p)
+            skill = (1.0 - m["brier"] / clim) if clim > 1e-9 else None
+            row[k] = {"brier": round(m["brier"], 3),
+                      "skill": round(skill, 2) if skill is not None else None,
+                      "p_hit": m.get("p_actual_mean")}
+        out[cp] = row
+    return out

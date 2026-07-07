@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from data_pipeline.http import espn_get  # noqa: E402
-from scripts.payload_utils import write_js_payload, health_feature_stats  # noqa: E402
+from scripts.payload_utils import write_js_payload, health_feature_stats, outcome_skill_block  # noqa: E402
 from scripts.eval.upcoming_features import latest_team_features  # noqa: E402
 
 _ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1"
@@ -756,6 +756,8 @@ def main():
             "health": health,
             "model_card": model_card,
             "trust": trust,
+            # U1 (2026-07-07): season-outcome skill by checkpoint (replay baseline)
+            "outcome_skill": outcome_skill_block("mls"),
             "model": {"best_brier": round(champ_brier, 4) if champ_brier else None,
                       "naive": _naive,
                       "improve_pct": round((_naive - champ_brier) / _naive * 100, 2)
