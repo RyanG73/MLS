@@ -470,12 +470,28 @@ def main():
     playoff = np.zeros(nT); hfa = np.zeros(nT); shield = np.zeros(nT); spoon = np.zeros(nT)
     confwin = np.zeros(nT); proj = np.zeros(nT); cup = np.zeros(nT)
     east_i = np.where(confs == "East")[0]; west_i = np.where(confs == "West")[0]
-    print(f"Simulating {N:,} seasons · {len(remaining)} remaining fixtures · {nT} teams...")
+    # Strength-uncertainty widening (ported from build_league_data 2026-07-07):
+    # δ_t ~ N(0, σ_family·(1−season_fraction)) per sim. MLS A/B on the season-
+    # outcome replay, both seeds: preseason playoffs Brier −0.011/−0.009,
+    # shield −0.0013/−0.0012, later checkpoints flat.
+    from scripts.eval.sim_variance import perturb_probs, preseason_sigma_for_source
+    _n_played = len(played)   # this season's completed games (frame rows)
+    _season_frac = (_n_played / (_n_played + len(remaining))
+                    if (_n_played + len(remaining)) else 1.0)
+    _sigma_eff = preseason_sigma_for_source("asa") * (1.0 - _season_frac)
+    _widen = _sigma_eff > 1.0 and len(remaining) > 0
+    _LRP = np.log(np.clip(RP, 1e-12, 1.0)) if _widen else None
+    print(f"Simulating {N:,} seasons · {len(remaining)} remaining fixtures · {nT} teams..."
+          + (f" [widening σ={_sigma_eff:.0f}]" if _widen else ""))
     for _ in range(N):
         p = base_pts.copy()
         if len(remaining):
+            if _widen:
+                _RPs = perturb_probs(_LRP, RH, RA, rng.standard_normal(nT) * _sigma_eff)
+            else:
+                _RPs = RP
             u = rng.random(len(remaining))
-            o = np.where(u < RP[:, 0], 0, np.where(u < RP[:, 0] + RP[:, 1], 1, 2))
+            o = np.where(u < _RPs[:, 0], 0, np.where(u < _RPs[:, 0] + _RPs[:, 1], 1, 2))
             np.add.at(p, RH[o == 0], 3)
             np.add.at(p, RH[o == 1], 1); np.add.at(p, RA[o == 1], 1)
             np.add.at(p, RA[o == 2], 3)

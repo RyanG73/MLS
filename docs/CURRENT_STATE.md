@@ -51,8 +51,9 @@ definitions, data sources, and run commands. Update it when any of these change.
   (`scripts/eval/sim_variance.py`). σ_family: understat/big-5 60 · footballdata/tiers **90** ·
   default 60 — the tiers value and the decay were KEPT on the season-outcome replay at both
   seeds (tiers improve BOTH table ends at 90; decay gains releg −0.0015 at the 25% checkpoint
-  with no regression anywhere). The γ gap-scaled variant remains DROPPED. MLS
-  (`build_dashboard_data.py`) is unchanged.
+  with no regression anywhere). The γ gap-scaled variant remains DROPPED. MLS (`build_dashboard_data.py`)
+  gained the same widening 2026-07-07 (KEEP at both seeds on the outcome replay: preseason
+  playoffs Brier −0.011, shield −0.0013).
 - **Season-outcome evaluation (user directive 2026-07-06):** team-level outcomes (champion,
   promotion, relegation, top-N) are an optimization target alongside match Brier.
   `scripts/eval_season_outcomes.py` replays 2018–2025 through production-mirrored sims at 4
