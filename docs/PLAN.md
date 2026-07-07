@@ -1,5 +1,22 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — Offseason flip: 15 leagues now show 2026-27 preseason projections**
+> Preseason detection extended beyond understat to the football-data source: between seasons
+> the next campaign exists only in ESPN's schedule, so the builder now fetches it live
+> (`use_cache=False` — a parquet cached before ESPN published pinned la-liga/bundesliga to
+> "completed"), maps ESPN names back to FD keys (league-local then global FD_ESPN inverse),
+> and runs the full preseason path incl. A10(b) σ=60 widening. ESPN fixture limit raised
+> 500→1000 (the English tiers' 552-game seasons were silently truncated). **Two seeding bugs
+> found when the new paths first ran**: (1) the English tier chain stopped at
+> championship↔EPL — promotees INTO the Championship/League One carried flat priors (or, worse,
+> Cardiff's stale 2018-19 EPL ELO); `_TIER2_FOR` now chains championship→league-one→league-two
+> with ±120 static priors in `coefficients.py` (Lincoln: raw-carry 94% promotion → discounted
+> 42%). (2) ESPN full names for EPL-relegated sides missed the FD alias table — West Ham was
+> seeded flat (44% releg); now bridged (1496+120 → 26% promo). Status census: 15 preseason ·
+> 3 live (MLS/NWSL/USL) · super-lig/greek-super/serie-b await ESPN schedule publication (weekly
+> CI auto-flips) · liga-mx flips when Apertura data lands (adapter has no schedule source).
+> 29/29 payloads valid; suite 609 passed.
+
 > **2026-07-06 — C2 COMPLETE: NWSL + USL live; all five family champions on record; 7/2 plan closed**
 > NWSL family config re-championed to the XGB-only ensemble (`--dc-blend-floor 1.0`): 0.6458 vs
 > the 0.6474 DC-blend baseline, +0.0016 at BOTH seeds (42/7), full gate PASS — the DC leg is a

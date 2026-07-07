@@ -203,8 +203,12 @@ def test_european_fixtures_unknown_league():
 
 def test_slugs_covers_all_big5():
     # big-5 preseason fixtures + the C2 ASA leagues (mid-season remainder)
-    assert set(SLUGS) == {"epl", "la-liga", "serie-a", "bundesliga", "ligue-1",
-                          "nwsl", "usl-championship"}
+    # + every football-data league (offseason preseason flip, 2026-07-06)
+    assert {"epl", "la-liga", "serie-a", "bundesliga", "ligue-1",
+            "nwsl", "usl-championship"} <= set(SLUGS)
+    from data_pipeline.football_data import DIV
+    missing = set(DIV) - set(SLUGS)
+    assert not missing, f"FD leagues without an ESPN fixtures slug: {sorted(missing)}"
 
 
 def test_espn_to_understat_no_identity_entries():

@@ -170,6 +170,13 @@ _TIER2_FOR: dict[str, str] = {
     "serie-a":    "serie-b",
     "la-liga":    "segunda",
     "ligue-1":    "ligue-2",
+    # English chain continues: promotees INTO the Championship/League One come
+    # from a covered lower tier too (found 2026-07-06 when the FD preseason
+    # flip first exercised these paths — Lincoln/Bolton had real League One
+    # ELO but were seeded flat). The dict-inverse below chains the relegation
+    # direction for free (league-two ← league-one ← championship).
+    "championship": "league-one",
+    "league-one":   "league-two",
 }
 # Inverse: tier-2 league ID → its top-flight. Used to seed RELEGATED teams when building a
 # second-tier league. Named distinctly from coefficients._TIER1_FOR to avoid confusion.
@@ -193,6 +200,13 @@ _FD_TEAM_ALIASES: dict[str, str] = {
     "Coventry City":           "Coventry",
     "Watford":                 "Watford",
     "Brentford":               "Brentford",
+    # ESPN full names for sides relegated OUT of the EPL (the FD tier-1 ELO
+    # map abbreviates) — West Ham was seeded flat without this (2026-07-06).
+    "West Ham United":         "West Ham",
+    "Tottenham Hotspur":       "Tottenham",
+    "Manchester United":       "Man United",
+    "Manchester City":         "Man City",
+    "Newcastle United":        "Newcastle",
 }
 
 _TIER2_ELO_CACHE: dict[str, dict[str, float]] = {}
@@ -484,6 +498,22 @@ FD_ESPN: dict[str, dict[str, str]] = {
 }
 
 
+def _espn_names_to_fd(lid: str, fx: "pd.DataFrame") -> "pd.DataFrame":
+    """Map ESPN displayNames in a fixtures frame to FD model keys.
+
+    Inverse of FD_ESPN — the league's own map first, then a global inverse
+    across all FD leagues (covers teams promoted from a covered lower tier,
+    whose name entry lives in that tier's map). Unmapped names pass through
+    (they hit the promoted-team prior path, which is correct).
+    """
+    inv = {v: k for k, v in FD_ESPN.get(lid, {}).items()}
+    glob = {v: k for m in FD_ESPN.values() for k, v in m.items()}
+    fx = fx.copy()
+    for col in ("home_team", "away_team"):
+        fx[col] = fx[col].map(lambda n: inv.get(n) or glob.get(n, n))
+    return fx
+
+
 def _load_frame(league_id: str, source: str, asa_key: str | None = None):
     """Route a league to its canonical-frame source."""
     if source == "understat":
@@ -569,7 +599,9 @@ def main():
     if cfg["source"] == "understat" and args.season is None:
         _next = max_played_season + 1
         try:
-            _espn = european_fixtures(lid, _next)
+            # Live fetch: a parquet cached before ESPN published the schedule
+            # is empty and would pin the league to "completed" forever.
+            _espn = european_fixtures(lid, _next, use_cache=False)
             _espn_scheduled = _espn[~_espn["is_result"]]
             _understat_has_next = int((frame["season"] == _next).sum()) > 0
             if len(_espn_scheduled) > 0 and not _understat_has_next:
@@ -594,6 +626,27 @@ def main():
                           f"{len(espn_upcoming)} ESPN fixtures")
             except Exception as _espn_err:
                 print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
+    elif cfg["source"] == "footballdata":
+        # football-data preseason (offseason flip): FD CSVs appear only once a
+        # season kicks off, so between seasons the next campaign lives solely
+        # in ESPN's schedule. Same detection as understat; ESPN names map back
+        # to FD model keys (dc/elo dicts are FD-keyed). Split/playoff rounds
+        # (Scotland/Belgium/Greece) aren't scheduled preseason — those sims
+        # cover the regular phase only, and the format-group machinery takes
+        # over once real rows exist.
+        _next = ts + 1 if args.season is None else ts
+        if int((played_all["season"] == _next).sum()) == 0:
+            try:
+                _espn = european_fixtures(lid, _next, use_cache=False)
+                _sched = _espn[~_espn["is_result"]]
+                if len(_sched) > 0:
+                    espn_upcoming = _espn_names_to_fd(lid, _sched)
+                    ts = _next
+                    is_preseason = True
+                    print(f"[{lid}] pre-season mode: ts={ts}, "
+                          f"{len(espn_upcoming)} ESPN fixtures (FD-mapped)")
+            except Exception as _espn_err:
+                print(f"[{lid}] ESPN next-season check failed (staying on {ts}): {_espn_err}")
 
     # ASA leagues: ASA serves played games only — the scheduled remainder of
     # the season comes from ESPN (mid-season forward sim, NOT preseason mode:

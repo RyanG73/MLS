@@ -43,6 +43,14 @@ SLUGS = {
     # scheduled remainder of the season for the forward sim.
     "nwsl":             "usa.nwsl",
     "usl-championship": "usa.usl.1",
+    # football-data leagues: ESPN supplies next-season fixtures for preseason
+    # mode (names map ESPN→FD in build_league_data, the inverse of FD_ESPN —
+    # NOT via ESPN_TO_UNDERSTAT, which is understat-key specific).
+    "championship": "eng.2", "league-one": "eng.3", "league-two": "eng.4",
+    "bundesliga-2": "ger.2", "serie-b": "ita.2",
+    "segunda": "esp.2", "ligue-2": "fra.2",
+    "eredivisie": "ned.1", "primeira": "por.1", "super-lig": "tur.1",
+    "scottish-prem": "sco.1", "belgian-pro": "bel.1", "greek-super": "gre.1",
 }
 
 # Leagues whose season is a calendar year (dates window Jan–Dec of `season`)
@@ -128,7 +136,9 @@ def _fetch_events(slug: str, season: int, calendar_year: bool = False) -> list[d
     url = f"{_BASE}/{slug}/scoreboard"
     y0, y1 = season, season + 1
     window = f"{y0}0101-{y0}1231" if calendar_year else f"{y0}0701-{y1}0630"
-    params = {"dates": window, "limit": 500}
+    # limit 1000: the English tiers run 552 fixtures/season — the old 500
+    # silently truncated them.
+    params = {"dates": window, "limit": 1000}
     try:
         return espn_get(url, params).get("events", [])
     except Exception as e:

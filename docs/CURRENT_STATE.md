@@ -51,6 +51,12 @@ definitions, data sources, and run commands. Update it when any of these change.
   ELO drift). Big-5 FD cohort replay: relegation Brier −0.008, top-4 −0.001, title flat. The
   gap-scaled variant (γ·|club_prior_gap|) was tested and DROPPED. In-season sims and MLS
   (`build_dashboard_data.py`) are unchanged.
+- **Offseason preseason flip (2026-07-06):** preseason mode covers the football-data source
+  too — ESPN supplies next-season fixtures (live fetch, never the parquet cache; limit 1000),
+  names map back to FD keys via the FD_ESPN inverse. The English tier chain bridges three
+  levels (epl↔championship↔league-one↔league-two, ±120 static priors below the fitted pair).
+  Leagues whose ESPN schedule isn't published yet stay `completed` and auto-flip on the next
+  weekly rebuild.
 - DC decay: 120-day half-life
 - XGB feature windows: xG and form over (3, 5, 10, 15) matches (all four; eval harness default)
 - Edge threshold: 8% before live betting

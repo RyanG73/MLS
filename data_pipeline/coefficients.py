@@ -168,6 +168,12 @@ _TIER2_PRIORS: dict[str, float] = {
     "serie-b_to_serie-a": -130.0,
     "segunda_to_la-liga": -120.0,
     "ligue-2_to_ligue-1": -120.0,
+    # English third/fourth-tier chain (2026-07-06, static priors only — no
+    # bridge fit yet). Same magnitude as the fitted championship↔EPL gap;
+    # without these a League One champion carried its raw domestic ELO into
+    # the Championship (Lincoln seeded at 1722 → 94% promotion, absurd).
+    "league-one_to_championship": -120.0,
+    "league-two_to_league-one": -120.0,
 }
 
 # Maps tier-2 league ID → tier-1 league ID (used to construct the JSON key).
@@ -177,6 +183,8 @@ _TIER1_FOR: dict[str, str] = {
     "serie-b": "serie-a",
     "segunda": "la-liga",
     "ligue-2": "ligue-1",
+    "league-one": "championship",
+    "league-two": "league-one",
 }
 
 
@@ -217,6 +225,8 @@ _TIER1_PRIORS: dict[str, float] = {
     "serie-a_to_serie-b": 130.0,
     "la-liga_to_segunda": 120.0,
     "ligue-1_to_ligue-2": 120.0,
+    "championship_to_league-one": 120.0,
+    "league-one_to_league-two": 120.0,
 }
 
 
