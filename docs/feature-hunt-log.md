@@ -1,5 +1,26 @@
 # MLS Feature Hunt Log
 
+## 2026-07-07 — Value-informed preseason tilt (M2, the A10a revival) — KEEP (bottom-half targeted, β=0.5)
+
+TM `saison_id` pages serve era-appropriate values (Gate-0 probe: GB1 2019 = City €1,050m,
+Spurs €807m — matches 2019 reporting), unlocking a leakage-clean backfill
+(`scripts/eval/tm_value_backfill.py`, 976 team-seasons big-5 2017–2026, team totals only per
+the rights register, 97% FD-mapped). Lever: fit log(value_{S-1}) → ELO walk-forward, tilt
+preseason fixture log-odds by β·(value_elo − elo) — a LOCATION fix the symmetric widening
+can't provide. Untargeted β=0.5: releg −0.0055 but title +0.005 / UCL +0.007 (the linear fit
+overshoots for mega-value clubs, dragging title odds toward wealth) — REJECTED. Bottom-half-
+rated targeting (where the measured location error lives): releg −0.0052/−0.0055 at seeds
+42/7, title +0.0001/+0.0000, all else noise — KEEP, ported to `build_league_data.py`
+preseason sims. Production effect: Spurs relegation 32.4% → 16.5% (campaign start: 42.0%;
+A7 cohort CI 3–33%).
+
+## 2026-07-07 — Per-family ELO regression rate (M3, the A8 deferred sweep) — VALIDATED NULL
+
+A8-methodology early-60d proxy with the production club_prior_beta=0.75: big-5 prefers less
+regression monotonically but the full range is 0.00067 (0.24166@0.25 vs 0.24233@0.40) —
+~10× below A8's β effect; tiers flat (range 0.00018). With the club-prior target carrying
+the seeding, the rate barely matters. regress=0.40 stays for all families.
+
 ## 2026-07-07 — Season-outcome sweep: per-family preseason σ + decaying widening — DOUBLE KEEP
 
 **Experiments** (judged on the season-outcome replay, `scripts/eval_season_outcomes.py`,

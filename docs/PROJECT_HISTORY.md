@@ -325,6 +325,25 @@ completion: 21 league builds + 5 continental competitions, 29 valid payloads.
 
 ---
 
+## Outcome-driven improvements campaign (2026-07-07, plan completed and deleted)
+
+The first campaign judged end-to-end on the season-outcome replay rather than match Brier.
+Model: MLS sim gained the strength-uncertainty widening (preseason playoffs Brier −0.011);
+the A10(a) squad-value prior finally landed as a bottom-half-targeted preseason tilt after a
+Gate-0 probe proved Transfermarkt's historical season pages are era-clean (relegation Brier
+−0.0055 with title flat; the untargeted variant dragged title odds toward the richest club
+and was rejected) — Tottenham's preseason relegation odds closed the campaign at 16.5% from
+the original 42%; USL playoff odds became conference-aware (MLS already was); the per-family
+ELO regression-rate sweep was a validated null (0.40 stays — with club-prior seeding the rate
+barely matters). UI: the Health tab shows outcome-skill by checkpoint ("when to trust the
+odds"), the edge-board landing gained a model-odds movers strip (works without market data),
+the two mobile overflows known since B1 were fixed (browser-smoke fully green for the first
+time), and team profiles gained the "Is this team for real?" panel (club-prior gap ·
+goals−xG · value rank vs table rank). Outright-market betting policy stands: no
+relegation/promotion recommendations before 25% of a season.
+
+---
+
 ## Permanent constraints (do not re-litigate without explicit instruction)
 
 See `CLAUDE.md` for the full decision list with dates. Key ones with rationale:

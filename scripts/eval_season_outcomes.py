@@ -105,10 +105,11 @@ def main() -> None:
                          "production behaviour since 2026-07-07 (default on).")
     ap.add_argument("--no-sigma-decay", dest="sigma_decay", action="store_false",
                     help="Preseason-only widening (pre-2026-07-07 behaviour).")
-    ap.add_argument("--value-beta", type=float, default=0.0,
-                    help="M2/A10a experiment: preseason value-informed strength "
-                         "tilt, beta*(value_elo - elo). Needs the TM backfill "
-                         "(big-5 only); other leagues get no tilt.")
+    ap.add_argument("--value-beta", type=float, default=0.5,
+                    help="Preseason value-informed strength tilt, "
+                         "beta*(value_elo - elo), bottom-half-rated teams only "
+                         "— the production default since 2026-07-07 (M2 KEEP). "
+                         "Needs the TM backfill (big-5); 0 disables.")
     ap.add_argument("--out", type=str, default=None)
     args = ap.parse_args()
 

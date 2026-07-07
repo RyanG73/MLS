@@ -1,5 +1,15 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-07 — Outcome-driven campaign COMPLETE (8/8): value tilt lands, Spurs 42%→16.5%**
+> M1 MLS widening (playoffs −0.011 preseason, both seeds) · M2 value-informed preseason tilt,
+> bottom-half targeted (releg −0.0055, title flat, both seeds; era-clean TM backfill 2017–2026;
+> untargeted variant rejected for dragging title odds toward wealth) · M3 regress sweep
+> validated null (0.40 stays) · M4 USL conference-aware playoffs (MLS already was) · U1
+> outcome-skill Health table · U2 model-odds movers strip (CI-wired) · U3 mobile overflows
+> fixed (browser-smoke fully green, first time since B1) · U4 "Is this team for real?" panel.
+> Outcome baseline regenerated under the shipped config. Plan file deleted; story in
+> PROJECT_HISTORY. ODDS_API_KEY remains the deferred user action.
+
 > **2026-07-07 — Outcome-driven changes ▶ replay made production-faithful; per-family σ (tiers 90) + decaying widening KEPT; bridge priors fit-validated; outright-betting policy set**
 > Executing on the outcome baseline's findings: (1) the replay now measures production
 > honestly — tier-bridge newcomer seeding, format-league official classification, MLS/NWSL/USL

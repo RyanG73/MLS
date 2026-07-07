@@ -54,6 +54,12 @@ definitions, data sources, and run commands. Update it when any of these change.
   with no regression anywhere). The γ gap-scaled variant remains DROPPED. MLS (`build_dashboard_data.py`)
   gained the same widening 2026-07-07 (KEEP at both seeds on the outcome replay: preseason
   playoffs Brier −0.011, shield −0.0013).
+- **Value-informed preseason tilt (M2/A10a, 2026-07-07):** big-5 preseason sims tilt
+  bottom-half-rated teams' fixture log-odds by 0.5·(value_elo − elo), value_elo from a
+  walk-forward log(squad value)→ELO fit (`scripts/eval/tm_value_backfill.py`, era-clean TM
+  backfill). KEEP at both seeds: releg Brier −0.0055, title flat; the untargeted variant was
+  rejected (drags title odds toward the richest club). Spurs preseason relegation 16.5%
+  (campaign start: 42%). ELO regression rate stays 0.40 for all families (M3 validated null).
 - **Season-outcome evaluation (user directive 2026-07-06):** team-level outcomes (champion,
   promotion, relegation, top-N) are an optimization target alongside match Brier.
   `scripts/eval_season_outcomes.py` replays 2018–2025 through production-mirrored sims at 4
