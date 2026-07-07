@@ -304,6 +304,27 @@ annotations). Live at `https://ryang73.github.io/MLS/`.
 
 ---
 
+## The 2026-07-02 improvement campaign (2026-07-02 → 2026-07-06, plan completed and deleted)
+
+A 25-task campaign spanning model diagnostics, the betting-edge product pivot, and league
+expansion. Model side: conditional-reliability slices (A1) became the judging framework; the
+"fallen giant" cluster (A7–A10) produced the club-prior ELO seeding for Europe (β=0.75, Spurs
+relegation 42→37.9%) and preseason sim variance widening (uniform σ=60 ELO — the gap-scaled
+variant was disproven on the cohort replay), while time-varying HFA (A4), xG-ELO (A5), draw
+restructuring (A11), value-informed seeds on MLS (A10a), and FBref xG (A12, source withdrew
+public xG) were all validated negatives. Product side: edge board landing page, quarter-Kelly
+paper ledger, odds-history accrual, model-vs-market views, trust/health surfaces. Expansion
+(C1/C2): six football-data leagues shipped with format-aware classification
+(`season_format.py` — Belgian points-halving, Scottish split, Greek playoff pools inferred
+from the post-phase pairing graph), and NWSL + USL Championship shipped LIVE mid-season via a
+new ASA canonical-frame source (ASA played games + ESPN scheduled remainder). Champion
+governance became per-league-family: five pointers (MLS 0.6330 · NWSL 0.6458 XGB-only, the DC
+leg is a validated liability there · USL 0.6246 · eur-big5 0.5934 · eur-tiers 0.6152), each
+with its own walk-forward baseline and promotion gate (`--champion-ptr`). Platform at
+completion: 21 league builds + 5 continental competitions, 29 valid payloads.
+
+---
+
 ## Permanent constraints (do not re-litigate without explicit instruction)
 
 See `CLAUDE.md` for the full decision list with dates. Key ones with rationale:

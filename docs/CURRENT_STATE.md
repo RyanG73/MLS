@@ -87,17 +87,20 @@ judged per family — a KEEP in one family does not auto-apply to another.
 `promotion_gate.py --champion-ptr <path>` selects the family; `eval_baseline.py --asa-league`
 routes every ASA endpoint call (MLS smoke-verified behavior-preserving).
 
-| Family | Champion pointer | Baseline (ens_stacked vs naive, 4 folds 2022–25) | Notes |
+| Family | Champion pointer | Baseline (vs naive, 2022–25 window) | Notes |
 |---|---|---|---|
 | MLS | `experiments/champion.json` | 0.6330 (existing champion) | untouched |
-| NWSL | `experiments/champion_nwsl.json` | 0.6474 vs 0.6507 (**+0.5%**, 2/4 folds) | DC hurts (−1.9%); XGB-cal alone 0.6458 (+0.8%) — family config should lean XGB-only before a dashboard ships |
-| USL Championship | `experiments/champion_usl.json` | 0.6246 vs 0.6460 (**+3.3%**, 4/4 folds) | architecture transfers cleanly |
-| xG-rich Europe (big-5) | `experiments/champion_eur_big5.json` | not yet created | per-family eval pending |
-| Goals-only tiers + C1 | `experiments/champion_eur_tiers.json` | not yet created | per-family eval pending |
+| NWSL | `experiments/champion_nwsl.json` | **0.6458** vs 0.6507 (+0.8%) | **XGB-only ensemble** (`--dc-blend-floor 1.0`) — the DC leg is a validated liability on NWSL (−1.9% cal); confirmed at seeds 42 AND 7 (+0.0016 over the blend at both), full gate PASS |
+| USL Championship | `experiments/champion_usl.json` | 0.6246 vs 0.6460 (+3.3%, 4/4 folds) | MLS architecture transfers cleanly |
+| xG-rich Europe (big-5) | `experiments/champion_eur_big5.json` | 0.5934 vs 0.6487 (+8.5%) | pooled per-league walk-forwards (`scripts/build_family_report.py`, equal-weight league-seasons) |
+| Goals-only tiers + C1 | `experiments/champion_eur_tiers.json` | 0.6152 vs 0.6498 (+5.3%, 13 leagues) | same pooling |
 
-NWSL/USL dashboards are NOT yet built (registry entries are `soon` stubs with team lists);
-the plan gates shipping odds on these evals, which now exist. 2020 excluded for all ASA
-leagues (`_COVID` is global).
+NWSL and USL Championship are LIVE league pages (2026-07-06): played games from ASA
+(`data_pipeline/asa_frame.py`, goals + ASA xG), scheduled season remainder from ESPN
+(calendar-year fixture window), playoff rows excluded from regular-season tables via
+`is_playoff`. USL playoff odds are a pooled top-16 approximation of top-8-per-conference
+(documented; conference-aware sim is future work). 2020 excluded for all ASA leagues
+(`_COVID` is global).
 
 ## Metric Convention
 

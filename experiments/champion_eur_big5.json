@@ -1,0 +1,6 @@
+{
+  "report": "experiments/eur-big5-family.report.json",
+  "run_id": null,
+  "avg_brier": 0.593395,
+  "promoted_at": "2026-07-07T00:16:46Z"
+}

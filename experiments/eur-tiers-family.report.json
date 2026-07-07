@@ -1,0 +1,103 @@
+{
+  "experiment_id": "eur-tiers-family",
+  "family": "eur-tiers",
+  "timestamp": "2026-07-07T00:16:46Z",
+  "pooling": "equal-weight across league-seasons, 2022-2025 window; coverage_by_season counts leagues",
+  "leagues": [
+    "championship",
+    "league-one",
+    "league-two",
+    "bundesliga-2",
+    "serie-b",
+    "segunda",
+    "ligue-2",
+    "eredivisie",
+    "primeira",
+    "super-lig",
+    "scottish-prem",
+    "belgian-pro",
+    "greek-super"
+  ],
+  "avg_brier": 0.615219,
+  "naive_brier": 0.649829,
+  "per_season": {
+    "2022": 0.607915,
+    "2023": 0.613931,
+    "2024": 0.619162,
+    "2025": 0.619869
+  },
+  "per_season_naive": {
+    "2022": 0.646623,
+    "2023": 0.650608,
+    "2024": 0.648623,
+    "2025": 0.653462
+  },
+  "coverage_by_season": {
+    "2022": 13,
+    "2023": 13,
+    "2024": 13,
+    "2025": 13
+  },
+  "per_league_seasons": {
+    "2022": {
+      "championship": 0.6495,
+      "league-one": 0.6311,
+      "league-two": 0.656,
+      "bundesliga-2": 0.6353,
+      "serie-b": 0.6588,
+      "segunda": 0.6444,
+      "ligue-2": 0.6457,
+      "eredivisie": 0.5599,
+      "primeira": 0.5278,
+      "super-lig": 0.5818,
+      "scottish-prem": 0.5337,
+      "belgian-pro": 0.6015,
+      "greek-super": 0.5774
+    },
+    "2023": {
+      "championship": 0.6321,
+      "league-one": 0.6267,
+      "league-two": 0.644,
+      "bundesliga-2": 0.6245,
+      "serie-b": 0.6598,
+      "segunda": 0.6482,
+      "ligue-2": 0.66,
+      "eredivisie": 0.5575,
+      "primeira": 0.5555,
+      "super-lig": 0.6185,
+      "scottish-prem": 0.5609,
+      "belgian-pro": 0.6105,
+      "greek-super": 0.5829
+    },
+    "2024": {
+      "championship": 0.6234,
+      "league-one": 0.6261,
+      "league-two": 0.6556,
+      "bundesliga-2": 0.6689,
+      "serie-b": 0.6567,
+      "segunda": 0.631,
+      "ligue-2": 0.6358,
+      "eredivisie": 0.5878,
+      "primeira": 0.5746,
+      "super-lig": 0.5775,
+      "scottish-prem": 0.57,
+      "belgian-pro": 0.6202,
+      "greek-super": 0.6215
+    },
+    "2025": {
+      "championship": 0.6423,
+      "league-one": 0.6316,
+      "league-two": 0.6423,
+      "bundesliga-2": 0.6496,
+      "serie-b": 0.6343,
+      "segunda": 0.6507,
+      "ligue-2": 0.6557,
+      "eredivisie": 0.5883,
+      "primeira": 0.5508,
+      "super-lig": 0.6002,
+      "scottish-prem": 0.5858,
+      "belgian-pro": 0.6308,
+      "greek-super": 0.5959
+    }
+  }
+}

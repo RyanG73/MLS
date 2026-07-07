@@ -1,5 +1,19 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — C2 COMPLETE: NWSL + USL live; all five family champions on record; 7/2 plan closed**
+> NWSL family config re-championed to the XGB-only ensemble (`--dc-blend-floor 1.0`): 0.6458 vs
+> the 0.6474 DC-blend baseline, +0.0016 at BOTH seeds (42/7), full gate PASS — the DC leg is a
+> validated liability on NWSL. Both leagues ship LIVE mid-season: ASA canonical frame
+> (`data_pipeline/asa_frame.py`, goals + xG, playoff rows excluded from tables) + ESPN scheduled
+> remainder (NWSL 102 played/139 upcoming; USL 175/198). European family pointers created from
+> pooled per-league walk-forwards (`build_family_report.py`): eur-big5 0.5934 (+8.5% vs naive),
+> eur-tiers 0.6152 (+5.3%, 13 leagues). TM codes NL1/PO1/TR1/SC1/BE1/GR1 verified + wired into
+> the weekly squad-value cron (C1 follow-up; Eredivisie gate misses are roster-vintage skew,
+> self-healing at season rollover). 29 payloads valid; suite 574 passed. The 2026-07-02 plan
+> file is deleted — its story is in `docs/PROJECT_HISTORY.md`. Outstanding user action:
+> `ODDS_API_KEY` repo secret (confirmed unset via `gh secret list`) — the paper ledger and CLV
+> accrual (success criterion 2) stay dormant without it.
+
 > **2026-07-06 — C2 eval gates + five-family champion governance ▶ NWSL weak-pass, USL strong-pass**
 > `eval_baseline.py --asa-league {mls,nwsl,uslc,…}` threads every ASA call (MLS smoke PASS —
 > behavior preserved); `promotion_gate.py --champion-ptr` parameterizes the per-family pointer.

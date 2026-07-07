@@ -1,0 +1,63 @@
+{
+  "experiment_id": "eur-big5-family",
+  "family": "eur-big5",
+  "timestamp": "2026-07-07T00:16:46Z",
+  "pooling": "equal-weight across league-seasons, 2022-2025 window; coverage_by_season counts leagues",
+  "leagues": [
+    "epl",
+    "la-liga",
+    "serie-a",
+    "bundesliga",
+    "ligue-1"
+  ],
+  "avg_brier": 0.593395,
+  "naive_brier": 0.648665,
+  "per_season": {
+    "2022": 0.58944,
+    "2023": 0.59266,
+    "2024": 0.59458,
+    "2025": 0.5969
+  },
+  "per_season_naive": {
+    "2022": 0.64192,
+    "2023": 0.65196,
+    "2024": 0.65326,
+    "2025": 0.64752
+  },
+  "coverage_by_season": {
+    "2022": 5,
+    "2023": 5,
+    "2024": 5,
+    "2025": 5
+  },
+  "per_league_seasons": {
+    "2022": {
+      "epl": 0.5736,
+      "la-liga": 0.5902,
+      "serie-a": 0.5949,
+      "bundesliga": 0.6003,
+      "ligue-1": 0.5882
+    },
+    "2023": {
+      "epl": 0.5649,
+      "la-liga": 0.5801,
+      "serie-a": 0.5986,
+      "bundesliga": 0.582,
+      "ligue-1": 0.6377
+    },
+    "2024": {
+      "epl": 0.5952,
+      "la-liga": 0.5934,
+      "serie-a": 0.5782,
+      "bundesliga": 0.609,
+      "ligue-1": 0.5971
+    },
+    "2025": {
+      "epl": 0.623,
+      "la-liga": 0.5816,
+      "serie-a": 0.6065,
+      "bundesliga": 0.5823,
+      "ligue-1": 0.5911
+    }
+  }
+}
