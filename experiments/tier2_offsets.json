@@ -8,5 +8,9 @@
   "segunda_to_la-liga": -120.01,
   "la-liga_to_segunda": 120.01,
   "ligue-2_to_ligue-1": -120.01,
-  "ligue-1_to_ligue-2": 120.01
+  "ligue-1_to_ligue-2": 120.01,
+  "league-one_to_championship": -120.01,
+  "championship_to_league-one": 120.01,
+  "league-two_to_league-one": -120.0,
+  "league-one_to_league-two": 120.0
 }
