@@ -58,6 +58,10 @@ _TIER2_PAIRS: list[tuple[str, str]] = [
     ("serie-b", "serie-a"),
     ("segunda", "la-liga"),
     ("ligue-2", "ligue-1"),
+    # English chain extension (2026-07-07): promotees into the Championship /
+    # League One had only static ±120 priors; fit them like the other pairs.
+    ("league-one", "championship"),
+    ("league-two", "league-one"),
 ]
 
 

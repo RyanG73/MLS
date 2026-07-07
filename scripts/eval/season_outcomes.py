@@ -32,8 +32,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from data_pipeline import coefficients as co
 from models.research_model import fit_temperature_scalar
 from scripts.eval.dixon_coles import dc_predict_batch, fit_dc
+from scripts.eval.elo import compute_elo
+from scripts.eval.season_format import format_classification, regular_phase_mask
 from scripts.eval.sim_variance import PRESEASON_SIGMA, perturb_probs
 
 DEFAULT_CHECKPOINTS = (0.0, 0.25, 0.5, 0.75)
@@ -46,6 +49,44 @@ def flat_fallback(atk: dict, dfd: dict) -> tuple[float, float]:
     p15 = max(0, int(len(av) * 0.15) - 1)
     p85 = min(len(dv) - 1, int(len(dv) * 0.85))
     return (av[p15] if av else -0.2), (dv[p85] if dv else 0.2)
+
+
+def _seed_newcomers(newcomers: list[str], atk: dict, dfd: dict,
+                    elo_now: dict[str, float],
+                    bridge: dict | None, cutoff: pd.Timestamp,
+                    lid: str) -> None:
+    """Production's tier-bridge seeding for teams absent from the DC fit.
+
+    Mirrors build_league_data's preseason block: promoted teams take their
+    feeder-league ELO + tier2 offset, relegated ones their parent-league ELO
+    + tier1 offset, mapped to DC params via the same ELO→param linear fit
+    (`_elo_to_dc_params`). Teams unseen in either bridge fall back to the
+    flat prior. Feeder/parent ELO is computed walk-forward (matches strictly
+    before `cutoff`).
+    """
+    from scripts.build_league_data import _elo_to_dc_params  # shared mapping
+
+    def _elo_map(frame: pd.DataFrame) -> dict[str, float]:
+        hist = frame.dropna(subset=["home_goals", "away_goals"])
+        hist = hist[hist["date"] < cutoff].sort_values("date")
+        if len(hist) < 200:
+            return {}
+        _, ratings = compute_elo(hist, K=25, home_adv=80, regress=0.40,
+                                 club_prior_beta=0.75, return_ratings=True)
+        return dict(ratings)
+
+    feeder_map = _elo_map(bridge["feeder"][1]) if bridge and "feeder" in bridge else {}
+    parent_map = _elo_map(bridge["parent"][1]) if bridge and "parent" in bridge else {}
+    afb, dfb = flat_fallback(atk, dfd)
+    for t in newcomers:
+        if t in feeder_map:
+            adj = feeder_map[t] + co.tier2_offset(bridge["feeder"][0])
+            atk[t], dfd[t] = _elo_to_dc_params(adj, atk, dfd, elo_now)
+        elif t in parent_map:
+            adj = parent_map[t] + co.tier1_offset(lid)
+            atk[t], dfd[t] = _elo_to_dc_params(adj, atk, dfd, elo_now)
+        else:
+            atk[t], dfd[t] = afb, dfb
 
 
 def bucket_members(bucket: dict, order: np.ndarray, nT: int) -> np.ndarray:
@@ -112,11 +153,21 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
                   preseason_sigma: float = PRESEASON_SIGMA,
                   seed: int = 42,
                   min_season_games: int = 50,
-                  min_prior_games: int = 400) -> list[dict]:
+                  min_prior_games: int = 400,
+                  bridge: dict | None = None,
+                  lid: str = "",
+                  fmt: dict | None = None) -> list[dict]:
     """Rows of {season, checkpoint, outcome, team, pred, actual} for one league.
 
     `frame` is a canonical played-match frame (goals filled). Playoff rows
     (is_playoff == 1) are dropped up front.
+
+    bridge: optional {"feeder": (lid, frame), "parent": (lid, frame)} —
+        newcomers seed from cross-tier ELO exactly as production does.
+    fmt: optional FORMATS entry (split/playoff leagues). The sim covers the
+        REGULAR phase only (what production simulates preseason) and is
+        scored against the OFFICIAL classification from format_classification
+        — the format gap is part of the measured error, as it is in prod.
     """
     df = frame.dropna(subset=["home_goals", "away_goals"]).copy()
     if "is_playoff" in df.columns:
@@ -125,20 +176,29 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
 
     rows: list[dict] = []
     for S in seasons:
-        season_df = df[df["season"] == S]
+        season_full = df[df["season"] == S]
         prior = df[df["season"] < S]
         cal_df = df[df["season"] == S - 1]
-        if (len(season_df) < min_season_games or len(prior) < min_prior_games
+        if (len(season_full) < min_season_games or len(prior) < min_prior_games
                 or len(cal_df) < min_season_games // 2):
             continue
 
-        teams = sorted(set(season_df["home_team"]) | set(season_df["away_team"]))
+        teams = sorted(set(season_full["home_team"]) | set(season_full["away_team"]))
         idx = {t: i for i, t in enumerate(teams)}
         nT = len(teams)
 
-        # actual final classification (regular-phase table)
-        pts_f, gd_f = _table(season_df, idx)
-        order_f = np.argsort(-(pts_f * 10000 + gd_f))
+        # actual final classification; format leagues use the OFFICIAL one
+        # (groups + carry transform), everyone else the plain table.
+        if fmt is not None:
+            cls = format_classification(season_full, fmt, teams)
+            order_f = np.array([idx[t] for t in sorted(
+                teams, key=lambda t: (cls[t]["group"], -cls[t]["pts"], -cls[t]["gd"]))])
+            season_df = season_full[regular_phase_mask(
+                season_full, fmt["rr"] * (nT - 1))]
+        else:
+            season_df = season_full
+            pts_f, gd_f = _table(season_full, idx)
+            order_f = np.argsort(-(pts_f * 10000 + gd_f))
         actual = {b["key"]: np.zeros(nT, dtype=bool) for b in buckets}
         for b in buckets:
             actual[b["key"]][bucket_members(b, order_f, nT)] = True
@@ -157,12 +217,18 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
             played = season_df.iloc[:cut]
             remaining = season_df.iloc[cut:]
 
-            atk, dfd, ha, rho = fit_dc(pd.concat([prior, played]))
+            fit_rows = pd.concat([prior, played])
+            atk, dfd, ha, rho = fit_dc(fit_rows)
             atk, dfd = dict(atk), dict(dfd)
-            afb, dfb = flat_fallback(atk, dfd)
-            for t in teams:
-                atk.setdefault(t, afb)
-                dfd.setdefault(t, dfb)
+            newcomers = [t for t in teams if t not in atk]
+            if newcomers:
+                cutoff = (played["date"].min() if len(played)
+                          else season_df["date"].min())
+                _, elo_now = compute_elo(
+                    fit_rows.sort_values("date"), K=25, home_adv=80,
+                    regress=0.40, club_prior_beta=0.75, return_ratings=True)
+                _seed_newcomers(newcomers, atk, dfd, elo_now,
+                                bridge, cutoff, lid)
 
             P_raw = dc_predict_batch(remaining, atk, dfd, ha, rho)
             lp = np.log(np.clip(P_raw, 1e-9, 1.0)) / T
