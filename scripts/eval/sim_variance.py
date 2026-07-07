@@ -37,8 +37,25 @@ SIGMA_CAP: float = 1.5  # max widening multiplier (plan-specified)
 # DROPPED (no pooled gain over uniform σ; hurts the high-gap cohort it
 # targets). σ=60 ≈ the observed sd of seed→end-of-season ELO drift (62) and
 # was the only grid point improving relegation AND top-4 Brier with title
-# flat. Applied in the European builder's preseason sim only.
+# flat.
+#
+# Per-family σ (season-outcome sweep 2026-07-07, two-seed confirmed): the
+# goals-only/football-data family wants MORE widening — σ=90 improves BOTH
+# bottom-table (releg+promo −0.0024) and top-table Brier there, unlike big-5
+# where σ>60 trades top for bottom. σ decays with season progress,
+# σ_eff = σ·(1−f) (decay confirmed at both seeds: −0.0015 releg at the 25%
+# checkpoint, no regression anywhere); preseason-only was the f=0 special case.
 PRESEASON_SIGMA: float = 60.0
+
+_SIGMA_BY_SOURCE: dict[str, float] = {
+    "understat": 60.0,      # big-5 (A10(b) grid)
+    "footballdata": 90.0,   # goals-only tiers + C1 flights (2026-07-07 sweep)
+}
+
+
+def preseason_sigma_for_source(source: str) -> float:
+    """Family preseason σ by data source; untested families take the default."""
+    return _SIGMA_BY_SOURCE.get(source, PRESEASON_SIGMA)
 
 
 def gap_sigma_multiplier(gap: float, gamma: float, cap: float = SIGMA_CAP) -> float:

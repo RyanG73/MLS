@@ -48,7 +48,7 @@ import models.research_model as rm
 from scripts.eval.elo import compute_elo
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
 from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON, CONCLUDED
-from scripts.eval.sim_variance import PRESEASON_SIGMA, perturb_probs
+from scripts.eval.sim_variance import preseason_sigma_for_source, perturb_probs
 from scripts.eval.season_format import FORMATS, format_classification, regular_phase_mask
 from scripts.eval.upcoming_features import latest_team_features
 from scripts.payload_utils import write_js_payload, health_feature_stats
@@ -880,19 +880,25 @@ def main():
     buckets = cfg["buckets"]
     counts = {b["key"]: np.zeros(nT) for b in buckets}
     proj = np.zeros(nT); rank_sum = np.zeros(nT)
-    # A10(b): preseason-only per-sim strength perturbations (δ_t ~ N(0, 60 ELO
-    # pts), uniform — γ gap-scaling judged and dropped on the big-5 FD cohort
-    # replay). Without this the preseason table sim treats the seed strengths
-    # as certain and its relegation odds are overconfident.
-    _widen = is_preseason and len(remaining) > 0
+    # A10(b) + decay (2026-07-07): per-sim strength perturbations δ_t ~ N(0, σ)
+    # with σ = PRESEASON_SIGMA · (1 − season_fraction) — full widening at
+    # preseason, shrinking as evidence accrues, zero once the season is done.
+    # Decay confirmed on the season-outcome replay at both seeds (releg Brier
+    # −0.0015 at the 25% checkpoint, no regression anywhere); the earlier
+    # preseason-only cutoff was the special case f=0. γ gap-scaling remains
+    # judged-and-dropped (big-5 cohort replay).
+    _season_frac = (len(played) / (len(played) + len(remaining))
+                    if (len(played) + len(remaining)) else 1.0)
+    _sigma_eff = preseason_sigma_for_source(cfg["source"]) * (1.0 - _season_frac)
+    _widen = _sigma_eff > 1.0 and len(remaining) > 0
     _LRP = np.log(np.clip(RP, 1e-12, 1.0)) if _widen else None
     print(f"[{lid}] simulating {N:,} seasons · {len(remaining)} remaining · {nT} teams..."
-          + (f" [preseason widening σ={PRESEASON_SIGMA:g}]" if _widen else ""))
+          + (f" [widening σ={_sigma_eff:.0f}]" if _widen else ""))
     for _ in range(N):
         p = base_pts.copy()
         if len(remaining):
             if _widen:
-                _delta = rng.standard_normal(nT) * PRESEASON_SIGMA
+                _delta = rng.standard_normal(nT) * _sigma_eff
                 _RP = perturb_probs(_LRP, RH, RA, _delta)
             else:
                 _RP = RP

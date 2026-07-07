@@ -1,5 +1,19 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-07 — Outcome-driven changes ▶ replay made production-faithful; per-family σ (tiers 90) + decaying widening KEPT; bridge priors fit-validated; outright-betting policy set**
+> Executing on the outcome baseline's findings: (1) the replay now measures production
+> honestly — tier-bridge newcomer seeding, format-league official classification, MLS/NWSL/USL
+> (2022+) — revised preseason skill: releg +0.06, promo +0.01, title +0.30, UCL +0.46 (the
+> bottom-table weakness is real, not a replay artifact). (2) league-one/league-two bridge
+> offsets LOSO-fit on ~1,300 matches/pair: converge exactly to the ±120 priors — validated
+> null. (3) Season-outcome sweep, both seeds: goals-only family widens to σ=90 (improves BOTH
+> table ends; big-5 stays 60) and widening now DECAYS with season progress instead of stopping
+> at kickoff (σ_eff = σ_family·(1−f); releg −0.0015 at cp0.25, no regressions) — production +
+> replay both wired, affected payloads rebuilt, baseline regenerated. (4) Outright-market
+> policy recorded in CURRENT_STATE: relegation/promotion recommendations gated to ≥25% season
+> progress; title/top-N may quote preseason. Health-tab outcome-skill surface spawned as a
+> follow-up task. Full numbers in `docs/feature-hunt-log.md` 2026-07-07.
+
 > **2026-07-06 — Season-outcome evaluation is now a standing optimization target (user directive)**
 > Match Brier alone never judged the platform's headline claims — champion/promotion/relegation
 > odds. New `scripts/eval_season_outcomes.py` (+ `scripts/eval/season_outcomes.py`, 3 tests)

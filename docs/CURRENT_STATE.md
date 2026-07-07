@@ -45,18 +45,28 @@ definitions, data sources, and run commands. Update it when any of these change.
   own 3-season history instead of flat 1500) and it did not clear the MLS gate at both seeds.
   **European production seeding diverges**: `build_league_data.py` uses `club_prior_beta=0.75`
   (KEEP on A7's high-gap slice, −0.023 Brier); the MLS champion config above is unaffected.
-- **European preseason sim widening (A10b, 2026-07-06):** `build_league_data.py`'s Monte-Carlo
-  applies per-sim team-strength perturbations δ_t ~ N(0, 60 ELO pts) in PRESEASON builds only
-  (`scripts/eval/sim_variance.py`, `PRESEASON_SIGMA=60` ≈ the observed sd of seed→end-of-season
-  ELO drift). Big-5 FD cohort replay: relegation Brier −0.008, top-4 −0.001, title flat. The
-  gap-scaled variant (γ·|club_prior_gap|) was tested and DROPPED. In-season sims and MLS
-  (`build_dashboard_data.py`) are unchanged.
+- **Sim strength-uncertainty widening (A10b 2026-07-06; per-family σ + decay 2026-07-07):**
+  `build_league_data.py`'s Monte-Carlo applies per-sim team-strength perturbations
+  δ_t ~ N(0, σ_eff) with σ_eff = σ_family · (1 − season_fraction)
+  (`scripts/eval/sim_variance.py`). σ_family: understat/big-5 60 · footballdata/tiers **90** ·
+  default 60 — the tiers value and the decay were KEPT on the season-outcome replay at both
+  seeds (tiers improve BOTH table ends at 90; decay gains releg −0.0015 at the 25% checkpoint
+  with no regression anywhere). The γ gap-scaled variant remains DROPPED. MLS
+  (`build_dashboard_data.py`) is unchanged.
 - **Season-outcome evaluation (user directive 2026-07-06):** team-level outcomes (champion,
   promotion, relegation, top-N) are an optimization target alongside match Brier.
   `scripts/eval_season_outcomes.py` replays 2018–2025 through production-mirrored sims at 4
   checkpoints (preseason/25/50/75%) scoring each league's OUTLOOK buckets; baseline pinned at
   `experiments/season-outcomes-baseline.report.json`. Sim-path changes must not regress pooled
-  outcome Brier (experiment-protocol §4). Format leagues + ASA leagues excluded from V1.
+  outcome Brier (experiment-protocol §4). As of 2026-07-07 the replay covers the tier bridge,
+  the format leagues (official classification), and MLS/NWSL/USL (2022+, advisory n).
+- **Outright-market betting policy (2026-07-07, from the outcome baseline):** preseason
+  bottom-table odds carry ~no skill vs base rates (releg +0.06, promo +0.01 pooled;
+  title +0.30 / UCL +0.46 DO carry skill); skill reaches usable levels ~25% into a season
+  (releg ≈+0.27). If/when outright (season-market) betting ships, relegation/promotion
+  recommendations are GATED to ≥25% season progress; title/top-N may quote from preseason.
+  The current edge board handles match markets only — this is the standing rule for the
+  outright extension, recorded before it exists so it can't be "discovered" the hard way.
 - **Offseason preseason flip (2026-07-06):** preseason mode covers the football-data source
   too — ESPN supplies next-season fixtures (live fetch, never the parquet cache; limit 1000),
   names map back to FD keys via the FD_ESPN inverse. The English tier chain bridges three

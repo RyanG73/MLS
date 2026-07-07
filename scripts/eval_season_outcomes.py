@@ -33,6 +33,7 @@ from data_pipeline.football_data import match_results
 from scripts.build_league_data import _TIER1_FOR_BUILD, _TIER2_FOR, OUTLOOK
 from scripts.eval.season_format import FORMATS
 from scripts.eval.season_outcomes import replay_league, summarize
+from scripts.eval.sim_variance import preseason_sigma_for_source
 
 REPO = Path(__file__).parent.parent
 DEFAULT_SEASONS = list(range(2018, 2026))
@@ -77,6 +78,12 @@ def main() -> None:
     ap.add_argument("--sigma", type=float, default=None,
                     help="Override preseason widening sigma (default: production "
                          "PRESEASON_SIGMA). Used by the family sigma sweep.")
+    ap.add_argument("--sigma-decay", dest="sigma_decay", action="store_true",
+                    default=True,
+                    help="Widen at every checkpoint with sigma*(1-f) — the "
+                         "production behaviour since 2026-07-07 (default on).")
+    ap.add_argument("--no-sigma-decay", dest="sigma_decay", action="store_false",
+                    help="Preseason-only widening (pre-2026-07-07 behaviour).")
     ap.add_argument("--out", type=str, default=None)
     args = ap.parse_args()
 
@@ -94,9 +101,10 @@ def main() -> None:
             frame = _fd_frame(lid)
             seasons = args.seasons
             bridge = _bridge_for(lid)
-        kw = {}
-        if args.sigma is not None:
-            kw["preseason_sigma"] = args.sigma
+        kw = {"sigma_decay": args.sigma_decay,
+              "preseason_sigma": (args.sigma if args.sigma is not None else
+                                  preseason_sigma_for_source(
+                                      OUTLOOK.get(lid, {}).get("source", "asa")))}
         rows = replay_league(frame, cfg["buckets"], seasons,
                              n_sims=args.sims, seed=args.seed,
                              bridge=bridge, lid=lid,
@@ -123,7 +131,7 @@ def main() -> None:
             "timestamp": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "config": {"leagues": args.leagues, "seasons": args.seasons,
                        "sims": args.sims, "seed": args.seed,
-                       "sigma": args.sigma,
+                       "sigma": args.sigma, "sigma_decay": args.sigma_decay,
                        "checkpoints": [0.0, 0.25, 0.5, 0.75],
                        "bridge_replayed": True, "formats_replayed": True},
             "pooled": pooled,

@@ -156,7 +156,8 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
                   min_prior_games: int = 400,
                   bridge: dict | None = None,
                   lid: str = "",
-                  fmt: dict | None = None) -> list[dict]:
+                  fmt: dict | None = None,
+                  sigma_decay: bool = False) -> list[dict]:
     """Rows of {season, checkpoint, outcome, team, pred, actual} for one league.
 
     `frame` is a canonical played-match frame (goals filled). Playoff rows
@@ -241,9 +242,13 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
             base_pts, base_gd = _table(played, idx)
 
             rng = np.random.default_rng(hash((S, f, seed)) % 2**31)
+            # production: widening at preseason only. sigma_decay experiment:
+            # σ·(1−f) at every checkpoint (uncertainty shrinks with evidence).
+            _sig = (preseason_sigma * (1.0 - f) if sigma_decay
+                    else (preseason_sigma if f == 0.0 else 0.0))
             probs = simulate_outcomes(
                 P, RH, RA, base_pts, base_gd, buckets, rng, n_sims,
-                widen_sigma=preseason_sigma if f == 0.0 else 0.0)
+                widen_sigma=_sig)
 
             for b in buckets:
                 k = b["key"]

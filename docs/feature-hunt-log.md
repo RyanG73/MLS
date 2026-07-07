@@ -1,5 +1,32 @@
 # MLS Feature Hunt Log
 
+## 2026-07-07 — Season-outcome sweep: per-family preseason σ + decaying widening — DOUBLE KEEP
+
+**Experiments** (judged on the season-outcome replay, `scripts/eval_season_outcomes.py`,
+per experiment-protocol §4; both confirmed at seeds 42 AND 7):
+
+**(a) Per-family preseason σ — KEEP tiers=90, big-5 stays 60.** The A10(b) σ=60 was tuned on
+big-5 outcomes. Sweeping σ per family on the (bridge-faithful) replay: the goals-only/FD
+family improves on BOTH table ends at σ=90 — bottom (releg+promo) 0.1112→0.1088 and top
+(title/ucl/playoff/europa/conf) 0.0739→0.0734 at seed 42; seed 7 confirms (0.1114→0.1090,
+0.0739→0.0734). σ=120 adds only a marginal bottom gain (0.1075) with top flat — 90 is the
+balanced confirmed point. Big-5 keeps 60 (σ=90 there trades top −0.0008 for bottom, the
+original A10(b) finding). `preseason_sigma_for_source()`: understat 60 · footballdata 90 ·
+default 60 (untested families).
+
+**(b) Decaying widening — KEEP σ_eff = σ·(1−season_fraction).** The preseason-only cutoff
+was the f=0 special case; uncertainty doesn't vanish at the first kickoff. Both seeds, pooled:
+cp0.25 releg −0.0015/−0.0014, promo −0.0008/−0.0009, title flat-to-better; cp0.5 small gains;
+no regression at any checkpoint/outcome. Production sims now widen in-season with the decayed
+σ (NWSL mid-season ≈ σ35).
+
+**Also from the same sweep infrastructure:** the league-one/league-two bridge offsets were
+LOSO-fit on ~1,300 cross-tier matches per pair — the fit converges exactly onto the ±120
+static priors (validated null, priors kept). The replay itself was upgraded first to measure
+production faithfully (tier-bridge seeding, format-league official classification, ASA
+leagues): honest preseason skill vs base rates is releg +0.06 / promo +0.01 / title +0.30 /
+UCL +0.46 — bottom-table preseason weakness is real, which motivated (a) and (b).
+
 ## 2026-07-06 — Preseason variance widening (A10b): per-sim strength perturbations — KEEP σ=60 uniform (Europe), DROP γ gap-scaling
 
 **Experiment:** The production season sim samples outcomes from FIXED per-fixture DC
