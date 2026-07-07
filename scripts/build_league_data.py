@@ -1003,6 +1003,37 @@ def main():
     # given team has no played rows for, e.g. goals-only leagues' xG columns).
     team_inputs_full = build_team_inputs_full(df, feat, tids, tname)
 
+    # U4 (2026-07-07): "is this team for real?" panel inputs — three
+    # position-vs-underlying signals, all null-safe:
+    #   gap:      A7 club-prior gap (own 3-season ELO history − current rating;
+    #             positive = fallen giant, results below the club's level)
+    #   xg_delta: goals-for − xG-for this season (positive = finishing hot /
+    #             results ahead of underlying numbers); null preseason
+    #   value_rank_gap: squad-value rank − current table rank (positive =
+    #             the market rates this squad higher than the table does)
+    from scripts.eval.club_prior import club_prior_gap, elo_history_from_matches
+    for_real = {}
+    try:
+        _hist = elo_history_from_matches(_elo_df)
+        _gaps = club_prior_gap(_hist)
+        for t in tids:
+            _g = _gaps.get((t, ts))
+            if _g is None:
+                # preseason: ts has no rows in the history yet — compute the
+                # A7 gap directly (mean of last ≤3 end-of-season ELOs − current
+                # rating), same ≥2-prior-seasons guard as club_prior_gap.
+                _rows = _hist[_hist["team"] == t].sort_values("season").tail(3)
+                if len(_rows) >= 2 and t in elo_now:
+                    _g = float(_rows["end_elo"].mean() - elo_now[t])
+            _xgd = (round((gf.get(t, 0) - xgf.get(t, 0)), 1)
+                    if has_xg and gp.get(t, 0) else None)
+            for_real[tname(t)] = {
+                "gap": round(float(_g), 0) if _g is not None else None,
+                "xg_delta": _xgd,
+            }
+    except Exception as _fr_err:
+        print(f"[{lid}] for_real panel skipped: {_fr_err}")
+
     # ── ELO history (full Understat depth, 2014+) per team, downsampled ───────
     elo_hist = {}
     for t in tids:
@@ -1269,6 +1300,7 @@ def main():
         # no mapped CSV exists for the league — same convention as the model-input
         # nulls above, the frontend renders the honest empty treatment either way.
         "squad_value": build_squad_value_league(lid, {tname(t) for t in tids}),
+        "for_real": for_real,   # U4: value_rank_gap joined client-side (squad_value + standings)
         "elo_history": elo_hist,
         "trophies": {},   # European trophy data is a future enhancement
         "health": health,

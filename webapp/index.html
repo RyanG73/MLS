@@ -1800,10 +1800,36 @@ function renderProfile(team,scroll){
   const rec=gms.filter(g=>g.result).slice(-8).reverse().map(g=>{const h=g.home===team,opp=h?g.away:g.home;
     const won=g.result==='D'?'D':((g.result==='H')===h?'W':'L'), pick=[['H',g.pH],['D',g.pD],['A',g.pA]].reduce((m,x)=>x[1]>m[1]?x:m)[0], hit=pick===g.result;
     return `<div class="pmini"><span class="d">${g.date.slice(5)}</span><span class="opp">${h?'vs':'@'} ${opp} · ${g.hg}-${g.ag}</span><span class="pr" style="color:${won==='W'?'var(--qualify)':won==='L'?'#e25f4f':'var(--txt-2)'}">${won}</span><span class="res ${hit?'ok':'miss'}">${hit?'✓':'✗'}</span></div>`;}).join('')||'<div class="pstat"><span class="k">No results yet</span></div>';
+  // U4 (2026-07-07): "Is this team for real?" — three position-vs-underlying
+  // signals with a one-line verdict each. Thresholds: |gap| ≥ 40 ELO (A7's
+  // tercile scale), |xG delta| ≥ 4 goals, |value rank − table rank| ≥ 5.
+  let forRealCard='';
+  const fr=(D.for_real||{})[team];
+  if(fr){
+    const rows=[];
+    if(fr.gap!=null){
+      const v=fr.gap>=40?'history says this club is stronger than its current rating (fallen giant)':
+              fr.gap<=-40?'rated above its own recent history (overachieving vs identity)':'rating in line with club history';
+      rows.push(`<div class="pstat"><span class="k">Club-prior gap (3-yr ELO)</span><span class="v">${fr.gap>0?'+':''}${fr.gap}</span></div><div class="hnote">${v}</div>`);
+    }
+    if(fr.xg_delta!=null){
+      const v=fr.xg_delta>=4?'results ahead of underlying numbers — finishing hot':
+              fr.xg_delta<=-4?'results behind underlying numbers — finishing cold':'scoring in line with chances created';
+      rows.push(`<div class="pstat"><span class="k">Goals − xG (season)</span><span class="v">${fr.xg_delta>0?'+':''}${fr.xg_delta}</span></div><div class="hnote">${v}</div>`);
+    }
+    const sv2=(D.squad_value||{})[team];
+    if(sv2&&sv2.league_rank!=null){
+      const vrg=overallRank-sv2.league_rank;
+      const v=vrg>=5?'the market values this squad well above its table position':
+              vrg<=-5?'the table flatters this squad vs its market value':'squad value and table position agree';
+      rows.push(`<div class="pstat"><span class="k">Value rank vs table rank</span><span class="v">#${sv2.league_rank} vs #${overallRank}</span></div><div class="hnote">${v}</div>`);
+    }
+    if(rows.length)forRealCard=`<div class="pcard"><h3>Is this team for real?</h3>${rows.join('')}</div>`;
+  }
   $('#teamProfile').innerHTML=
     `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div></div>
      <div class="chart-wrap big">${chart}${trophLegend}<div class="troph-list">${chips}</div></div>
-     <div class="prof-grid">${inputsCard}${seasonCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}</div>`;
+     <div class="prof-grid">${inputsCard}${seasonCard}${forRealCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}</div>`;
   if(scroll)$('#teamProfile').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
