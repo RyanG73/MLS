@@ -39,6 +39,17 @@ doesn't run. The A/B must first re-measure production-as-is.
 - [ ] **Step 4:** rebuild MLS (`venv/bin/python scripts/build_dashboard_data.py`), validate payloads, spot-check playoff odds moved plausibly (mid-season σ≈30: small widening).
 - [ ] **Step 5:** verdict to this file + `docs/feature-hunt-log.md` + `docs/CURRENT_STATE.md` (MLS no longer exempt); commit.
 
+> **VERDICT U1 (2026-07-07): COMPLETE.** `outcome_skill_block()` in payload_utils reads the
+> replay baseline per league; both builders attach it; Health tab renders a checkpoint×outcome
+> skill table (red ≤0.05) + the ~25% honesty note; empty state verified on liga-mx; zero
+> console errors. Chip dismissed. All payloads rebuilt.
+
+> **VERDICT U3 (2026-07-07): COMPLETE — the two known failures are FIXED.** Culprit: the
+> header's per-year accuracy tracks (46px year cells × up to 7 eval years = ~446px at a 390px
+> viewport). `.acc-tracks` now scrolls inside its own box (`min-width:0;max-width:100%;
+> overflow-x:auto`). Browser-smoke suite fully green for the first time since B1 (26 passed,
+> including mls/epl mobile).
+
 ### Task U1: Outcome-skill surface in the Health tab
 
 **Files:**

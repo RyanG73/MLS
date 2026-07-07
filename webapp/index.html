@@ -95,7 +95,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .acc-row{display:flex;align-items:baseline;gap:10px;font-size:11px}
 .acc-row .t{color:var(--txt-3);font-weight:600;width:42px}
 .acc-row .v{font-family:var(--mono);font-weight:700;color:var(--txt-1)} .acc-row .v.muted{color:var(--txt-3);font-weight:600}
-.acc-tracks{display:flex;flex-direction:column;gap:5px;border-left:1px solid var(--line-2);padding-left:var(--s3)}
+.acc-tracks{display:flex;flex-direction:column;gap:5px;border-left:1px solid var(--line-2);padding-left:var(--s3);min-width:0;max-width:100%;overflow-x:auto}
+/* U3 (2026-07-07): the fixed-width year cells (46px × up to 7 eval years) pushed
+   the page to ~446px at a 390px viewport — the two known mobile-overflow test
+   failures. The tracks now scroll inside their own box instead. */
 .acc-trk{display:flex;align-items:center;gap:9px}
 .acc-trk .acc-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--txt-3);width:52px;text-align:right;flex-shrink:0;white-space:nowrap}
 .acc-trk .acc-cells{display:flex;gap:7px}
