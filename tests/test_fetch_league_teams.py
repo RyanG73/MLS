@@ -18,7 +18,7 @@ def test_registry_matches_live_payloads_on_disk():
     registry silently dropped two live leagues from the sidebar)."""
     data_dir = Path(__file__).parent.parent / "webapp" / "data"
     on_disk = {p.stem for p in data_dir.glob("*.js")
-               if p.stem not in ("logos", "ledger", "edge-board", "power")}
+               if p.stem not in ("logos", "ledger", "edge-board", "power", "movers")}
     registered = {lid for lid, *_ in REGISTRY}
     missing = on_disk - registered
     assert not missing, f"payloads on disk with no REGISTRY entry: {sorted(missing)}"

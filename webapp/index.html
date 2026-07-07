@@ -600,6 +600,7 @@ footer a:hover{color:var(--txt-2)}
 <script src="leagues.js"></script>
 <script src="data/logos.js"></script>
 <script src="data/ledger.js"></script>
+<script src="data/movers.js"></script>
 <script>
 // League selected via ?league=<id>. No param at all → the cross-league edge board
 // (B12) is the site's landing view; ?league=mls etc. deep links are unchanged.
@@ -2010,11 +2011,28 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
        +(noEdge.length?`<div class="eb-panel"><div class="eb-h">Priced, below threshold</div>${noEdge.map(ebRow).join('')}</div>`:'')
        +(noLine.length?`<div class="eb-panel"><div class="eb-h">No line yet</div>${noLine.map(ebRow).join('')}</div>`:'');
   }
+  // U2 (2026-07-07): model-odds movers strip — biggest season-odds changes
+  // between each team's last two builds (pure model odds; market columns join
+  // when the odds feed activates).
+  let moversHTML='';
+  const MV=window.MOVERS_DATA;
+  if(MV&&MV.status==='ok'&&MV.movers?.length){
+    const lname=id=>((window.LEAGUES||[]).find(l=>l.id===id)||{}).name||id;
+    const chips=MV.movers.map(m=>{
+      const up=m.delta>0, col=up?'var(--qualify,#41d18c)':'#e25f4f';
+      return `<a class="mv-chip" href="?league=${m.league}" title="${lname(m.league)} · since ${m.from}"
+        style="display:inline-flex;gap:6px;align-items:center;padding:5px 10px;margin:3px;border:1px solid var(--line-2);border-radius:8px;font-size:12px;text-decoration:none;color:var(--txt-2)">
+        <b>${m.team}</b><span style="color:var(--txt-3)">${(MV.metric_labels||{})[m.metric]||m.metric}</span>
+        <span style="font-family:var(--mono)">${m.prev}%→${m.now}%</span>
+        <b style="color:${col}">${up?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</b></a>`;
+    }).join('');
+    moversHTML=`<div class="eb-panel"><div class="eb-h">Model movers — biggest season-odds shifts since the last builds</div><div style="padding:6px 8px">${chips}</div></div>`;
+  }
   const target=$('#view-outlook')||$('main.wrap');
   if(target){
     target.classList.remove('hidden');
     target.innerHTML=`<div class="eb-intro">Every upcoming match in the next ${EB.window_days*24}h across live leagues, model probability vs de-vigged market odds where a line exists. Continental competitions excluded this cycle (no odds source yet). ${BET_DISCLAIMER}</div>`
-      +ledgerStripHTML()+body;
+      +ledgerStripHTML()+moversHTML+body;
   }
 }
 </script>

@@ -58,6 +58,9 @@ jobs:
       - name: Archive odds snapshot
         run: python scripts/archive_odds_snapshot.py
 
+      - name: Model-odds movers strip
+        run: python scripts/build_movers.py
+
       - name: Paper-bet ledger
         run: python scripts/bet_ledger.py
 
