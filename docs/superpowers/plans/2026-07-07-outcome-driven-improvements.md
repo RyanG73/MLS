@@ -92,6 +92,13 @@ MLS champion config untouched (its own gate governs it).
 - [ ] Step 2: if a non-0.40 rate wins a family by more than noise, confirm at second seed via the outcome replay; port to `build_league_data.py`'s `compute_elo(..., regress=…)` call sites with a `regress_for_source()` helper in `scripts/eval/elo.py` or inline constant.
 - [ ] Step 3: verdict (KEEP or validated null) to log/docs; rebuild affected payloads if KEEP; commit.
 
+> **VERDICT M4 (2026-07-07): COMPLETE.** MLS needed nothing — its sim was already
+> conference-aware (per-conference playoff slots + bracket, found during M1). USL:
+> `per_conf_top` buckets count top-8 within ESPN's standings groups (13 East · 12 West
+> fetched live, FD_ESPN-mapped, pooled-top-16 fallback on fetch failure); `_per_conf_members`
+> helper + 2 tests. USL rebuilt. The outcome replay keeps the pooled approximation for USL
+> (historical per-season conference maps don't exist — documented eval-side approximation).
+
 ### Task M4: Conference-aware playoff odds (USL now; MLS check)
 
 USL playoff odds are a pooled top-16 approximation of top-8-per-conference. MLS: verify

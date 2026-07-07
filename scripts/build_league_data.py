@@ -375,13 +375,16 @@ OUTLOOK = {
                          {"key": "shield", "label": "Shield", "col": "Shield", "top": 1},
                          {"key": "playoffs", "label": "Playoffs", "col": "Playoffs", "top": 8}],
                      "green_line": 8, "red_line": None, "eval_seasons": None},
-    # USL playoffs are top-8 PER CONFERENCE; the single-table sim approximates
-    # that as pooled top-16 (documented; conference-aware sim is follow-up).
+    # USL playoffs are top-8 PER CONFERENCE (M4 2026-07-07: conference-aware —
+    # `per_conf_top` counts within ESPN's Eastern/Western groups; falls back
+    # to pooled top-16 if the conference fetch fails).
     "usl-championship": {"name": "USL Championship", "source": "asa", "asa_key": "uslc",
                          "n": 25, "confederation": "Concacaf",
+                         "conference_slug": "usa.usl.1",
                          "buckets": [
                              {"key": "shield", "label": "Best Record", "col": "Shield", "top": 1},
-                             {"key": "playoffs", "label": "Playoffs", "col": "Playoffs", "top": 16}],
+                             {"key": "playoffs", "label": "Playoffs", "col": "Playoffs",
+                              "per_conf_top": 8, "top": 16}],
                          "green_line": 16, "red_line": None, "eval_seasons": None},
 }
 
@@ -525,6 +528,19 @@ def _load_frame(league_id: str, source: str, asa_key: str | None = None):
     if source == "asa":
         return asa_canonical_frame(asa_key or league_id)
     raise ValueError(f"Unknown source '{source}' for league '{league_id}'")
+
+
+def _per_conf_members(key, conf_arrays, top_n: int):
+    """Indices of the top `top_n` teams WITHIN each conference by sim key.
+
+    M4 (2026-07-07): USL playoff spots are per-conference; a team 3rd overall
+    but 1st in its conference qualifies. `conf_arrays` are index arrays into
+    the team universe, one per conference.
+    """
+    out = []
+    for ci in conf_arrays:
+        out.extend(ci[np.argsort(-key[ci])][:top_n])
+    return out
 
 
 def _bucket_idx(bucket: dict, order, nT: int):
@@ -887,6 +903,32 @@ def main():
     # −0.0015 at the 25% checkpoint, no regression anywhere); the earlier
     # preseason-only cutoff was the special case f=0. γ gap-scaling remains
     # judged-and-dropped (big-5 cohort replay).
+    # M4: per-conference bucket support. Conference membership from ESPN's
+    # standings groups (display names mapped back to model keys via FD_ESPN);
+    # a failed fetch falls back to each bucket's pooled `top` definition.
+    _conf_arrays = None
+    if cfg.get("conference_slug") and any("per_conf_top" in b for b in buckets):
+        try:
+            from data_pipeline.http import espn_get
+            _st = espn_get("https://site.api.espn.com/apis/v2/sports/soccer/"
+                           f"{cfg['conference_slug']}/standings", {})
+            _inv = {v: k for k, v in FD_ESPN.get(lid, {}).items()}
+            _groups = []
+            for _child in _st.get("children", []):
+                _members = [idx[_inv.get(e["team"]["displayName"],
+                                         e["team"]["displayName"])]
+                            for e in _child.get("standings", {}).get("entries", [])
+                            if _inv.get(e["team"]["displayName"],
+                                        e["team"]["displayName"]) in idx]
+                if _members:
+                    _groups.append(np.array(_members, dtype=int))
+            if len(_groups) >= 2 and sum(len(g) for g in _groups) >= nT - 2:
+                _conf_arrays = _groups
+                print(f"[{lid}] conferences: " +
+                      " · ".join(str(len(g)) for g in _groups) + " teams")
+        except Exception as _conf_err:
+            print(f"[{lid}] conference fetch failed (pooled fallback): {_conf_err}")
+
     _season_frac = (len(played) / (len(played) + len(remaining))
                     if (len(played) + len(remaining)) else 1.0)
     _sigma_eff = preseason_sigma_for_source(cfg["source"]) * (1.0 - _season_frac)
@@ -913,7 +955,11 @@ def main():
         key = _grp_bonus + p * 10000 + base_gd * 10 + rng.random(nT) * 10
         order = np.argsort(-key)  # best first
         for b in buckets:
-            counts[b["key"]][_bucket_idx(b, order, nT)] += 1
+            if _conf_arrays is not None and "per_conf_top" in b:
+                counts[b["key"]][_per_conf_members(key, _conf_arrays,
+                                                   b["per_conf_top"])] += 1
+            else:
+                counts[b["key"]][_bucket_idx(b, order, nT)] += 1
         rank_sum[order] += np.arange(1, nT + 1)
 
     standings = []
