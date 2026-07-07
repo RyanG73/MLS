@@ -1,0 +1,977 @@
+league,season,tm_name,value_eur_m
+epl,2017,Manchester City,31.53
+epl,2017,Chelsea FC,884.25
+epl,2017,Liverpool FC,24.5
+epl,2017,Manchester United,24.27
+epl,2017,Tottenham Hotspur,24.4
+epl,2017,Arsenal FC,694.0
+epl,2017,Everton FC,381.25
+epl,2017,Leicester City,304.25
+epl,2017,Southampton FC,297.0
+epl,2017,West Ham United,268.1
+epl,2017,Crystal Palace,220.73
+epl,2017,Newcastle United,208.28
+epl,2017,Watford FC,196.0
+epl,2017,Stoke City,192.45
+epl,2017,Burnley FC,169.3
+epl,2017,West Bromwich Albion,165.95
+epl,2017,Swansea City,165.49
+epl,2017,Brighton &amp; Hove Albion,148.2
+epl,2017,AFC Bournemouth,144.5
+epl,2017,Huddersfield Town,106.05
+epl,2018,Manchester City,25.61
+epl,2018,Liverpool FC,30.06
+epl,2018,Chelsea FC,21.6
+epl,2018,Tottenham Hotspur,26.43
+epl,2018,Manchester United,22.16
+epl,2018,Arsenal FC,659.05
+epl,2018,Everton FC,529.1
+epl,2018,Leicester City,434.1
+epl,2018,West Ham United,359.0
+epl,2018,AFC Bournemouth,310.0
+epl,2018,Southampton FC,305.4
+epl,2018,Wolverhampton Wanderers,302.9
+epl,2018,Crystal Palace,289.0
+epl,2018,Fulham FC,254.25
+epl,2018,Newcastle United,244.65
+epl,2018,Watford FC,239.1
+epl,2018,Burnley FC,197.25
+epl,2018,Brighton &amp; Hove Albion,194.35
+epl,2018,Huddersfield Town,137.45
+epl,2018,Cardiff City,113.0
+epl,2019,Manchester City,29.96
+epl,2019,Liverpool FC,1000.0
+epl,2019,Tottenham Hotspur,22.41
+epl,2019,Chelsea FC,705.85
+epl,2019,Manchester United,670.45
+epl,2019,Arsenal FC,607.65
+epl,2019,Everton FC,420.55
+epl,2019,Leicester City,411.1
+epl,2019,Wolverhampton Wanderers,320.33
+epl,2019,West Ham United,303.6
+epl,2019,AFC Bournemouth,272.18
+epl,2019,Newcastle United,252.48
+epl,2019,Aston Villa,231.7
+epl,2019,Southampton FC,210.75
+epl,2019,Brighton &amp; Hove Albion,200.78
+epl,2019,Watford FC,199.6
+epl,2019,Crystal Palace,189.33
+epl,2019,Burnley FC,163.88
+epl,2019,Norwich City,145.33
+epl,2019,Sheffield United,138.6
+epl,2020,Manchester City,29.01
+epl,2020,Liverpool FC,22.55
+epl,2020,Chelsea FC,22.8
+epl,2020,Manchester United,770.05
+epl,2020,Tottenham Hotspur,703.5
+epl,2020,Arsenal FC,619.25
+epl,2020,Everton FC,511.2
+epl,2020,Leicester City,510.6
+epl,2020,Wolverhampton Wanderers,450.3
+epl,2020,Aston Villa,430.7
+epl,2020,West Ham United,336.4
+epl,2020,Brighton &amp; Hove Albion,290.4
+epl,2020,Southampton FC,282.8
+epl,2020,Newcastle United,255.35
+epl,2020,Fulham FC,239.75
+epl,2020,Leeds United,238.1
+epl,2020,Crystal Palace,193.85
+epl,2020,Sheffield United,149.85
+epl,2020,West Bromwich Albion,141.15
+epl,2020,Burnley FC,132.3
+epl,2021,Manchester City,25.74
+epl,2021,Liverpool FC,918.9
+epl,2021,Chelsea FC,20.78
+epl,2021,Manchester United,769.15
+epl,2021,Tottenham Hotspur,689.35
+epl,2021,Arsenal FC,613.05
+epl,2021,Leicester City,526.55
+epl,2021,Aston Villa,487.75
+epl,2021,Everton FC,479.05
+epl,2021,Wolverhampton Wanderers,376.95
+epl,2021,West Ham United,354.9
+epl,2021,Brighton &amp; Hove Albion,318.0
+epl,2021,Newcastle United,313.9
+epl,2021,Leeds United,299.45
+epl,2021,Southampton FC,274.3
+epl,2021,Brentford FC,273.3
+epl,2021,Crystal Palace,271.05
+epl,2021,Norwich City,163.2
+epl,2021,Watford FC,156.2
+epl,2021,Burnley FC,137.85
+epl,2022,Manchester City,33.7
+epl,2022,Arsenal FC,23.83
+epl,2022,Chelsea FC,23.14
+epl,2022,Manchester United,847.75
+epl,2022,Liverpool FC,20.82
+epl,2022,Tottenham Hotspur,649.1
+epl,2022,Newcastle United,541.6
+epl,2022,Brighton &amp; Hove Albion,529.8
+epl,2022,Aston Villa,509.55
+epl,2022,Wolverhampton Wanderers,497.65
+epl,2022,Leicester City,490.7
+epl,2022,West Ham United,465.6
+epl,2022,Southampton FC,419.95
+epl,2022,Everton FC,413.15
+epl,2022,Nottingham Forest,376.25
+epl,2022,Brentford FC,371.2
+epl,2022,Leeds United,345.15
+epl,2022,Crystal Palace,323.05
+epl,2022,Fulham FC,295.1
+epl,2022,AFC Bournemouth,287.2
+epl,2023,Manchester City,40.63
+epl,2023,Arsenal FC,30.08
+epl,2023,Chelsea FC,1010.0
+epl,2023,Liverpool FC,21.24
+epl,2023,Tottenham Hotspur,20.45
+epl,2023,Manchester United,808.35
+epl,2023,Aston Villa,709.65
+epl,2023,Newcastle United,652.25
+epl,2023,Brighton &amp; Hove Albion,524.4
+epl,2023,Nottingham Forest,501.35
+epl,2023,West Ham United,487.5
+epl,2023,Crystal Palace,446.58
+epl,2023,Wolverhampton Wanderers,442.73
+epl,2023,Brentford FC,428.78
+epl,2023,AFC Bournemouth,401.75
+epl,2023,Everton FC,391.75
+epl,2023,Fulham FC,384.35
+epl,2023,Burnley FC,273.48
+epl,2023,Sheffield United,152.35
+epl,2023,Luton Town,140.9
+epl,2024,Manchester City,30.86
+epl,2024,Chelsea FC,20.59
+epl,2024,Arsenal FC,27.58
+epl,2024,Liverpool FC,27.17
+epl,2024,Manchester United,825.0
+epl,2024,Tottenham Hotspur,777.3
+epl,2024,Aston Villa,680.55
+epl,2024,Newcastle United,677.53
+epl,2024,Brighton &amp; Hove Albion,667.58
+epl,2024,Crystal Palace,526.85
+epl,2024,AFC Bournemouth,518.6
+epl,2024,Nottingham Forest,481.3
+epl,2024,Wolverhampton Wanderers,433.05
+epl,2024,Brentford FC,427.85
+epl,2024,West Ham United,400.7
+epl,2024,Everton FC,363.23
+epl,2024,Fulham FC,362.35
+epl,2024,Southampton FC,310.05
+epl,2024,Ipswich Town,270.1
+epl,2024,Leicester City,253.35
+epl,2025,Manchester City,32.34
+epl,2025,Arsenal FC,33.15
+epl,2025,Chelsea FC,27.43
+epl,2025,Liverpool FC,21.79
+epl,2025,Tottenham Hotspur,813.4
+epl,2025,Manchester United,22.78
+epl,2025,Crystal Palace,702.5
+epl,2025,Newcastle United,697.7
+epl,2025,AFC Bournemouth,680.98
+epl,2025,Nottingham Forest,638.68
+epl,2025,Brighton &amp; Hove Albion,625.0
+epl,2025,Aston Villa,613.98
+epl,2025,Brentford FC,503.58
+epl,2025,West Ham United,469.73
+epl,2025,Everton FC,459.25
+epl,2025,Sunderland AFC,446.48
+epl,2025,Wolverhampton Wanderers,389.85
+epl,2025,Fulham FC,376.2
+epl,2025,Leeds United,374.2
+epl,2025,Burnley FC,236.0
+la-liga,2017,FC Barcelona,34.19
+la-liga,2017,Real Madrid,29.85
+la-liga,2017,Atlético de Madrid,711.15
+la-liga,2017,Valencia CF,398.05
+la-liga,2017,Sevilla FC,253.2
+la-liga,2017,Athletic Bilbao,249.4
+la-liga,2017,Real Sociedad,232.95
+la-liga,2017,Villarreal CF,220.0
+la-liga,2017,Celta de Vigo,173.05
+la-liga,2017,Real Betis Balompié,132.25
+la-liga,2017,RCD Espanyol Barcelona,97.8
+la-liga,2017,UD Las Palmas,91.25
+la-liga,2017,Girona FC,81.75
+la-liga,2017,Deportivo Alavés,74.8
+la-liga,2017,Deportivo de La Coruña,66.45
+la-liga,2017,Getafe CF,65.6
+la-liga,2017,Levante UD,61.85
+la-liga,2017,SD Eibar,60.05
+la-liga,2017,CD Leganés,58.55
+la-liga,2017,Málaga CF,55.2
+la-liga,2018,FC Barcelona,29.72
+la-liga,2018,Atlético de Madrid,26.21
+la-liga,2018,Real Madrid,24.89
+la-liga,2018,Valencia CF,499.65
+la-liga,2018,Sevilla FC,306.3
+la-liga,2018,Real Sociedad,300.95
+la-liga,2018,Real Betis Balompié,290.75
+la-liga,2018,Athletic Bilbao,234.25
+la-liga,2018,Celta de Vigo,234.1
+la-liga,2018,Villarreal CF,230.65
+la-liga,2018,RCD Espanyol Barcelona,174.7
+la-liga,2018,Getafe CF,132.2
+la-liga,2018,CD Leganés,112.45
+la-liga,2018,Deportivo Alavés,110.8
+la-liga,2018,Levante UD,107.85
+la-liga,2018,Girona FC,97.25
+la-liga,2018,SD Eibar,93.9
+la-liga,2018,Rayo Vallecano,86.7
+la-liga,2018,Real Valladolid CF,83.0
+la-liga,2018,SD Huesca,61.4
+la-liga,2019,FC Barcelona,22.15
+la-liga,2019,Real Madrid,27.69
+la-liga,2019,Atlético de Madrid,21.82
+la-liga,2019,Valencia CF,427.8
+la-liga,2019,Real Sociedad,347.55
+la-liga,2019,Sevilla FC,294.75
+la-liga,2019,Real Betis Balompié,244.35
+la-liga,2019,Athletic Bilbao,211.75
+la-liga,2019,Villarreal CF,208.68
+la-liga,2019,Getafe CF,175.45
+la-liga,2019,Celta de Vigo,167.0
+la-liga,2019,RCD Espanyol Barcelona,156.05
+la-liga,2019,CD Leganés,109.7
+la-liga,2019,Deportivo Alavés,106.75
+la-liga,2019,Levante UD,90.5
+la-liga,2019,Real Valladolid CF,87.78
+la-liga,2019,RCD Mallorca,64.68
+la-liga,2019,CA Osasuna,62.78
+la-liga,2019,Granada CF,56.58
+la-liga,2019,SD Eibar,53.75
+la-liga,2020,FC Barcelona,25.42
+la-liga,2020,Real Madrid,21.28
+la-liga,2020,Atlético de Madrid,773.1
+la-liga,2020,Sevilla FC,418.25
+la-liga,2020,Real Sociedad,406.6
+la-liga,2020,Villarreal CF,292.6
+la-liga,2020,Valencia CF,278.85
+la-liga,2020,Real Betis Balompié,207.7
+la-liga,2020,Athletic Bilbao,204.15
+la-liga,2020,Getafe CF,170.1
+la-liga,2020,Celta de Vigo,155.85
+la-liga,2020,Granada CF,122.65
+la-liga,2020,Levante UD,113.0
+la-liga,2020,CA Osasuna,96.75
+la-liga,2020,SD Eibar,83.4
+la-liga,2020,Deportivo Alavés,79.8
+la-liga,2020,SD Huesca,64.1
+la-liga,2020,Real Valladolid CF,63.35
+la-liga,2020,Cádiz CF,47.65
+la-liga,2020,Elche CF,45.65
+la-liga,2021,Real Madrid,21.41
+la-liga,2021,FC Barcelona,735.6
+la-liga,2021,Atlético de Madrid,661.8
+la-liga,2021,Villarreal CF,408.9
+la-liga,2021,Sevilla FC,385.0
+la-liga,2021,Real Sociedad,376.95
+la-liga,2021,Valencia CF,310.6
+la-liga,2021,Real Betis Balompié,259.0
+la-liga,2021,Athletic Bilbao,226.05
+la-liga,2021,Getafe CF,208.68
+la-liga,2021,RCD Espanyol Barcelona,131.6
+la-liga,2021,Celta de Vigo,120.0
+la-liga,2021,CA Osasuna,108.45
+la-liga,2021,Granada CF,103.75
+la-liga,2021,Levante UD,77.9
+la-liga,2021,RCD Mallorca,74.15
+la-liga,2021,Elche CF,72.98
+la-liga,2021,Cádiz CF,67.8
+la-liga,2021,Rayo Vallecano,67.2
+la-liga,2021,Deportivo Alavés,65.35
+la-liga,2022,Real Madrid,25.65
+la-liga,2022,FC Barcelona,20.41
+la-liga,2022,Atlético de Madrid,534.3
+la-liga,2022,Real Sociedad,441.7
+la-liga,2022,Villarreal CF,363.5
+la-liga,2022,Valencia CF,249.78
+la-liga,2022,Real Betis Balompié,246.4
+la-liga,2022,Sevilla FC,232.58
+la-liga,2022,Athletic Bilbao,222.45
+la-liga,2022,CA Osasuna,150.05
+la-liga,2022,Girona FC,139.9
+la-liga,2022,Celta de Vigo,138.8
+la-liga,2022,Getafe CF,118.9
+la-liga,2022,RCD Espanyol Barcelona,116.5
+la-liga,2022,UD Almería,114.2
+la-liga,2022,RCD Mallorca,107.0
+la-liga,2022,Rayo Vallecano,103.4
+la-liga,2022,Real Valladolid CF,90.75
+la-liga,2022,Elche CF,67.5
+la-liga,2022,Cádiz CF,65.6
+la-liga,2023,Real Madrid,30.68
+la-liga,2023,FC Barcelona,24.11
+la-liga,2023,Real Sociedad,498.5
+la-liga,2023,Atlético de Madrid,458.45
+la-liga,2023,Girona FC,297.9
+la-liga,2023,Athletic Bilbao,295.65
+la-liga,2023,Villarreal CF,252.5
+la-liga,2023,Valencia CF,244.73
+la-liga,2023,Sevilla FC,228.75
+la-liga,2023,Real Betis Balompié,224.88
+la-liga,2023,Celta de Vigo,149.3
+la-liga,2023,Granada CF,141.1
+la-liga,2023,Getafe CF,133.0
+la-liga,2023,Deportivo Alavés,123.7
+la-liga,2023,UD Las Palmas,112.4
+la-liga,2023,CA Osasuna,105.35
+la-liga,2023,UD Almería,99.4
+la-liga,2023,RCD Mallorca,87.7
+la-liga,2023,Rayo Vallecano,63.95
+la-liga,2023,Cádiz CF,60.7
+la-liga,2024,Real Madrid,32.11
+la-liga,2024,FC Barcelona,27.76
+la-liga,2024,Atlético de Madrid,542.5
+la-liga,2024,Athletic Bilbao,375.35
+la-liga,2024,Real Sociedad,345.05
+la-liga,2024,Real Betis Balompié,291.7
+la-liga,2024,Villarreal CF,264.25
+la-liga,2024,Valencia CF,215.55
+la-liga,2024,Sevilla FC,183.9
+la-liga,2024,Girona FC,153.1
+la-liga,2024,Celta de Vigo,130.9
+la-liga,2024,UD Las Palmas,117.3
+la-liga,2024,RCD Espanyol Barcelona,116.98
+la-liga,2024,CA Osasuna,113.28
+la-liga,2024,Deportivo Alavés,92.35
+la-liga,2024,Getafe CF,87.7
+la-liga,2024,RCD Mallorca,84.88
+la-liga,2024,Real Valladolid CF,81.45
+la-liga,2024,Rayo Vallecano,68.0
+la-liga,2024,CD Leganés,47.98
+la-liga,2025,Real Madrid,29.45
+la-liga,2025,FC Barcelona,33.12
+la-liga,2025,Atlético de Madrid,646.9
+la-liga,2025,Villarreal CF,375.55
+la-liga,2025,Real Sociedad,299.0
+la-liga,2025,Real Betis Balompié,253.05
+la-liga,2025,Athletic Bilbao,237.65
+la-liga,2025,Celta de Vigo,207.6
+la-liga,2025,Girona FC,199.2
+la-liga,2025,Sevilla FC,176.5
+la-liga,2025,Valencia CF,147.03
+la-liga,2025,RCD Espanyol Barcelona,135.15
+la-liga,2025,Elche CF,128.05
+la-liga,2025,Levante UD,113.95
+la-liga,2025,Rayo Vallecano,106.2
+la-liga,2025,CA Osasuna,102.7
+la-liga,2025,Getafe CF,95.6
+la-liga,2025,RCD Mallorca,83.2
+la-liga,2025,Deportivo Alavés,82.68
+la-liga,2025,Real Oviedo,60.95
+serie-a,2017,Juventus FC,653.15
+serie-a,2017,SSC Napoli,504.25
+serie-a,2017,Inter Milan,487.28
+serie-a,2017,AS Roma,469.1
+serie-a,2017,SS Lazio,408.78
+serie-a,2017,AC Milan,407.05
+serie-a,2017,ACF Fiorentina,237.33
+serie-a,2017,Atalanta BC,207.95
+serie-a,2017,UC Sampdoria,190.45
+serie-a,2017,Torino FC,175.53
+serie-a,2017,Genoa CFC,135.13
+serie-a,2017,US Sassuolo,126.78
+serie-a,2017,Udinese Calcio,108.03
+serie-a,2017,Bologna FC 1909,103.55
+serie-a,2017,Cagliari Calcio,98.58
+serie-a,2017,SPAL 2013,63.55
+serie-a,2017,Benevento Calcio,57.83
+serie-a,2017,Hellas Verona,56.5
+serie-a,2017,Chievo Verona,55.23
+serie-a,2017,FC Crotone,47.88
+serie-a,2018,Juventus FC,871.05
+serie-a,2018,SSC Napoli,646.8
+serie-a,2018,Inter Milan,617.93
+serie-a,2018,AC Milan,578.48
+serie-a,2018,AS Roma,459.05
+serie-a,2018,Atalanta BC,367.68
+serie-a,2018,ACF Fiorentina,315.33
+serie-a,2018,SS Lazio,291.15
+serie-a,2018,US Sassuolo,242.05
+serie-a,2018,Torino FC,239.23
+serie-a,2018,UC Sampdoria,216.75
+serie-a,2018,Udinese Calcio,201.2
+serie-a,2018,Genoa CFC,191.73
+serie-a,2018,Cagliari Calcio,155.38
+serie-a,2018,Bologna FC 1909,119.68
+serie-a,2018,FC Empoli,105.6
+serie-a,2018,SPAL,97.4
+serie-a,2018,Parma Calcio 1913,95.75
+serie-a,2018,Chievo Verona,54.7
+serie-a,2018,Frosinone Calcio,54.53
+serie-a,2019,Juventus FC,661.88
+serie-a,2019,Inter Milan,606.05
+serie-a,2019,SSC Napoli,548.28
+serie-a,2019,AC Milan,404.33
+serie-a,2019,AS Roma,392.73
+serie-a,2019,SS Lazio,303.88
+serie-a,2019,ACF Fiorentina,302.23
+serie-a,2019,Atalanta BC,291.43
+serie-a,2019,US Sassuolo,167.98
+serie-a,2019,Cagliari Calcio,167.83
+serie-a,2019,Torino FC,163.55
+serie-a,2019,Genoa CFC,142.38
+serie-a,2019,UC Sampdoria,135.28
+serie-a,2019,Bologna FC 1909,129.65
+serie-a,2019,Parma Calcio 1913,128.75
+serie-a,2019,Udinese Calcio,121.08
+serie-a,2019,Hellas Verona,112.53
+serie-a,2019,Brescia Calcio (- 2025),83.23
+serie-a,2019,SPAL,73.63
+serie-a,2019,US Lecce,52.33
+serie-a,2020,Inter Milan,663.9
+serie-a,2020,Juventus FC,633.3
+serie-a,2020,AC Milan,547.78
+serie-a,2020,SSC Napoli,530.2
+serie-a,2020,Atalanta BC,430.0
+serie-a,2020,AS Roma,395.65
+serie-a,2020,SS Lazio,326.33
+serie-a,2020,ACF Fiorentina,286.8
+serie-a,2020,US Sassuolo,241.74
+serie-a,2020,Cagliari Calcio,187.83
+serie-a,2020,Torino FC,175.28
+serie-a,2020,Udinese Calcio,173.0
+serie-a,2020,Hellas Verona,157.21
+serie-a,2020,Bologna FC 1909,153.6
+serie-a,2020,Parma Calcio 1913,128.7
+serie-a,2020,UC Sampdoria,127.18
+serie-a,2020,Genoa CFC,111.93
+serie-a,2020,Spezia Calcio,71.68
+serie-a,2020,FC Crotone,52.75
+serie-a,2020,Benevento Calcio,50.13
+serie-a,2021,Juventus FC,642.5
+serie-a,2021,Inter Milan,558.55
+serie-a,2021,AC Milan,546.95
+serie-a,2021,SSC Napoli,477.23
+serie-a,2021,Atalanta BC,398.75
+serie-a,2021,AS Roma,381.25
+serie-a,2021,ACF Fiorentina,325.8
+serie-a,2021,SS Lazio,264.53
+serie-a,2021,US Sassuolo,251.0
+serie-a,2021,Torino FC,223.4
+serie-a,2021,Bologna FC 1909,186.2
+serie-a,2021,Hellas Verona,162.98
+serie-a,2021,Udinese Calcio,142.3
+serie-a,2021,Cagliari Calcio,134.53
+serie-a,2021,UC Sampdoria,128.55
+serie-a,2021,FC Empoli,126.5
+serie-a,2021,Genoa CFC,121.28
+serie-a,2021,Venezia FC,80.98
+serie-a,2021,Spezia Calcio,78.5
+serie-a,2021,US Salernitana 1919,70.56
+serie-a,2022,SSC Napoli,21.1
+serie-a,2022,Inter Milan,567.55
+serie-a,2022,AC Milan,545.1
+serie-a,2022,Juventus FC,483.13
+serie-a,2022,AS Roma,361.38
+serie-a,2022,Atalanta BC,338.38
+serie-a,2022,SS Lazio,266.43
+serie-a,2022,ACF Fiorentina,258.8
+serie-a,2022,US Sassuolo,232.2
+serie-a,2022,Torino FC,197.19
+serie-a,2022,Udinese Calcio,188.86
+serie-a,2022,Bologna FC 1909,153.63
+serie-a,2022,AC Monza,135.7
+serie-a,2022,FC Empoli,125.53
+serie-a,2022,Hellas Verona,123.89
+serie-a,2022,US Salernitana 1919,118.35
+serie-a,2022,Spezia Calcio,115.81
+serie-a,2022,US Lecce,105.2
+serie-a,2022,US Cremonese,83.78
+serie-a,2022,UC Sampdoria,82.96
+serie-a,2023,Inter Milan,654.85
+serie-a,2023,AC Milan,571.41
+serie-a,2023,SSC Napoli,515.0
+serie-a,2023,Juventus FC,504.53
+serie-a,2023,Atalanta BC,436.05
+serie-a,2023,Bologna FC 1909,349.3
+serie-a,2023,AS Roma,340.4
+serie-a,2023,ACF Fiorentina,284.1
+serie-a,2023,Torino FC,232.73
+serie-a,2023,SS Lazio,225.45
+serie-a,2023,Genoa CFC,195.4
+serie-a,2023,Udinese Calcio,170.06
+serie-a,2023,AC Monza,143.43
+serie-a,2023,Hellas Verona,140.7
+serie-a,2023,US Sassuolo,139.54
+serie-a,2023,Frosinone Calcio,108.4
+serie-a,2023,US Lecce,107.73
+serie-a,2023,FC Empoli,102.33
+serie-a,2023,US Salernitana 1919,94.6
+serie-a,2023,Cagliari Calcio,92.23
+serie-a,2024,Inter Milan,741.85
+serie-a,2024,Juventus FC,628.73
+serie-a,2024,AC Milan,581.7
+serie-a,2024,Atalanta BC,501.2
+serie-a,2024,SSC Napoli,500.45
+serie-a,2024,AS Roma,390.3
+serie-a,2024,ACF Fiorentina,368.13
+serie-a,2024,Bologna FC 1909,340.65
+serie-a,2024,SS Lazio,294.9
+serie-a,2024,Torino FC,219.28
+serie-a,2024,Como 1907,203.43
+serie-a,2024,Udinese Calcio,198.9
+serie-a,2024,Genoa CFC,175.35
+serie-a,2024,Parma Calcio 1913,175.11
+serie-a,2024,US Lecce,113.43
+serie-a,2024,Hellas Verona,107.35
+serie-a,2024,FC Empoli,106.58
+serie-a,2024,AC Monza,95.83
+serie-a,2024,Venezia FC,95.6
+serie-a,2024,Cagliari Calcio,93.63
+serie-a,2025,Inter Milan,680.1
+serie-a,2025,Juventus FC,536.5
+serie-a,2025,AC Milan,511.7
+serie-a,2025,AS Roma,503.3
+serie-a,2025,Atalanta BC,491.85
+serie-a,2025,SSC Napoli,459.55
+serie-a,2025,Como 1907,412.95
+serie-a,2025,Bologna FC 1909,301.5
+serie-a,2025,SS Lazio,288.13
+serie-a,2025,ACF Fiorentina,264.95
+serie-a,2025,US Sassuolo,211.8
+serie-a,2025,Udinese Calcio,206.1
+serie-a,2025,Parma Calcio 1913,204.05
+serie-a,2025,Cagliari Calcio,201.85
+serie-a,2025,Genoa CFC,187.4
+serie-a,2025,Torino FC,150.95
+serie-a,2025,US Lecce,128.58
+serie-a,2025,Pisa Sporting Club,111.55
+serie-a,2025,Hellas Verona,107.75
+serie-a,2025,US Cremonese,78.18
+bundesliga,2017,Bayern Munich,21.36
+bundesliga,2017,Borussia Dortmund,574.2
+bundesliga,2017,RB Leipzig,373.3
+bundesliga,2017,Bayer 04 Leverkusen,357.35
+bundesliga,2017,FC Schalke 04,274.35
+bundesliga,2017,TSG 1899 Hoffenheim,212.75
+bundesliga,2017,Borussia Mönchengladbach,193.25
+bundesliga,2017,VfL Wolfsburg,143.6
+bundesliga,2017,VfB Stuttgart,134.7
+bundesliga,2017,Hertha BSC,131.45
+bundesliga,2017,Eintracht Frankfurt,126.15
+bundesliga,2017,SV Werder Bremen,107.15
+bundesliga,2017,SC Freiburg,100.6
+bundesliga,2017,FC Augsburg,100.45
+bundesliga,2017,1.FSV Mainz 05,98.35
+bundesliga,2017,Hannover 96,92.95
+bundesliga,2017,1.FC Köln,91.73
+bundesliga,2017,Hamburger SV,62.4
+bundesliga,2018,Bayern Munich,24.53
+bundesliga,2018,Borussia Dortmund,643.25
+bundesliga,2018,RB Leipzig,479.0
+bundesliga,2018,Bayer 04 Leverkusen,429.4
+bundesliga,2018,TSG 1899 Hoffenheim,336.25
+bundesliga,2018,Eintracht Frankfurt,313.4
+bundesliga,2018,Borussia Mönchengladbach,264.3
+bundesliga,2018,VfL Wolfsburg,229.25
+bundesliga,2018,FC Schalke 04,221.3
+bundesliga,2018,Hertha BSC,207.63
+bundesliga,2018,SV Werder Bremen,168.05
+bundesliga,2018,1.FSV Mainz 05,159.73
+bundesliga,2018,VfB Stuttgart,143.75
+bundesliga,2018,FC Augsburg,139.25
+bundesliga,2018,SC Freiburg,122.1
+bundesliga,2018,Fortuna Düsseldorf,94.95
+bundesliga,2018,Hannover 96,91.43
+bundesliga,2018,1.FC Nuremberg,54.4
+bundesliga,2019,Bayern Munich,20.46
+bundesliga,2019,Borussia Dortmund,654.05
+bundesliga,2019,RB Leipzig,570.48
+bundesliga,2019,Bayer 04 Leverkusen,398.95
+bundesliga,2019,Borussia Mönchengladbach,254.7
+bundesliga,2019,TSG 1899 Hoffenheim,226.05
+bundesliga,2019,FC Schalke 04,221.58
+bundesliga,2019,Hertha BSC,217.2
+bundesliga,2019,Eintracht Frankfurt,208.98
+bundesliga,2019,VfL Wolfsburg,207.6
+bundesliga,2019,SV Werder Bremen,135.13
+bundesliga,2019,SC Freiburg,122.65
+bundesliga,2019,1.FSV Mainz 05,121.58
+bundesliga,2019,FC Augsburg,112.95
+bundesliga,2019,1.FC Köln,98.48
+bundesliga,2019,Fortuna Düsseldorf,71.78
+bundesliga,2019,1.FC Union Berlin,41.2
+bundesliga,2019,SC Paderborn 07,28.9
+bundesliga,2020,Bayern Munich,858.23
+bundesliga,2020,Borussia Dortmund,628.4
+bundesliga,2020,RB Leipzig,574.95
+bundesliga,2020,Bayer 04 Leverkusen,373.25
+bundesliga,2020,Borussia Mönchengladbach,300.75
+bundesliga,2020,Eintracht Frankfurt,269.15
+bundesliga,2020,VfL Wolfsburg,256.83
+bundesliga,2020,Hertha BSC,228.88
+bundesliga,2020,TSG 1899 Hoffenheim,228.15
+bundesliga,2020,VfB Stuttgart,189.25
+bundesliga,2020,1.FSV Mainz 05,163.3
+bundesliga,2020,SC Freiburg,139.1
+bundesliga,2020,FC Schalke 04,123.05
+bundesliga,2020,1.FC Köln,118.2
+bundesliga,2020,SV Werder Bremen,111.98
+bundesliga,2020,FC Augsburg,93.05
+bundesliga,2020,1.FC Union Berlin,82.05
+bundesliga,2020,Arminia Bielefeld,56.73
+bundesliga,2021,Bayern Munich,20.8
+bundesliga,2021,Borussia Dortmund,558.98
+bundesliga,2021,RB Leipzig,498.95
+bundesliga,2021,Bayer 04 Leverkusen,455.05
+bundesliga,2021,VfL Wolfsburg,269.3
+bundesliga,2021,Borussia Mönchengladbach,236.8
+bundesliga,2021,Eintracht Frankfurt,228.75
+bundesliga,2021,TSG 1899 Hoffenheim,211.43
+bundesliga,2021,SC Freiburg,176.35
+bundesliga,2021,VfB Stuttgart,174.23
+bundesliga,2021,Hertha BSC,155.78
+bundesliga,2021,1.FSV Mainz 05,131.03
+bundesliga,2021,1.FC Union Berlin,115.9
+bundesliga,2021,1.FC Köln,99.28
+bundesliga,2021,FC Augsburg,95.3
+bundesliga,2021,Arminia Bielefeld,65.85
+bundesliga,2021,VfL Bochum,52.25
+bundesliga,2021,SpVgg Greuther Fürth,36.95
+bundesliga,2022,Bayern Munich,27.11
+bundesliga,2022,Borussia Dortmund,567.55
+bundesliga,2022,RB Leipzig,486.4
+bundesliga,2022,Bayer 04 Leverkusen,452.5
+bundesliga,2022,Eintracht Frankfurt,324.55
+bundesliga,2022,Borussia Mönchengladbach,241.68
+bundesliga,2022,VfL Wolfsburg,238.3
+bundesliga,2022,SC Freiburg,200.95
+bundesliga,2022,TSG 1899 Hoffenheim,178.8
+bundesliga,2022,1.FC Union Berlin,157.95
+bundesliga,2022,VfB Stuttgart,151.05
+bundesliga,2022,1.FSV Mainz 05,135.9
+bundesliga,2022,FC Augsburg,132.23
+bundesliga,2022,1.FC Köln,115.65
+bundesliga,2022,Hertha BSC,94.0
+bundesliga,2022,SV Werder Bremen,89.5
+bundesliga,2022,FC Schalke 04,87.78
+bundesliga,2022,VfL Bochum,53.7
+bundesliga,2023,Bayern Munich,24.75
+bundesliga,2023,Bayer 04 Leverkusen,20.57
+bundesliga,2023,RB Leipzig,545.4
+bundesliga,2023,Borussia Dortmund,494.8
+bundesliga,2023,VfB Stuttgart,346.63
+bundesliga,2023,Eintracht Frankfurt,326.65
+bundesliga,2023,VfL Wolfsburg,206.45
+bundesliga,2023,SC Freiburg,180.35
+bundesliga,2023,TSG 1899 Hoffenheim,176.0
+bundesliga,2023,Borussia Mönchengladbach,165.23
+bundesliga,2023,1.FC Union Berlin,160.95
+bundesliga,2023,1.FSV Mainz 05,142.88
+bundesliga,2023,FC Augsburg,140.8
+bundesliga,2023,SV Werder Bremen,134.93
+bundesliga,2023,1.FC Köln,81.45
+bundesliga,2023,1.FC Heidenheim 1846,66.45
+bundesliga,2023,VfL Bochum,64.53
+bundesliga,2023,SV Darmstadt 98,38.7
+bundesliga,2024,Bayern Munich,22.18
+bundesliga,2024,Bayer 04 Leverkusen,623.35
+bundesliga,2024,RB Leipzig,513.7
+bundesliga,2024,Borussia Dortmund,508.28
+bundesliga,2024,Eintracht Frankfurt,431.25
+bundesliga,2024,VfB Stuttgart,365.23
+bundesliga,2024,VfL Wolfsburg,296.3
+bundesliga,2024,Borussia Mönchengladbach,187.5
+bundesliga,2024,TSG 1899 Hoffenheim,187.1
+bundesliga,2024,SC Freiburg,186.2
+bundesliga,2024,1.FSV Mainz 05,175.13
+bundesliga,2024,FC Augsburg,158.88
+bundesliga,2024,1.FC Union Berlin,136.05
+bundesliga,2024,SV Werder Bremen,132.0
+bundesliga,2024,1.FC Heidenheim 1846,72.53
+bundesliga,2024,FC St. Pauli,65.78
+bundesliga,2024,VfL Bochum,57.1
+bundesliga,2024,Holstein Kiel,47.13
+bundesliga,2025,Bayern Munich,24.86
+bundesliga,2025,RB Leipzig,618.7
+bundesliga,2025,Bayer 04 Leverkusen,548.35
+bundesliga,2025,Borussia Dortmund,520.4
+bundesliga,2025,VfB Stuttgart,464.55
+bundesliga,2025,Eintracht Frankfurt,408.95
+bundesliga,2025,TSG 1899 Hoffenheim,285.8
+bundesliga,2025,SC Freiburg,264.85
+bundesliga,2025,VfL Wolfsburg,234.1
+bundesliga,2025,Hamburger SV,186.05
+bundesliga,2025,FC Augsburg,180.65
+bundesliga,2025,SV Werder Bremen,177.83
+bundesliga,2025,Borussia Mönchengladbach,171.4
+bundesliga,2025,1.FSV Mainz 05,165.35
+bundesliga,2025,1.FC Köln,156.65
+bundesliga,2025,1.FC Union Berlin,129.85
+bundesliga,2025,1.FC Heidenheim 1846,78.75
+bundesliga,2025,FC St. Pauli,65.65
+ligue-1,2017,Paris Saint-Germain,25.72
+ligue-1,2017,AS Monaco,529.8
+ligue-1,2017,Olympique Lyon,363.8
+ligue-1,2017,Olympique Marseille,236.8
+ligue-1,2017,OGC Nice,204.1
+ligue-1,2017,FC Girondins Bordeaux,155.45
+ligue-1,2017,Stade Rennais FC,131.25
+ligue-1,2017,FC Toulouse,110.45
+ligue-1,2017,AS Saint-Étienne,106.88
+ligue-1,2017,FC Nantes,105.7
+ligue-1,2017,LOSC Lille,96.75
+ligue-1,2017,Montpellier HSC,71.85
+ligue-1,2017,Dijon FCO,70.3
+ligue-1,2017,Amiens SC,69.85
+ligue-1,2017,Angers SCO,69.55
+ligue-1,2017,SM Caen,60.1
+ligue-1,2017,EA Guingamp,51.9
+ligue-1,2017,FC Metz,51.2
+ligue-1,2017,RC Strasbourg Alsace,45.6
+ligue-1,2017,ESTAC Troyes,45.05
+ligue-1,2018,Paris Saint-Germain,25.9
+ligue-1,2018,Olympique Lyon,467.95
+ligue-1,2018,AS Monaco,385.83
+ligue-1,2018,LOSC Lille,267.55
+ligue-1,2018,Olympique Marseille,258.35
+ligue-1,2018,OGC Nice,183.2
+ligue-1,2018,FC Girondins Bordeaux,179.0
+ligue-1,2018,Stade Rennais FC,168.45
+ligue-1,2018,AS Saint-Étienne,131.25
+ligue-1,2018,FC Nantes,119.5
+ligue-1,2018,FC Toulouse,113.25
+ligue-1,2018,Montpellier HSC,109.85
+ligue-1,2018,RC Strasbourg Alsace,98.0
+ligue-1,2018,Nîmes Olympique,88.15
+ligue-1,2018,Stade Reims,86.95
+ligue-1,2018,Angers SCO,79.7
+ligue-1,2018,EA Guingamp,70.65
+ligue-1,2018,Amiens SC,70.5
+ligue-1,2018,SM Caen,67.55
+ligue-1,2018,Dijon FCO,65.8
+ligue-1,2019,Paris Saint-Germain,24.98
+ligue-1,2019,Olympique Lyon,384.55
+ligue-1,2019,AS Monaco,331.03
+ligue-1,2019,LOSC Lille,247.78
+ligue-1,2019,Olympique Marseille,216.15
+ligue-1,2019,OGC Nice,173.45
+ligue-1,2019,Stade Rennais FC,171.88
+ligue-1,2019,FC Girondins Bordeaux,125.35
+ligue-1,2019,FC Nantes,106.15
+ligue-1,2019,AS Saint-Étienne,104.83
+ligue-1,2019,RC Strasbourg Alsace,91.13
+ligue-1,2019,Angers SCO,89.48
+ligue-1,2019,Montpellier HSC,81.68
+ligue-1,2019,Stade Reims,81.68
+ligue-1,2019,FC Toulouse,71.88
+ligue-1,2019,Amiens SC,61.93
+ligue-1,2019,FC Metz,54.1
+ligue-1,2019,Dijon FCO,50.23
+ligue-1,2019,Nîmes Olympique,49.65
+ligue-1,2019,Stade Brestois 29,47.78
+ligue-1,2020,Paris Saint-Germain,805.0
+ligue-1,2020,Olympique Lyon,431.35
+ligue-1,2020,AS Monaco,370.35
+ligue-1,2020,LOSC Lille,323.2
+ligue-1,2020,Stade Rennais FC,297.5
+ligue-1,2020,Olympique Marseille,247.95
+ligue-1,2020,OGC Nice,236.1
+ligue-1,2020,AS Saint-Étienne,154.5
+ligue-1,2020,Montpellier HSC,113.85
+ligue-1,2020,Angers SCO,111.65
+ligue-1,2020,RC Strasbourg Alsace,109.65
+ligue-1,2020,FC Girondins Bordeaux,105.7
+ligue-1,2020,Stade Reims,105.18
+ligue-1,2020,RC Lens,104.3
+ligue-1,2020,FC Metz,103.5
+ligue-1,2020,Stade Brestois 29,103.23
+ligue-1,2020,FC Nantes,94.75
+ligue-1,2020,FC Lorient,72.88
+ligue-1,2020,Dijon FCO,65.63
+ligue-1,2020,Nîmes Olympique,60.4
+ligue-1,2021,Paris Saint-Germain,21.35
+ligue-1,2021,Olympique Lyon,397.7
+ligue-1,2021,AS Monaco,396.0
+ligue-1,2021,LOSC Lille,306.88
+ligue-1,2021,Stade Rennais FC,305.35
+ligue-1,2021,Olympique Marseille,284.7
+ligue-1,2021,OGC Nice,266.05
+ligue-1,2021,RC Lens,154.05
+ligue-1,2021,Stade Reims,149.4
+ligue-1,2021,Montpellier HSC,144.6
+ligue-1,2021,RC Strasbourg Alsace,120.05
+ligue-1,2021,FC Girondins Bordeaux,116.85
+ligue-1,2021,FC Nantes,112.65
+ligue-1,2021,AS Saint-Étienne,105.65
+ligue-1,2021,Stade Brestois 29,103.15
+ligue-1,2021,FC Metz,91.05
+ligue-1,2021,Angers SCO,89.5
+ligue-1,2021,ESTAC Troyes,73.2
+ligue-1,2021,FC Lorient,61.3
+ligue-1,2021,Clermont Foot 63,55.1
+ligue-1,2022,Paris Saint-Germain,24.08
+ligue-1,2022,Stade Rennais FC,387.75
+ligue-1,2022,AS Monaco,368.3
+ligue-1,2022,Olympique Lyon,350.95
+ligue-1,2022,Olympique Marseille,331.55
+ligue-1,2022,OGC Nice,310.8
+ligue-1,2022,LOSC Lille,247.95
+ligue-1,2022,RC Lens,238.15
+ligue-1,2022,FC Lorient,175.45
+ligue-1,2022,Stade Reims,159.05
+ligue-1,2022,Montpellier HSC,142.9
+ligue-1,2022,RC Strasbourg Alsace,123.55
+ligue-1,2022,FC Nantes,119.28
+ligue-1,2022,FC Toulouse,104.8
+ligue-1,2022,Stade Brestois 29,76.65
+ligue-1,2022,ESTAC Troyes,76.3
+ligue-1,2022,Angers SCO,71.8
+ligue-1,2022,AJ Auxerre,54.8
+ligue-1,2022,Clermont Foot 63,48.0
+ligue-1,2022,AC Ajaccio,27.0
+ligue-1,2023,Paris Saint-Germain,28.36
+ligue-1,2023,AS Monaco,398.55
+ligue-1,2023,Stade Rennais FC,375.35
+ligue-1,2023,LOSC Lille,328.9
+ligue-1,2023,Olympique Marseille,311.4
+ligue-1,2023,Olympique Lyon,305.95
+ligue-1,2023,OGC Nice,268.78
+ligue-1,2023,RC Lens,205.6
+ligue-1,2023,RC Strasbourg Alsace,157.7
+ligue-1,2023,Montpellier HSC,145.58
+ligue-1,2023,FC Toulouse,145.2
+ligue-1,2023,Stade Reims,134.55
+ligue-1,2023,FC Lorient,131.85
+ligue-1,2023,FC Nantes,125.9
+ligue-1,2023,Stade Brestois 29,115.15
+ligue-1,2023,Le Havre AC,72.5
+ligue-1,2023,FC Metz,65.4
+ligue-1,2023,Clermont Foot 63,61.35
+ligue-1,2024,Paris Saint-Germain,33.59
+ligue-1,2024,AS Monaco,411.15
+ligue-1,2024,Olympique Marseille,358.0
+ligue-1,2024,LOSC Lille,336.55
+ligue-1,2024,Olympique Lyon,309.85
+ligue-1,2024,RC Strasbourg Alsace,307.85
+ligue-1,2024,Stade Rennais FC,294.7
+ligue-1,2024,OGC Nice,227.05
+ligue-1,2024,RC Lens,221.45
+ligue-1,2024,Stade Reims,152.5
+ligue-1,2024,FC Toulouse,121.6
+ligue-1,2024,FC Nantes,114.65
+ligue-1,2024,Stade Brestois 29,110.65
+ligue-1,2024,AJ Auxerre,86.9
+ligue-1,2024,AS Saint-Étienne,81.6
+ligue-1,2024,Le Havre AC,70.55
+ligue-1,2024,Montpellier HSC,65.85
+ligue-1,2024,Angers SCO,51.65
+ligue-1,2025,Paris Saint-Germain,37.29
+ligue-1,2025,Olympique Marseille,484.8
+ligue-1,2025,RC Strasbourg Alsace,466.08
+ligue-1,2025,AS Monaco,454.68
+ligue-1,2025,Olympique Lyon,354.65
+ligue-1,2025,Stade Rennais FC,333.6
+ligue-1,2025,LOSC Lille,294.5
+ligue-1,2025,RC Lens,266.6
+ligue-1,2025,OGC Nice,215.55
+ligue-1,2025,FC Toulouse,198.6
+ligue-1,2025,Paris FC,154.2
+ligue-1,2025,Angers SCO,137.6
+ligue-1,2025,FC Lorient,128.35
+ligue-1,2025,FC Nantes,122.6
+ligue-1,2025,AJ Auxerre,122.0
+ligue-1,2025,Stade Brestois 29,95.35
+ligue-1,2025,FC Metz,91.8
+ligue-1,2025,Le Havre AC,79.45
+epl,2026,Erling Haaland,200.0
+epl,2026,Manchester City,44.79
+epl,2026,Arsenal FC,48.37
+epl,2026,Chelsea FC,33.17
+epl,2026,Liverpool FC,33.78
+epl,2026,Tottenham Hotspur,24.73
+epl,2026,Manchester United,25.07
+epl,2026,Brighton &amp; Hove Albion,646.0
+epl,2026,Newcastle United,23.52
+epl,2026,AFC Bournemouth,550.38
+epl,2026,Aston Villa,522.2
+epl,2026,Brentford FC,522.2
+epl,2026,Nottingham Forest,517.8
+epl,2026,Crystal Palace,512.55
+epl,2026,Everton FC,454.1
+epl,2026,Sunderland AFC,383.18
+epl,2026,Leeds United,353.8
+epl,2026,Fulham FC,310.2
+epl,2026,Ipswich Town,200.7
+epl,2026,Coventry City,199.35
+epl,2026,Hull City,72.15
+la-liga,2026,Lamine Yamal,200.0
+la-liga,2026,Real Madrid,44.74
+la-liga,2026,FC Barcelona,42.67
+la-liga,2026,Atlético de Madrid,23.04
+la-liga,2026,Villarreal CF,328.2
+la-liga,2026,Real Sociedad,261.5
+la-liga,2026,Athletic Bilbao,257.3
+la-liga,2026,Real Betis Balompié,224.9
+la-liga,2026,Celta de Vigo,174.8
+la-liga,2026,Sevilla FC,161.1
+la-liga,2026,Valencia CF,123.7
+la-liga,2026,RCD Espanyol Barcelona,112.65
+la-liga,2026,Levante UD,88.75
+la-liga,2026,Rayo Vallecano,85.7
+la-liga,2026,Elche CF,70.6
+la-liga,2026,Deportivo Alavés,67.75
+la-liga,2026,Deportivo A Coruña,67.05
+la-liga,2026,CA Osasuna,67.0
+la-liga,2026,Getafe CF,63.9
+la-liga,2026,Racing Santander,58.9
+la-liga,2026,Málaga CF,30.93
+serie-a,2026,Lautaro Martínez,85.0
+serie-a,2026,Inter Milan,28.37
+serie-a,2026,AC Milan,533.0
+serie-a,2026,Juventus FC,526.7
+serie-a,2026,SSC Napoli,485.1
+serie-a,2026,Como 1907,437.85
+serie-a,2026,Atalanta BC,436.5
+serie-a,2026,AS Roma,422.05
+serie-a,2026,ACF Fiorentina,271.45
+serie-a,2026,Bologna FC 1909,264.75
+serie-a,2026,SS Lazio,225.9
+serie-a,2026,Udinese Calcio,217.73
+serie-a,2026,US Sassuolo,197.25
+serie-a,2026,Parma Calcio 1913,179.45
+serie-a,2026,Genoa CFC,158.2
+serie-a,2026,Cagliari Calcio,115.05
+serie-a,2026,Torino FC,107.1
+serie-a,2026,Venezia FC,89.25
+serie-a,2026,US Lecce,73.83
+serie-a,2026,AC Monza,45.38
+serie-a,2026,Frosinone Calcio,37.6
+bundesliga,2026,Michael Olise,150.0
+bundesliga,2026,Bayern Munich,32.76
+bundesliga,2026,RB Leipzig,548.8
+bundesliga,2026,Bayer 04 Leverkusen,512.85
+bundesliga,2026,Borussia Dortmund,506.7
+bundesliga,2026,VfB Stuttgart,409.9
+bundesliga,2026,Eintracht Frankfurt,335.95
+bundesliga,2026,TSG 1899 Hoffenheim,295.25
+bundesliga,2026,SC Freiburg,285.55
+bundesliga,2026,1.FSV Mainz 05,167.9
+bundesliga,2026,FC Augsburg,158.6
+bundesliga,2026,SV Werder Bremen,142.58
+bundesliga,2026,1.FC Köln,141.2
+bundesliga,2026,Borussia Mönchengladbach,135.1
+bundesliga,2026,1.FC Union Berlin,112.88
+bundesliga,2026,Hamburger SV,86.35
+bundesliga,2026,FC Schalke 04,55.53
+bundesliga,2026,SV 07 Elversberg,45.1
+bundesliga,2026,SC Paderborn 07,38.33
+ligue-1,2026,Vitinha,140.0
+ligue-1,2026,Paris Saint-Germain,48.99
+ligue-1,2026,AS Monaco,363.1
+ligue-1,2026,RC Strasbourg Alsace,361.3
+ligue-1,2026,Olympique Marseille,320.5
+ligue-1,2026,LOSC Lille,278.7
+ligue-1,2026,Stade Rennais FC,264.6
+ligue-1,2026,Olympique Lyon,260.05
+ligue-1,2026,RC Lens,221.05
+ligue-1,2026,FC Toulouse,155.35
+ligue-1,2026,OGC Nice,144.3
+ligue-1,2026,Paris FC,135.5
+ligue-1,2026,AJ Auxerre,91.25
+ligue-1,2026,FC Lorient,90.85
+ligue-1,2026,Angers SCO,69.85
+ligue-1,2026,Stade Brestois 29,59.6
+ligue-1,2026,ESTAC Troyes,40.2
+ligue-1,2026,Le Havre AC,34.4

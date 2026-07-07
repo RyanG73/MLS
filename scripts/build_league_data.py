@@ -929,6 +929,45 @@ def main():
         except Exception as _conf_err:
             print(f"[{lid}] conference fetch failed (pooled fallback): {_conf_err}")
 
+    # M2/A10(a) (2026-07-07, KEEP at both seeds on the outcome replay):
+    # preseason value-informed strength correction, BOTTOM-HALF-rated teams
+    # only. Fit log(squad value of ts-1) → current ELO, tilt fixture log-odds
+    # by β·(value_elo − elo) for teams rated at/below the league median —
+    # relegation Brier −0.0055 with title flat (an untargeted tilt drags
+    # title odds toward the richest club: +0.005 title, rejected).
+    if is_preseason and len(remaining):
+        try:
+            from scripts.eval.tm_value_backfill import OUT as _VOUT, TM_TO_FD, map_to_fd
+            import math as _math
+            if _VOUT.exists():
+                _vals = pd.read_csv(_VOUT)
+                _vals = _vals[_vals["league"] == lid]
+                if len(_vals):
+                    _vmap = {(t2, s): v for (l2, t2, s), v in map_to_fd(
+                        _vals, {lid: set(tids) | set(atk)}, aliases=TM_TO_FD).items()}
+                    _xs, _ys = [], []
+                    for _t, _r in elo_now.items():
+                        _v = _vmap.get((_t, ts - 1))
+                        if _v and _v > 0:
+                            _xs.append(_math.log(_v)); _ys.append(_r)
+                    if len(_xs) >= 6 and float(np.std(_xs)) > 1e-9:
+                        _b, _a = np.polyfit(np.array(_xs), np.array(_ys), 1)
+                        _med = float(np.median([elo_now.get(t, 1500.0) for t in tids]))
+                        _vdelta = np.zeros(nT)
+                        _VALUE_BETA = 0.5
+                        for _i, _t in enumerate(tids):
+                            _vn = _vmap.get((_t, ts))
+                            if _vn and _vn > 0 and _t in elo_now and elo_now[_t] <= _med:
+                                _vdelta[_i] = _VALUE_BETA * (
+                                    (_a + _b * _math.log(_vn)) - elo_now[_t])
+                        if _vdelta.any():
+                            RP = perturb_probs(np.log(np.clip(RP, 1e-12, 1.0)),
+                                               RH, RA, _vdelta)
+                            print(f"[{lid}] value tilt applied to "
+                                  f"{int((_vdelta != 0).sum())} bottom-half teams")
+        except Exception as _vt_err:
+            print(f"[{lid}] value tilt skipped: {_vt_err}")
+
     _season_frac = (len(played) / (len(played) + len(remaining))
                     if (len(played) + len(remaining)) else 1.0)
     _sigma_eff = preseason_sigma_for_source(cfg["source"]) * (1.0 - _season_frac)

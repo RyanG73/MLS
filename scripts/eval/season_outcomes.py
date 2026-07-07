@@ -157,7 +157,9 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
                   bridge: dict | None = None,
                   lid: str = "",
                   fmt: dict | None = None,
-                  sigma_decay: bool = False) -> list[dict]:
+                  sigma_decay: bool = False,
+                  value_map: dict | None = None,
+                  value_beta: float = 0.0) -> list[dict]:
     """Rows of {season, checkpoint, outcome, team, pred, actual} for one league.
 
     `frame` is a canonical played-match frame (goals filled). Playoff rows
@@ -222,14 +224,46 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
             atk, dfd, ha, rho = fit_dc(fit_rows)
             atk, dfd = dict(atk), dict(dfd)
             newcomers = [t for t in teams if t not in atk]
-            if newcomers:
-                cutoff = (played["date"].min() if len(played)
-                          else season_df["date"].min())
+            elo_now = None
+            if newcomers or (value_beta > 0 and f == 0.0):
                 _, elo_now = compute_elo(
                     fit_rows.sort_values("date"), K=25, home_adv=80,
                     regress=0.40, club_prior_beta=0.75, return_ratings=True)
+            if newcomers:
+                cutoff = (played["date"].min() if len(played)
+                          else season_df["date"].min())
                 _seed_newcomers(newcomers, atk, dfd, elo_now,
                                 bridge, cutoff, lid)
+
+            # M2 (A10a revival): value-informed preseason strength correction.
+            # Fit log(squad value) → ELO on the JUST-CLOSED season (values of
+            # S-1 vs end-of-S-1 ratings — walk-forward safe), apply to the
+            # incoming season's start-of-season values, and tilt each team's
+            # fixture log-odds by β·(value_elo − elo) — a LOCATION fix the
+            # symmetric widening cannot provide (Spurs: value says top-6).
+            value_delta = np.zeros(nT)
+            if value_beta > 0 and f == 0.0 and value_map and elo_now:
+                import math as _math
+                xs, ys = [], []
+                for t, r_elo in elo_now.items():
+                    v = value_map.get((t, S - 1))
+                    if v and v > 0:
+                        xs.append(_math.log(v))
+                        ys.append(r_elo)
+                if len(xs) >= 6 and float(np.std(xs)) > 1e-9:
+                    b_, a_ = np.polyfit(np.array(xs), np.array(ys), 1)
+                    # Bottom-half targeting: the measured location error lives
+                    # in bottom-table outcomes (fallen giants seeded too low);
+                    # the top of the table already carries strong skill and an
+                    # untargeted tilt drags title odds toward the richest club
+                    # (title Brier +0.005 at β=0.5 in the untargeted A/B).
+                    _med = float(np.median([elo_now.get(t, 1500.0) for t in teams]))
+                    for i, t in enumerate(teams):
+                        v_new = value_map.get((t, S))
+                        if (v_new and v_new > 0 and t in elo_now
+                                and elo_now[t] <= _med):
+                            value_delta[i] = value_beta * (
+                                (a_ + b_ * _math.log(v_new)) - elo_now[t])
 
             P_raw = dc_predict_batch(remaining, atk, dfd, ha, rho)
             lp = np.log(np.clip(P_raw, 1e-9, 1.0)) / T
@@ -239,6 +273,11 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
 
             RH = remaining["home_team"].map(idx).values.astype(int)
             RA = remaining["away_team"].map(idx).values.astype(int)
+            if value_delta.any():
+                # deterministic tilt: same ELO-scale log-odds math as the
+                # stochastic widening, applied once to the baseline probs.
+                P = perturb_probs(np.log(np.clip(P, 1e-12, 1.0)),
+                                  RH, RA, value_delta)
             base_pts, base_gd = _table(played, idx)
 
             rng = np.random.default_rng(hash((S, f, seed)) % 2**31)

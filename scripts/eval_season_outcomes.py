@@ -68,6 +68,27 @@ def _bridge_for(lid: str) -> dict | None:
     return out or None
 
 
+_VALUE_MAP_CACHE: dict = {}
+
+
+def _value_map_for(lid: str) -> dict | None:
+    """{(fd_team, season): value_eur_m} from the TM backfill (big-5 only)."""
+    if lid in _VALUE_MAP_CACHE:
+        return _VALUE_MAP_CACHE[lid]
+    from scripts.eval.tm_value_backfill import OUT as _VOUT, TM_TO_FD, map_to_fd
+    import pandas as _pd
+    result = None
+    if _VOUT.exists():
+        vals = _pd.read_csv(_VOUT)
+        vals = vals[vals["league"] == lid]
+        if len(vals):
+            teams = set(_fd_frame(lid)["home_team"]) | set(_fd_frame(lid)["away_team"])
+            mapped = map_to_fd(vals, {lid: teams}, aliases=TM_TO_FD)
+            result = {(t, s): v for (l, t, s), v in mapped.items()}
+    _VALUE_MAP_CACHE[lid] = result
+    return result
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--leagues", nargs="+",
@@ -84,6 +105,10 @@ def main() -> None:
                          "production behaviour since 2026-07-07 (default on).")
     ap.add_argument("--no-sigma-decay", dest="sigma_decay", action="store_false",
                     help="Preseason-only widening (pre-2026-07-07 behaviour).")
+    ap.add_argument("--value-beta", type=float, default=0.0,
+                    help="M2/A10a experiment: preseason value-informed strength "
+                         "tilt, beta*(value_elo - elo). Needs the TM backfill "
+                         "(big-5 only); other leagues get no tilt.")
     ap.add_argument("--out", type=str, default=None)
     args = ap.parse_args()
 
@@ -102,6 +127,8 @@ def main() -> None:
             seasons = args.seasons
             bridge = _bridge_for(lid)
         kw = {"sigma_decay": args.sigma_decay,
+              "value_beta": args.value_beta,
+              "value_map": _value_map_for(lid) if args.value_beta > 0 else None,
               "preseason_sigma": (args.sigma if args.sigma is not None else
                                   preseason_sigma_for_source(
                                       OUTLOOK.get(lid, {}).get("source", "asa")))}
@@ -132,6 +159,7 @@ def main() -> None:
             "config": {"leagues": args.leagues, "seasons": args.seasons,
                        "sims": args.sims, "seed": args.seed,
                        "sigma": args.sigma, "sigma_decay": args.sigma_decay,
+                       "value_beta": args.value_beta,
                        "checkpoints": [0.0, 0.25, 0.5, 0.75],
                        "bridge_replayed": True, "formats_replayed": True},
             "pooled": pooled,
