@@ -51,6 +51,12 @@ definitions, data sources, and run commands. Update it when any of these change.
   ELO drift). Big-5 FD cohort replay: relegation Brier −0.008, top-4 −0.001, title flat. The
   gap-scaled variant (γ·|club_prior_gap|) was tested and DROPPED. In-season sims and MLS
   (`build_dashboard_data.py`) are unchanged.
+- **Season-outcome evaluation (user directive 2026-07-06):** team-level outcomes (champion,
+  promotion, relegation, top-N) are an optimization target alongside match Brier.
+  `scripts/eval_season_outcomes.py` replays 2018–2025 through production-mirrored sims at 4
+  checkpoints (preseason/25/50/75%) scoring each league's OUTLOOK buckets; baseline pinned at
+  `experiments/season-outcomes-baseline.report.json`. Sim-path changes must not regress pooled
+  outcome Brier (experiment-protocol §4). Format leagues + ASA leagues excluded from V1.
 - **Offseason preseason flip (2026-07-06):** preseason mode covers the football-data source
   too — ESPN supplies next-season fixtures (live fetch, never the parquet cache; limit 1000),
   names map back to FD keys via the FD_ESPN inverse. The English tier chain bridges three

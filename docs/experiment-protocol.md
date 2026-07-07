@@ -55,6 +55,21 @@ separately by `scripts/promotion_gate.py`, whose `core_metric` gate requires avg
 plus the 2024-robustness, calibration, coverage, slice, and source-health guardrails. A change can
 pass screening yet fail the gate (or vice versa); the gate is final.
 
+**Season-outcome gate (user directive 2026-07-06).** Match-level Brier is NOT the only
+optimization target: the platform's headline claims are team-level season outcomes (champion,
+promotion, relegation, playoffs, top-N). Any change that touches the table-sim path — DC fit,
+seeding (ELO regression targets, tier bridges, promoted-team priors), temperature, the ranking
+key, format handling, or preseason widening — must ALSO run the season-outcome replay:
+
+    python scripts/eval_season_outcomes.py --out experiments/<name>-outcomes.report.json
+
+and report pooled outcome Briers (per checkpoint × outcome) against
+`experiments/season-outcomes-baseline.report.json`. A match-Brier KEEP that regresses pooled
+outcome Brier beyond +0.002 at any checkpoint needs an explicit justification in the verdict
+(the A10(b) precedent: relegation improved monotonically with σ while title/top-4 flagged the
+overshoot — the outcome metrics are what caught it). Regenerate the baseline whenever a
+sim-path change lands.
+
 ---
 
 ## 5. Scope guard

@@ -1,5 +1,20 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-06 — Season-outcome evaluation is now a standing optimization target (user directive)**
+> Match Brier alone never judged the platform's headline claims — champion/promotion/relegation
+> odds. New `scripts/eval_season_outcomes.py` (+ `scripts/eval/season_outcomes.py`, 3 tests)
+> replays 2018–2025 through production-mirrored sims at 4 checkpoints scoring every league's
+> own OUTLOOK buckets; the A10(b) cohort replay made permanent. Baseline
+> (`experiments/season-outcomes-baseline.report.json`, 15 leagues, 64 league-seasons): the
+> preseason favorite wins the title 55% of the time (prob-on-champion 0.36), rising to 67% /
+> 73% / 83% at the 25/50/75% checkpoints; preseason relegation Brier 0.130, promotion 0.091,
+> title 0.034; aggregate calibration is exact by construction (pred_mean = obs_rate — the sim
+> distributes fixed slots), so the Brier/sharpness numbers carry the signal.
+> `docs/experiment-protocol.md` §4 now REQUIRES the outcome replay for any sim-path change
+> (DC/seeding/temperature/ranking/format/widening) — a match-Brier KEEP that regresses pooled
+> outcome Brier > +0.002 at any checkpoint needs explicit justification. Format leagues
+> (SCO/BEL/GRE) and ASA leagues excluded from V1 (format-group sims / short history).
+
 > **2026-07-06 — Offseason flip: 15 leagues now show 2026-27 preseason projections**
 > Preseason detection extended beyond understat to the football-data source: between seasons
 > the next campaign exists only in ESPN's schedule, so the builder now fetches it live

@@ -38,6 +38,8 @@ experiments/*.json
 !experiments/champion_eur_tiers.json
 !experiments/eur-big5-family.report.json
 !experiments/eur-tiers-family.report.json
+# Season-outcome replay baseline (team-level outcome gate; experiment-protocol §4)
+!experiments/season-outcomes-baseline.report.json
 # Track the Approach C bridge-regression fitted offsets (small, deterministic output)
 !experiments/league_offsets.json
 # Track the tier-2 → tier-1 ELO offsets (small, deterministic output of tier_bridge.py)

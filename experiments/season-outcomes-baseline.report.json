@@ -1,0 +1,2179 @@
+{
+  "experiment_id": "season-outcomes-baseline.report",
+  "timestamp": "2026-07-07T03:04:41Z",
+  "config": {
+    "leagues": [
+      "epl",
+      "la-liga",
+      "serie-a",
+      "bundesliga",
+      "ligue-1",
+      "championship",
+      "league-one",
+      "league-two",
+      "bundesliga-2",
+      "serie-b",
+      "segunda",
+      "ligue-2",
+      "eredivisie",
+      "primeira",
+      "super-lig"
+    ],
+    "seasons": [
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "sims": 3000,
+    "seed": 42,
+    "checkpoints": [
+      0.0,
+      0.25,
+      0.5,
+      0.75
+    ]
+  },
+  "pooled": {
+    "cp0": {
+      "conf": {
+        "n": 1219,
+        "brier": 0.04717,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.104
+      },
+      "europa": {
+        "n": 1219,
+        "brier": 0.04707,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.113
+      },
+      "playoff": {
+        "n": 1210,
+        "brier": 0.1401,
+        "pred_mean": 0.1719,
+        "obs_rate": 0.1719,
+        "p_actual_mean": 0.2192
+      },
+      "promo": {
+        "n": 1210,
+        "brier": 0.09097,
+        "pred_mean": 0.0992,
+        "obs_rate": 0.0992,
+        "p_actual_mean": 0.1545
+      },
+      "releg": {
+        "n": 2429,
+        "brier": 0.13016,
+        "pred_mean": 0.1548,
+        "obs_rate": 0.1548,
+        "p_actual_mean": 0.2644
+      },
+      "title": {
+        "n": 1219,
+        "brier": 0.03408,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.3623,
+        "favorite_hit_rate": 0.5469,
+        "n_league_seasons": 64
+      },
+      "ucl": {
+        "n": 1219,
+        "brier": 0.07891,
+        "pred_mean": 0.1838,
+        "obs_rate": 0.1838,
+        "p_actual_mean": 0.5745
+      }
+    },
+    "cp0.25": {
+      "conf": {
+        "n": 1219,
+        "brier": 0.0462,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.1481
+      },
+      "europa": {
+        "n": 1219,
+        "brier": 0.04375,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.1823
+      },
+      "playoff": {
+        "n": 1210,
+        "brier": 0.12374,
+        "pred_mean": 0.1719,
+        "obs_rate": 0.1719,
+        "p_actual_mean": 0.3155
+      },
+      "promo": {
+        "n": 1210,
+        "brier": 0.06732,
+        "pred_mean": 0.0992,
+        "obs_rate": 0.0992,
+        "p_actual_mean": 0.3743
+      },
+      "releg": {
+        "n": 2429,
+        "brier": 0.09496,
+        "pred_mean": 0.1548,
+        "obs_rate": 0.1548,
+        "p_actual_mean": 0.4688
+      },
+      "title": {
+        "n": 1219,
+        "brier": 0.02552,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.5344,
+        "favorite_hit_rate": 0.6719,
+        "n_league_seasons": 64
+      },
+      "ucl": {
+        "n": 1219,
+        "brier": 0.05779,
+        "pred_mean": 0.1838,
+        "obs_rate": 0.1838,
+        "p_actual_mean": 0.7038
+      }
+    },
+    "cp0.5": {
+      "conf": {
+        "n": 1219,
+        "brier": 0.03978,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.2336
+      },
+      "europa": {
+        "n": 1219,
+        "brier": 0.03747,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.2674
+      },
+      "playoff": {
+        "n": 1210,
+        "brier": 0.10403,
+        "pred_mean": 0.1719,
+        "obs_rate": 0.1719,
+        "p_actual_mean": 0.4097
+      },
+      "promo": {
+        "n": 1210,
+        "brier": 0.04879,
+        "pred_mean": 0.0992,
+        "obs_rate": 0.0992,
+        "p_actual_mean": 0.518
+      },
+      "releg": {
+        "n": 2429,
+        "brier": 0.07256,
+        "pred_mean": 0.1548,
+        "obs_rate": 0.1548,
+        "p_actual_mean": 0.5757
+      },
+      "title": {
+        "n": 1219,
+        "brier": 0.01955,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.6732,
+        "favorite_hit_rate": 0.7344,
+        "n_league_seasons": 64
+      },
+      "ucl": {
+        "n": 1219,
+        "brier": 0.0355,
+        "pred_mean": 0.1838,
+        "obs_rate": 0.1838,
+        "p_actual_mean": 0.7914
+      }
+    },
+    "cp0.75": {
+      "conf": {
+        "n": 1219,
+        "brier": 0.03243,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.3562
+      },
+      "europa": {
+        "n": 1219,
+        "brier": 0.0313,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.3759
+      },
+      "playoff": {
+        "n": 1210,
+        "brier": 0.08053,
+        "pred_mean": 0.1719,
+        "obs_rate": 0.1719,
+        "p_actual_mean": 0.5465
+      },
+      "promo": {
+        "n": 1210,
+        "brier": 0.03337,
+        "pred_mean": 0.0992,
+        "obs_rate": 0.0992,
+        "p_actual_mean": 0.6579
+      },
+      "releg": {
+        "n": 2429,
+        "brier": 0.04882,
+        "pred_mean": 0.1548,
+        "obs_rate": 0.1548,
+        "p_actual_mean": 0.705
+      },
+      "title": {
+        "n": 1219,
+        "brier": 0.01091,
+        "pred_mean": 0.0525,
+        "obs_rate": 0.0525,
+        "p_actual_mean": 0.7908,
+        "favorite_hit_rate": 0.8281,
+        "n_league_seasons": 64
+      },
+      "ucl": {
+        "n": 1219,
+        "brier": 0.0274,
+        "pred_mean": 0.1838,
+        "obs_rate": 0.1838,
+        "p_actual_mean": 0.8505
+      }
+    }
+  },
+  "per_league": {
+    "epl": {
+      "cp0": {
+        "conf": {
+          "n": 160,
+          "brier": 0.04815,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.0578
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.0457,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.0861
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.10312,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.3984
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.02424,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.4678,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.09731,
+          "pred_mean": 0.25,
+          "obs_rate": 0.25,
+          "p_actual_mean": 0.6173
+        }
+      },
+      "cp0.25": {
+        "conf": {
+          "n": 160,
+          "brier": 0.04707,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.0907
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.03901,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.1812
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.05505,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.6644
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.01949,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.551,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.0739,
+          "pred_mean": 0.25,
+          "obs_rate": 0.25,
+          "p_actual_mean": 0.7437
+        }
+      },
+      "cp0.5": {
+        "conf": {
+          "n": 160,
+          "brier": 0.04543,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.1158
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.0409,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.1845
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.04425,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.7137
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.02333,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.6252,
+          "favorite_hit_rate": 0.625,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.03883,
+          "pred_mean": 0.25,
+          "obs_rate": 0.25,
+          "p_actual_mean": 0.8186
+        }
+      },
+      "cp0.75": {
+        "conf": {
+          "n": 160,
+          "brier": 0.03969,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.1993
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.04529,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.1559
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.02816,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.8072
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.01778,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.6709,
+          "favorite_hit_rate": 0.625,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.03773,
+          "pred_mean": 0.25,
+          "obs_rate": 0.25,
+          "p_actual_mean": 0.84
+        }
+      }
+    },
+    "la-liga": {
+      "cp0": {
+        "conf": {
+          "n": 160,
+          "brier": 0.04412,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.0978
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.04607,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.0835
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.12014,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.3102
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.04145,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.2535,
+          "favorite_hit_rate": 0.375,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.05654,
+          "pred_mean": 0.2,
+          "obs_rate": 0.2,
+          "p_actual_mean": 0.653
+        }
+      },
+      "cp0.25": {
+        "conf": {
+          "n": 160,
+          "brier": 0.04542,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.112
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.04007,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.1811
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.06632,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.5674
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.02818,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.4655,
+          "favorite_hit_rate": 0.625,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.04954,
+          "pred_mean": 0.2,
+          "obs_rate": 0.2,
+          "p_actual_mean": 0.7421
+        }
+      },
+      "cp0.5": {
+        "conf": {
+          "n": 160,
+          "brier": 0.038,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.2185
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.0351,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.2543
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.07298,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.5647
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.01266,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.7212,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.02213,
+          "pred_mean": 0.2,
+          "obs_rate": 0.2,
+          "p_actual_mean": 0.8562
+        }
+      },
+      "cp0.75": {
+        "conf": {
+          "n": 160,
+          "brier": 0.02985,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.3388
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.02871,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.371
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.04713,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.6934
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.01061,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.8062,
+          "favorite_hit_rate": 0.875,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.01701,
+          "pred_mean": 0.2,
+          "obs_rate": 0.2,
+          "p_actual_mean": 0.8999
+        }
+      }
+    },
+    "serie-a": {
+      "cp0": {
+        "conf": {
+          "n": 160,
+          "brier": 0.04584,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.0851
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.04349,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.111
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.10739,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.4056
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.03916,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.2562,
+          "favorite_hit_rate": 0.375,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.09891,
+          "pred_mean": 0.25,
+          "obs_rate": 0.25,
+          "p_actual_mean": 0.6134
+        }
+      },
+      "cp0.25": {
+        "conf": {
+          "n": 160,
+          "brier": 0.0421,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.1497
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.0422,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.1534
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.10234,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.459
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.02826,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.4314,
+          "favorite_hit_rate": 0.625,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.07989,
+          "pred_mean": 0.25,
+          "obs_rate": 0.25,
+          "p_actual_mean": 0.7263
+        }
+      },
+      "cp0.5": {
+        "conf": {
+          "n": 160,
+          "brier": 0.03735,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.2145
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.0387,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.1986
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.07219,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.588
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.02663,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.5925,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.05483,
+          "pred_mean": 0.25,
+          "obs_rate": 0.25,
+          "p_actual_mean": 0.7954
+        }
+      },
+      "cp0.75": {
+        "conf": {
+          "n": 160,
+          "brier": 0.03512,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.2983
+        },
+        "europa": {
+          "n": 160,
+          "brier": 0.03824,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.2397
+        },
+        "releg": {
+          "n": 160,
+          "brier": 0.04009,
+          "pred_mean": 0.15,
+          "obs_rate": 0.15,
+          "p_actual_mean": 0.7543
+        },
+        "title": {
+          "n": 160,
+          "brier": 0.01045,
+          "pred_mean": 0.05,
+          "obs_rate": 0.05,
+          "p_actual_mean": 0.7915,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 160,
+          "brier": 0.03898,
+          "pred_mean": 0.25,
+          "obs_rate": 0.25,
+          "p_actual_mean": 0.8499
+        }
+      }
+    },
+    "bundesliga": {
+      "cp0": {
+        "conf": {
+          "n": 144,
+          "brier": 0.05119,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.0777
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.05309,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.064
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.11947,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.3417
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.02418,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.494,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.09893,
+          "pred_mean": 0.2222,
+          "obs_rate": 0.2222,
+          "p_actual_mean": 0.5556
+        }
+      },
+      "cp0.25": {
+        "conf": {
+          "n": 144,
+          "brier": 0.0522,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.0935
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.04953,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.1264
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.101,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.5243
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.01585,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.6657,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.06232,
+          "pred_mean": 0.2222,
+          "obs_rate": 0.2222,
+          "p_actual_mean": 0.7109
+        }
+      },
+      "cp0.5": {
+        "conf": {
+          "n": 144,
+          "brier": 0.0437,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.1851
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.04823,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.1492
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.05975,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.6409
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.01609,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.7176,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.06171,
+          "pred_mean": 0.2222,
+          "obs_rate": 0.2222,
+          "p_actual_mean": 0.732
+        }
+      },
+      "cp0.75": {
+        "conf": {
+          "n": 144,
+          "brier": 0.03974,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.2736
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.03844,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.3
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.04307,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.7602
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.00443,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.8474,
+          "favorite_hit_rate": 1.0,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.04761,
+          "pred_mean": 0.2222,
+          "obs_rate": 0.2222,
+          "p_actual_mean": 0.8028
+        }
+      }
+    },
+    "ligue-1": {
+      "cp0": {
+        "conf": {
+          "n": 154,
+          "brier": 0.0478,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.076
+        },
+        "europa": {
+          "n": 154,
+          "brier": 0.04615,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.0953
+        },
+        "releg": {
+          "n": 154,
+          "brier": 0.14416,
+          "pred_mean": 0.1558,
+          "obs_rate": 0.1558,
+          "p_actual_mean": 0.2405
+        },
+        "title": {
+          "n": 154,
+          "brier": 0.02818,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.3958,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 154,
+          "brier": 0.12085,
+          "pred_mean": 0.2078,
+          "obs_rate": 0.2078,
+          "p_actual_mean": 0.46
+        }
+      },
+      "cp0.25": {
+        "conf": {
+          "n": 154,
+          "brier": 0.04909,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.0795
+        },
+        "europa": {
+          "n": 154,
+          "brier": 0.04718,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.1022
+        },
+        "releg": {
+          "n": 154,
+          "brier": 0.10221,
+          "pred_mean": 0.1558,
+          "obs_rate": 0.1558,
+          "p_actual_mean": 0.4422
+        },
+        "title": {
+          "n": 154,
+          "brier": 0.01733,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.6902,
+          "favorite_hit_rate": 0.875,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 154,
+          "brier": 0.08325,
+          "pred_mean": 0.2078,
+          "obs_rate": 0.2078,
+          "p_actual_mean": 0.6094
+        }
+      },
+      "cp0.5": {
+        "conf": {
+          "n": 154,
+          "brier": 0.04452,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.1459
+        },
+        "europa": {
+          "n": 154,
+          "brier": 0.0446,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.1507
+        },
+        "releg": {
+          "n": 154,
+          "brier": 0.07269,
+          "pred_mean": 0.1558,
+          "obs_rate": 0.1558,
+          "p_actual_mean": 0.5866
+        },
+        "title": {
+          "n": 154,
+          "brier": 0.0105,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.7922,
+          "favorite_hit_rate": 0.875,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 154,
+          "brier": 0.05244,
+          "pred_mean": 0.2078,
+          "obs_rate": 0.2078,
+          "p_actual_mean": 0.719
+        }
+      },
+      "cp0.75": {
+        "conf": {
+          "n": 154,
+          "brier": 0.04893,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.1165
+        },
+        "europa": {
+          "n": 154,
+          "brier": 0.03971,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.2214
+        },
+        "releg": {
+          "n": 154,
+          "brier": 0.03177,
+          "pred_mean": 0.1558,
+          "obs_rate": 0.1558,
+          "p_actual_mean": 0.8019
+        },
+        "title": {
+          "n": 154,
+          "brier": 0.0037,
+          "pred_mean": 0.0519,
+          "obs_rate": 0.0519,
+          "p_actual_mean": 0.9032,
+          "favorite_hit_rate": 0.875,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 154,
+          "brier": 0.05201,
+          "pred_mean": 0.2078,
+          "obs_rate": 0.2078,
+          "p_actual_mean": 0.777
+        }
+      }
+    },
+    "championship": {
+      "cp0": {
+        "playoff": {
+          "n": 192,
+          "brier": 0.1398,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.2001
+        },
+        "promo": {
+          "n": 192,
+          "brier": 0.07414,
+          "pred_mean": 0.0833,
+          "obs_rate": 0.0833,
+          "p_actual_mean": 0.1883
+        },
+        "releg": {
+          "n": 192,
+          "brier": 0.11123,
+          "pred_mean": 0.125,
+          "obs_rate": 0.125,
+          "p_actual_mean": 0.1801
+        }
+      },
+      "cp0.25": {
+        "playoff": {
+          "n": 192,
+          "brier": 0.13889,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.2596
+        },
+        "promo": {
+          "n": 192,
+          "brier": 0.04439,
+          "pred_mean": 0.0833,
+          "obs_rate": 0.0833,
+          "p_actual_mean": 0.4747
+        },
+        "releg": {
+          "n": 192,
+          "brier": 0.09145,
+          "pred_mean": 0.125,
+          "obs_rate": 0.125,
+          "p_actual_mean": 0.3749
+        }
+      },
+      "cp0.5": {
+        "playoff": {
+          "n": 192,
+          "brier": 0.1201,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.3488
+        },
+        "promo": {
+          "n": 192,
+          "brier": 0.02647,
+          "pred_mean": 0.0833,
+          "obs_rate": 0.0833,
+          "p_actual_mean": 0.6645
+        },
+        "releg": {
+          "n": 192,
+          "brier": 0.07012,
+          "pred_mean": 0.125,
+          "obs_rate": 0.125,
+          "p_actual_mean": 0.5016
+        }
+      },
+      "cp0.75": {
+        "playoff": {
+          "n": 192,
+          "brier": 0.08729,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.5246
+        },
+        "promo": {
+          "n": 192,
+          "brier": 0.01595,
+          "pred_mean": 0.0833,
+          "obs_rate": 0.0833,
+          "p_actual_mean": 0.7687
+        },
+        "releg": {
+          "n": 192,
+          "brier": 0.06393,
+          "pred_mean": 0.125,
+          "obs_rate": 0.125,
+          "p_actual_mean": 0.5956
+        }
+      }
+    },
+    "league-one": {
+      "cp0": {
+        "playoff": {
+          "n": 191,
+          "brier": 0.13705,
+          "pred_mean": 0.1675,
+          "obs_rate": 0.1675,
+          "p_actual_mean": 0.223
+        },
+        "promo": {
+          "n": 191,
+          "brier": 0.08628,
+          "pred_mean": 0.0838,
+          "obs_rate": 0.0838,
+          "p_actual_mean": 0.1007
+        },
+        "releg": {
+          "n": 191,
+          "brier": 0.14369,
+          "pred_mean": 0.1675,
+          "obs_rate": 0.1675,
+          "p_actual_mean": 0.2356
+        }
+      },
+      "cp0.25": {
+        "playoff": {
+          "n": 191,
+          "brier": 0.11105,
+          "pred_mean": 0.1675,
+          "obs_rate": 0.1675,
+          "p_actual_mean": 0.3587
+        },
+        "promo": {
+          "n": 191,
+          "brier": 0.05896,
+          "pred_mean": 0.0838,
+          "obs_rate": 0.0838,
+          "p_actual_mean": 0.3858
+        },
+        "releg": {
+          "n": 191,
+          "brier": 0.09825,
+          "pred_mean": 0.1675,
+          "obs_rate": 0.1675,
+          "p_actual_mean": 0.4789
+        }
+      },
+      "cp0.5": {
+        "playoff": {
+          "n": 191,
+          "brier": 0.09733,
+          "pred_mean": 0.1675,
+          "obs_rate": 0.1675,
+          "p_actual_mean": 0.4406
+        },
+        "promo": {
+          "n": 191,
+          "brier": 0.04517,
+          "pred_mean": 0.0838,
+          "obs_rate": 0.0838,
+          "p_actual_mean": 0.4795
+        },
+        "releg": {
+          "n": 191,
+          "brier": 0.08547,
+          "pred_mean": 0.1675,
+          "obs_rate": 0.1675,
+          "p_actual_mean": 0.565
+        }
+      },
+      "cp0.75": {
+        "playoff": {
+          "n": 191,
+          "brier": 0.07594,
+          "pred_mean": 0.1675,
+          "obs_rate": 0.1675,
+          "p_actual_mean": 0.5669
+        },
+        "promo": {
+          "n": 191,
+          "brier": 0.02544,
+          "pred_mean": 0.0838,
+          "obs_rate": 0.0838,
+          "p_actual_mean": 0.7016
+        },
+        "releg": {
+          "n": 191,
+          "brier": 0.0618,
+          "pred_mean": 0.1675,
+          "obs_rate": 0.1675,
+          "p_actual_mean": 0.6743
+        }
+      }
+    },
+    "league-two": {
+      "cp0": {
+        "playoff": {
+          "n": 192,
+          "brier": 0.14408,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.1747
+        },
+        "promo": {
+          "n": 192,
+          "brier": 0.10609,
+          "pred_mean": 0.125,
+          "obs_rate": 0.125,
+          "p_actual_mean": 0.2056
+        },
+        "releg": {
+          "n": 192,
+          "brier": 0.08109,
+          "pred_mean": 0.0833,
+          "obs_rate": 0.0833,
+          "p_actual_mean": 0.0837
+        }
+      },
+      "cp0.25": {
+        "playoff": {
+          "n": 192,
+          "brier": 0.12851,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.26
+        },
+        "promo": {
+          "n": 192,
+          "brier": 0.08752,
+          "pred_mean": 0.125,
+          "obs_rate": 0.125,
+          "p_actual_mean": 0.3481
+        },
+        "releg": {
+          "n": 192,
+          "brier": 0.06433,
+          "pred_mean": 0.0833,
+          "obs_rate": 0.0833,
+          "p_actual_mean": 0.3391
+        }
+      },
+      "cp0.5": {
+        "playoff": {
+          "n": 192,
+          "brier": 0.11028,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.3481
+        },
+        "promo": {
+          "n": 192,
+          "brier": 0.07388,
+          "pred_mean": 0.125,
+          "obs_rate": 0.125,
+          "p_actual_mean": 0.4723
+        },
+        "releg": {
+          "n": 192,
+          "brier": 0.03821,
+          "pred_mean": 0.0833,
+          "obs_rate": 0.0833,
+          "p_actual_mean": 0.5306
+        }
+      },
+      "cp0.75": {
+        "playoff": {
+          "n": 192,
+          "brier": 0.10345,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.4154
+        },
+        "promo": {
+          "n": 192,
+          "brier": 0.04693,
+          "pred_mean": 0.125,
+          "obs_rate": 0.125,
+          "p_actual_mean": 0.6267
+        },
+        "releg": {
+          "n": 192,
+          "brier": 0.01907,
+          "pred_mean": 0.0833,
+          "obs_rate": 0.0833,
+          "p_actual_mean": 0.7227
+        }
+      }
+    },
+    "bundesliga-2": {
+      "cp0": {
+        "playoff": {
+          "n": 144,
+          "brier": 0.05126,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.0775
+        },
+        "promo": {
+          "n": 144,
+          "brier": 0.10677,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.124
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.13789,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.2187
+        }
+      },
+      "cp0.25": {
+        "playoff": {
+          "n": 144,
+          "brier": 0.04877,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.1173
+        },
+        "promo": {
+          "n": 144,
+          "brier": 0.07933,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.3339
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.10695,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.4346
+        }
+      },
+      "cp0.5": {
+        "playoff": {
+          "n": 144,
+          "brier": 0.04258,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.1895
+        },
+        "promo": {
+          "n": 144,
+          "brier": 0.06321,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.4579
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.07048,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.5891
+        }
+      },
+      "cp0.75": {
+        "playoff": {
+          "n": 144,
+          "brier": 0.03823,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.2694
+        },
+        "promo": {
+          "n": 144,
+          "brier": 0.04432,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.6093
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.0651,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.6324
+        }
+      }
+    },
+    "serie-b": {
+      "cp0": {
+        "playoff": {
+          "n": 159,
+          "brier": 0.21261,
+          "pred_mean": 0.3019,
+          "obs_rate": 0.3019,
+          "p_actual_mean": 0.3193
+        },
+        "promo": {
+          "n": 159,
+          "brier": 0.09693,
+          "pred_mean": 0.1006,
+          "obs_rate": 0.1006,
+          "p_actual_mean": 0.1089
+        },
+        "releg": {
+          "n": 159,
+          "brier": 0.13172,
+          "pred_mean": 0.1509,
+          "obs_rate": 0.1509,
+          "p_actual_mean": 0.1793
+        }
+      },
+      "cp0.25": {
+        "playoff": {
+          "n": 159,
+          "brier": 0.17501,
+          "pred_mean": 0.3019,
+          "obs_rate": 0.3019,
+          "p_actual_mean": 0.4279
+        },
+        "promo": {
+          "n": 159,
+          "brier": 0.07209,
+          "pred_mean": 0.1006,
+          "obs_rate": 0.1006,
+          "p_actual_mean": 0.3281
+        },
+        "releg": {
+          "n": 159,
+          "brier": 0.10474,
+          "pred_mean": 0.1509,
+          "obs_rate": 0.1509,
+          "p_actual_mean": 0.3933
+        }
+      },
+      "cp0.5": {
+        "playoff": {
+          "n": 159,
+          "brier": 0.14658,
+          "pred_mean": 0.3019,
+          "obs_rate": 0.3019,
+          "p_actual_mean": 0.5259
+        },
+        "promo": {
+          "n": 159,
+          "brier": 0.05203,
+          "pred_mean": 0.1006,
+          "obs_rate": 0.1006,
+          "p_actual_mean": 0.5042
+        },
+        "releg": {
+          "n": 159,
+          "brier": 0.11065,
+          "pred_mean": 0.1509,
+          "obs_rate": 0.1509,
+          "p_actual_mean": 0.3921
+        }
+      },
+      "cp0.75": {
+        "playoff": {
+          "n": 159,
+          "brier": 0.09606,
+          "pred_mean": 0.3019,
+          "obs_rate": 0.3019,
+          "p_actual_mean": 0.683
+        },
+        "promo": {
+          "n": 159,
+          "brier": 0.03491,
+          "pred_mean": 0.1006,
+          "obs_rate": 0.1006,
+          "p_actual_mean": 0.6562
+        },
+        "releg": {
+          "n": 159,
+          "brier": 0.0939,
+          "pred_mean": 0.1509,
+          "obs_rate": 0.1509,
+          "p_actual_mean": 0.5114
+        }
+      }
+    },
+    "segunda": {
+      "cp0": {
+        "playoff": {
+          "n": 176,
+          "brier": 0.1579,
+          "pred_mean": 0.1818,
+          "obs_rate": 0.1818,
+          "p_actual_mean": 0.1903
+        },
+        "promo": {
+          "n": 176,
+          "brier": 0.08456,
+          "pred_mean": 0.0909,
+          "obs_rate": 0.0909,
+          "p_actual_mean": 0.1467
+        },
+        "releg": {
+          "n": 176,
+          "brier": 0.14868,
+          "pred_mean": 0.1818,
+          "obs_rate": 0.1818,
+          "p_actual_mean": 0.2661
+        }
+      },
+      "cp0.25": {
+        "playoff": {
+          "n": 176,
+          "brier": 0.13743,
+          "pred_mean": 0.1818,
+          "obs_rate": 0.1818,
+          "p_actual_mean": 0.298
+        },
+        "promo": {
+          "n": 176,
+          "brier": 0.0688,
+          "pred_mean": 0.0909,
+          "obs_rate": 0.0909,
+          "p_actual_mean": 0.3637
+        },
+        "releg": {
+          "n": 176,
+          "brier": 0.11008,
+          "pred_mean": 0.1818,
+          "obs_rate": 0.1818,
+          "p_actual_mean": 0.4473
+        }
+      },
+      "cp0.5": {
+        "playoff": {
+          "n": 176,
+          "brier": 0.10003,
+          "pred_mean": 0.1818,
+          "obs_rate": 0.1818,
+          "p_actual_mean": 0.4303
+        },
+        "promo": {
+          "n": 176,
+          "brier": 0.05167,
+          "pred_mean": 0.0909,
+          "obs_rate": 0.0909,
+          "p_actual_mean": 0.4468
+        },
+        "releg": {
+          "n": 176,
+          "brier": 0.0546,
+          "pred_mean": 0.1818,
+          "obs_rate": 0.1818,
+          "p_actual_mean": 0.6636
+        }
+      },
+      "cp0.75": {
+        "playoff": {
+          "n": 176,
+          "brier": 0.0853,
+          "pred_mean": 0.1818,
+          "obs_rate": 0.1818,
+          "p_actual_mean": 0.5399
+        },
+        "promo": {
+          "n": 176,
+          "brier": 0.03852,
+          "pred_mean": 0.0909,
+          "obs_rate": 0.0909,
+          "p_actual_mean": 0.5612
+        },
+        "releg": {
+          "n": 176,
+          "brier": 0.03109,
+          "pred_mean": 0.1818,
+          "obs_rate": 0.1818,
+          "p_actual_mean": 0.7991
+        }
+      }
+    },
+    "ligue-2": {
+      "cp0": {
+        "playoff": {
+          "n": 156,
+          "brier": 0.12734,
+          "pred_mean": 0.1538,
+          "obs_rate": 0.1538,
+          "p_actual_mean": 0.1847
+        },
+        "promo": {
+          "n": 156,
+          "brier": 0.0854,
+          "pred_mean": 0.1026,
+          "obs_rate": 0.1026,
+          "p_actual_mean": 0.1821
+        },
+        "releg": {
+          "n": 156,
+          "brier": 0.17306,
+          "pred_mean": 0.2051,
+          "obs_rate": 0.2051,
+          "p_actual_mean": 0.2305
+        }
+      },
+      "cp0.25": {
+        "playoff": {
+          "n": 156,
+          "brier": 0.11628,
+          "pred_mean": 0.1538,
+          "obs_rate": 0.1538,
+          "p_actual_mean": 0.2711
+        },
+        "promo": {
+          "n": 156,
+          "brier": 0.06328,
+          "pred_mean": 0.1026,
+          "obs_rate": 0.1026,
+          "p_actual_mean": 0.3987
+        },
+        "releg": {
+          "n": 156,
+          "brier": 0.11884,
+          "pred_mean": 0.2051,
+          "obs_rate": 0.2051,
+          "p_actual_mean": 0.4745
+        }
+      },
+      "cp0.5": {
+        "playoff": {
+          "n": 156,
+          "brier": 0.10262,
+          "pred_mean": 0.1538,
+          "obs_rate": 0.1538,
+          "p_actual_mean": 0.3454
+        },
+        "promo": {
+          "n": 156,
+          "brier": 0.02994,
+          "pred_mean": 0.1026,
+          "obs_rate": 0.1026,
+          "p_actual_mean": 0.6238
+        },
+        "releg": {
+          "n": 156,
+          "brier": 0.11529,
+          "pred_mean": 0.2051,
+          "obs_rate": 0.2051,
+          "p_actual_mean": 0.523
+        }
+      },
+      "cp0.75": {
+        "playoff": {
+          "n": 156,
+          "brier": 0.06745,
+          "pred_mean": 0.1538,
+          "obs_rate": 0.1538,
+          "p_actual_mean": 0.5514
+        },
+        "promo": {
+          "n": 156,
+          "brier": 0.03038,
+          "pred_mean": 0.1026,
+          "obs_rate": 0.1026,
+          "p_actual_mean": 0.6971
+        },
+        "releg": {
+          "n": 156,
+          "brier": 0.06926,
+          "pred_mean": 0.2051,
+          "obs_rate": 0.2051,
+          "p_actual_mean": 0.6813
+        }
+      }
+    },
+    "eredivisie": {
+      "cp0": {
+        "conf": {
+          "n": 144,
+          "brier": 0.04955,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.1245
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.04706,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.163
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.14673,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.283
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.02801,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.461,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.05606,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.5317
+        }
+      },
+      "cp0.25": {
+        "conf": {
+          "n": 144,
+          "brier": 0.05008,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.1727
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.04971,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.1996
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.10241,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.4809
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.02778,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.5906,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.04675,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.6795
+        }
+      },
+      "cp0.5": {
+        "conf": {
+          "n": 144,
+          "brier": 0.04325,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.2371
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.03335,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.3888
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.07252,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.6129
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.00565,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.858,
+          "favorite_hit_rate": 0.875,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.01716,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.8116
+        }
+      },
+      "cp0.75": {
+        "conf": {
+          "n": 144,
+          "brier": 0.03154,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.4008
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.02509,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.4868
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.05263,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.7063
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.01663,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.776,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.00719,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.9234
+        }
+      }
+    },
+    "primeira": {
+      "cp0": {
+        "conf": {
+          "n": 144,
+          "brier": 0.0434,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.216
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.04643,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.2075
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.15068,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.2898
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.05099,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.2558,
+          "favorite_hit_rate": 0.25,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.03936,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.6531
+        }
+      },
+      "cp0.25": {
+        "conf": {
+          "n": 144,
+          "brier": 0.03411,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.3788
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.0374,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.3552
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.11176,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.4496
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.03516,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.4502,
+          "favorite_hit_rate": 0.5,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.02721,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.7501
+        }
+      },
+      "cp0.5": {
+        "conf": {
+          "n": 144,
+          "brier": 0.01864,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.5924
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.02814,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.4659
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.0736,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.5853
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.03629,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.5055,
+          "favorite_hit_rate": 0.625,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.01208,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.8492
+        }
+      },
+      "cp0.75": {
+        "conf": {
+          "n": 144,
+          "brier": 0.01089,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.7365
+        },
+        "europa": {
+          "n": 144,
+          "brier": 0.01133,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.7164
+        },
+        "releg": {
+          "n": 144,
+          "brier": 0.03756,
+          "pred_mean": 0.1667,
+          "obs_rate": 0.1667,
+          "p_actual_mean": 0.7466
+        },
+        "title": {
+          "n": 144,
+          "brier": 0.00592,
+          "pred_mean": 0.0556,
+          "obs_rate": 0.0556,
+          "p_actual_mean": 0.807,
+          "favorite_hit_rate": 1.0,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 144,
+          "brier": 0.00175,
+          "pred_mean": 0.1111,
+          "obs_rate": 0.1111,
+          "p_actual_mean": 0.9469
+        }
+      }
+    },
+    "super-lig": {
+      "cp0": {
+        "conf": {
+          "n": 153,
+          "brier": 0.04761,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.097
+        },
+        "europa": {
+          "n": 153,
+          "brier": 0.04915,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.0935
+        },
+        "releg": {
+          "n": 153,
+          "brier": 0.14833,
+          "pred_mean": 0.1569,
+          "obs_rate": 0.1569,
+          "p_actual_mean": 0.2632
+        },
+        "title": {
+          "n": 153,
+          "brier": 0.03639,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.3145,
+          "favorite_hit_rate": 0.375,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 153,
+          "brier": 0.05984,
+          "pred_mean": 0.1046,
+          "obs_rate": 0.1046,
+          "p_actual_mean": 0.4446
+        }
+      },
+      "cp0.25": {
+        "conf": {
+          "n": 153,
+          "brier": 0.04957,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.1076
+        },
+        "europa": {
+          "n": 153,
+          "brier": 0.04562,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.1597
+        },
+        "releg": {
+          "n": 153,
+          "brier": 0.09874,
+          "pred_mean": 0.1569,
+          "obs_rate": 0.1569,
+          "p_actual_mean": 0.4608
+        },
+        "title": {
+          "n": 153,
+          "brier": 0.03228,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.4308,
+          "favorite_hit_rate": 0.5,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 153,
+          "brier": 0.0357,
+          "pred_mean": 0.1046,
+          "obs_rate": 0.1046,
+          "p_actual_mean": 0.6245
+        }
+      },
+      "cp0.5": {
+        "conf": {
+          "n": 153,
+          "brier": 0.04645,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.159
+        },
+        "europa": {
+          "n": 153,
+          "brier": 0.03042,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.3468
+        },
+        "releg": {
+          "n": 153,
+          "brier": 0.08252,
+          "pred_mean": 0.1569,
+          "obs_rate": 0.1569,
+          "p_actual_mean": 0.5547
+        },
+        "title": {
+          "n": 153,
+          "brier": 0.02513,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.5736,
+          "favorite_hit_rate": 0.625,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 153,
+          "brier": 0.02332,
+          "pred_mean": 0.1046,
+          "obs_rate": 0.1046,
+          "p_actual_mean": 0.7697
+        }
+      },
+      "cp0.75": {
+        "conf": {
+          "n": 153,
+          "brier": 0.02231,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.4857
+        },
+        "europa": {
+          "n": 153,
+          "brier": 0.0216,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.5158
+        },
+        "releg": {
+          "n": 153,
+          "brier": 0.05048,
+          "pred_mean": 0.1569,
+          "obs_rate": 0.1569,
+          "p_actual_mean": 0.6812
+        },
+        "title": {
+          "n": 153,
+          "brier": 0.0172,
+          "pred_mean": 0.0523,
+          "obs_rate": 0.0523,
+          "p_actual_mean": 0.7246,
+          "favorite_hit_rate": 0.75,
+          "n_league_seasons": 8
+        },
+        "ucl": {
+          "n": 153,
+          "brier": 0.01472,
+          "pred_mean": 0.1046,
+          "obs_rate": 0.1046,
+          "p_actual_mean": 0.8521
+        }
+      }
+    }
+  }
+}
