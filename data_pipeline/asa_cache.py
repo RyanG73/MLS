@@ -140,6 +140,14 @@ def get_teams(leagues: str, max_age_hours: float = _DEFAULT_MAX_AGE_HOURS) -> pd
     return _load_or_fetch("get_teams", league_key, lambda: asa.get_teams(leagues=leagues), max_age_hours)
 
 
+def get_game_xgoals(leagues: str, max_age_hours: float = _DEFAULT_MAX_AGE_HOURS) -> pd.DataFrame:
+    """Return ASA per-game xG rows for the given league, cached for up to max_age_hours."""
+    league_key = leagues if isinstance(leagues, str) else "_".join(sorted(leagues))
+    asa = _client()
+    return _load_or_fetch("get_game_xgoals", league_key,
+                          lambda: asa.get_game_xgoals(leagues=leagues), max_age_hours)
+
+
 def get_players(leagues: str, max_age_hours: float = _DEFAULT_MAX_AGE_HOURS) -> pd.DataFrame:
     """Return ASA player rows for the given league, cached for up to max_age_hours."""
     league_key = leagues if isinstance(leagues, str) else "_".join(sorted(leagues))

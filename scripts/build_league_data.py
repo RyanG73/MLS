@@ -39,6 +39,7 @@ from data_pipeline.understat import canonical_frame, espn_name
 from data_pipeline.football_data import match_results
 from data_pipeline.espn_soccer import liga_mx_frame, season_label as liga_mx_label
 from data_pipeline.espn_fixtures import european_fixtures
+from data_pipeline.asa_frame import asa_canonical_frame
 from models.research_model import (
     bag_proba, blend, calibrate_temperature, dc_predict_batch, fit_capped_blend,
     fit_dc, fit_temperature_scalar, fit_xgb,
@@ -351,6 +352,23 @@ OUTLOOK = {
     "liga-mx":      {"name": "Liga MX", "source": "espn", "n": 18, "confederation": "Concacaf",
                      "buckets": _LIGUILLA(), "green_line": 8, "red_line": None,
                      "eval_seasons": None},
+    # C2 — ASA leagues (goals + ASA xG; played rows from ASA, scheduled
+    # remainder from ESPN). No relegation. Family champions:
+    # experiments/champion_nwsl.json / champion_usl.json.
+    "nwsl":         {"name": "NWSL", "source": "asa", "asa_key": "nwsl", "n": 16,
+                     "confederation": "Concacaf",
+                     "buckets": [
+                         {"key": "shield", "label": "Shield", "col": "Shield", "top": 1},
+                         {"key": "playoffs", "label": "Playoffs", "col": "Playoffs", "top": 8}],
+                     "green_line": 8, "red_line": None, "eval_seasons": None},
+    # USL playoffs are top-8 PER CONFERENCE; the single-table sim approximates
+    # that as pooled top-16 (documented; conference-aware sim is follow-up).
+    "usl-championship": {"name": "USL Championship", "source": "asa", "asa_key": "uslc",
+                         "n": 25, "confederation": "Concacaf",
+                         "buckets": [
+                             {"key": "shield", "label": "Best Record", "col": "Shield", "top": 1},
+                             {"key": "playoffs", "label": "Playoffs", "col": "Playoffs", "top": 16}],
+                         "green_line": 16, "red_line": None, "eval_seasons": None},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only
@@ -449,10 +467,24 @@ FD_ESPN: dict[str, dict[str, str]] = {
         "Olympiakos": "Olympiacos", "PAOK": "PAOK Salonika",
         "Panserraikos": "Panserraikos FC",
     },
+    # ASA leagues: ASA team_name → ESPN displayName (crest/display lookup;
+    # inverse of espn_fixtures.ESPN_TO_UNDERSTAT["nwsl"]).
+    "nwsl": {
+        "NJ/NY Gotham FC": "Gotham FC",
+        "Utah Royals FC": "Utah Royals",
+    },
+    "usl-championship": {
+        "Lexington SC":               "Lexington",
+        "The Miami FC":               "Miami FC",
+        "Monterey Bay FC":            "Monterey Bay",
+        "Oakland Roots SC":           "Oakland Roots",
+        "Pittsburgh Riverhounds SC":  "Pittsburgh Riverhounds",
+        "Sporting Club Jacksonville": "Sporting JAX",
+    },
 }
 
 
-def _load_frame(league_id: str, source: str):
+def _load_frame(league_id: str, source: str, asa_key: str | None = None):
     """Route a league to its canonical-frame source."""
     if source == "understat":
         return canonical_frame(league_id)
@@ -460,6 +492,8 @@ def _load_frame(league_id: str, source: str):
         return match_results(league_id)
     if source == "espn" and league_id == "liga-mx":
         return liga_mx_frame()
+    if source == "asa":
+        return asa_canonical_frame(asa_key or league_id)
     raise ValueError(f"Unknown source '{source}' for league '{league_id}'")
 
 
@@ -517,7 +551,7 @@ def main():
     cfg = OUTLOOK[lid]
 
     # ── Load + feature-build the full history (played only) ───────────────────
-    frame = _load_frame(lid, cfg["source"])
+    frame = _load_frame(lid, cfg["source"], cfg.get("asa_key"))
     played_all = frame[frame["is_result"]].copy()
     played_all["home_goals"] = played_all["home_goals"].astype(int)
     played_all["away_goals"] = played_all["away_goals"].astype(int)
@@ -561,8 +595,27 @@ def main():
             except Exception as _espn_err:
                 print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
 
+    # ASA leagues: ASA serves played games only — the scheduled remainder of
+    # the season comes from ESPN (mid-season forward sim, NOT preseason mode:
+    # A10(b)'s widening correctly stays off once real results exist).
+    if cfg["source"] == "asa":
+        try:
+            # Live fetch (no cache): the scheduled set shrinks every day and a
+            # stale parquet would re-list games ASA already has as played.
+            _espn = european_fixtures(lid, ts, use_cache=False)
+            _sched = _espn[~_espn["is_result"]].copy()
+            # Belt-and-braces vs ESPN lag: drop "scheduled" rows dated on/before
+            # the last ASA result (a just-finished game ESPN hasn't flipped yet).
+            _last_played = frame[frame["season"] == ts]["date"].max()
+            if pd.notna(_last_played):
+                _sched = _sched[_sched["date"] > _last_played]
+            espn_upcoming = _sched
+            print(f"[{lid}] ESPN remainder: {len(_sched)} scheduled fixtures for {ts}")
+        except Exception as _espn_err:
+            print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
+
     played = df[df["season"] == ts].dropna(subset=["home_goals", "away_goals"]).copy()
-    if is_preseason and espn_upcoming is not None:
+    if espn_upcoming is not None:
         upcoming = espn_upcoming
     else:
         upcoming = frame[(frame["season"] == ts) & (~frame["is_result"])].copy()
@@ -573,7 +626,7 @@ def main():
     # Team-name resolution: model keys are Understat titles; ESPN crests keyed by
     # displayName. tname() = the display string; tmeta() = its logo/color.
     stub_meta = _stub_team_meta(lid)
-    _fd_map = FD_ESPN.get(lid, {}) if cfg["source"] == "footballdata" else {}
+    _fd_map = FD_ESPN.get(lid, {}) if cfg["source"] in ("footballdata", "asa") else {}
 
     def tmeta(key: str) -> dict:
         if cfg["source"] == "understat":
@@ -697,8 +750,11 @@ def main():
                 math.exp(atk.get(a, 0) + dfd.get(h, 0)))
 
     # ── Current ELO (champion config) + standings from this season's results ──
+    # Playoff/knockout rows never count toward the regular-season table (ASA
+    # marks them via knockout_game; every other source emits is_playoff=0, so
+    # this filter is a no-op outside the ASA leagues).
     pts, gp, gf, ga, xgf, xga = {}, {}, {}, {}, {}, {}
-    for _, r in played.iterrows():
+    for _, r in played[played["is_playoff"].fillna(0).astype(int) == 0].iterrows():
         h, a = r["home_team"], r["away_team"]
         hg, ag = int(r["home_goals"]), int(r["away_goals"])
         hx, ax = float(np.nan_to_num(r["home_xg"])), float(np.nan_to_num(r["away_xg"]))

@@ -38,8 +38,8 @@ REGISTRY = [
     ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "soon", "Americas"),
     # C2 (ASA track): flip to "live" when their dashboard builders ship;
     # eval gating is per-family (experiments/champion_nwsl.json / champion_usl.json).
-    ("nwsl",                "NWSL",                     "usa.nwsl",         "Concacaf", "soon", "Americas"),
-    ("usl-championship",    "USL Championship",         "usa.usl.1",        "Concacaf", "soon", "Americas"),
+    ("nwsl",                "NWSL",                     "usa.nwsl",         "Concacaf", "live", "Americas"),
+    ("usl-championship",    "USL Championship",         "usa.usl.1",        "Concacaf", "live", "Americas"),
     ("leagues-cup",         "Leagues Cup",              "concacaf.leagues.cup","Concacaf", "live", "Cups"),
     ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "live", "Cups"),
     # Concacaf League removed 2026-06-17 — discontinued after 2023 (absorbed into the Champions Cup).

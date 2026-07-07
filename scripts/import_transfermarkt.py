@@ -125,6 +125,11 @@ TM_LEAGUE_CODES: dict[str, str] = {
     "L1": "Bundesliga", "L2": "2. Bundesliga",
     "FR1": "Ligue 1", "FR2": "Ligue 2",
     "MEX1": "Liga MX", "CDN1": "Canadian Premier League",
+    # C1 leagues (2026-07-06). Codes verified live against transfermarkt.com
+    # (each resolves with a full team roster, not the hub redirect — the CDN1
+    # failure mode): NL1/PO1/TR1/SC1/BE1/GR1.
+    "NL1": "Eredivisie", "PO1": "Liga Portugal", "TR1": "Süper Lig",
+    "SC1": "Scottish Premiership", "BE1": "Jupiler Pro League", "GR1": "Super League 1",
 }
 
 # TM competition code -> this dashboard's internal league id (webapp/data/<id>.js,
@@ -137,6 +142,8 @@ TM_CODE_TO_LEAGUE_ID: dict[str, str] = {
     "L1": "bundesliga", "L2": "bundesliga-2",
     "FR1": "ligue-1", "FR2": "ligue-2",
     "MEX1": "liga-mx", "CDN1": "canadian-pl",
+    "NL1": "eredivisie", "PO1": "primeira", "TR1": "super-lig",
+    "SC1": "scottish-prem", "BE1": "belgian-pro", "GR1": "greek-super",
 }
 
 # Leagues where TM's own catalogue is known to be thin (lower English tiers,
@@ -205,6 +212,12 @@ TM_CANON_ALIASES: dict[str, str] = {
     "Stade Brestois 29": "Brest",
     "Stade Lavallois": "Stade Laval",
     "Rodez AF": "Rodez Aveyron",
+    # Netherlands (C1). All three 2026 gate misses (ADO Den Haag, SC Cambuur,
+    # Willem II) are roster-vintage skew: TM serves the 2026-27 promoted sides,
+    # the concluded-2025 FD payload doesn't have them — self-heals when the
+    # payload season rolls over. The alias below covers TM's city-suffixed
+    # styling vs the payload's short form for when Willem II is back.
+    "Willem II Tilburg": "Willem II",
     # Mexico ("Atlas Guadalajara" subset-matches both "Atlas" and "Guadalajara")
     "Atlas Guadalajara": "Atlas",
 }

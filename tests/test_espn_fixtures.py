@@ -144,7 +144,7 @@ def test_european_fixtures_schema(tmp_path, monkeypatch):
     import data_pipeline.espn_fixtures as mod
 
     # Monkeypatch _fetch_events to return two synthetic events.
-    def fake_fetch(slug, season):
+    def fake_fetch(slug, season, calendar_year=False):
         return [
             _make_event("Arsenal", "Chelsea", completed=False),
             _make_event("Liverpool", "Everton", completed=True,
@@ -177,7 +177,7 @@ def test_european_fixtures_cache_roundtrip(tmp_path, monkeypatch):
 
     call_count = {"n": 0}
 
-    def fake_fetch(slug, season):
+    def fake_fetch(slug, season, calendar_year=False):
         call_count["n"] += 1
         return [_make_event("Arsenal", "Chelsea", completed=False)]
 
@@ -202,7 +202,9 @@ def test_european_fixtures_unknown_league():
 # ── SLUGS and ESPN_TO_UNDERSTAT sanity ────────────────────────────────────────
 
 def test_slugs_covers_all_big5():
-    assert set(SLUGS) == {"epl", "la-liga", "serie-a", "bundesliga", "ligue-1"}
+    # big-5 preseason fixtures + the C2 ASA leagues (mid-season remainder)
+    assert set(SLUGS) == {"epl", "la-liga", "serie-a", "bundesliga", "ligue-1",
+                          "nwsl", "usl-championship"}
 
 
 def test_espn_to_understat_no_identity_entries():

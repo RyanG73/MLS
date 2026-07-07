@@ -1,6 +1,6 @@
 {
-  "report": "experiments/nwsl-baseline-4fold.report.json",
+  "report": "experiments/nwsl-xgbonly-4fold.report.json",
   "run_id": null,
-  "avg_brier": 0.647384,
-  "promoted_at": "2026-07-06T21:44:57Z"
+  "avg_brier": 0.645763,
+  "promoted_at": "2026-07-06T23:54:03Z"
 }

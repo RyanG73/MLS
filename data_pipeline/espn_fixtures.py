@@ -39,7 +39,15 @@ SLUGS = {
     "serie-a":    "ita.1",
     "bundesliga": "ger.1",
     "ligue-1":    "fra.1",
+    # C2 (ASA leagues): played rows come from ASA; ESPN supplies the
+    # scheduled remainder of the season for the forward sim.
+    "nwsl":             "usa.nwsl",
+    "usl-championship": "usa.usl.1",
 }
+
+# Leagues whose season is a calendar year (dates window Jan–Dec of `season`)
+# rather than the European Jul–Jun straddle.
+CALENDAR_YEAR_LEAGUES = {"nwsl", "usl-championship"}
 
 # ESPN displayName → Understat team key, per league.
 # Only names that DIFFER between the two sources need an entry.
@@ -85,6 +93,19 @@ ESPN_TO_UNDERSTAT: dict[str, dict[str, str]] = {
         "Paris Saint-Germain": "Paris Saint Germain",
         "Stade Rennais":       "Rennes",
     },
+    # ASA leagues: ESPN displayName → ASA team_name (frame keys).
+    "nwsl": {
+        "Gotham FC":   "NJ/NY Gotham FC",
+        "Utah Royals": "Utah Royals FC",
+    },
+    "usl-championship": {
+        "Lexington":              "Lexington SC",
+        "Miami FC":               "The Miami FC",
+        "Monterey Bay":           "Monterey Bay FC",
+        "Oakland Roots":          "Oakland Roots SC",
+        "Pittsburgh Riverhounds": "Pittsburgh Riverhounds SC",
+        "Sporting JAX":           "Sporting Club Jacksonville",
+    },
 }
 
 
@@ -98,11 +119,16 @@ def _to_understat(league_id: str, espn_name: str) -> str:
     return ESPN_TO_UNDERSTAT.get(league_id, {}).get(espn_name, espn_name)
 
 
-def _fetch_events(slug: str, season: int) -> list[dict]:
-    """Fetch all events (played + scheduled) for `slug` in season Y/Y+1."""
+def _fetch_events(slug: str, season: int, calendar_year: bool = False) -> list[dict]:
+    """Fetch all events (played + scheduled) for `slug` in one season.
+
+    European seasons straddle Jul Y – Jun Y+1; calendar-year leagues
+    (NWSL, USL) run Jan–Dec of `season`.
+    """
     url = f"{_BASE}/{slug}/scoreboard"
     y0, y1 = season, season + 1
-    params = {"dates": f"{y0}0701-{y1}0630", "limit": 500}
+    window = f"{y0}0101-{y0}1231" if calendar_year else f"{y0}0701-{y1}0630"
+    params = {"dates": window, "limit": 500}
     try:
         return espn_get(url, params).get("events", [])
     except Exception as e:
@@ -201,7 +227,8 @@ def european_fixtures(league_id: str, season: int,
         return df
 
     slug = SLUGS[league_id]
-    events = _fetch_events(slug, season)
+    events = _fetch_events(slug, season,
+                           calendar_year=league_id in CALENDAR_YEAR_LEAGUES)
     rows = _parse_events(events, league_id, season)
 
     if rows:

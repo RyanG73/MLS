@@ -191,6 +191,11 @@ def _parse_args() -> "_ap.Namespace":
                    choices=["mls", "nwsl", "uslc", "usl1", "mlsnp"],
                    help="ASA league to evaluate (C2: per-league-family champions; "
                         "every ASA endpoint call routes through this)")
+    p.add_argument("--dc-blend-floor", type=float, default=0.7,
+                   help="Lower bound on the XGB weight in the capped-DC blend "
+                        "(default 0.7 = DC contributes at most 30%%; 1.0 = "
+                        "XGB-only ensemble — C2 NWSL family config, where the "
+                        "DC leg is a liability)")
     p.add_argument("--out",          type=str,   default=None,
                    help="Write results JSON to this file path")
     p.add_argument("--dump-frame",   type=str,   default=None,
@@ -2868,9 +2873,10 @@ for test_season in TEST_SEASONS:
                 b = w * xgb_cal_cal3 + (1.0 - w) * dc_cal_cal3
                 b = b / b.sum(axis=1, keepdims=True).clip(1e-9, None)
                 return float(np.mean(np.sum((b - y_cal_oh) ** 2, axis=1)))
-            _wres = minimize(_blend_brier, x0=[0.85], bounds=[(0.7, 1.0)],
-                             method="L-BFGS-B")
-            _w = float(np.clip(_wres.x[0], 0.7, 1.0))
+            _w_floor = float(_ARGS.dc_blend_floor)
+            _wres = minimize(_blend_brier, x0=[max(0.85, _w_floor)],
+                             bounds=[(_w_floor, 1.0)], method="L-BFGS-B")
+            _w = float(np.clip(_wres.x[0], _w_floor, 1.0))
 
             def _blend(xg, dc):
                 b = _w * xg + (1.0 - _w) * dc
