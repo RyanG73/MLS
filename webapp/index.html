@@ -552,6 +552,7 @@ footer a:hover{color:var(--txt-2)}
     <button role="tab" aria-selected="false" data-view="matches">Match Projections</button>
     <button role="tab" aria-selected="false" data-view="teams">Teams</button>
     <button role="tab" aria-selected="false" data-view="health">Model Health</button>
+    <button role="tab" aria-selected="false" data-view="news">News</button>
   </div>
 
   <section id="view-outlook">
@@ -573,6 +574,11 @@ footer a:hover{color:var(--txt-2)}
   <section id="view-health" class="hidden">
     <div class="sec-h"><h2>Model &amp; data health</h2><span class="note">How the model is built, how well it predicts, and how complete its inputs are</span></div>
     <div id="healthBody"></div>
+  </section>
+
+  <section id="view-news" class="hidden">
+    <div class="sec-h"><h2>News</h2><span class="note">Coming soon</span></div>
+    <div style="color:var(--txt-3);padding:32px;text-align:center">News coverage for this league is coming soon.</div>
   </section>
 
   <section id="view-matches" class="hidden">
@@ -1934,7 +1940,7 @@ $('#teamProfile').addEventListener('mouseleave',()=>eloTip.style.display='none')
 
 $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));
   const v=b.dataset.view;
-  ['outlook','matches','teams','health'].forEach(x=>$('#view-'+x).classList.toggle('hidden',v!==x));
+  ['outlook','matches','teams','health','news'].forEach(x=>$('#view-'+x).classList.toggle('hidden',v!==x));
   if(v==='matches'&&!$('#gameList').children.length){renderMarketPanel();renderGames();}
   if(v==='teams'&&!$('#eloGrid').children.length)renderTeams();
   if(v==='health'&&!$('#healthBody').children.length)renderHealth();};
