@@ -258,3 +258,16 @@ class TestProjectedFinishConsistency:
         assert standings_order == finish_order, (
             f"Standings order {standings_order} != Projected Finish order {finish_order}"
         )
+
+
+class TestMlsTopBoxes:
+    """MLS must show all 5 title-race boxes: Cup, Shield, East, West, Spoon."""
+
+    def test_mls_shows_five_fav_cards(self, page: Page, webapp_url: str):
+        _load_route(page, webapp_url, "mls")
+        cards = page.locator(".fav")
+        assert cards.count() == 5, f"Expected 5 .fav cards, got {cards.count()}"
+        labels = page.locator(".fav .lab").all_inner_texts()
+        # .fav .lab is CSS text-transform:uppercase, so inner_text() reflects the
+        # rendered case ("MLS CUP") rather than the source markup — compare case-insensitively.
+        assert any("mls cup" in l.lower() for l in labels), f"No MLS Cup card in {labels}"
