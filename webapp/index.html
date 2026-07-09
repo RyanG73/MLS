@@ -171,7 +171,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .ladder-h .name{font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
 .conf-dot{width:8px;height:8px;border-radius:50%}
 .east .conf-dot{background:var(--qualify)} .west .conf-dot{background:var(--win)}
-.col-head,.row{display:grid;grid-template-columns:22px minmax(0,1fr) 30px 42px 36px 38px 40px 42px 42px 38px 88px;align-items:center;gap:5px;padding:7px var(--s3)}
+.col-head,.row{display:grid;grid-template-columns:22px minmax(var(--clubw,90px),1fr) 30px 42px 36px 38px 40px 42px 42px 38px 88px;align-items:center;gap:5px;padding:7px var(--s3)}
 .col-head{font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3);border-bottom:1px solid var(--line)}
 .col-head .c{text-align:center;line-height:1.1}
 .row{border-bottom:1px solid var(--line);position:relative;transition:background .12s}
@@ -487,21 +487,21 @@ footer a:hover{color:var(--txt-2)}
 /* narrow: drop the widest column (ELO) so the core odds stay legible; Next-5
    what-if keeps its own (narrower, scrollable) column slot on mobile too —
    see the "Mobile what-if mode" rule below for the scroll-strip styling.
-   Club floor (68px) must clear the 26px crest + 9px .tcell gap before .tname
-   gets any width — this exact budget miscalculation collapsed team names to
-   0 legible characters once already; don't shrink this floor without
-   re-measuring .tname's rendered width at 375px. */
+   Club column floor is var(--clubw): the width of the longest club name in the
+   table, canvas-measured in JS (clubColWidth). Names never truncate; on narrow
+   screens the whole table scrolls horizontally inside .ladder instead
+   (2026-07-09 feedback — the old 68px floor ellipsized most names). */
 @media(max-width:760px){
   .col-head .c-elo,.row .eloc{display:none}
-  .col-head,.row{grid-template-columns:20px minmax(68px,1fr) 24px 30px 32px 32px 34px 34px 30px 44px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
+  .col-head,.row{grid-template-columns:20px minmax(var(--clubw,90px),1fr) 24px 30px 32px 32px 34px 34px 30px 44px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
+  /* full names + fixed odds columns exceed the viewport → scroll inside the panel;
+     min-width:max-content keeps each row's background spanning the scrolled width */
+  .ladder{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .col-head,.row,.tlad .thead,.tlad .trow{min-width:max-content}
 }
-/* Club floor (68px) must clear the 26px crest + 9px .tcell gap before .tname
-   gets any width — this exact budget miscalculation collapsed team names to
-   0 legible characters once already; don't shrink this floor without
-   re-measuring .tname's rendered width at 375px. */
 @media(max-width:480px){
   .col-head .c-proj,.row .projc{display:none}
-  .col-head,.row{grid-template-columns:16px minmax(68px,1fr) 22px 26px 26px 27px 27px 24px 40px;gap:3px}
+  .col-head,.row{grid-template-columns:16px minmax(var(--clubw,90px),1fr) 22px 26px 26px 27px 27px 24px 40px;gap:3px}
   .heat{font-size:10px;padding:4px 0}
   .g-side .tn{font-size:12.5px}
   .acc .bars{display:none}
@@ -716,6 +716,15 @@ const _logoMap=window.TEAM_LOGOS||{};
 const _logoFor=(name,logo)=>logo||_logoMap[name]||_logoMap[(name||'').trim()]||'';
 const crest=(name,logo)=>{const l=_logoFor(name,logo);
   return `<span class="crest"><span class="mono">${monogram(name)}</span>${l?`<img src="${l}" alt="" loading="lazy" onerror="this.remove()">`:''}</span>`;};
+// Widest club name in px (canvas-measured) so table club columns never truncate —
+// tables scroll horizontally on narrow screens instead (2026-07-09 feedback).
+// +26 crest +9 .tcell gap +10 slack (measurement can run before the webfont settles).
+function clubColWidth(names){
+  const c=clubColWidth._c||(clubColWidth._c=document.createElement('canvas').getContext('2d'));
+  c.font='600 12px Inter,sans-serif';
+  const w=Math.max(60,...names.map(n=>c.measureText(n||'').width));
+  return Math.ceil(w)+26+9+10;
+}
 /* visibility-safe team color on dark band */
 function hexrgb(h){h=(h||'#888').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 const lum=([r,g,b])=>(0.2126*r+0.7152*g+0.0722*b)/255;
@@ -984,6 +993,7 @@ function ladder(conf){
   const teams=D.standings.filter(s=>s.conf===conf).map(vals)
     .sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
   const box=el('div','ladder '+conf.toLowerCase());
+  box.style.setProperty('--clubw',clubColWidth(teams.map(t=>t.team))+'px');
   box.appendChild(el('div','ladder-h',`<span class="name"><span class="conf-dot"></span>${conf}ern Conference</span>`));
   box.appendChild(el('div','col-head',
     `<span>#</span><span>Club</span>`+
@@ -1080,7 +1090,8 @@ function tableLadder(){
   const brgb=k=>BRGB[k]||[120,120,120];
   const hc=(v,k,t)=>v<0.05?`<span class="heat z"${finTip(t)}>·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}"${finTip(t)}>${oddsFmt(v)}</span>`;
   // dense column template: # · Club · Pts · Proj · ELO · <one 34px per outcome> · [Next5]
-  const grid=`18px minmax(90px,1fr) 36px 34px 34px ${'34px '.repeat(cols.length)}${hasUp?'80px':''}`.trim();
+  const clubw=clubColWidth(teams.map(t=>t.team));
+  const grid=`18px minmax(${clubw}px,1fr) 36px 34px 34px ${'34px '.repeat(cols.length)}${hasUp?'80px':''}`.trim();
   const box=el('div','panel ladder tlad'+(hasUp?' tlad-w':''));
   box.style.setProperty('--tgrid',grid);
   box.appendChild(el('div','panel-h',`<span class="dot"></span><h2>League table</h2><span class="meta">${ol.n_teams} teams · 10k sims</span>`));
@@ -1284,7 +1295,7 @@ function renderKnockout(){
   // League phase — single 36-team heat table (UCL / Europa / Conference)
   if(phases.includes('league')){
     const st=[...D.standings].sort((a,b)=>b.auto_advance-a.auto_advance);
-    h+='<div class="ko-pane'+off()+'" data-pane="league"><div class="panel ladder tlad" style="--tgrid:22px minmax(90px,1fr) 52px 56px 48px">'+
+    h+='<div class="ko-pane'+off()+'" data-pane="league"><div class="panel ladder tlad" style="--tgrid:22px minmax('+clubColWidth(st.map(s=>s.team))+'px,1fr) 52px 56px 48px">'+
        '<div class="panel-h"><span class="dot"></span><h2>League phase</h2><span class="meta">'+st.length+' teams · top 8 advance</span></div>'+
        '<div class="thead"><span></span><span>Team</span><span class="c">Adv</span><span class="c">Playoff</span><span class="c">Out</span></div>';
     st.forEach((s,i)=>{h+='<div class="trow"><span class="rank">'+(i+1)+'</span>'+tcell(s.team,s.logo)+
@@ -1301,7 +1312,7 @@ function renderKnockout(){
     Object.keys(byT).sort().forEach(tk=>{
       const rows=byT[tk].sort((a,b)=>b.advance-a.advance);
       const title=tk==='liga-mx'?'Liga MX':tk==='mls'?'MLS':tk;
-      h+='<div class="panel ladder tlad" style="--tgrid:22px minmax(90px,1fr) 52px">'+
+      h+='<div class="panel ladder tlad" style="--tgrid:22px minmax('+clubColWidth(rows.map(s=>s.team))+'px,1fr) 52px">'+
          '<div class="panel-h"><span class="dot"></span><h2>'+title+'</h2><span class="meta">top '+ADV+' advance</span></div>'+
          '<div class="thead"><span></span><span>Team</span><span class="c">Adv</span></div>';
       rows.forEach((s,i)=>{h+='<div class="trow"><span class="rank">'+(i+1)+'</span>'+tcell(s.team,s.logo)+koCell(s.advance,RG.adv)+'</div>';
@@ -1312,7 +1323,7 @@ function renderKnockout(){
   }
   // Knockout — bracket + round-by-round heat matrix (chance of reaching each round)
   const fld=[...D.field].sort((a,b)=>b.odds.win-a.odds.win);
-  const mgrid='minmax(90px,1.3fr) '+rounds.map(()=>'1fr').join(' ')+' 1fr';
+  const mgrid='minmax('+clubColWidth(fld.map(t=>t.team))+'px,1.3fr) '+rounds.map(()=>'1fr').join(' ')+' 1fr';
   h+='<div class="ko-pane'+off()+'" data-pane="ko">'+bracketTree()+
      '<div class="panel ladder tlad" style="--tgrid:'+mgrid+'">'+
      '<div class="panel-h"><span class="dot"></span><h2>Round-by-round odds</h2><span class="meta">chance of reaching each round</span></div>'+
