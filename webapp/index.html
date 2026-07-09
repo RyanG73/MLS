@@ -187,8 +187,9 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .tcol{min-width:0;display:flex;flex-direction:column;gap:1px}
 .tname{display:block;font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tname.tlink{cursor:pointer} .tname.tlink:hover{color:var(--qualify);text-decoration:underline}
-/* narrow screens: drop the team name/sub, show crest only */
-@media(max-width:620px){.ladder .tcol{display:none} .ladder .tcell{justify-content:center}}
+/* narrow screens: keep the team name (crest-only was too hard to scan) — just
+   tighten the subtitle line so the row still fits without truncating names. */
+@media(max-width:620px){.ladder .tsub{display:none}}
 .tsub{display:block;font-size:10px;color:var(--txt-3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pts{font-family:var(--mono);font-weight:700;font-size:13px;text-align:center}
 .projc{font-family:var(--mono);font-weight:700;font-size:12px;text-align:center;color:var(--txt-2)}
