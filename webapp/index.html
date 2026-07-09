@@ -942,7 +942,8 @@ const MAX={po:Math.max(...D.standings.map(s=>s.playoff),1),hfa:Math.max(...D.sta
   sh:Math.max(...D.standings.map(s=>s.shield),1),sp:Math.max(...D.standings.map(s=>s.spoon),1),
   cup:Math.max(...D.standings.map(s=>s.cup),1)};
 RGB.cup=[74,163,255];
-function hcell(v,key){return v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGB[key],MAX[key])}">${v.toFixed(0)}</span>`;}
+const oddsFmt=v=>(v>0&&v<1)?v.toFixed(1):v.toFixed(0);   // sub-1% odds keep one decimal so they don't read as "0"
+function hcell(v,key){return v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGB[key],MAX[key])}">${oddsFmt(v)}</span>`;}
 const sgn=v=>v==null?'–':(v>0?'+':'')+v;
 const sgnf=v=>v==null?'–':(v>0?'+':'')+v.toFixed(1);
 const NEXT5=new Map();   // team -> next 5 upcoming games (date order)
@@ -1054,7 +1055,7 @@ function tableLadder(){
   const mx={};cols.forEach(c=>mx[c.key]=Math.max(...teams.map(s=>s[c.key]||0),1));
   const BRGB={title:[244,183,64],promo:[244,183,64],liguilla:[244,183,64],ucl:[61,220,132],europa:[74,163,255],conf:[74,163,255],playoff:[61,220,132],releg:[255,93,93]};
   const brgb=k=>BRGB[k]||[120,120,120];
-  const hc=(v,k,t)=>v<0.05?`<span class="heat z"${finTip(t)}>·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}"${finTip(t)}>${v.toFixed(0)}</span>`;
+  const hc=(v,k,t)=>v<0.05?`<span class="heat z"${finTip(t)}>·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}"${finTip(t)}>${oddsFmt(v)}</span>`;
   // dense column template: # · Club · Pts · Proj · ELO · <one 34px per outcome> · [Next5]
   const grid=`18px minmax(90px,1fr) 36px 34px 34px ${'34px '.repeat(cols.length)}${hasUp?'80px':''}`.trim();
   const box=el('div','panel ladder tlad'+(hasUp?' tlad-w':''));
@@ -1234,7 +1235,7 @@ function renderKnockout(){
   // heat cell for a probability (0..1), colored by role
   const RG={adv:[61,220,132],po:[244,183,64],out:[255,93,93],win:[61,220,132]};
   const koCell=(p,rgb)=> p==null||p<0.005?`<span class="heat z">·</span>`
-    :`<span class="heat" style="${heat(p*100,rgb,100)}">${(p*100).toFixed(0)}</span>`;
+    :`<span class="heat" style="${heat(p*100,rgb,100)}">${oddsFmt(p*100)}</span>`;
   const tcell=(team,logo,mark)=>`<span class="tcell">${crest(team,logo)}<span class="tcol"><span class="tname">${team}${mark||''}</span></span></span>`;
   let h='';
   // Concluded edition: a result banner, not a live projection.

@@ -226,3 +226,22 @@ class TestRouteStateCorrectness:
         _load_route(page, webapp_url, "canadian-pl")
         body_text = _visible_body_text(page).strip()
         assert body_text, "canadian-pl placeholder rendered a blank page"
+
+
+class TestOddsDecimalFormatting:
+    """Sub-1% odds in the league table must show one decimal, not round to '0'."""
+
+    def test_epl_table_has_sub_one_percent_with_decimal(self, page: Page, webapp_url: str):
+        _load_route(page, webapp_url, "epl")
+        text = _visible_body_text(page)
+        # EPL preseason title odds include several teams under 1% (e.g. Chelsea's title
+        # odds in webapp/data/epl.js are 0.2%) — the table row must render "0.2", not a
+        # bare "0", right after that team's name. A page-wide "0.X" regex would false-
+        # positive on unrelated summary-card text (e.g. "VS MARKET +0.1%"), so anchor on
+        # the specific row instead.
+        idx = text.find("Chelsea")
+        assert idx != -1, "Expected 'Chelsea' row in the EPL table"
+        row_text = text[idx:idx + 60]
+        assert "\n0.2\n" in row_text, (
+            f"Expected Chelsea's sub-1% title-odds cell formatted as '0.2' near its row, got: {row_text!r}"
+        )
