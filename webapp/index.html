@@ -475,6 +475,20 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .legend-band{display:flex;gap:var(--s4);font-size:11px;color:var(--txt-3);margin:0 2px var(--s3);flex-wrap:wrap}
 .legend-band span{display:inline-flex;align-items:center;gap:6px}
 .legend-band i{width:10px;height:10px;border-radius:3px;display:inline-block}
+/* ── news feed (live per-league headlines from ESPN's CORS-open news API) ── */
+.news-list{display:flex;flex-direction:column;gap:10px;max-width:760px}
+.news-card{display:flex;gap:14px;background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:12px var(--s4);text-decoration:none;color:inherit;transition:.12s}
+.news-card:hover{border-color:var(--line-3);background:var(--ink-2)}
+.news-img{width:104px;height:66px;flex:none;border-radius:6px;overflow:hidden;background:var(--ink-3)}
+.news-img img{width:100%;height:100%;object-fit:cover;display:block}
+.news-txt{min-width:0;display:flex;flex-direction:column;gap:3px}
+.news-meta{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--txt-3)}
+.news-tag{font-style:normal;font-size:8.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;border:1px solid var(--line-2);border-radius:4px;padding:1px 5px;color:var(--txt-2)}
+.news-tag.inj{color:var(--drop);border-color:rgba(255,93,93,.4)}
+.news-hl{font-family:"Archivo";font-weight:700;font-size:13.5px;line-height:1.3;color:var(--txt-1)}
+.news-desc{font-size:12px;color:var(--txt-2);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.news-empty{color:var(--txt-3);padding:32px;text-align:center}
+@media(max-width:520px){.news-img{display:none}}
 footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6);padding-top:var(--s4);border-top:1px solid var(--line)}
 footer a{color:var(--txt-3);text-decoration:underline;text-underline-offset:2px}
 footer a:hover{color:var(--txt-2)}
@@ -589,8 +603,8 @@ footer a:hover{color:var(--txt-2)}
   </section>
 
   <section id="view-news" class="hidden">
-    <div class="sec-h"><h2>News</h2><span class="note">Coming soon</span></div>
-    <div style="color:var(--txt-3);padding:32px;text-align:center">News coverage for this league is coming soon.</div>
+    <div class="sec-h"><h2>News</h2><span class="note" id="newsNote"></span></div>
+    <div class="news-list" id="newsList"></div>
   </section>
 
   <section id="view-matches" class="hidden">
@@ -1683,6 +1697,39 @@ function renderGames(){
     }});
   if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
 }
+/* ── News tab: live per-league feed from ESPN's CORS-open news API (2026-07-09).
+   Fetched client-side on first tab open — always fresh, no build-pipeline step.
+   Leagues without an espn_code (status:soon etc.) get an explicit empty state. ── */
+async function renderNews(){
+  const list=$('#newsList'); if(!list||list.dataset.done)return; list.dataset.done=1;
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const lg=(window.LEAGUES||[]).find(l=>l.id===LID);
+  $('#newsNote').textContent=lg?`${lg.name} · via ESPN`:'';
+  if(_isEdgeBoard||_isPower||!lg||!lg.espn_code){
+    list.innerHTML='<div class="news-empty">No news feed available for this view yet.</div>';return;}
+  list.innerHTML='<div class="news-empty">Loading headlines…</div>';
+  try{
+    const r=await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn_code}/news?limit=24`);
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const arts=((await r.json()).articles||[]).filter(a=>a.headline)
+      .sort((x,y)=>new Date(y.published)-new Date(x.published));
+    if(!arts.length){list.innerHTML='<div class="news-empty">No recent articles for this league.</div>';return;}
+    const ago=d=>{const m=(Date.now()-new Date(d))/6e4;
+      return m<60?Math.max(1,Math.round(m))+'m ago':m<1440?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago';};
+    const INJ=/injur|hamstring|\bacl\b|knee|ankle|surgery|sidelined|ruled out|out for|fitness doubt/i;
+    list.innerHTML=arts.map(a=>{
+      const link=a.links&&a.links.web&&a.links.web.href, img=(a.images&&a.images[0]&&a.images[0].url)||'';
+      const inj=INJ.test((a.headline||'')+' '+(a.description||''));
+      return `<a class="news-card" href="${esc(link||'#')}" target="_blank" rel="noopener">`+
+        (img?`<span class="news-img"><img src="${esc(img)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>`:'')+
+        `<span class="news-txt"><span class="news-meta">`+
+          (inj?'<i class="news-tag inj">Injury</i>':'')+
+          `<i class="news-tag">${esc(a.type||'Story')}</i><span>${ago(a.published)} · ESPN</span></span>`+
+        `<b class="news-hl">${esc(a.headline)}</b>`+
+        (a.description?`<span class="news-desc">${esc(a.description)}</span>`:'')+
+      `</span></a>`;}).join('');
+  }catch(e){list.innerHTML='<div class="news-empty">Could not load news right now — try again later.</div>';}
+}
 /* ── Team selector dropdowns (profile + history) ── */
 /* ═══════════════ TEAMS (ELO grid + trophies + profile) ═══════════════ */
 const stdByTeam=new Map(D.standings.map(s=>[s.team,s]));
@@ -1976,7 +2023,8 @@ $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.curr
   ['outlook','matches','teams','health','news'].forEach(x=>$('#view-'+x).classList.toggle('hidden',v!==x));
   if(v==='matches'&&!$('#gameList').children.length){renderMarketPanel();renderGames();}
   if(v==='teams'&&!$('#eloGrid').children.length)renderTeams();
-  if(v==='health'&&!$('#healthBody').children.length)renderHealth();};
+  if(v==='health'&&!$('#healthBody').children.length)renderHealth();
+  if(v==='news')renderNews();};
 // deep-link a team from the League Table → Teams tab
 function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfile(team,true);}
 }  /* end full-app (non-soon) block */
