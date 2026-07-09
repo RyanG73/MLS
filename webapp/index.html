@@ -2046,17 +2046,25 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   const EB=window.EDGE_BOARD_DATA;
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Matches";
   const sub=$('#sub'); if(sub) sub.textContent=`Cross-league upcoming matches, ranked by model edge vs market · ≥${EB.edge_threshold_pct}% highlighted · built ${EB.generated}`;
-  const priced=EB.priced||[], noLine=EB.no_line||[], nextKo=EB.next_kickoffs||[];
+  const allMatches=[...(EB.priced||[]), ...(EB.no_line||[])], nextKo=EB.next_kickoffs||[];
   let body;
-  if(!priced.length && !noLine.length){
+  if(!allMatches.length){
     body=`<div class="eb-empty">No qualifying edges today.<br>${nextKo.length
       ? 'Next kickoffs: '+nextKo.map(k=>`${k.league_name}: ${k.home} v ${k.away} (${k.date})`).join(' · ')
       : 'No upcoming matches in the next '+(EB.window_days*24)+'h across live leagues.'}</div>`;
   } else {
-    const withEdge=priced.filter(r=>r.bet), noEdge=priced.filter(r=>!r.bet);
-    body=(withEdge.length?`<div class="eb-panel"><div class="eb-h">≥${EB.edge_threshold_pct}% edge — quarter-Kelly sizing</div>${withEdge.map(ebRow).join('')}</div>`:'')
-       +(noEdge.length?`<div class="eb-panel"><div class="eb-h">Priced, below threshold</div>${noEdge.map(ebRow).join('')}</div>`:'')
-       +(noLine.length?`<div class="eb-panel"><div class="eb-h">No line yet</div>${noLine.map(ebRow).join('')}</div>`:'');
+    // Group by date (already chronological), then by league within each date.
+    const byDate={};
+    allMatches.forEach(r=>{(byDate[r.date]=byDate[r.date]||[]).push(r);});
+    const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    body=Object.keys(byDate).sort().map(date=>{
+      const byLeague={};
+      byDate[date].forEach(r=>{(byLeague[r.league_name]=byLeague[r.league_name]||[]).push(r);});
+      const leaguePanels=Object.keys(byLeague).sort().map(lg=>
+        `<div class="eb-panel"><div class="eb-h">${lg}</div>${byLeague[lg].map(ebRow).join('')}</div>`
+      ).join('');
+      return `<div class="daygrp"><div class="dayhead">${fmtDay(date)}</div>${leaguePanels}</div>`;
+    }).join('');
   }
   // U2 (2026-07-07): model-odds movers strip — biggest season-odds changes
   // between each team's last two builds (pure model odds; market columns join

@@ -285,3 +285,18 @@ class TestSquadValuePanel:
         text = panel.inner_text()
         for label in ["Attack value", "Midfield value", "Defense value", "Goalkeeper value"]:
             assert label in text, f"Missing '{label}' row in squad value panel"
+
+
+class TestMatchesGroupedByDateAndLeague:
+    """The Matches (formerly Today's Edge) view groups fixtures by date, then league."""
+
+    def test_matches_view_has_day_groups(self, page: Page, webapp_url: str):
+        page.goto(f"{webapp_url}/index.html", wait_until="networkidle")
+        page.wait_for_timeout(400)
+        title = page.locator("#leagueTitle").inner_text()
+        assert title == "Matches", f"Expected page title 'Matches', got {title!r}"
+        # daygrp is only rendered when there are upcoming matches — skip gracefully
+        # in a quiet data window rather than asserting on scraped external state.
+        if page.locator(".eb-empty").count() > 0:
+            pytest.skip("no upcoming matches in the current data window")
+        assert page.locator(".daygrp").count() > 0, "Expected at least one .daygrp day-group"
