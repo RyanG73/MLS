@@ -826,6 +826,7 @@ $('#sub').textContent = isKnockout
        <div class="acc-row"><span class="t">Model</span><span class="v">${b3(m)}</span></div>
        <div class="acc-row"><span class="t">Market</span><span class="v">${b3(mk)}</span></div>
        <div class="acc-row"><span class="t">Naive</span><span class="v muted">${b3(n)}</span></div>
+       ${D.generated?`<div class="acc-row"><span class="t" style="width:auto">as of ${D.generated}</span></div>`:''}
      </div>
      <div class="acc-tracks">${row('vs naive',naiveMap)}${row('vs market',mktMap)}</div>`;
 })();
