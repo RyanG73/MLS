@@ -15,7 +15,7 @@ Run:
 Requires:
   venv/bin/playwright install chromium  (one-time, ~90 MB)
 """
-import os
+import functools
 import re
 import socket
 import threading
@@ -47,19 +47,19 @@ class _QuietHandler(SimpleHTTPRequestHandler):
 def webapp_url() -> Generator[str, None, None]:
     """Serve webapp/ on a free local port for the duration of the test session.
 
-    SimpleHTTPRequestHandler serves from os.getcwd(), so we chdir into the
-    webapp directory before starting the server thread and restore cwd after.
+    Serves via SimpleHTTPRequestHandler's directory= argument rather than
+    os.chdir — a session-scoped chdir leaks into every later test file in a
+    full-suite run and breaks any test that reads repo-relative paths (e.g.
+    test_league_bridge reading data/parity_frame.parquet).
     """
     port = _free_port()
-    original_cwd = os.getcwd()
-    os.chdir(WEBAPP_DIR)
-    server = HTTPServer(("127.0.0.1", port), _QuietHandler)
+    handler = functools.partial(_QuietHandler, directory=str(WEBAPP_DIR))
+    server = HTTPServer(("127.0.0.1", port), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     time.sleep(0.15)
     yield f"http://127.0.0.1:{port}"
     server.shutdown()
-    os.chdir(original_cwd)
 
 
 # ── Route definitions ─────────────────────────────────────────────────────────
