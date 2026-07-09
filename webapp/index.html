@@ -2045,11 +2045,11 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   const EB=window.EDGE_BOARD_DATA;
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Matches";
-  const sub=$('#sub'); if(sub) sub.textContent=`Cross-league upcoming matches, ranked by model edge vs market · ≥${EB.edge_threshold_pct}% highlighted · built ${EB.generated}`;
+  const sub=$('#sub'); if(sub) sub.textContent=`Cross-league upcoming matches, grouped by date and league · ≥${EB.edge_threshold_pct}% edges flagged per match · built ${EB.generated}`;
   const allMatches=[...(EB.priced||[]), ...(EB.no_line||[])], nextKo=EB.next_kickoffs||[];
   let body;
   if(!allMatches.length){
-    body=`<div class="eb-empty">No qualifying edges today.<br>${nextKo.length
+    body=`<div class="eb-empty">No upcoming matches in this window.<br>${nextKo.length
       ? 'Next kickoffs: '+nextKo.map(k=>`${k.league_name}: ${k.home} v ${k.away} (${k.date})`).join(' · ')
       : 'No upcoming matches in the next '+(EB.window_days*24)+'h across live leagues.'}</div>`;
   } else {
