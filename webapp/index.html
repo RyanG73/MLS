@@ -628,7 +628,7 @@ const _isPower = new URLSearchParams(location.search).get('league')==='power';
 // below no-ops; renderPower()/renderEdgeBoard() (appended at the end of the page) then
 // hide the league UI and draw the real view.
 const D = (_isPower || _isEdgeBoard)
-  ? {league:{name:_isEdgeBoard?"Today's Edge":'Cross-League Power Rankings'},
+  ? {league:{name:_isEdgeBoard?"Matches":'Cross-League Power Rankings'},
      outlook:{mode:_isEdgeBoard?'edge-board':'power'}, standings:[], games:[],
      sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], team_inputs:{}, elo_history:{},
      health:null, model_card:{}, in_season_brier:{}, season:2026}
@@ -660,7 +660,7 @@ const isKnockout = (D.outlook||{}).mode === 'knockout';
     (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
     let html='';
     // Pinned cross-league views at the top — the platform's unique multi-league capability.
-    html+=`<a class="sb-lg sb-power${_isEdgeBoard?' active':''}" href="${location.pathname}"><span class="lgc">⚡</span><span>Today's Edge</span></a>`;
+    html+=`<a class="sb-lg sb-power${_isEdgeBoard?' active':''}" href="${location.pathname}"><span class="lgc">⚡</span><span>Matches</span></a>`;
     html+=`<a class="sb-lg sb-power${!_isEdgeBoard&&LID==='power'?' active':''}" href="?league=power"><span class="lgc">🌍</span><span>Power Rankings</span></a>`;
     const favLeagues=(window.LEAGUES||[]).filter(l=>favs.has(l.id));
     if(favLeagues.length) html+=`<div class="sb-grp">Favorites</div>`+favLeagues.map(leagueLink).join('');
@@ -2044,7 +2044,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   const seg=$('#seg'); if(seg) seg.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   const EB=window.EDGE_BOARD_DATA;
-  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Today's Edge";
+  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Matches";
   const sub=$('#sub'); if(sub) sub.textContent=`Cross-league upcoming matches, ranked by model edge vs market · ≥${EB.edge_threshold_pct}% highlighted · built ${EB.generated}`;
   const priced=EB.priced||[], noLine=EB.no_line||[], nextKo=EB.next_kickoffs||[];
   let body;
