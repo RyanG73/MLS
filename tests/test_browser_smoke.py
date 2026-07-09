@@ -271,3 +271,17 @@ class TestMlsTopBoxes:
         # .fav .lab is CSS text-transform:uppercase, so inner_text() reflects the
         # rendered case ("MLS CUP") rather than the source markup — compare case-insensitively.
         assert any("mls cup" in l.lower() for l in labels), f"No MLS Cup card in {labels}"
+
+
+class TestSquadValuePanel:
+    """Squad value must render expanded by default with a 4-way position breakdown."""
+
+    def test_squad_value_panel_is_open_and_shows_four_positions(self, page: Page, webapp_url: str):
+        _load_route(page, webapp_url, "epl")
+        page.locator('[data-view="teams"]').click()
+        page.wait_for_timeout(300)
+        panel = page.locator(".sv-panel").first
+        assert "open" in (panel.get_attribute("class") or ""), "Squad value panel is not open by default"
+        text = panel.inner_text()
+        for label in ["Attack value", "Midfield value", "Defense value", "Goalkeeper value"]:
+            assert label in text, f"Missing '{label}' row in squad value panel"

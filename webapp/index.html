@@ -343,7 +343,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 /* B9: full model-input + squad-value panels (collapsible, full-width in prof-grid) */
 .fi-panel h3,.sv-panel h3{cursor:pointer;display:flex;align-items:center;justify-content:space-between}
 .fi-chev{color:var(--txt-3);font-size:10px;transition:transform .12s}
-.fi-panel.open .fi-chev{transform:rotate(180deg)}
+.fi-panel.open .fi-chev,.sv-panel.open .fi-chev{transform:rotate(180deg)}
 .fi-body{display:none;margin-top:8px}
 .fi-panel.open .fi-body{display:block}
 .fi-fam{margin-bottom:12px}
@@ -1747,14 +1747,18 @@ function squadValuePanel(team){
     ?` <span style="font-size:10px;color:var(--txt-3);border:1px solid var(--line);border-radius:3px;padding:1px 5px;vertical-align:middle" title="Transfermarkt prices few players in this squad — treat the total as a floor, not an estimate">thin coverage</span>`
     :'';
   const asOf=sv.as_of?`<span style="color:var(--txt-3);font-size:11px;font-weight:400"> · as of ${sv.as_of}</span>`:'';
-  return `<div class="pcard sv-panel" style="grid-column:1/-1">
+  const posRow=(label,pct)=>`<div class="pstat"><span class="k">${label} value</span><span class="v">${pct==null?'—':(pct*100).toFixed(1)+'%'}</span></div>`;
+  return `<div class="pcard sv-panel open" style="grid-column:1/-1">
     <h3 onclick="this.closest('.sv-panel').classList.toggle('open')">Squad value (Transfermarkt)${lowConf} <span class="fi-chev">▾</span></h3>
     <div class="sv-body">
     <div class="pstat"><span class="k">Total squad value</span><span class="v">€${(sv.squad_value_eur/1e6).toFixed(1)}m${asOf}</span></div>
     <div class="pstat"><span class="k">League rank</span><span class="v">#${sv.league_rank} of ${sv.n_teams} · ${sv.percentile.toFixed(0)}th percentile</span></div>
     <div class="pc-track" style="margin:6px 0 10px"><span style="width:${sv.percentile}%"></span></div>
     <div class="pstat"><span class="k">Value-wtd age</span><span class="v">${sv.value_wtd_age??'—'}<span style="color:var(--txt-3);font-weight:400"> (league avg ${sv.league_avg_value_wtd_age??'—'})</span></span></div>
-    <div class="pstat"><span class="k">ATT / DEF value split</span><span class="v">${sv.att_value_pct==null?'—':(sv.att_value_pct*100).toFixed(1)+'%'} / ${sv.def_value_pct==null?'—':(sv.def_value_pct*100).toFixed(1)+'%'}</span></div>
+    ${posRow('Attack',sv.att_value_pct)}
+    ${posRow('Midfield',sv.mid_value_pct)}
+    ${posRow('Defense',sv.def_value_pct)}
+    ${posRow('Goalkeeper',sv.gk_value_pct)}
     <div class="pstat"><span class="k">Squad size</span><span class="v">${sv.n_players??'—'}</span></div>
     ${playersHtml}
     <div style="margin-top:8px;font-size:10px;color:var(--txt-3)">Values: <a href="https://www.transfermarkt.com" target="_blank" rel="noopener" style="color:var(--txt-3)">Transfermarkt.com</a></div>
