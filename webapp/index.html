@@ -214,7 +214,14 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 @media(max-width:620px){.tlad .thead .c-elo,.tlad .trow .eloc{display:none}}
 /* ── projected-finish range plot ── */
 .plotpanel .plot{padding:10px var(--s4) 14px}
-.plot .faxis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--txt-3);padding:0 0 7px;border-bottom:1px solid var(--line);margin-bottom:5px}
+/* axis mirrors .frow's 104px-name + 9px-gap grid so ticks sit exactly over the bar
+   track; each tick is absolutely positioned with the same pos() mapping as the bars
+   (the old full-width space-between flex left every tick ~113px left of the bars). */
+.plot .faxis{display:grid;grid-template-columns:104px 1fr;gap:9px;font-family:var(--mono);font-size:9px;color:var(--txt-3);padding:0 0 7px;border-bottom:1px solid var(--line);margin-bottom:5px}
+.plot .faxis .fax{position:relative;height:11px}
+.plot .faxis .fax span{position:absolute;top:0;transform:translateX(-50%)}
+.plot .faxis .fax span:first-child{transform:none}
+.plot .faxis .fax span:last-child{transform:translateX(-100%)}
 .plot .frow{display:grid;grid-template-columns:104px 1fr;gap:9px;align-items:center;padding:3px 0}
 .plot .fn{display:flex;align-items:center;gap:6px;min-width:0}
 .plot .fn .crest{width:16px;height:16px}
@@ -1113,7 +1120,9 @@ function finishZone(rank){ const ol=D.outlook;
   if(ol.red_line&&rank>ol.n_teams-ol.red_line) return 'var(--drop)';
   return 'var(--draw)'; }
 function axisTicks(N){ const ticks=[...new Set([1,Math.round(N*0.25),Math.round(N*0.5),Math.round(N*0.75),N])];
-  return ticks.map(t=>`<span>${t}</span>`).join(''); }
+  const pos=p=>((p-1)/(Math.max(1,N-1))*100);
+  return `<span></span><span class="fax">`+
+    ticks.map(t=>`<span style="left:${pos(t).toFixed(1)}%">${t}</span>`).join('')+`</span>`; }
 function finishLegend(){ const L=[['var(--win)','Title'],['var(--qualify)','Qualify'],['var(--europa)','Europa'],['var(--draw)','Mid'],['var(--drop)','Relegation']];
   return `<div class="fleg">`+L.map(([c,t])=>`<span><i style="background:${c}"></i>${t}</span>`).join('')+`</div>`; }
 function finishPlotPanel(){
