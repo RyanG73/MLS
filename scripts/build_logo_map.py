@@ -66,6 +66,27 @@ SUPPLEMENT = {
     "Mazatlán FC": "https://a.espncdn.com/i/teamlogos/soccer/500/20702.png",  # Liga MX; ESPN mex.1 snapshot stale
     "Le Mans": "https://a.espncdn.com/i/teamlogos/soccer/500/2697.png",
     "Troyes": "https://a.espncdn.com/i/teamlogos/soccer/500/170.png",
+    # 2026-07-09 coverage audit: short-name aliases used by power.js / league files
+    # whose ESPN art exists under a different key or id.
+    "NAC Breda": "https://a.espncdn.com/i/teamlogos/soccer/500/141.png",
+    "Volendam": "https://a.espncdn.com/i/teamlogos/soccer/500/2727.png",   # FC Volendam
+    "Heracles": "https://a.espncdn.com/i/teamlogos/soccer/500/3708.png",   # Heracles Almelo
+    "Dender": "https://a.espncdn.com/i/teamlogos/soccer/500/7878.png",
+    "Livingston": "https://a.espncdn.com/i/teamlogos/soccer/500/259.png",
+    # ESPN has no art for these (404 at /i/teamlogos/soccer/500/<id>.png) —
+    # Wikipedia crest thumbnails, verified 200 on 2026-07-09.
+    "Lommel SK": "https://upload.wikimedia.org/wikipedia/en/thumb/e/e6/Lommel_SK_logo.svg/500px-Lommel_SK_logo.svg.png",
+    "Energie Cottbus": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Logo_Energie_Cottbus.svg/500px-Logo_Energie_Cottbus.svg.png",
+    "Defense Force FC": "https://upload.wikimedia.org/wikipedia/en/1/12/Defence_Force_FC_%28Trinidad_%26_Tobago%29.png",
+    "Forge FC": "https://upload.wikimedia.org/wikipedia/en/thumb/b/bf/Forge_FC_logo.svg/500px-Forge_FC_logo.svg.png",
+    "Mount Pleasant FA": "https://upload.wikimedia.org/wikipedia/en/1/19/Mount_Pleasant_Football_Academy_Logo.png",
+    "Académico de Viseu": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/A.C._Viseu.svg/500px-A.C._Viseu.svg.png",
+    # Celta B side — Wikipedia's page image is a stadium photo; use the parent club crest.
+    "RC Celta Fortuna": "https://a.espncdn.com/i/teamlogos/soccer/500/85.png",
+    # Relegated out of por.1 whose por.2 endpoint 404s — pinned from the pre-refresh map.
+    "AVS": "https://a.espncdn.com/i/teamlogos/soccer/500/22064.png",
+    "Tondela": "https://a.espncdn.com/i/teamlogos/soccer/500/12706.png",
+    # "Universidad O&M": no crest on en/es Wikipedia or ESPN — initials fallback stays.
 }
 
 

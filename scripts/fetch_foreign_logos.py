@@ -34,6 +34,13 @@ LEAGUES = [
     "isl.1", "slo.1", "svk.1", "aze.1", "kaz.1", "arm.1", "bih.1", "mlt.1",
     "gib.1", "mkd.1", "wal.1", "ksv.1", "mne.1", "lva.1", "ltu.1", "est.1",
     "lux.1", "alb.1", "geo.1", "fra.2", "esp.2",
+    # Domestic leagues we DO model. The original assumption was that their own data
+    # files always carry inline logos — but clubs that change divisions between
+    # builds ship logo:null (2026-07-09 audit: West Ham in championship.js, St. Pauli
+    # in bundesliga-2.js, Girona in segunda.js, …), so harvest these directly too.
+    "eng.1", "eng.2", "eng.3", "eng.4", "eng.5",
+    "ger.1", "ger.2", "esp.1", "ita.1", "ita.2", "fra.1", "por.2",
+    "usa.1", "usa.nwsl", "usa.usl.1", "ned.2",
     # Concacaf domestic leagues (Leagues Cup / Champions Cup participants)
     "crc.1", "hon.1", "gua.1", "jam.1", "pan.1", "slv.1", "nca.1", "can.1",
     "dom.1", "tri.1", "hai.1", "crb.1",

@@ -610,7 +610,9 @@ footer a:hover{color:var(--txt-2)}
 <footer class="wrap" id="foot"></footer>
 
 <script src="leagues.js"></script>
-<script src="data/logos.js"></script>
+<!-- Cache-bust the logo map like the league data below: heuristic browser caching
+     served week-old copies after rebuilds (2026-07-09 — the missing-crest reports). -->
+<script>document.write('<scr'+'ipt src="data/logos.js?t='+Date.now()+'"></scr'+'ipt>');</script>
 <script src="data/ledger.js"></script>
 <script src="data/movers.js"></script>
 <script>
