@@ -482,11 +482,19 @@ footer a:hover{color:var(--txt-2)}
 }
 /* narrow: drop the widest column (ELO) so the core odds stay legible; Next-5
    what-if keeps its own (narrower, scrollable) column slot on mobile too —
-   see the "Mobile what-if mode" rule below for the scroll-strip styling. */
+   see the "Mobile what-if mode" rule below for the scroll-strip styling.
+   Club floor (68px) must clear the 26px crest + 9px .tcell gap before .tname
+   gets any width — this exact budget miscalculation collapsed team names to
+   0 legible characters once already; don't shrink this floor without
+   re-measuring .tname's rendered width at 375px. */
 @media(max-width:760px){
   .col-head .c-elo,.row .eloc{display:none}
   .col-head,.row{grid-template-columns:20px minmax(68px,1fr) 24px 30px 32px 32px 34px 34px 30px 44px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
 }
+/* Club floor (68px) must clear the 26px crest + 9px .tcell gap before .tname
+   gets any width — this exact budget miscalculation collapsed team names to
+   0 legible characters once already; don't shrink this floor without
+   re-measuring .tname's rendered width at 375px. */
 @media(max-width:480px){
   .col-head .c-proj,.row .projc{display:none}
   .col-head,.row{grid-template-columns:16px minmax(68px,1fr) 22px 26px 26px 27px 27px 24px 40px;gap:3px}
