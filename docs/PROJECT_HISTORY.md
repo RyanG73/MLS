@@ -344,6 +344,31 @@ relegation/promotion recommendations before 25% of a season.
 
 ---
 
+## UI feedback batch + Entenser rebrand (2026-07-08 → 2026-07-09, plan completed and deleted)
+
+An 18-task batch from a user QA pass on desktop and mobile. Branding: the site is now
+**Entenser** (moose-head icon + wordmark, favicon, sidebar brand — assets matted to
+transparency via `scripts/matte_brand_logo.py`, replacing the "Pitchside" placeholder).
+Fixes: sub-1% odds show one decimal instead of rounding to "0"; the Projected Finish plot
+is anchored to the server-baked rank (it previously re-simulated client-side and could
+disagree with the League Table by ~5 ranks — the Tottenham 12th-vs-17th bug); 23 missing
+team logos filled (8 more have no ESPN crest and correctly keep monogram fallback); dark
+crests get a light backing plate. Features: MLS Cup joined Shield/East/West/Spoon as a 5th
+top box; squad value now shows a 4-way Attack/Mid/Defense/GK split, open by default, live
+for 15 leagues (`_aggregate_team()` emits `mid/gk_value_pct`; `scripts/patch_squad_value.py`
+refreshes payloads without the full model rebuild); "Today's Edge" became "Matches", grouped
+by date then league; News tab stub; the model-vs-market header shows its build date. Mobile:
+team names restored in league tables, Next-5 inline+scrollable (MLS renderer only — the
+single-table renderer used by ~19 leagues still clips Next-5 off-screen on mobile, a
+pre-existing bug tracked as a follow-up, as is an edge-summary strip for the Matches view).
+A pre-existing test-infra bug (session-scoped chdir in the browser-smoke fixture breaking
+later repo-relative tests in full-suite runs) was found and fixed by the batch's final gate;
+full suite green at 628 passed. Comprehensive per-league trophy history and squad-value
+buildout for the 5 remaining uncovered leagues were explicitly deferred (see the 2026-07-08
+design spec).
+
+---
+
 ## Permanent constraints (do not re-litigate without explicit instruction)
 
 See `CLAUDE.md` for the full decision list with dates. Key ones with rationale:

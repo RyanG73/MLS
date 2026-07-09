@@ -1,5 +1,17 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-09 — UI feedback batch COMPLETE (18/18): Entenser rebrand ships**
+> Site renamed **Entenser** (icon/wordmark/favicon; matting script preserved). Fixes: sub-1%
+> odds get one decimal · Projected Finish anchored to server rank (Tottenham 12-vs-17 bug) ·
+> 23 logos filled · light crest backing plates. Features: MLS Cup 5th top box · 4-way
+> Attack/Mid/Def/GK squad-value split live for 15 leagues, panel open by default ·
+> "Today's Edge" → "Matches", grouped date→league · News tab stub · model header dated.
+> Mobile: team names restored; Next-5 inline+scrollable (MLS renderer only — single-table
+> renderer's mobile Next-5 clipping is a tracked follow-up, as is a Matches edge-summary
+> strip). Test-infra chdir leak fixed; full suite 628 green. Plan file deleted; story in
+> PROJECT_HISTORY. Trophies-per-league + 5 uncovered squad-value leagues deferred (spec:
+> 2026-07-08-ui-feedback-batch-design.md).
+
 > **2026-07-07 — Outcome-driven campaign COMPLETE (8/8): value tilt lands, Spurs 42%→16.5%**
 > M1 MLS widening (playoffs −0.011 preseason, both seeds) · M2 value-informed preseason tilt,
 > bottom-half targeted (releg −0.0055, title flat, both seeds; era-clean TM backfill 2017–2026;
