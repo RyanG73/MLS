@@ -76,3 +76,40 @@ def test_every_epl_payload_team_has_tm_row():
         f"EPL payload teams with no TM row in {latest.name}: {missing} — "
         f"either the TM season snapshot lags the payload roster (re-fetch the "
         f"current season) or canonical_team_name() needs an alias")
+
+
+# ── _aggregate_team(): four-way (ATT/MID/DEF/GK) value-percentage split ─────
+
+from scripts.import_transfermarkt import _aggregate_team
+
+
+def _players(rows):
+    """rows: list of (name, position, value_eur, age)."""
+    return pd.DataFrame(rows, columns=["player_name", "position", "market_value_eur", "age"])
+
+
+def test_aggregate_team_emits_four_way_split():
+    players = _players([
+        ("GK1", "Goalkeeper", 10_000_000, 25),
+        ("DEF1", "Centre-Back", 20_000_000, 24),
+        ("MID1", "Central Midfield", 30_000_000, 26),
+        ("ATT1", "Striker", 40_000_000, 22),
+    ])
+    feats = _aggregate_team(players)
+    assert feats["att_value_pct"] == pytest.approx(0.4)
+    assert feats["def_value_pct"] == pytest.approx(0.2)
+    assert feats["mid_value_pct"] == pytest.approx(0.3)
+    assert feats["gk_value_pct"] == pytest.approx(0.1)
+    assert feats["n_mid"] == 1
+    # the four percentages must sum to 1.0 (no player's value silently dropped)
+    total_pct = feats["att_value_pct"] + feats["def_value_pct"] + feats["mid_value_pct"] + feats["gk_value_pct"]
+    assert total_pct == pytest.approx(1.0)
+
+
+def test_aggregate_team_zero_value_branch_still_has_four_way_keys():
+    players = _players([("P1", "Central Midfield", 0, 24)])
+    feats = _aggregate_team(players, keep_if_zero_value=True)
+    assert feats["n_mid"] == 1
+    import math
+    assert math.isnan(feats["mid_value_pct"])
+    assert math.isnan(feats["gk_value_pct"])

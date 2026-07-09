@@ -425,6 +425,8 @@ def _aggregate_team(players: pd.DataFrame, keep_if_zero_value: bool = False) -> 
             "squad_value_eur":  0.0,
             "att_value_pct":    np.nan,
             "def_value_pct":    np.nan,
+            "mid_value_pct":    np.nan,
+            "gk_value_pct":     np.nan,
             "tilt":             np.nan,
             "value_wtd_age":    np.nan,
             "avg_age":          avg_age,
@@ -432,16 +434,20 @@ def _aggregate_team(players: pd.DataFrame, keep_if_zero_value: bool = False) -> 
             "n_players":        len(players),
             "n_att":            int((pos_groups == "ATT").sum()),
             "n_def":            int((pos_groups == "DEF").sum()),
+            "n_mid":            int((pos_groups == "MID").sum()),
             "n_gk":             int((pos_groups == "GK").sum()),
         }
 
     # Position-group value sums
     att_val = float(vals[pos_groups == "ATT"].sum())
     def_val = float(vals[pos_groups == "DEF"].sum())
+    mid_val = float(vals[pos_groups == "MID"].sum())
     gk_val  = float(vals[pos_groups == "GK"].sum())
 
     att_pct = att_val / total_val
     def_pct = def_val / total_val
+    mid_pct = mid_val / total_val
+    gk_pct  = gk_val / total_val
     tilt    = att_pct - def_pct  # positive = more value in attack
 
     # Value-weighted age (lower = young roster with money concentrated in young players)
@@ -463,6 +469,8 @@ def _aggregate_team(players: pd.DataFrame, keep_if_zero_value: bool = False) -> 
         "squad_value_eur":  total_val,
         "att_value_pct":    att_pct,
         "def_value_pct":    def_pct,
+        "mid_value_pct":    mid_pct,
+        "gk_value_pct":     gk_pct,
         "tilt":             tilt,
         "value_wtd_age":    val_wtd_age,
         "avg_age":          avg_age,
@@ -470,6 +478,7 @@ def _aggregate_team(players: pd.DataFrame, keep_if_zero_value: bool = False) -> 
         "n_players":        len(players),
         "n_att":            int((pos_groups == "ATT").sum()),
         "n_def":            int((pos_groups == "DEF").sum()),
+        "n_mid":            int((pos_groups == "MID").sum()),
         "n_gk":             int((pos_groups == "GK").sum()),
     }
 
