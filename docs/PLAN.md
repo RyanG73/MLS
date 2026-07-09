@@ -1,5 +1,18 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-09 — UI feedback round 2 COMPLETE (7/7): live News tab, logo pipeline fixed at the source**
+> Moose icon replaces the green hollow-square header fallback · logo coverage completed AND
+> the regression class fixed: `fetch_foreign_logos.py` now harvests modeled domestic leagues
+> (division movers shipped logo:null and silently dropped 35 clubs — incl. West Ham — from a
+> regenerated map; 799→1082 entries) + logos.js now cache-busted like league data · News tab
+> is live: client-side ESPN news API per league (CORS-open, no build step), injury tagging,
+> empty/error states · club columns are canvas-measured to the longest name — zero truncation
+> desktop & mobile, ladders h-scroll inside their panel on phones · projected-finish axis
+> ticks aligned to the bar track (were ~113px off) · match expansion shows per-team model
+> inputs (ELO/xG both ways/form/GK z/availability), better side highlighted. 8 new Playwright
+> regressions (fail-verified against pre-fix code); suite 38 green. Universidad O&M keeps
+> initials (no crest exists anywhere). Plan file deleted; story in PROJECT_HISTORY.
+
 > **2026-07-09 — UI feedback batch COMPLETE (18/18): Entenser rebrand ships**
 > Site renamed **Entenser** (icon/wordmark/favicon; matting script preserved). Fixes: sub-1%
 > odds get one decimal · Projected Finish anchored to server rank (Tottenham 12-vs-17 bug) ·

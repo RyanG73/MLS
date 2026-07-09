@@ -344,6 +344,26 @@ relegation/promotion recommendations before 25% of a season.
 
 ---
 
+## UI feedback round 2 (2026-07-09, plan completed and deleted)
+
+A 7-task follow-up QA batch. The headline find: the "missing West Ham/Lincoln logos" report
+was a pipeline bug, not a data gap — `build_logo_map.py` harvests inline logos from league
+files, but clubs that change divisions between builds ship `logo:null`, so every regeneration
+silently dropped ~35 previously-mapped clubs; `fetch_foreign_logos.py` now harvests the
+modeled domestic leagues too (map: 799 → 1082 entries) and `logos.js` is cache-busted like
+the league payloads (heuristic browser caching had been serving week-old maps). Six clubs got
+Wikipedia crests (no ESPN art exists); Universidad O&M keeps initials — no crest anywhere.
+UI: moose icon replaces the green hollow-square header fallback; the News tab went from stub
+to a live client-side ESPN news feed per league (the API is CORS-open, so the static site
+needs no build step) with injury tagging and empty/error states; club columns are
+canvas-measured to the longest name so tables never truncate (phones h-scroll inside the
+panel); the projected-finish axis ticks were realigned to the bar track (a 104px grid-offset
+bug put "1" over the team names); match-row expansions now show per-team model inputs rather
+than bare differentials. 8 new Playwright regressions, fail-verified against pre-fix code;
+suite 38 green.
+
+---
+
 ## UI feedback batch + Entenser rebrand (2026-07-08 → 2026-07-09, plan completed and deleted)
 
 An 18-task batch from a user QA pass on desktop and mobile. Branding: the site is now
