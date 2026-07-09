@@ -300,3 +300,39 @@ class TestMatchesGroupedByDateAndLeague:
         if page.locator(".eb-empty").count() > 0:
             pytest.skip("no upcoming matches in the current data window")
         assert page.locator(".daygrp").count() > 0, "Expected at least one .daygrp day-group"
+
+
+class TestUiFeedbackRound2:
+    """2026-07-09 feedback batch: finish-axis alignment + untruncated club names."""
+
+    @pytest.mark.parametrize("width", [1280, 390], ids=["desktop", "mobile"])
+    def test_finish_axis_ticks_align_with_bar_track(self, page: Page, webapp_url: str, width: int):
+        page.set_viewport_size({"width": width, "height": 900})
+        _load_route(page, webapp_url, "epl")
+        offsets = page.evaluate(
+            """() => {
+                const ticks = document.querySelectorAll('.plot .faxis .fax span');
+                const track = document.querySelector('.plot .ftrack');
+                if (!ticks.length || !track) return null;
+                const tr = track.getBoundingClientRect();
+                const first = ticks[0].getBoundingClientRect();
+                const last = ticks[ticks.length - 1].getBoundingClientRect();
+                return {first: Math.abs(first.left - tr.left),
+                        last: Math.abs(last.right - tr.right)};
+            }"""
+        )
+        assert offsets is not None, "projected-finish plot did not render"
+        assert offsets["first"] <= 6, f"tick '1' is {offsets['first']:.0f}px off the track start"
+        assert offsets["last"] <= 6, f"last tick is {offsets['last']:.0f}px off the track end"
+
+    @pytest.mark.parametrize("route", ["epl", "championship", "mls"])
+    @pytest.mark.parametrize("width", [1280, 390], ids=["desktop", "mobile"])
+    def test_no_truncated_club_names(self, page: Page, webapp_url: str, route: str, width: int):
+        page.set_viewport_size({"width": width, "height": 900})
+        _load_route(page, webapp_url, route)
+        clipped = page.evaluate(
+            """() => [...document.querySelectorAll('.ladder .tname')]
+                .filter(el => el.scrollWidth > el.clientWidth + 1)
+                .map(el => el.textContent)"""
+        )
+        assert clipped == [], f"truncated club names at {width}px: {clipped}"
