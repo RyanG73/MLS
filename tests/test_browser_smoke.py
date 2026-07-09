@@ -245,3 +245,16 @@ class TestOddsDecimalFormatting:
         assert "\n0.2\n" in row_text, (
             f"Expected Chelsea's sub-1% title-odds cell formatted as '0.2' near its row, got: {row_text!r}"
         )
+
+
+class TestProjectedFinishConsistency:
+    """The Projected Finish plot's team order must match the League Table's order —
+    same team must not appear at a materially different rank in the two views."""
+
+    def test_epl_finish_plot_matches_standings_order(self, page: Page, webapp_url: str):
+        _load_route(page, webapp_url, "epl")
+        standings_order = page.locator(".tlad .trow .tname").all_inner_texts()
+        finish_order = page.locator(".plotpanel .frow b").all_inner_texts()
+        assert standings_order == finish_order, (
+            f"Standings order {standings_order} != Projected Finish order {finish_order}"
+        )

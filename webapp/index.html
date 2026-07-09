@@ -1103,11 +1103,17 @@ function finishLegend(){ const L=[['var(--win)','Title'],['var(--qualify)','Qual
 function finishPlotPanel(){
   ensureFinish();
   const src=simVals||finishVals||{}, N=D.outlook.n_teams||D.standings.length;
-  const teams=D.standings.map(s=>Object.assign({},s,src[s.team]||{}))
-    .sort((a,b)=>(a.fin_med||99)-(b.fin_med||99));
+  // Row order matches the main standings table (pts → gd → proj_pts) so a team can
+  // never show one rank in the League Table and a materially different rank here —
+  // the client's own runSimTable() re-simulation (fin_med) is a DIFFERENT, independently
+  // -noisy engine from the server-baked proj_pts and is not reliable as a sort key on its
+  // own (verified: EPL/Tottenham preseason diverges by ~5 ranks between the two engines).
+  const ranked=[...D.standings].sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
+  const rankOf=new Map(ranked.map((s,i)=>[s.team,i+1]));
+  const teams=ranked.map(s=>Object.assign({},s,src[s.team]||{},{fin_med:rankOf.get(s.team)}));
   const pos=p=>((p-1)/(Math.max(1,N-1))*100);
   const rows=teams.map(t=>{
-    const a=t.fin_p10||1,m=t.fin_med||1,b=t.fin_p90||N, c=finishZone(Math.round(m));
+    const m=t.fin_med, a=Math.min(t.fin_p10||m,m),b=Math.max(t.fin_p90||m,m), c=finishZone(Math.round(m));
     const L=pos(a),W=Math.max(2,pos(b)-pos(a));
     return `<div class="frow"><span class="fn">${crest(t.team,t.logo)}<b>${t.team}</b></span>`+
       `<span class="ftrack"><span class="rangebar" style="left:${L.toFixed(1)}%;width:${W.toFixed(1)}%;background:${c}"></span>`+
@@ -1115,7 +1121,7 @@ function finishPlotPanel(){
   }).join('');
   const panel=el('div','panel plotpanel');
   panel.innerHTML=`<div class="panel-h"><span class="dot" style="background:var(--europa);box-shadow:0 0 8px var(--europa)"></span>`+
-    `<h2>Projected finish</h2><span class="meta">10th–90th pct · ● median</span></div>`+
+    `<h2>Projected finish</h2><span class="meta">10th–90th pct (model spread) · ● projected rank</span></div>`+
     `<div class="plot"><div class="faxis">${axisTicks(N)}</div>${rows}${finishLegend()}</div>`;
   return panel;
 }
