@@ -387,6 +387,30 @@ full suite green at 628 passed. Comprehensive per-league trophy history and squa
 buildout for the 5 remaining uncovered leagues were explicitly deferred (see the 2026-07-08
 design spec).
 
+## UI feedback round 3 + two model-research campaigns (2026-07-09 → 2026-07-10, plan completed and deleted)
+
+A 19-task batch covering rules correctness, MLS clarity, branding, news, match metadata, and
+model-health UX, plus two flagged research campaigns run under `docs/experiment-protocol.md`.
+Promotion playoffs are now actually simulated (a `promoted` composite bucket runs the bracket —
+4-team England/Spain, 6-team Serie B with byes, cross-league barrages at a 0.33 base rate —
+mirrored in the client what-if sim) with a per-league plain-language rules line. Multi-source
+news (8 curated feeds baked per league + live ESPN, anti-gossip filter) and club-news cards
+shipped for every registry league. Match cards gained kickoff/venue/weather (open-meteo).
+Model Health was overhauled: feature definitions, live phase Brier vs market/naive across all
+leagues, per-club Brier, and paired-bar decile calibration. A UEFA Spots tab explains the
+coefficient-driven Champions League slot counts. Team-page ELO history now stitches across
+tier boundaries (Hull City's line is continuous 2014–2026 instead of jumping at promotion).
+Two research campaigns both concluded **DROP**: (R1) a top-15 fieldable-squad-value feature
+(1 GK/5 DEF/5 MID/4 FWD by value) beat total squad value by ~0.0003 Brier but both made the
+MLS model worse than no value feature at all — TM value adds nothing over the ELO/xG/form base
+on MLS specifically (the harness edit was reverted; the `top15_value_eur` column itself stays
+in the mapped CSVs). (R2) a unified two-tier ELO — one continuous rating instead of seed-on-
+promotion — lost to the current tier-bridge approach on every leg of the England chain
+(pooled Δ=+0.0053 worse): the champion's flat 40% season-boundary regression erases any
+persistent cross-tier gap a continuous rating would need, so the bridge's explicit offset is
+doing real work implicit continuity can't replace. Full detail in `docs/feature-hunt-log.md`
+(2026-07-10 entries).
+
 ---
 
 ## Permanent constraints (do not re-litigate without explicit instruction)

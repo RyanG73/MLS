@@ -1,5 +1,34 @@
 # MLS Feature Hunt Log
 
+## 2026-07-10 — Unified two-tier ELO for promoted/relegated teams (R2) — DROP
+
+**Hypothesis:** one ELO rating updated continuously through both tiers (no seed-on-promotion,
+no fitted bridge offset) predicts promoted/relegated teams' first-season matches better than
+the current tier-bridge approach, since it never freezes or resets at the boundary.
+**Method:** `scripts/eval/unified_tier_elo.py`, England chain (epl↔championship↔league-one↔
+league-two), champion constants (K=25, HA=80, regress=0.40), four rating systems scored on
+IDENTICAL mover-match sets per pair/direction: `bridge` (current gate metric — exit ELO frozen
+at the June-30 cutoff + fitted offset, never updates), `seeded` (production analogue — exit
+ELO + offset as a season-entry seed, then updates in-season), `league` (no bridge — starts flat
+1500), `unified` (one merged cross-tier replay, no seed/offset at all). Deterministic — no
+seed/bagging, so no second-run confirmation needed (the ELO replay isn't stochastic the way
+the XGB harness is).
+**Result:** Δ (unified − seeded) = **+0.0053 pooled → DROP**, and unified loses on **every one
+of the 6 chain legs** (+0.0000 to +0.0089), n=7,386 matches. Full log
+`logs/r2-unified-tier-elo.log`; report `experiments/r2-unified-elo.report.json`.
+**Notes:** Mechanism (from `tier_gap_mean_elo`): the champion's flat 40% season-boundary
+regression pulls every team toward 1500 every close season, so a continuous cross-tier rating
+never accumulates the ~100–130 ELO gap the fitted bridge offsets encode — mean unified ELO is
+~1502 for Championship AND League One, vs EPL's ~1540. The bridge's *explicit* offset is doing
+real work that implicit continuity can't replicate under this regression regime. Secondary,
+unexpected finding: `seeded` (0.6326) and `league`/no-bridge-at-all (0.6325) are statistically
+indistinguishable pooled over the WHOLE first season — the seed's benefit is diluted by
+mid-season convergence at K=25; the bridge's value likely concentrates in early-season matches,
+which this full-season pooling doesn't isolate (a follow-up early-window slice, not run here,
+would need to precede any claim that the current seeding itself is unnecessary). No production
+change; nothing ported; `promotion_gate.py` not invoked (never reached a KEEP). This closes
+Task R2 step 2 (step 1, the display-continuity ELO-history stitch, already shipped 2026-07-09).
+
 ## 2026-07-10 — Top-15 fieldable-squad value (R1) — DROP (and total squad value re-confirmed DROP)
 
 **Hypothesis:** transfer value of a best-XI+bench proxy (top 1 GK + 5 DEF + 5 MID + 4 FWD by
