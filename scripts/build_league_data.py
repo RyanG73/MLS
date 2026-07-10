@@ -320,7 +320,7 @@ OUTLOOK = {
     # Big-5 top flights (Understat xG). buckets preserve the prior Title/UCL/Releg output.
     # UCL spots per the current coefficient allocation: England + Italy earned a 5th
     # Champions League place (2025-26 cycle); the others have 4. green_line = UCL spots.
-    "epl":        {"name": "English Premier League", "source": "understat", "n": 20,
+    "epl":        {"name": "Premier League", "source": "understat", "n": 20,
                    "buckets": _TOP(5), "green_line": 5, "red_line": 3},
     "la-liga":    {"name": "La Liga", "source": "understat", "n": 20,
                    "buckets": _TOP(4), "green_line": 4, "red_line": 3},

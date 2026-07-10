@@ -41,9 +41,7 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sbw);z-index:40;overflow-y:auto;
   background:linear-gradient(180deg,var(--ink-1),var(--ink-0));border-right:1px solid var(--line-2);
   padding:var(--s3) 0}
-.sb-brand{display:flex;align-items:center;gap:9px;padding:6px var(--s4) var(--s4);border-bottom:1px solid var(--line)}
-.sb-brand b{font-family:"Archivo";font-weight:800;font-size:14px}
-.sb-brand span{font-size:9px;color:var(--txt-3);letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:1px}
+.sb-brand{display:flex;align-items:center;padding:8px var(--s4) var(--s4);border-bottom:1px solid var(--line)}
 .sb-grp{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-3);padding:var(--s4) var(--s4) 6px}
 .sb-lg{display:flex;align-items:center;gap:9px;padding:7px var(--s4);font-size:13px;color:var(--txt-2);cursor:pointer;text-decoration:none;border-left:2px solid transparent;transition:.12s}
 .sb-lg:hover{background:var(--ink-2);color:var(--txt-1)}
@@ -131,6 +129,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .fav::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
 .fav .lab{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--txt-2);display:flex;align-items:center;gap:6px}
 .fav .lab .sq{width:8px;height:8px;border-radius:2px}
+.fav .fav-hint{font-size:9.5px;color:var(--txt-3);margin-top:3px}
 .fav .teamrow{display:flex;align-items:center;gap:8px;margin-top:9px}
 .fav .teamrow .crest{width:22px;height:22px}
 .fav .ftxt{min-width:0}
@@ -559,13 +558,13 @@ footer a:hover{color:var(--txt-2)}
 <body>
 <button class="sb-toggle" id="sbToggle" aria-label="Leagues">☰</button>
 <nav class="sidebar" id="sidebar">
-  <div class="sb-brand"><img src="assets/branding/entenser-icon.png" alt="" style="width:24px;height:24px;object-fit:contain" /><div><b>Entenser</b><span>Soccer Projections</span></div></div>
+  <div class="sb-brand"><img src="assets/branding/entenser-lockup-light.png" alt="Entenser" style="width:100%;max-width:176px;height:auto;object-fit:contain" /></div>
   <div id="sbLeagues"></div>
 </nav>
 <header>
   <div class="wrap head-in">
     <div class="brand">
-      <div class="beacon" id="leagueLogo"><img src="assets/branding/entenser-icon.png" alt="" style="width:100%;height:100%;object-fit:contain"></div>
+      <div class="beacon" id="leagueLogo"><img src="assets/branding/entenser-icon-light.png" alt="" style="width:100%;height:100%;object-fit:contain"></div>
       <div><h1 id="leagueTitle">MLS Projections</h1><div class="sub" id="sub"></div></div>
     </div>
     <div class="acc" id="acc"></div>
@@ -975,7 +974,8 @@ function scheduleSim(){clearTimeout(simTimer);simTimer=setTimeout(()=>{
   (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();},150);}
 
 /* favorites — five title races: MLS Cup · Shield · Eastern Conf · Western Conf · Spoon */
-const favCard=(cls,lab,t,k)=>`<div class="fav ${cls}"><div class="lab"><span class="sq"></span>${lab}</div>
+const favCard=(cls,lab,t,k,hint)=>`<div class="fav ${cls}"><div class="lab"><span class="sq"></span>${lab}</div>
+  ${hint?`<div class="fav-hint">${hint}</div>`:''}
   <div class="teamrow">${crest(t.team,t.logo)}<div class="ftxt"><div class="team">${t.team}</div></div></div>
   <div class="favstats"><span class="pct">${fmt(t[k])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts</span></div></div>`;
 function renderFavs(){
@@ -983,11 +983,12 @@ function renderFavs(){
   const sBy=k=>[...all].sort((a,b)=>b[k]-a[k])[0];
   const sByConf=c=>all.filter(s=>s.conf===c).sort((a,b)=>b.conf_win-a.conf_win)[0];
   $('#favs').innerHTML=
-    favCard('cup','MLS Cup',sBy('cup'),'cup')+
-    favCard('shield',"Supporters' Shield",sBy('shield'),'shield')+
-    favCard('east','Eastern Conference',sByConf('East'),'conf_win')+
-    favCard('west','Western Conference',sByConf('West'),'conf_win')+
-    favCard('spoon','Wooden Spoon',sBy('spoon'),'spoon');
+    favCard('cup','MLS Cup',sBy('cup'),'cup','playoff champion')+
+    favCard('shield',"Supporters' Shield",sBy('shield'),'shield','best record overall')+
+    // conf_win = #1 seed by regular-season points — NOT odds of winning the conference playoff bracket
+    favCard('east','Eastern Conference',sByConf('East'),'conf_win','most points in conference')+
+    favCard('west','Western Conference',sByConf('West'),'conf_win','most points in conference')+
+    favCard('spoon','Wooden Spoon',sBy('spoon'),'spoon','fewest points overall');
 }
 $('#laddernote').textContent=`Top ${D.playoff_slots} per conference make the playoffs · seeds 8–9 play a wild-card play-in · top ${D.hfa_slots} host round one · click the Next-5 boxes to force results (win/draw/loss) and resimulate`;
 
@@ -1022,7 +1023,7 @@ function ladder(conf){
     `<span class="c c-pts">Pts</span>`+
     `<span class="c c-proj">Proj</span>`+
     `<span class="c c-elo">ELO</span>`+
-    `<span class="c">PO</span><span class="c">Top 4</span><span class="c">Shield</span><span class="c">Cup</span><span class="c">Spoon</span>`+
+    `<span class="c">Cup</span><span class="c">Shield</span><span class="c">PO</span><span class="c">Top 4</span><span class="c">Spoon</span>`+
     `<span class="c c-w5">Next 5</span>`));
   teams.forEach((t,i)=>{
     const r=el('div','row'+(i<D.hfa_slots?' hfa':''));
@@ -1032,7 +1033,7 @@ function ladder(conf){
       `<span class="pts">${t.pts}</span>`+
       `<span class="projc">${t.proj_pts}</span>`+
       `<span class="eloc">${t.elo}</span>`+
-      hcell(t.playoff,'po')+hcell(t.hfa,'hfa')+hcell(t.shield,'sh')+hcell(t.cup,'cup')+hcell(t.spoon,'sp')+
+      hcell(t.cup,'cup')+hcell(t.shield,'sh')+hcell(t.playoff,'po')+hcell(t.hfa,'hfa')+hcell(t.spoon,'sp')+
       whatifCell(t.team);
     box.appendChild(r);
     if(i===6) box.appendChild(el('div','wc-line','<span class="lab">Wild card · play-in</span>'));
@@ -1840,7 +1841,9 @@ function squadValuePanel(team){
     ?` <span style="font-size:10px;color:var(--txt-3);border:1px solid var(--line);border-radius:3px;padding:1px 5px;vertical-align:middle" title="Transfermarkt prices few players in this squad — treat the total as a floor, not an estimate">thin coverage</span>`
     :'';
   const asOf=sv.as_of?`<span style="color:var(--txt-3);font-size:11px;font-weight:400"> · as of ${sv.as_of}</span>`:'';
-  const posRow=(label,pct)=>`<div class="pstat"><span class="k">${label} value</span><span class="v">${pct==null?'—':(pct*100).toFixed(1)+'%'}</span></div>`;
+  // € amount = total × share (2026-07-09 feedback: show money, not just percentages)
+  const posRow=(label,pct)=>{const eur=(pct!=null&&sv.squad_value_eur)?'€'+(sv.squad_value_eur*pct/1e6).toFixed(1)+'m':null;
+    return `<div class="pstat"><span class="k">${label} value</span><span class="v">${pct==null?'—':`${eur} <span style="color:var(--txt-3);font-weight:400">(${(pct*100).toFixed(0)}%)</span>`}</span></div>`;};
   return `<div class="pcard sv-panel open" style="grid-column:1/-1">
     <h3 onclick="this.closest('.sv-panel').classList.toggle('open')">Squad value (Transfermarkt)${lowConf} <span class="fi-chev">▾</span></h3>
     <div class="sv-body">

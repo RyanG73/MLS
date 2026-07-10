@@ -33,7 +33,7 @@ _HDR = {"User-Agent": "Mozilla/5.0"}
 # stays for the Power Rankings cross-league grouping, which is coarser by design.
 REGISTRY = [
     # Concacaf / Americas
-    ("mls",                 "Major League Soccer",      "usa.1",            "Concacaf", "live", "Americas"),
+    ("mls",                 "MLS",                      "usa.1",            "Concacaf", "live", "Americas"),
     ("liga-mx",             "Liga MX",                  "mex.1",            "Concacaf", "live", "Americas"),
     ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "soon", "Americas"),
     # C2 (ASA track): flip to "live" when their dashboard builders ship;
@@ -44,7 +44,7 @@ REGISTRY = [
     ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "live", "Cups"),
     # Concacaf League removed 2026-06-17 — discontinued after 2023 (absorbed into the Champions Cup).
     # UEFA — England
-    ("epl",                 "English Premier League",   "eng.1",            "UEFA", "live", "England"),
+    ("epl",                 "Premier League",           "eng.1",            "UEFA", "live", "England"),
     ("championship",        "EFL Championship",         "eng.2",            "UEFA", "live", "England"),
     ("league-one",          "EFL League One",           "eng.3",            "UEFA", "live", "England"),
     ("league-two",          "EFL League Two",           "eng.4",            "UEFA", "live", "England"),

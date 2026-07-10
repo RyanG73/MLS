@@ -42,7 +42,7 @@ DEFAULT_BG = (254.0, 254.0, 254.0)
 DEFAULT_FG = (7.0, 30.0, 46.0)
 
 
-def matte(src, dst, bg=DEFAULT_BG, fg=DEFAULT_FG, resize=None):
+def matte(src, dst, bg=DEFAULT_BG, fg=DEFAULT_FG, resize=None, recolor=None):
     im = Image.open(src).convert("RGB")
     arr = np.array(im).astype(np.float32)
 
@@ -68,6 +68,12 @@ def matte(src, dst, bg=DEFAULT_BG, fg=DEFAULT_FG, resize=None):
     # to the flat fg color rather than amplified noise.
     out_rgb = np.where(a3 > 0.02, recovered_fg, fg)
 
+    # Optional flat recolor: the shape (alpha) is already solved, so a light-on-dark
+    # variant is just the same alpha with every pixel's RGB set to the target color
+    # (the dark-theme webapp needs light art — the source navy vanishes on near-black).
+    if recolor is not None:
+        out_rgb = np.broadcast_to(np.array(recolor, dtype=np.float32), out_rgb.shape).copy()
+
     alpha_255 = np.clip(alpha * 255.0, 0, 255)
     out_arr = np.dstack([out_rgb, alpha_255]).astype(np.uint8)
     out = Image.fromarray(out_arr, mode="RGBA")
@@ -86,13 +92,16 @@ def main():
                      help="Foreground flat color (default: sampled Entenser logo navy)")
     ap.add_argument("--resize", nargs=2, type=int, default=None, metavar=("W", "H"),
                      help="Resize output to WxH (e.g. --resize 64 64 for a favicon)")
+    ap.add_argument("--recolor", nargs=3, type=float, default=None, metavar=("R", "G", "B"),
+                     help="Flat-recolor the matted art (e.g. --recolor 227 233 228 for a light-on-dark variant)")
     args = ap.parse_args()
 
     bg = tuple(args.bg) if args.bg else DEFAULT_BG
     fg = tuple(args.fg) if args.fg else DEFAULT_FG
     resize = tuple(args.resize) if args.resize else None
+    recolor = tuple(args.recolor) if args.recolor else None
 
-    matte(args.src, args.dst, bg=bg, fg=fg, resize=resize)
+    matte(args.src, args.dst, bg=bg, fg=fg, resize=resize, recolor=recolor)
 
     im = Image.open(args.dst)
     alpha = im.split()[-1]

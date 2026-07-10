@@ -738,7 +738,7 @@ def main():
                  max(1, len(games)) * 100)
 
     data = {"status": "live",  # route state (see docs/CURRENT_STATE.md § Route State Taxonomy)
-            "league": {"id": "mls", "name": "Major League Soccer", "logo": _lg_logo,
+            "league": {"id": "mls", "name": "MLS", "logo": _lg_logo,
                        "confederation": "Concacaf", "status": "live",
                        "pct_complete": _pct},
             "perf_by_year": perf_by_year,
