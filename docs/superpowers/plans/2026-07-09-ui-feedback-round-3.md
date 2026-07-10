@@ -2,6 +2,7 @@
 
 ## Verdicts (newest first)
 
+- **R1 ✅ = DROP (2026-07-10):** harness A/B run per experiment-protocol (`--xgb-bag 5 --seed 42`, one run, three sets): Base 0.6342 · +TM_Top15 0.6369 (Δ=−0.0028) · +TM_SquadValue 0.6372 (Δ=−0.0031). Top15 beats total value by ~0.0003 (dilution directionally right) but both are worse than no value feature on MLS — DROP at ~14σ, never gate-bound, second seed not required. Harness edit reverted; `top15_value_eur` kept in regenerated MLS mapped CSVs 2017–2026 (shared columns bit-identical). Champion untouched. Full record: docs/feature-hunt-log.md 2026-07-10, experiments/feature-top15-value-s42-20260710T112247.json. REMAINING in R-workstream: R2 unified two-tier ELO replay only.
 - **B1 ✅ B2 ✅ (2026-07-09):** `promoted` composite simulated server+client; sum(promoted) verified = slot count on all 7 second tiers (3.00 internal, 2.33 barrage); bracket JS↔Python parity ≤0.7pp on the live pmatrix. Pre-existing preseason σ-widening divergence in the client sim flagged as a spin-off task (task_8148b567). Rules lines shipped for every OUTLOOK league.
 - **G1 ✅:** run-in difficulty panel (avg remaining-opponent ELO + next-3 chips) fills the desktop whitespace; hidden when no fixtures remain.
 - **H1–H4 ✅:** input definitions inline+hover; live phase Brier (model/market/naive, client-side, all leagues) supersedes the MLS-only backtest slice; per-club Brier card on team profiles; decile card is paired predicted/observed bars with pp deltas. One TDZ crash found & fixed (FEATURE_DEFS had to precede the eager renderHealth call).

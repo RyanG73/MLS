@@ -1,5 +1,24 @@
 # MLS Feature Hunt Log
 
+## 2026-07-10 — Top-15 fieldable-squad value (R1) — DROP (and total squad value re-confirmed DROP)
+
+**Hypothesis:** transfer value of a best-XI+bench proxy (top 1 GK + 5 DEF + 5 MID + 4 FWD by
+value, short buckets backfilled — `import_transfermarkt._aggregate_team`, unit-tested) beats
+total `squad_value_eur` as an XGB input because total value dilutes with unplayable depth.
+**Result:** Δ=−0.0028 vs Base → **DROP** (screening bar is Δ>+0.001; this is ~14× the bagged-run
+noise floor σ≈0.0002, so no second-seed confirmation needed — never gate-bound).
+**experiment_id:** feature-top15-value-s42-20260710T112247 (`--cache --ab-only
+"Base,+TM_SquadValue,+TM_Top15" --xgb-bag 5 --seed 42`; full log `logs/feature-top15-value-s42.log`)
+**Notes:** Base 0.6342 · +TM_Top15 0.6369 · +TM_SquadValue 0.6372. The dilution hypothesis is
+*directionally* right — top15 beats total value by ~0.0003 — but both variants make the model
+worse than no value feature at all on MLS: within-season z-scored TM value adds nothing the
+ELO/xG/form base doesn't already carry (the same reason +TM_SquadValue was never promoted to
+`_FEAT_BASE`). Feature transform mirrored the existing one exactly (z within season,
+home/away/diff, lag-(0,1) lookup). Harness edit reverted per protocol §4; the `top15_value_eur`
+column stays in the MLS mapped CSVs 2017–2026 (all shared columns verified bit-identical to the
+previous generation; mean top15/total ≈ 0.80–0.86). If the idea is revisited, try it where value
+features already carry signal — the big-5 preseason value-tilt path (M2), not the MLS match model.
+
 ## 2026-07-07 — Value-informed preseason tilt (M2, the A10a revival) — KEEP (bottom-half targeted, β=0.5)
 
 TM `saison_id` pages serve era-appropriate values (Gate-0 probe: GB1 2019 = City €1,050m,

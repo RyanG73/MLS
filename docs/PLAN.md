@@ -1,5 +1,13 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-10 — R1 top-15 fieldable-squad value: DROP (harness A/B, bag5 seed42)**
+> Base 0.6342 · +TM_Top15 0.6369 (Δ=−0.0028) · +TM_SquadValue 0.6372 (Δ=−0.0031) in one
+> internally-controlled run. Dilution hypothesis directionally right (top15 > total by
+> ~0.0003) but TM value adds nothing over the ELO/xG/form base on MLS. Harness edit
+> reverted per protocol; `top15_value_eur` retained in the regenerated MLS mapped CSVs
+> 2017–2026 (shared columns bit-identical). Champion untouched; R2 is the remaining
+> R-workstream item. Details: docs/feature-hunt-log.md 2026-07-10.
+
 > **2026-07-09/10 — UI feedback round 3 (17 of 19 items shipped; plan: superpowers/plans/2026-07-09-ui-feedback-round-3.md)**
 > Promotion playoffs actually simulated: `promoted` composite column per second tier
 > (bracket from the DC pairing matrix — 4-team England/Spain, 6-team Serie B w/ byes,
