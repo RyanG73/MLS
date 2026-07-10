@@ -37,6 +37,10 @@ import pandas as pd
 
 from data_pipeline.understat import canonical_frame, espn_name
 from data_pipeline.football_data import match_results
+from data_pipeline.football_data_intl import (
+    match_results as match_results_intl,
+    NO_ESPN_SCHEDULE as fdi_no_espn,
+)
 from data_pipeline.espn_soccer import liga_mx_frame, season_label as liga_mx_label
 from data_pipeline.espn_fixtures import european_fixtures
 from data_pipeline.asa_frame import asa_canonical_frame
@@ -378,6 +382,18 @@ _PROMO = lambda promo, play, rel, barrage=None: [
     {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}]
 _LIGUILLA = lambda: [
     {"key": "liguilla", "label": "Liguilla", "col": "Liguilla", "top": 8}]
+# Non-UEFA single tables (Tier-1 expansion, 2026-07-10): _TOP's bucket labels
+# ("Champions Lg"/"Europa Lg"/"Conference Lg") are UEFA-specific and would be
+# wrong for Brazil/Japan/Argentina's continental competitions (Copa
+# Libertadores/Sudamericana, AFC Champions League Elite/Two, ...). This is a
+# deliberately coarser 3-bucket shape (Champion / one lumped "Continental"
+# qualification zone / Relegation) rather than modeling each competition's
+# real qualification structure, which varies by country and — for
+# Argentina — by season; see each league's `rules` string for the caveat.
+_CONTINENTAL = lambda label, top, rel=0: [
+    {"key": "title", "label": "Champion", "col": "Champ", "top": 1},
+    {"key": "continental", "label": label, "col": "Continental", "top": top}] + (
+    [{"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}] if rel else [])
 
 OUTLOOK = {
     # Big-5 top flights (Understat xG). buckets preserve the prior Title/UCL/Releg output.
@@ -473,6 +489,47 @@ OUTLOOK = {
                               "per_conf_top": 8, "top": 16}],
                          "green_line": 16, "red_line": None, "eval_seasons": None,
                          "rules": "Top 8 per conference make the playoffs · no relegation"},
+    # Tier-1 expansion (2026-07-10, docs/league-expansion-report.md). Goals-only
+    # (football-data-intl carries no xG, same model family as the European
+    # 2nd tiers). Continental-qualification counts are ROUGH — each of these
+    # federations' real qualification structure is more granular (multiple
+    # named competitions, sometimes multi-year aggregate tables) than a single
+    # end-of-season cut line can represent; see each `rules` string.
+    "brazil-serie-a": {"name": "Brasileirão Série A", "source": "footballdata_intl",
+                       "n": 20, "confederation": "CONMEBOL",
+                       "buckets": _CONTINENTAL("Continental (Libertadores/Sudamericana)", 6, 4),
+                       "green_line": 6, "red_line": 4, "eval_seasons": None,
+                       "rules": "Champion + next 5 reach Libertadores/Sudamericana (approximate — Brazil actually splits these across several named berths) · bottom 4 relegated to Série B"},
+    "japan-j1":       {"name": "J1 League", "source": "footballdata_intl",
+                       "n": 20, "confederation": "AFC",
+                       "buckets": _CONTINENTAL("AFC Champions League", 4, 3),
+                       "green_line": 4, "red_line": 3, "eval_seasons": None,
+                       "rules": "Champion + next 3 reach the AFC Champions League Elite/Two (approximate) · bottom 3 relegated to J2"},
+    "sweden-allsvenskan": {"name": "Allsvenskan", "source": "footballdata_intl",
+                           "n": 16, "confederation": "UEFA",
+                           "buckets": _CONTINENTAL("Champions League / Europa", 3, 2),
+                           "green_line": 3, "red_line": 2, "eval_seasons": None,
+                           "rules": "Champion + next 2 reach UEFA competitions (approximate) · bottom 2 relegated (a playoff spot is not modeled)"},
+    "norway-eliteserien": {"name": "Eliteserien", "source": "footballdata_intl",
+                           "n": 16, "confederation": "UEFA",
+                           "buckets": _CONTINENTAL("Champions League / Europa", 3, 2),
+                           "green_line": 3, "red_line": 2, "eval_seasons": None,
+                           "rules": "Champion + next 2 reach UEFA competitions (approximate) · bottom 2 relegated (a playoff spot is not modeled)"},
+    "denmark-superliga": {"name": "Superliga", "source": "footballdata_intl",
+                          "n": 12, "confederation": "UEFA",
+                          "buckets": _CONTINENTAL("Champions League / Europa", 2, 2),
+                          "green_line": 2, "red_line": 2, "eval_seasons": None,
+                          "rules": "Champion + runner-up reach UEFA competitions (approximate) · bottom 2 relegated — the real championship/relegation split-round format is not modeled, this is the plain regular-season table"},
+    "poland-ekstraklasa": {"name": "Ekstraklasa", "source": "footballdata_intl",
+                           "n": 18, "confederation": "UEFA",
+                           "buckets": _CONTINENTAL("Champions League / Europa", 2, 3),
+                           "green_line": 2, "red_line": 3, "eval_seasons": None,
+                           "rules": "Champion + runner-up reach UEFA competitions (approximate) · bottom 3 relegated — the real championship/relegation split-round format is not modeled. No confirmed ESPN schedule source: this league ships results-only until an in-season fixture feed is found (docs/league-expansion-report.md)"},
+    "argentina-primera": {"name": "Liga Profesional Argentina", "source": "footballdata_intl",
+                          "n": 30, "confederation": "CONMEBOL",
+                          "buckets": _CONTINENTAL("Continental (Libertadores/Sudamericana)", 8),
+                          "green_line": 8, "red_line": None, "eval_seasons": None,
+                          "rules": "Top 8 reach Libertadores/Sudamericana (a rough approximation — Argentina's real qualification and relegation rules have changed repeatedly across recent seasons; relegation is not modeled here, see the expansion report's Tier-1 caveat)"},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only
@@ -604,12 +661,83 @@ def _espn_names_to_fd(lid: str, fx: "pd.DataFrame") -> "pd.DataFrame":
     return fx
 
 
+# football-data-INTL (Brazil/Japan/Nordics/Argentina) team key → ESPN
+# displayName. Diacritics and abbreviation differences (Sao Paulo → São Paulo,
+# Malmo FF → Malmö FF, Argentinos Jrs → Argentinos Juniors, ...) verified live
+# 2026-07-10 by diffing each league's current ESPN roster against the
+# football-data-intl name set (docs/league-expansion-report.md). Only the
+# overlap that needed a fix is listed; teams absent from ESPN's CURRENT top
+# flight (relegated since, or ESPN simply doesn't carry them) are intentionally
+# left unmapped — they pass through to the promoted-team prior path, same
+# fallback as FD_ESPN's European entries.
+FDI_ESPN: dict[str, dict[str, str]] = {
+    "brazil-serie-a": {
+        "Atletico-MG": "Atlético-MG", "Botafogo RJ": "Botafogo",
+        "Bragantino": "Red Bull Bragantino", "Chapecoense-SC": "Chapecoense",
+        "Flamengo RJ": "Flamengo", "Gremio": "Grêmio", "Sao Paulo": "São Paulo",
+        "Vasco": "Vasco da Gama", "Vitoria": "Vitória",
+    },
+    "japan-j1": {
+        "Kyoto": "Kyoto Sanga", "Machida": "Machida Zelvia",
+        "Okayama": "Fagiano Okayama", "Urawa Reds": "Urawa Red Diamonds",
+        "Verdy": "Tokyo Verdy 1969",
+    },
+    "sweden-allsvenskan": {
+        "Brommapojkarna": "IF Brommapojkarna", "Degerfors": "Degerfors IF",
+        "Djurgarden": "Djurgården", "Elfsborg": "IF Elfsborg",
+        "Goteborg": "IFK Göteborg", "Hacken": "BK Häcken",
+        "Halmstad": "Halmstads BK", "Hammarby": "Hammarby IF",
+        "Kalmar": "Kalmar FF", "Malmo FF": "Malmö FF",
+        "Mjallby": "Mjällby AIF", "Orgryte": "Örgryte IS",
+        "Sirius": "IK Sirius", "Vasteras SK": "Västerås SK",
+    },
+    "norway-eliteserien": {
+        "Brann": "SK Brann", "HamKam": "Hamarkameratene",
+        "Kristiansund": "Kristiansund BK", "Sarpsborg 08": "Sarpsborg FK",
+        "Start": "IK Start", "Valerenga": "Vålerenga", "Viking": "Viking FK",
+    },
+    "denmark-superliga": {
+        "Aarhus": "AGF", "Brondby": "Brøndby IF", "FC Copenhagen": "F.C. København",
+        "Lyngby": "Lyngby Boldklub", "Midtjylland": "FC Midtjylland",
+        "Nordsjaelland": "FC Nordsjælland", "Odense": "Odense Boldklub",
+        "Silkeborg": "Silkeborg IF", "Sonderjyske": "Sønderjyske Fodbold",
+        "Viborg": "Viborg FF",
+    },
+    "argentina-primera": {
+        "Argentinos Jrs": "Argentinos Juniors", "Atl. Tucuman": "Atlético Tucumán",
+        "Belgrano": "Belgrano (Córdoba)",
+        "Central Cordoba": "Central Córdoba (Santiago del Estero)",
+        "Dep. Riestra": "Deportivo Riestra",
+        "Estudiantes L.P.": "Estudiantes de La Plata",
+        "Estudiantes Rio Cuarto": "Estudiantes de Río Cuarto",
+        "Gimnasia L.P.": "Gimnasia La Plata", "Gimnasia Mendoza": "Gimnasia (Mendoza)",
+        "Huracan": "Huracán", "Ind. Rivadavia": "Independiente Rivadavia",
+        "Instituto": "Instituto (Córdoba)", "Lanus": "Lanús",
+        "Newells Old Boys": "Newell's Old Boys",
+        "Sarmiento Junin": "Sarmiento (Junín)", "Talleres Cordoba": "Talleres (Córdoba)",
+        "Union de Santa Fe": "Unión (Santa Fe)", "Velez Sarsfield": "Vélez Sarsfield",
+    },
+}
+
+
+def _espn_names_to_fdintl(lid: str, fx: "pd.DataFrame") -> "pd.DataFrame":
+    """Map ESPN displayNames in a fixtures frame to football-data-intl model
+    keys — the FDI_ESPN analog of _espn_names_to_fd."""
+    inv = {v: k for k, v in FDI_ESPN.get(lid, {}).items()}
+    fx = fx.copy()
+    for col in ("home_team", "away_team"):
+        fx[col] = fx[col].map(lambda n: inv.get(n, n))
+    return fx
+
+
 def _load_frame(league_id: str, source: str, asa_key: str | None = None):
     """Route a league to its canonical-frame source."""
     if source == "understat":
         return canonical_frame(league_id)
     if source == "footballdata":
         return match_results(league_id)
+    if source == "footballdata_intl":
+        return match_results_intl(league_id)
     if source == "espn" and league_id == "liga-mx":
         return liga_mx_frame()
     if source == "asa":
@@ -805,6 +933,23 @@ def main():
         except Exception as _espn_err:
             print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
 
+    # football-data-intl leagues: same mid-season forward-sim pattern as ASA —
+    # the results CSV has no future fixtures (verified 2026-07-10, module
+    # docstring), so ESPN supplies the scheduled remainder of the CURRENT
+    # season, names mapped via FDI_ESPN. Skipped entirely for NO_ESPN_SCHEDULE
+    # leagues (poland-ekstraklasa) — they ship results-only, no in-season sim.
+    if cfg["source"] == "footballdata_intl" and lid not in fdi_no_espn:
+        try:
+            _espn = european_fixtures(lid, ts, use_cache=False)
+            _sched = _espn[~_espn["is_result"]].copy()
+            _last_played = frame[frame["season"] == ts]["date"].max()
+            if pd.notna(_last_played):
+                _sched = _sched[_sched["date"] > _last_played]
+            espn_upcoming = _espn_names_to_fdintl(lid, _sched)
+            print(f"[{lid}] ESPN remainder: {len(_sched)} scheduled fixtures for {ts} (FDI-mapped)")
+        except Exception as _espn_err:
+            print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
+
     played = df[df["season"] == ts].dropna(subset=["home_goals", "away_goals"]).copy()
     if espn_upcoming is not None:
         upcoming = espn_upcoming
@@ -817,7 +962,9 @@ def main():
     # Team-name resolution: model keys are Understat titles; ESPN crests keyed by
     # displayName. tname() = the display string; tmeta() = its logo/color.
     stub_meta = _stub_team_meta(lid)
-    _fd_map = FD_ESPN.get(lid, {}) if cfg["source"] in ("footballdata", "asa") else {}
+    _fd_map = (FD_ESPN.get(lid, {}) if cfg["source"] in ("footballdata", "asa")
+              else FDI_ESPN.get(lid, {}) if cfg["source"] == "footballdata_intl"
+              else {})
 
     def tmeta(key: str) -> dict:
         if cfg["source"] == "understat":
@@ -1241,9 +1388,16 @@ def main():
 
     # ── Market prob lookup for per-game edge display (football-data + understat leagues) ─
     from models.research_model import walk_forward_predictions
-    from data_pipeline.football_data import DIV as _FD_DIV, attach_market
+    from data_pipeline.football_data import DIV as _FD_DIV, attach_market as _fd_attach_market
+    from data_pipeline.football_data_intl import (
+        COUNTRY as _FDI_COUNTRY, attach_market as _fdi_attach_market)
+    # One dispatcher covers both football-data adapters (old per-season-file
+    # DIV leagues + the Tier-1 single-file-all-seasons COUNTRY leagues) — every
+    # downstream caller just checks `lid in _has_market` / calls `attach_market`.
+    _has_market = set(_FD_DIV) | set(_FDI_COUNTRY)
+    attach_market = _fdi_attach_market if lid in _FDI_COUNTRY else _fd_attach_market
     _game_mkt: dict[tuple[str, str], dict] = {}
-    if lid in _FD_DIV:
+    if lid in _has_market:
         try:
             _mkt_frame = attach_market(
                 played[["season", "home_team", "away_team"]].copy(), lid, [ts])
@@ -1302,7 +1456,7 @@ def main():
             _pyears = [y for y in (2017, 2019, 2021, 2022, 2023, 2024, 2025)
                        if y in set(df["season"])]
         _preds, _ = walk_forward_predictions(df, feat, _pyears, n_bags=1)
-        if lid in _FD_DIV and not _preds.empty:
+        if lid in _has_market and not _preds.empty:
             _preds = attach_market(_preds, lid, _pyears)
         _has_mkt = "mkt_home" in _preds.columns
         for _y in _pyears:

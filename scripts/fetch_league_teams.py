@@ -67,6 +67,17 @@ REGISTRY = [
     ("scottish-prem",       "Scottish Premiership",     "sco.1",            "UEFA", "live", "Other Europe"),
     ("belgian-pro",         "Belgian Pro League",       "bel.1",            "UEFA", "live", "Other Europe"),
     ("greek-super",         "Greek Super League",       "gre.1",            "UEFA", "live", "Other Europe"),
+    # UEFA — Nordics + Poland (Tier-1 expansion, 2026-07-10)
+    ("sweden-allsvenskan",  "Allsvenskan",               "swe.1",            "UEFA", "live", "Other Europe"),
+    ("norway-eliteserien",  "Eliteserien",               "nor.1",            "UEFA", "live", "Other Europe"),
+    ("denmark-superliga",   "Superliga",                 "den.1",            "UEFA", "live", "Other Europe"),
+    # No confirmed ESPN slug (results-only league — see football_data_intl.NO_ESPN_SCHEDULE)
+    ("poland-ekstraklasa",  "Ekstraklasa",               None,               "UEFA", "live", "Other Europe"),
+    # CONMEBOL — South America (Tier-1 expansion, 2026-07-10)
+    ("brazil-serie-a",      "Brasileirão Série A",       "bra.1",            "CONMEBOL", "live", "South America"),
+    ("argentina-primera",   "Liga Profesional Argentina", "arg.1",           "CONMEBOL", "live", "South America"),
+    # AFC — Asia (Tier-1 expansion, 2026-07-10)
+    ("japan-j1",            "J1 League",                 "jpn.1",            "AFC", "live", "Asia"),
     # UEFA — continental cups
     ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "live", "Cups"),
     ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "live", "Cups"),

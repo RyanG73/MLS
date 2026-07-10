@@ -2,8 +2,11 @@ from pathlib import Path
 
 from scripts.fetch_league_teams import REGISTRY
 
-_VALID_GROUPS = {"Americas", "England", "Spain", "Italy", "Germany", "France",
-                 "Other Europe", "Cups"}
+# Must track webapp/index.html's GROUP_ORDER exactly — a group here with no
+# sidebar entry there silently vanishes from the UI (found 2026-07-10 shipping
+# the Tier-1 South America/Asia leagues).
+_VALID_GROUPS = {"Americas", "South America", "Asia", "England", "Spain", "Italy",
+                 "Germany", "France", "Other Europe", "Cups"}
 
 
 def test_every_entry_has_a_valid_group():

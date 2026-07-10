@@ -51,11 +51,23 @@ SLUGS = {
     "segunda": "esp.2", "ligue-2": "fra.2",
     "eredivisie": "ned.1", "primeira": "por.1", "super-lig": "tur.1",
     "scottish-prem": "sco.1", "belgian-pro": "bel.1", "greek-super": "gre.1",
+    # Tier-1 expansion (2026-07-10, docs/league-expansion-report.md): football-
+    # data-intl leagues. poland-ekstraklasa has NO confirmed ESPN slug (probed
+    # every plausible guess live) — omitted, ships results-only.
+    "brazil-serie-a": "bra.1", "japan-j1": "jpn.1",
+    "sweden-allsvenskan": "swe.1", "norway-eliteserien": "nor.1",
+    "denmark-superliga": "den.1", "argentina-primera": "arg.1",
 }
 
 # Leagues whose season is a calendar year (dates window Jan–Dec of `season`)
-# rather than the European Jul–Jun straddle.
-CALENDAR_YEAR_LEAGUES = {"nwsl", "usl-championship"}
+# rather than the European Jul–Jun straddle. Verified live per league (window
+# probe against ESPN's scoreboard, 2026-07-10): Brazil/Japan/Sweden/Norway run
+# Jan-Dec; Argentina's Liga Profesional moved to a calendar-year single table
+# in recent seasons (matches its football-data "Season" column, which is also
+# plain-year for 2024+); Denmark keeps the Aug-May straddle like Europe.
+CALENDAR_YEAR_LEAGUES = {"nwsl", "usl-championship",
+                         "brazil-serie-a", "japan-j1", "sweden-allsvenskan",
+                         "norway-eliteserien", "argentina-primera"}
 
 # ESPN displayName → Understat team key, per league.
 # Only names that DIFFER between the two sources need an entry.
