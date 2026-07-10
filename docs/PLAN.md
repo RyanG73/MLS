@@ -1,5 +1,23 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-09/10 — UI feedback round 3 (17 of 19 items shipped; plan: superpowers/plans/2026-07-09-ui-feedback-round-3.md)**
+> Promotion playoffs actually simulated: `promoted` composite column per second tier
+> (bracket from the DC pairing matrix — 4-team England/Spain, 6-team Serie B w/ byes,
+> 3-team Ligue 2 ladder; cross-league barrages at 0.33 base rate), mirrored in the client
+> what-if sim, per-league `outlook.rules` line · relabels (Premier League, MLS) · light
+> brand lockup (matte --recolor) · MLS columns Cup→Shield→PO→Top4→Spoon + card hints
+> ("most points in conference") · squad value in € by position · multi-source news
+> (8 curated feeds baked per league + ESPN live, anti-gossip filter) + club-news card on
+> team pages · kickoff/venue/weather (open-meteo) on match cards · run-in difficulty panel
+> fills the desktop whitespace · Model Health overhaul: input definitions, live phase Brier
+> vs market/naive (all leagues, client-side), per-club Brier on team pages, decile bars ·
+> UEFA Spots tab (coefficients explainer, UEFA leagues only) · cross-tier ELO history stitch
+> (Hull City line continuous 2014–2026) · `top15_value_eur` (1GK/5DEF/5MID/4ATT) emitted for
+> the R1 A/B · reports: docs/league-expansion-report.md (Tier 1 = BRA/JPN/SWE/NOR/DEN/POL/ARG
+> via football-data "new leagues" w/ Pinnacle closings; big-4 third tiers infeasible),
+> docs/projection-drift-tracking.md (archiver now captures promoted+all outcome keys).
+> Remaining: R1 harness A/B (top-15 value), R2 unified two-tier ELO replay — next campaign.
+
 > **2026-07-09 — UI feedback round 2 COMPLETE (7/7): live News tab, logo pipeline fixed at the source**
 > Moose icon replaces the green hollow-square header fallback · logo coverage completed AND
 > the regression class fixed: `fetch_foreign_logos.py` now harvests modeled domestic leagues

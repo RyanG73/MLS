@@ -152,7 +152,19 @@ compare half-form values directly with research Brier.
 | European / table leagues | `scripts/build_league_data.py` | `webapp/data/{epl,la-liga,…}.js` | `models/research_model` |
 | Continental knockouts | `scripts/build_continental_data.py` | `webapp/data/{ucl,europa,…}.js` | bracket simulator |
 | "Coming soon" stubs + registry | `scripts/fetch_league_teams.py` | placeholders + `webapp/leagues.js` | — |
+| Curated news feeds | `scripts/build_news.py` | `webapp/data/news/<lid>.js` | — (8 RSS sources + routing) |
+| UEFA-coefficients page | `scripts/build_coefficients_page.py` | `webapp/data/coefficients.js` | — |
 | Contract validation | `scripts/validate_payloads.py` | (checks all `webapp/data/*.js`) | — |
+
+Round-3 payload-contract additions (2026-07-09): second-tier `outlook.columns`
+include a composite `promoted` bucket (`promo_top` + `playoff_band` +
+optional `barrage_win_rate` — the sim plays the promotion playoff, mirrored in
+the client `runSimTable`); every league emits `outlook.rules` (plain-language
+competition rules); upcoming game cards carry nullable `ko` (ISO kickoff),
+`venue`, and `wx` `{temp_c, precip_pct}` (open-meteo, ≤7 days out);
+`elo_history` stitches a club's seasons in neighboring divisions via the
+fitted tier offsets. `coefficients.js` and `news/*.js` are cross-league data
+files excluded from the league-payload contract.
 
 The single active path is database-free: the Mac runs the build scripts to render
 per-league payloads under `webapp/data/*.js`, and `webapp/index.html` is served statically. The

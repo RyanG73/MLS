@@ -17,8 +17,10 @@ def test_registry_matches_live_payloads_on_disk():
     payloads and webapp/leagues.js still carried them, so regenerating the
     registry silently dropped two live leagues from the sidebar)."""
     data_dir = Path(__file__).parent.parent / "webapp" / "data"
+    # excluded stems = cross-league data files, not league payloads
     on_disk = {p.stem for p in data_dir.glob("*.js")
-               if p.stem not in ("logos", "ledger", "edge-board", "power", "movers")}
+               if p.stem not in ("logos", "ledger", "edge-board", "power", "movers",
+                                 "coefficients")}
     registered = {lid for lid, *_ in REGISTRY}
     missing = on_disk - registered
     assert not missing, f"payloads on disk with no REGISTRY entry: {sorted(missing)}"

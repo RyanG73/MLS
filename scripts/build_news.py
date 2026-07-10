@@ -177,9 +177,19 @@ def _iso(published: str) -> str:
         return ""
 
 
+def _registry_ids() -> set[str]:
+    """All league ids in webapp/leagues.js — every one gets a news file (an
+    empty one beats a 404 in the console for 'soon' leagues)."""
+    try:
+        txt = Path("webapp/leagues.js").read_text()
+        return {l["id"] for l in json.loads(txt[txt.index("=") + 1:].rstrip().rstrip(";"))}
+    except Exception:
+        return set()
+
+
 def main() -> int:
     keywords = _league_keywords()
-    per_league: dict[str, list[dict]] = {lid: [] for lid in keywords}
+    per_league: dict[str, list[dict]] = {lid: [] for lid in set(keywords) | _registry_ids()}
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     for feed in FEEDS:
