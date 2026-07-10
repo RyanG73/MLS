@@ -150,6 +150,7 @@ compare half-form values directly with research Brier.
 |------|------|------|-------|
 | MLS dashboard | `scripts/build_dashboard_data.py` | `webapp/data/mls.js` | `models/research_model` |
 | European / table leagues | `scripts/build_league_data.py` | `webapp/data/{epl,la-liga,…}.js` | `models/research_model` |
+| League expansion (Tier-1 + Eng. tier 5) | `scripts/build_league_data.py` (same entrypoint, `--league brazil-serie-a` etc.) | `webapp/data/{brazil-serie-a,japan-j1,sweden-allsvenskan,norway-eliteserien,denmark-superliga,poland-ekstraklasa,argentina-primera,national-league}.js` | `models/research_model` |
 | Continental knockouts | `scripts/build_continental_data.py` | `webapp/data/{ucl,europa,…}.js` | bracket simulator |
 | "Coming soon" stubs + registry | `scripts/fetch_league_teams.py` | placeholders + `webapp/leagues.js` | — |
 | Curated news feeds | `scripts/build_news.py` | `webapp/data/news/<lid>.js` | — (8 RSS sources + routing) |
@@ -163,6 +164,25 @@ compare half-form values directly with research Brier.
 trio (they read the just-written league payloads) — `daily_build.sh` (MLS +
 news only) does not. See `docs/drift-playbook.md` for how to read the drift
 report; `docs/projection-drift-tracking.md` for the design.
+
+League expansion (2026-07-10, `docs/league-expansion-report.md`): Brazil/
+Japan/Sweden/Norway/Denmark/Poland/Argentina source from
+`data_pipeline/football_data_intl.py` (`source: "footballdata_intl"` in
+`OUTLOOK`) — a DIFFERENT football-data.co.uk file format (one CSV per
+country, all seasons) from the existing `data_pipeline/football_data.py`
+per-season-file adapter that England's tiers 1-5 (including the new
+`national-league`) use. Both adapters are results-only; ESPN
+(`data_pipeline/espn_fixtures.py`) supplies every upcoming schedule.
+`build_league_data.py` backfills already-played ESPN matches onto the frame
+whenever a football-data-intl source has fallen behind the live season
+(found shipping Japan — see the PLAN.md entry) — this is now a standing
+behavior for every `footballdata_intl` league, not a one-off fix. `NO_ESPN_SCHEDULE`
+in `football_data_intl.py` flags leagues with no confirmed ESPN slug (only
+`poland-ekstraklasa` today) — they build from results alone and never show
+an in-season projection. `_CONTINENTAL()` is the non-UEFA bucket shape
+(Champion / one lumped continental-qualification zone / Relegation) used
+for Brazil/Japan/Argentina, since `_TOP()`'s UCL/Europa/Conference labels
+are UEFA-specific.
 
 Round-3 payload-contract additions (2026-07-09): second-tier `outlook.columns`
 include a composite `promoted` bucket (`promo_top` + `playoff_band` +

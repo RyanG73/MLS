@@ -1,5 +1,22 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-10 — League expansion: all 7 Tier-1 leagues + England National League live**
+> `data_pipeline/football_data_intl.py`: new adapter for football-data.co.uk's single-file
+> "new leagues" format (Brazil/Japan/Nordics/Poland/Argentina — different schema from the
+> existing per-season-file adapter). Live-verified against all 7: ~100% Pinnacle-closing
+> coverage since 2012, results-only (ESPN supplies schedules). Brazil, Sweden, Norway,
+> Argentina live on first build; Japan exposed a real bug — football-data's per-country
+> refresh cadence varies, and Japan's file lagged a full season boundary, silently dropping
+> 200 already-played 2026 matches. Fixed with an ESPN-backfill step (merges already-played
+> ESPN matches onto the frame when the source CSV has fallen behind) that generalizes to any
+> future lagging-source league. Poland ships results-only (no ESPN schedule slug found after
+> exhausting every plausible guess). England National League completes the pyramid 1→5 via
+> the EXISTING football_data.py adapter + a `_TIER2_FOR` chain extension + the round-3
+> `_PROMO(1,[2,7],4)` promotion-playoff bracket (real format: champ auto + 2nd-7th playoff —
+> no new sim code needed). Also fixed: `leagues.js` had no cache-busting (new leagues
+> invisible to any cached browser — the same bug class round 2 fixed for logos.js). 759
+> tests / 38 browser-smoke passing. See docs/league-expansion-report.md for the ranking.
+
 > **2026-07-10 — Drift-tracking pipeline live: archival wired into build_all.sh, Model Health gains "Projection stability"**
 > `scripts/archive_odds_snapshot.py` + `scripts/build_movers.py` were NEVER wired into a scheduled
 > build (real gap — odds_history.parquet had only accrued on manual runs since B10); now run in

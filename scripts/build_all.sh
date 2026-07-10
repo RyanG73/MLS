@@ -58,6 +58,15 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league liga-mx \
   && echo "  [OK] liga-mx" \
   || echo "  [WARN] liga-mx build failed (non-fatal)"
 
+# ── 4b. League expansion, 2026-07-10 (Tier-1 + England tier 5) ───────────────
+for L in brazil-serie-a japan-j1 sweden-allsvenskan norway-eliteserien \
+        denmark-superliga poland-ekstraklasa argentina-primera national-league; do
+  echo "--- $L ---"
+  PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league "$L" \
+    && echo "  [OK] $L" \
+    || echo "  [WARN] $L build failed (non-fatal)"
+done
+
 # ── 5. Continental competitions ───────────────────────────────────────────────
 # For each comp: (a) merge-refresh the current season's ESPN cache,
 #               (b) rebuild the .js (auto-detects concluded vs. in-progress).

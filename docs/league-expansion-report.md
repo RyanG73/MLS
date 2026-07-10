@@ -2,6 +2,27 @@
 
 *2026-07-09 · prepared for UI feedback round 3 ("write a report of all leagues around the world we should consider expanding to — rank by feasibility")*
 
+> **2026-07-10 update — all 7 Tier-1 leagues + the England National League item now LIVE**,
+> built and shipped in this report's ranked order (Brazil → Japan → Sweden → Norway → Denmark
+> → Poland → Argentina), England National League last, per an explicit user decision. Two
+> corrections to this report surfaced during the build:
+> - **Poland's ESPN gap is real, not a maybe.** Every plausible ESPN slug was tried live
+>   (`pol.1`, `pl.1`, `pol.e`, `pol.ekstraklasa`, …) — none resolve. Poland ships **results-only**
+>   (no in-season projection, no upcoming-fixture schedule) until an alternative fixture source
+>   is found. This was a gap in the original write-up below, which only checked football-data's
+>   odds coverage for Poland, not ESPN's schedule coverage.
+> - **football-data.co.uk's per-country refresh cadence is uneven**, not uniformly "live" as
+>   implied below. Brazil's file tracked the current season in real time; Japan's file lagged a
+>   full season boundary (last row was the *prior* season's finale). The build now backfills
+>   already-played ESPN matches onto the frame whenever this happens — see
+>   `docs/PLAN.md`'s 2026-07-10 entry and `scripts/build_league_data.py` for the fix. Any future
+>   Tier-1-style addition should verify this per country before assuming the CSV is current.
+>
+> Implementation detail: Brazil/Japan/Sweden/Norway/Denmark/Argentina use a new adapter,
+> `data_pipeline/football_data_intl.py` (the "new leagues" single-file format is NOT the same
+> schema as the existing per-season `football_data.py` adapter). England National League reused
+> the existing adapter directly (same old-format scheme England 1-4 already use).
+
 ## How feasibility was scored
 
 Every candidate was checked against the five things a league needs to go live on this platform, in order of how hard they are to substitute:
