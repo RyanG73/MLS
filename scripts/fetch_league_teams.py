@@ -48,6 +48,7 @@ REGISTRY = [
     ("championship",        "EFL Championship",         "eng.2",            "UEFA", "live", "England"),
     ("league-one",          "EFL League One",           "eng.3",            "UEFA", "live", "England"),
     ("league-two",          "EFL League Two",           "eng.4",            "UEFA", "live", "England"),
+    ("national-league",     "National League",          "eng.5",            "UEFA", "live", "England"),
     # UEFA — Germany
     ("bundesliga",          "Bundesliga",               "ger.1",            "UEFA", "live", "Germany"),
     ("bundesliga-2",        "2. Bundesliga",            "ger.2",            "UEFA", "live", "Germany"),

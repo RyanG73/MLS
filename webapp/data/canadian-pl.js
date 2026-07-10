@@ -1,1 +1,1 @@
-window.LEAGUE_DATA = {"status":"placeholder","reason":"Projection model and fixture source not yet wired for this league.","generated":"2026-07-10 18:57 UTC","league":{"id":"canadian-pl","name":"Canadian Premier League","logo":null,"confederation":"Concacaf","status":"soon"},"teams":[]};
+window.LEAGUE_DATA = {"status":"placeholder","reason":"Projection model and fixture source not yet wired for this league.","generated":"2026-07-10 19:26 UTC","league":{"id":"canadian-pl","name":"Canadian Premier League","logo":null,"confederation":"Concacaf","status":"soon"},"teams":[]};

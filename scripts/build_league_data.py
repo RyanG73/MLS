@@ -183,6 +183,12 @@ _TIER2_FOR: dict[str, str] = {
     # direction for free (league-two ← league-one ← championship).
     "championship": "league-one",
     "league-one":   "league-two",
+    # Tier-1 expansion (2026-07-10): completes the English pyramid 1→5.
+    # No fitted offset exists yet for this pair — coefficients.tier2_offset/
+    # tier1_offset fall back to their 0.0 "unknown pair" default (a safe,
+    # functioning default; precision improves once enough movers accrue to
+    # fit experiments/tier2_offsets.json).
+    "league-two":   "national-league",
 }
 # Inverse: tier-2 league ID → its top-flight. Used to seed RELEGATED teams when building a
 # second-tier league. Named distinctly from coefficients._TIER1_FOR to avoid confusion.
@@ -437,6 +443,15 @@ OUTLOOK = {
     "ligue-2":      {"name": "Ligue 2", "source": "footballdata", "n": 18,
                      "buckets": _PROMO(2, [3, 5], 4, barrage=0.33), "green_line": 5, "red_line": 4,
                      "rules": "Top 2 promoted automatically · 3–5 playoff, winner faces the Ligue 1 barrage (modeled at 33%) · bottom 4 relegated"},
+    # Tier-1 expansion (2026-07-10, run last per this session's ordering):
+    # England tier 5, completes the pyramid 1→5. Real format: champion
+    # promoted automatically, 2nd-7th playoff for one more promotion spot —
+    # the exact _PROMO(1, [2,7], rel) shape the round-3 promotion-playoff
+    # bracket sim was built for. Bottom 4 drop to National League North/South
+    # (not modeled — outside our source coverage).
+    "national-league": {"name": "National League", "source": "footballdata", "n": 24,
+                        "buckets": _PROMO(1, [2, 7], 4), "green_line": 7, "red_line": 4,
+                        "rules": "Champion promoted automatically · 2nd–7th promotion playoff, winner also promoted · bottom 4 relegated to National League North/South (not modeled)"},
     # C1: non-big-5 top flights (football-data goals-only + market odds).
     # UCL/Europa/Conference spots are the coefficient-based approximations the
     # _TOP docstring already caveats; relegation counts include playoff spots
@@ -536,6 +551,14 @@ OUTLOOK = {
 # leagues; football-data uses abbreviated names). Only entries that differ from
 # the ESPN displayName; teams with exact-matching names need no entry.
 FD_ESPN: dict[str, dict[str, str]] = {
+    "national-league": {
+        "Aldershot": "Aldershot Town", "Boston Utd": "Boston United",
+        "Carlisle": "Carlisle United", "Forest Green": "Forest Green Rovers",
+        "Halifax": "FC Halifax Town", "Hartlepool": "Hartlepool United",
+        "Scunthorpe": "Scunthorpe United", "Solihull": "Solihull Moors",
+        "Southend": "Southend United", "Sutton": "Sutton United",
+        "Yeovil": "Yeovil Town",
+    },
     "championship": {
         "Birmingham": "Birmingham City", "Blackburn": "Blackburn Rovers",
         "Charlton": "Charlton Athletic", "Coventry": "Coventry City",

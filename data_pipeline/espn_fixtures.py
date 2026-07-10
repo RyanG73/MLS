@@ -51,6 +51,7 @@ SLUGS = {
     "segunda": "esp.2", "ligue-2": "fra.2",
     "eredivisie": "ned.1", "primeira": "por.1", "super-lig": "tur.1",
     "scottish-prem": "sco.1", "belgian-pro": "bel.1", "greek-super": "gre.1",
+    "national-league": "eng.5",
     # Tier-1 expansion (2026-07-10, docs/league-expansion-report.md): football-
     # data-intl leagues. poland-ekstraklasa has NO confirmed ESPN slug (probed
     # every plausible guess live) — omitted, ships results-only.
