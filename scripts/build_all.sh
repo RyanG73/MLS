@@ -1,6 +1,9 @@
 #!/bin/bash
-# Rebuild ALL live surfaces — MLS, big-5, 5 second-tier European leagues,
-# Liga MX, and all 5 continental competitions.
+# Rebuild ALL live surfaces — MLS, big-5, 5 original second-tier European
+# leagues, Liga MX, the Tier-1 expansion batch (Brazil/Japan/Sweden/Norway/
+# Denmark/Poland/Argentina/England National League), the C1 batch (LaLiga2,
+# Ligue 2, Eredivisie, Primeira, Süper Lig, Scottish Prem, Belgian Pro, Greek
+# Super League, NWSL, USL Championship), and all 5 continental competitions.
 #
 # European league builds auto-detect the latest *started* season via
 # data_pipeline.understat (_default_seasons), so this picks up 2026-27
@@ -61,6 +64,18 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league liga-mx \
 # ── 4b. League expansion, 2026-07-10 (Tier-1 + England tier 5) ───────────────
 for L in brazil-serie-a japan-j1 sweden-allsvenskan norway-eliteserien \
         denmark-superliga poland-ekstraklasa argentina-primera national-league; do
+  echo "--- $L ---"
+  PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league "$L" \
+    && echo "  [OK] $L" \
+    || echo "  [WARN] $L build failed (non-fatal)"
+done
+
+# ── 4c. C1 batch, 2026-07-10: non-big-5 top flights + missing 2nd tiers ──────
+# Audit found these live leagues had payloads only updated by manual runs —
+# never wired into the scheduled nightly build. nwsl/usl-championship share
+# the same --league entrypoint (source="asa" internally, see build_league_data.py).
+for L in segunda ligue-2 eredivisie primeira super-lig scottish-prem \
+        belgian-pro greek-super nwsl usl-championship; do
   echo "--- $L ---"
   PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league "$L" \
     && echo "  [OK] $L" \

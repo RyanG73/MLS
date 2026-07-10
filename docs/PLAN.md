@@ -1,5 +1,24 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-10 — 10 live leagues missing from build_all.sh's loops (never rebuilt on schedule)**
+> Audit while wiring in the league-expansion batch found `segunda`, `ligue-2`, `eredivisie`,
+> `primeira`, `super-lig`, `scottish-prem`, `belgian-pro`, `greek-super`, `nwsl`, and
+> `usl-championship` were live in the webapp but absent from every loop in `build_all.sh` —
+> same bug class as the `archive_odds_snapshot.py`/`build_movers.py` gap below (infra quietly
+> not running on schedule; payloads only updated on manual `--league` runs). Added a new "C1
+> batch" loop after the Tier-1 expansion batch. Verified: all 10 rebuilt cleanly (`nwsl`/
+> `usl-championship` via the ASA source path, the rest via footballdata — 6 of the 10 landed in
+> pre-season mode since the 2026-27 football-data.co.uk CSVs aren't published yet, which is
+> existing expected fallback behavior, not a regression); `validate_payloads.py` passes all 37
+> payloads. **Bigger finding while checking timestamps**: `com.mls.buildall.plist`
+> (the documented 6am nightly job) is not actually installed anywhere on this machine — absent
+> from `~/Library/LaunchAgents/`, absent from `launchctl list`, no crontab, and
+> `logs/build_all.{out,err}.log` (the paths it would log to) don't exist. The "nightly rebuild"
+> this fix and the drift-tracking entry below both assume exists is not running at all; every
+> fresh timestamp seen has come from a manual invocation. Continental comps are stale since
+> Jul 3, big-5 (non-EPL) since Jul 9 14:13. Flagged to user; not installed without explicit
+> go-ahead since it's a standing/persistent scheduling change.
+
 > **2026-07-10 — League expansion: all 7 Tier-1 leagues + England National League live**
 > `data_pipeline/football_data_intl.py`: new adapter for football-data.co.uk's single-file
 > "new leagues" format (Brazil/Japan/Nordics/Poland/Argentina — different schema from the
