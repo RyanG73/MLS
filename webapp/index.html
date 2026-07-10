@@ -686,6 +686,10 @@ const LID=_rawLeague||'mls';
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
 document.write('<scr'+'ipt src="data/'+(_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
+// Baked multi-source news (scripts/build_news.py). Missing file (new league,
+// build not yet run) 404s harmlessly — window.NEWS_DATA just stays undefined.
+if(!_isEdgeBoard&&_rawLeague!=='power')
+  document.write('<scr'+'ipt src="data/news/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
 const _isPower = new URLSearchParams(location.search).get('league')==='power';
@@ -1863,38 +1867,62 @@ function renderGames(){
     }});
   if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';
 }
-/* ── News tab: live per-league feed from ESPN's CORS-open news API (2026-07-09).
-   Fetched client-side on first tab open — always fresh, no build-pipeline step.
-   Leagues without an espn_code (status:soon etc.) get an explicit empty state. ── */
+/* ── News: ESPN's CORS-open API fetched live + the baked multi-source feed
+   (window.NEWS_DATA from scripts/build_news.py — Athletic/Guardian/BBC/Sky +
+   one English-language outlet per big European country), merged and deduped
+   by normalized headline. leagueNews() is shared with the club-news card on
+   team profiles (E2). ── */
+let _newsMerged=null;
+async function leagueNews(){
+  if(_newsMerged)return _newsMerged;
+  const baked=((window.NEWS_DATA||{}).items||[]).map(i=>({headline:i.title,description:i.desc,
+    published:i.published,link:i.link,source:i.source,img:'',type:'Story'}));
+  let espn=[];
+  const lg=(window.LEAGUES||[]).find(l=>l.id===LID);
+  if(lg&&lg.espn_code){
+    try{
+      const r=await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn_code}/news?limit=24`);
+      // same anti-gossip filter as scripts/build_news.py GOSSIP — the goal is
+      // news / tactics / analytics, not transfer-rumour churn
+      const GOSSIP=/rumou?rs?|gossip|linked with|transfer news live|transfer talk|paper talk|reportedly (?:eyeing|keen|interested|targeting)|here we go|done deal/i;
+      if(r.ok)espn=(((await r.json()).articles)||[]).filter(a=>a.headline&&!GOSSIP.test(a.headline+' '+(a.description||''))).map(a=>({
+        headline:a.headline,description:a.description||'',published:a.published,
+        link:(a.links&&a.links.web&&a.links.web.href)||'',source:'ESPN',
+        img:(a.images&&a.images[0]&&a.images[0].url)||'',type:a.type||'Story'}));
+    }catch(e){/* live fetch is best-effort; baked feed still renders */}
+  }
+  const seen=new Set(),out=[];
+  [...espn,...baked].sort((a,b)=>new Date(b.published||0)-new Date(a.published||0)).forEach(a=>{
+    const k=(a.headline||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().slice(0,80);
+    if(k&&!seen.has(k)){seen.add(k);out.push(a);}
+  });
+  _newsMerged=out;
+  return out;
+}
 async function renderNews(){
   const list=$('#newsList'); if(!list||list.dataset.done)return; list.dataset.done=1;
   const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const lg=(window.LEAGUES||[]).find(l=>l.id===LID);
-  $('#newsNote').textContent=lg?`${lg.name} · via ESPN`:'';
-  if(_isEdgeBoard||_isPower||!lg||!lg.espn_code){
+  if(_isEdgeBoard||_isPower||!lg){
     list.innerHTML='<div class="news-empty">No news feed available for this view yet.</div>';return;}
   list.innerHTML='<div class="news-empty">Loading headlines…</div>';
-  try{
-    const r=await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn_code}/news?limit=24`);
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const arts=((await r.json()).articles||[]).filter(a=>a.headline)
-      .sort((x,y)=>new Date(y.published)-new Date(x.published));
-    if(!arts.length){list.innerHTML='<div class="news-empty">No recent articles for this league.</div>';return;}
-    const ago=d=>{const m=(Date.now()-new Date(d))/6e4;
-      return m<60?Math.max(1,Math.round(m))+'m ago':m<1440?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago';};
-    const INJ=/injur|hamstring|\bacl\b|knee|ankle|surgery|sidelined|ruled out|out for|fitness doubt/i;
-    list.innerHTML=arts.map(a=>{
-      const link=a.links&&a.links.web&&a.links.web.href, img=(a.images&&a.images[0]&&a.images[0].url)||'';
-      const inj=INJ.test((a.headline||'')+' '+(a.description||''));
-      return `<a class="news-card" href="${esc(link||'#')}" target="_blank" rel="noopener">`+
-        (img?`<span class="news-img"><img src="${esc(img)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>`:'')+
-        `<span class="news-txt"><span class="news-meta">`+
-          (inj?'<i class="news-tag inj">Injury</i>':'')+
-          `<i class="news-tag">${esc(a.type||'Story')}</i><span>${ago(a.published)} · ESPN</span></span>`+
-        `<b class="news-hl">${esc(a.headline)}</b>`+
-        (a.description?`<span class="news-desc">${esc(a.description)}</span>`:'')+
-      `</span></a>`;}).join('');
-  }catch(e){list.innerHTML='<div class="news-empty">Could not load news right now — try again later.</div>';}
+  const arts=await leagueNews();
+  const nSrc=new Set(arts.map(a=>a.source)).size;
+  $('#newsNote').textContent=`${lg.name} · ${nSrc>1?nSrc+' sources · news & analysis, not gossip':'via ESPN'}`;
+  if(!arts.length){list.innerHTML='<div class="news-empty">No recent articles for this league.</div>';return;}
+  const ago=d=>{if(!d)return'';const m=(Date.now()-new Date(d))/6e4;
+    return m<60?Math.max(1,Math.round(m))+'m ago':m<1440?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago';};
+  const INJ=/injur|hamstring|\bacl\b|knee|ankle|surgery|sidelined|ruled out|out for|fitness doubt/i;
+  list.innerHTML=arts.map(a=>{
+    const inj=INJ.test((a.headline||'')+' '+(a.description||''));
+    return `<a class="news-card" href="${esc(a.link||'#')}" target="_blank" rel="noopener">`+
+      (a.img?`<span class="news-img"><img src="${esc(a.img)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>`:'')+
+      `<span class="news-txt"><span class="news-meta">`+
+        (inj?'<i class="news-tag inj">Injury</i>':'')+
+        `<i class="news-tag">${esc(a.type)}</i><span>${ago(a.published)}${a.published?' · ':''}${esc(a.source)}</span></span>`+
+      `<b class="news-hl">${esc(a.headline)}</b>`+
+      (a.description?`<span class="news-desc">${esc(a.description)}</span>`:'')+
+    `</span></a>`;}).join('');
 }
 /* ── Team selector dropdowns (profile + history) ── */
 /* ═══════════════ TEAMS (ELO grid + trophies + profile) ═══════════════ */
@@ -2116,8 +2144,25 @@ function renderProfile(team,scroll){
   $('#teamProfile').innerHTML=
     `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div></div>
      <div class="chart-wrap big">${chart}${trophLegend}<div class="troph-list">${chips}</div></div>
-     <div class="prof-grid">${inputsCard}${seasonCard}${forRealCard}${accCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}</div>`;
+     <div class="prof-grid">${inputsCard}${seasonCard}${forRealCard}${accCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}<div class="pcard" style="grid-column:1/-1"><h3>Club news</h3><div id="clubNews" class="hnote">Loading…</div></div></div>`;
+  fillClubNews(team);
   if(scroll)$('#teamProfile').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+/* E2 (2026-07-09): club-scoped stories filtered from the merged league feed —
+   full club-name substring match with the FC/AFC/CF/SC suffix stripped. */
+async function fillClubNews(team){
+  const arts=await leagueNews();
+  const box=document.getElementById('clubNews'); if(!box)return;
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const needle=team.toLowerCase().replace(/\b(fc|afc|cf|sc|cd|ss|ac)\b/g,' ').replace(/\s+/g,' ').trim();
+  const hits=arts.filter(a=>(a.headline+' '+(a.description||'')).toLowerCase().includes(needle)).slice(0,6);
+  if(!hits.length){box.textContent='No recent club-specific stories — see the News tab for league coverage.';return;}
+  const ago=d=>{if(!d)return'';const m=(Date.now()-new Date(d))/6e4;
+    return m<60?Math.max(1,Math.round(m))+'m':m<1440?Math.round(m/60)+'h':Math.round(m/1440)+'d';};
+  box.className='';
+  box.innerHTML=hits.map(a=>`<a class="pmini" style="text-decoration:none;color:inherit" href="${esc(a.link||'#')}" target="_blank" rel="noopener">
+    <span class="d">${ago(a.published)}</span><span class="opp">${esc(a.headline)}</span>
+    <span class="pr" style="color:var(--txt-3);font-weight:500">${esc(a.source)}</span></a>`).join('');
 }
 
 function renderTeams(){

@@ -19,4 +19,7 @@ echo "=== $(date '+%Y-%m-%d %H:%M:%S') daily_build start ==="
 # 2. Rebuild the dashboard data file (the production artifact)
 "$PY" scripts/build_dashboard_data.py
 
+# 3. Curated multi-source news feeds (per-feed failures are non-fatal inside)
+"$PY" scripts/build_news.py || echo "build_news step failed (non-fatal)"
+
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') daily_build done ==="
