@@ -154,7 +154,15 @@ compare half-form values directly with research Brier.
 | "Coming soon" stubs + registry | `scripts/fetch_league_teams.py` | placeholders + `webapp/leagues.js` | — |
 | Curated news feeds | `scripts/build_news.py` | `webapp/data/news/<lid>.js` | — (8 RSS sources + routing) |
 | UEFA-coefficients page | `scripts/build_coefficients_page.py` | `webapp/data/coefficients.js` | — |
+| Odds/projection archival | `scripts/archive_odds_snapshot.py` | `data/odds_history.parquet`, `data/match_prob_history.parquet` | — |
+| Model-odds movers | `scripts/build_movers.py` | `webapp/data/movers.js` | — |
+| Drift report | `scripts/build_drift_report.py` | `webapp/data/drift.js`, `webapp/data/drift-traj/<lid>.js` | — |
 | Contract validation | `scripts/validate_payloads.py` | (checks all `webapp/data/*.js`) | — |
+
+`scripts/build_all.sh` is the only path that runs the archival/movers/drift
+trio (they read the just-written league payloads) — `daily_build.sh` (MLS +
+news only) does not. See `docs/drift-playbook.md` for how to read the drift
+report; `docs/projection-drift-tracking.md` for the design.
 
 Round-3 payload-contract additions (2026-07-09): second-tier `outlook.columns`
 include a composite `promoted` bucket (`promo_top` + `playoff_band` +
@@ -163,8 +171,9 @@ the client `runSimTable`); every league emits `outlook.rules` (plain-language
 competition rules); upcoming game cards carry nullable `ko` (ISO kickoff),
 `venue`, and `wx` `{temp_c, precip_pct}` (open-meteo, ≤7 days out);
 `elo_history` stitches a club's seasons in neighboring divisions via the
-fitted tier offsets. `coefficients.js` and `news/*.js` are cross-league data
-files excluded from the league-payload contract.
+fitted tier offsets. `coefficients.js`, `drift.js`, and `news/*.js` /
+`drift-traj/*.js` are cross-league/lazy data files excluded from the
+league-payload contract.
 
 The single active path is database-free: the Mac runs the build scripts to render
 per-league payloads under `webapp/data/*.js`, and `webapp/index.html` is served statically. The

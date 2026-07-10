@@ -1,5 +1,21 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-10 — Drift-tracking pipeline live: archival wired into build_all.sh, Model Health gains "Projection stability"**
+> `scripts/archive_odds_snapshot.py` + `scripts/build_movers.py` were NEVER wired into a scheduled
+> build (real gap — odds_history.parquet had only accrued on manual runs since B10); now run in
+> `build_all.sh` after every league rebuild, plus the new `scripts/build_drift_report.py`. Archiver
+> gains `data/match_prob_history.parquet` (full per-match pre-kickoff quote log, dedup key =
+> fixture identity, never the ephemeral game-card `id`) and per-row provenance (`n_played`,
+> `config_id` = champion run_id, `code_rev`). Bugfix found archiving live payloads: `conf` collides
+> across shapes (MLS conference name string vs UEFA Conference-League odds float) — non-numeric
+> values dropped, regression-tested. Drift report computes churn (alert >1.5pp, gated on matching
+> `n_played` so real results never read as churn), config-change markers, kickoff funnel; per-league
+> trajectories split into lazy `webapp/data/drift-traj/<lid>.js` files (kept the always-loaded
+> `drift.js` at 4KB instead of 250KB+). Playbook: `docs/drift-playbook.md`. 660 tests / 38 browser
+> smoke passing. Recovery note: an in-session `rm` of the tracked `odds_history.parquet` before
+> rerunning the archiver briefly wiped 06-28/06-29 history — restored from git HEAD; the archiver's
+> own append+dedup logic was never the problem, don't bypass it with a manual delete.
+
 > **2026-07-10 — R1 top-15 fieldable-squad value: DROP (harness A/B, bag5 seed42)**
 > Base 0.6342 · +TM_Top15 0.6369 (Δ=−0.0028) · +TM_SquadValue 0.6372 (Δ=−0.0031) in one
 > internally-controlled run. Dilution hypothesis directionally right (top15 > total by
