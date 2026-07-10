@@ -335,6 +335,29 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .hrow2:last-child{border-bottom:none}
 .hrow2 .fam{font-weight:600;font-size:12.5px} .hrow2 .nc{font-size:11px;color:var(--txt-3);text-align:center}
 .hnote{font-size:11px;color:var(--txt-3);padding-top:10px}
+/* H1: input-family rows — name + definition | complete bar | % | active note */
+.hrow3{display:grid;grid-template-columns:minmax(170px,1.3fr) 1fr 50px 90px;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.hrow3:last-child{border-bottom:none}
+.hrow3 .fam{font-weight:600;font-size:12.5px;min-width:0}
+.hrow3 .fam-def{display:block;font-size:10.5px;color:var(--txt-3);font-weight:400;margin-top:2px;line-height:1.35}
+.hrow3 .act{font-size:11px;color:var(--txt-3);text-align:right;white-space:nowrap}
+/* H2: phase Brier grouped bars */
+.pb-grp{padding:7px 0;border-bottom:1px solid var(--line)} .pb-grp:last-of-type{border-bottom:none}
+.pb-hd{font-size:11.5px;font-weight:700;color:var(--txt-2);margin-bottom:5px}
+.pb-row{display:grid;grid-template-columns:52px 1fr 46px 44px;gap:8px;align-items:center;padding:2px 0}
+.pb-l{font-size:10.5px;color:var(--txt-3);font-weight:600}
+.pb-track{height:7px;border-radius:4px;background:rgba(150,180,220,.08);overflow:hidden}
+.pb-track>span{display:block;height:100%;border-radius:4px}
+.pb-v{font-family:var(--mono);font-size:11px;font-weight:700;text-align:right}
+/* H4: decile paired bars — predicted (gray) over observed (green) */
+.dec-row{display:grid;grid-template-columns:66px 1fr 56px 52px;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.dec-row:last-child{border-bottom:none}
+.dec-bin{font-family:var(--mono);font-size:10.5px;color:var(--txt-3)}
+.dec-track{position:relative;height:15px;background:rgba(150,180,220,.05);border-radius:3px}
+.dec-track i{position:absolute;left:0;height:5px;border-radius:3px}
+.dec-track i.p{top:2px;background:var(--txt-3);opacity:.6}
+.dec-track i.o{top:8px;background:var(--qualify)}
+.dec-delta{font-family:var(--mono);font-size:11px;font-weight:700;text-align:right}
 .h-fresh{display:flex;flex-wrap:wrap;gap:var(--s4);font-size:11px;color:var(--txt-3);margin-top:var(--s3);padding:var(--s3) var(--s4);
   background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md)}
 .h-fresh b{font-family:"Archivo";color:var(--txt-2)}
@@ -1440,6 +1463,19 @@ function renderKnockout(){
 }
 (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();
 const _PHASE_LABEL={first_60d:'First 60 days',mid:'Mid-season',late:'Late season'};
+/* Plain-English definitions for the input families (H1, 2026-07-09 feedback:
+   "model features should have a definition next to it or on hover").
+   NOTE: must be declared BEFORE the eager renderHealth() call below — a later
+   const is still in its temporal dead zone when the call runs. */
+const FEATURE_DEFS={
+  'ELO':'Team strength rating, updated after every match result (K=25, home advantage +80)',
+  'xG rolling':'Expected goals for/against — shot-quality rolling averages over the last 3/5/10/15 matches',
+  'Form':'Points per game over recent matches',
+  'GK z-score':'Goalkeeper quality — saves above expected, standardized across the league',
+  'Availability':'Share of the roster healthy and available for selection',
+  'is_playoff':'Playoff-match flag — 0 for every regular-season match by design',
+  'Schedule':'Rest days and fixture congestion going into each match',
+  'Market':'De-vigged betting-market probabilities where a line exists'};
 renderHealth();   // eager: pre-render so NaN/undefined issues surface at load, not only on tab click
 $('#ladders').addEventListener('click',e=>{
   const tl=e.target.closest('.tlink');if(tl){openTeam(tl.dataset.team);return;}
@@ -1476,6 +1512,45 @@ function reliabilitySVG(trust,w=460,h=230){
     `<text x="${pad-6}" y="${py(v)+4}" class="axis" text-anchor="end">${(v*100).toFixed(0)}%</text>`;
   return `<svg viewBox="0 0 ${w} ${h}" class="chart-svg" style="min-width:0">${grid}${diag}${dots(favPts,'var(--floodlight)')}${dots(drawPts,'#e25f4f')}${[0,0.5,1].map(axLbl).join('')}</svg>`;
 }
+/* Mean 3-way Brier for a set of games (model / market on its matched subset /
+   naive = this season's league base rates). Shared by the health phase card
+   (H2) and the per-club accuracy card (H3) — computed client-side from the
+   game cards, so it works identically for every league. */
+function brierSet(gs){
+  const played=gs.filter(g=>g.result!=null);
+  if(!played.length)return null;
+  const hot=g=>[g.result==='H'?1:0,g.result==='D'?1:0,g.result==='A'?1:0];
+  const b3=(p,g)=>{const o=hot(g);return (p[0]-o[0])**2+(p[1]-o[1])**2+(p[2]-o[2])**2;};
+  const allP=D.games.filter(g=>g.result!=null);
+  const base=[0,0,0];allP.forEach(g=>{base[0]+=g.result==='H';base[1]+=g.result==='D';base[2]+=g.result==='A';});
+  const bn=base.map(x=>x/allP.length);
+  const avg=f=>played.reduce((a,g)=>a+f(g),0)/played.length;
+  const mk=played.filter(g=>g.mkt_home!=null);
+  return {model:avg(g=>b3([g.pH,g.pD,g.pA],g)),
+          naive:avg(g=>b3(bn,g)),
+          market:mk.length?mk.reduce((a,g)=>a+b3([g.mkt_home,g.mkt_draw,g.mkt_away],g),0)/mk.length:null,
+          n:played.length,n_mkt:mk.length};
+}
+/* H2: Brier by season phase, model vs market vs naive, from this season's
+   played games (thirds by date). Lower = better; bars share one scale. */
+function phaseBrierCard(){
+  const played=D.games.filter(g=>g.result!=null).sort((a,b)=>a.date<b.date?-1:1);
+  if(played.length<30)return null;
+  const third=Math.ceil(played.length/3);
+  const slices=[['Early season',played.slice(0,third)],['Mid-season',played.slice(third,2*third)],['Late season',played.slice(2*third)]];
+  const stats=slices.map(([lab,gs])=>[lab,brierSet(gs)]).filter(([,s])=>s);
+  const mx=Math.max(...stats.flatMap(([,s])=>[s.model,s.naive,s.market||0]))||1;
+  const bar=(lab,v,color,n)=>v==null?'':`<div class="pb-row"><span class="pb-l">${lab}</span>
+    <span class="pb-track"><span style="width:${(v/mx*100).toFixed(0)}%;background:${color}"></span></span>
+    <span class="pb-v">${v.toFixed(3)}</span><span class="pc-n">${n||''}</span></div>`;
+  const body=stats.map(([lab,s])=>`<div class="pb-grp"><div class="pb-hd">${lab} <span class="pc-n">n=${s.n}</span></div>`+
+    bar('Model',s.model,'var(--qualify)','')+
+    (s.market!=null?bar('Market',s.market,'var(--europa)',`n=${s.n_mkt}`):'')+
+    bar('Naive',s.naive,'var(--txt-3)','')+`</div>`).join('');
+  const mktNote=stats.some(([,s])=>s.market!=null)?'market = de-vigged closing lines on its matched games':'no market lines matched this season — model vs naive only';
+  return `<div class="hcard2"><h3>Brier by season phase — model vs market vs naive</h3>${body}
+    <div class="hnote">Lower is better. Naive = always quoting this season's league base rates; ${mktNote}.</div></div>`;
+}
 function renderHealth(){
   const h=D.health, m=D.model||{}, mc=D.model_card||{}, live=D.in_season_brier||{};
   if(!h)return;
@@ -1510,12 +1585,16 @@ function renderHealth(){
      ${pcRow('Away win',pc.away,'')}
      ${pcRow('Draw',pc.draw,'hardest to call')}
      <div class="hnote">Per-class sums reflect each outcome's base rate, not skill ranking — home carries the most probability mass, draws are the hardest to predict.</div></div>`:'';
-  // feature completeness
-  const feat=`<div class="hcard2"><h3>Input completeness · ${D.season} season</h3>
-    <div class="hhead2"><span>Feature family</span><span>Cols</span><span>Complete</span><span>Active (≠0)</span></div>`+
-    h.features.map(f=>`<div class="hrow2"><span class="fam">${f.family}</span><span class="nc">${f.cols}</span>
-      ${hbar(f.complete_pct)}${hbar(f.nondefault_pct)}</div>`).join('')+
-    `<div class="hnote">"Active" = share of values ≠ 0 (the neutral fill at predict time). is_playoff 0% is expected in the regular season; Availability &lt;100% = roster data missing for some matches.</div></div>`;
+  // feature completeness — one bar per family with a plain-English definition
+  // (H1, 2026-07-09: the old two-bar grid was hard to follow; "Active" is now
+  // a small annotation, and every family says what it actually measures).
+  const feat=`<div class="hcard2"><h3>Model inputs — what the model sees · ${D.season} season</h3>
+    <div class="hnote" style="margin-bottom:8px">Each input family, what it measures, and how much of this season's data carries it. "Complete" = the value exists; "active" = it differs from the neutral default (real signal).</div>`+
+    h.features.map(f=>{const def=FEATURE_DEFS[f.family]||'';
+      const act=(f.nondefault_pct!=null&&isFinite(f.nondefault_pct))?`${f.nondefault_pct.toFixed(0)}% active`:'no rows yet';
+      return `<div class="hrow3"><span class="fam" title="${def}">${f.family}<span class="fam-def">${def}</span></span>
+        ${hbar(f.complete_pct)}<span class="act">${act}</span></div>`;}).join('')+
+    `<div class="hnote">is_playoff 0% active is expected during the regular season; Availability below 100% complete means roster data was missing for some matches.</div></div>`;
   // value edge backtest card
   const bt=(D.value_layer||{}).backtest;
   const _btG='display:grid;grid-template-columns:90px 64px 80px 80px;gap:8px;align-items:center';
@@ -1538,10 +1617,17 @@ function renderHealth(){
   const trust=D.trust;
   let trustBlock;
   if(trust&&(Object.keys(trust.by_favorite_prob||{}).length||trust.draw_reliability?.length)){
-    const favRows=Object.entries(trust.by_favorite_prob).map(([bin,m])=>
-      `<div class="pc-row"><span class="pc-l" style="font-size:11px">${bin}</span>`+
-      `<span class="pc-track"></span><span class="pc-v">${(m.fav_prob_mean*100).toFixed(0)}%→${(m.fav_hit_rate*100).toFixed(0)}%</span>`+
-      `<span class="pc-n">n=${m.n}</span></div>`).join('')
+    // H4: paired bars per decile — predicted (gray) over observed (green),
+    // one shared 0–100% axis, delta colored by miscalibration size.
+    const binLbl=b=>{const m2=b.match(/([\d.]+),\s*([\d.]+)/);return m2?`${Math.round(m2[1]*100)}–${Math.round(m2[2]*100)}%`:b;};
+    const favRows=Object.entries(trust.by_favorite_prob).map(([bin,m])=>{
+      const d=(m.fav_hit_rate-m.fav_prob_mean)*100, ad=Math.abs(d);
+      const col=ad<3?'var(--qualify)':ad<6?'var(--hfa)':'#e25f4f';
+      return `<div class="dec-row"><span class="dec-bin">${binLbl(bin)}</span>
+        <span class="dec-track"><i class="p" style="width:${(m.fav_prob_mean*100).toFixed(0)}%"></i>
+        <i class="o" style="width:${(m.fav_hit_rate*100).toFixed(0)}%"></i></span>
+        <span class="dec-delta" style="color:${col}">${d>=0?'+':''}${d.toFixed(1)}pp</span>
+        <span class="pc-n">n=${m.n}</span></div>`;}).join('')
       ||'<div class="hnote">No favorite-decile data.</div>';
     const phaseRows=['first_60d','mid','late'].filter(k=>trust.by_season_phase?.[k]).map(k=>{
       const m=trust.by_season_phase[k];
@@ -1552,13 +1638,21 @@ function renderHealth(){
     const advBanner=adv?`<div class="h-fresh"${adv.exceeds_naive?' style="border-color:#e25f4f"':''}>
       <span>Promoted-team advisory (A3): pooled Brier <b>${adv.pooled_brier}</b> vs naive <b>${adv.naive_brier}</b> · n=${adv.n_matches} across ${adv.n_pairs} pairs`+
       `${adv.exceeds_naive?' — <b style="color:#e25f4f">above naive, investigate</b>':' — within expected range'}</span></div>`:'';
+    // Live phase card (model vs market vs naive from this season's games)
+    // supersedes the backtest-only trust slice; fall back when too few games.
+    const phaseCard=phaseBrierCard()
+      ||`<div class="hcard2"><h3>Brier by season phase (backtest)</h3>${phaseRows}
+          <div class="hnote">Too few played matches this season for the live model-vs-market-vs-naive split — backtest slice shown.</div></div>`;
     trustBlock=`<div class="hgrid2">
       <div class="hcard2"><h3>Reliability — predicted vs observed</h3>${reliabilitySVG(trust)}
         <div class="hnote"><span style="color:var(--floodlight)">●</span>&nbsp;favorite-probability deciles &nbsp; <span style="color:#e25f4f">●</span>&nbsp;draw curve (model's worst class) &nbsp; dashed = perfect calibration</div></div>
-      <div class="hcard2"><h3>Brier by season phase</h3>${phaseRows}</div>
-    </div><div class="hcard2"><h3>Brier by favorite-probability decile</h3>${favRows}</div>${advBanner}`;
+      ${phaseCard}
+    </div><div class="hcard2"><h3>Does the favorite win as often as the model says?</h3>
+      <div class="hnote" style="margin-bottom:8px">Matches grouped by the model's favorite probability. Gray bar = what the model predicted, green bar = how often the favorite actually won. Matching bars = trustworthy odds.</div>${favRows}</div>${advBanner}`;
   }else{
-    trustBlock=`<div class="hcard2"><h3>Reliability</h3><div class="hnote">Not available for this league — conditional-calibration slices are computed from the MLS champion report only; per-league-family champion reports are future work (Part C).</div></div>`;
+    const phaseCard=phaseBrierCard();
+    trustBlock=(phaseCard?`<div class="hgrid2">${phaseCard}`:'<div class="hgrid2">')+
+      `<div class="hcard2"><h3>Reliability</h3><div class="hnote">Conditional-calibration slices are computed from the MLS champion report only; per-league-family champion reports are future work (Part C).</div></div></div>`;
   }
   // U1 (2026-07-07): season-outcome skill by checkpoint from the replay baseline.
   // skill: 1 = perfect, 0 = no better than base rates, negative = worse.
@@ -2007,10 +2101,22 @@ function renderProfile(team,scroll){
     }
     if(rows.length)forRealCard=`<div class="pcard"><h3>Is this team for real?</h3>${rows.join('')}</div>`;
   }
+  // H3 (2026-07-09): per-club prediction accuracy vs market + naive, computed
+  // from this club's played game cards (same math as the health phase card).
+  let accCard='';
+  const bs=brierSet(gms);
+  if(bs&&bs.n>=5){
+    const row=(k,v,n)=>v==null?'':`<div class="pstat"><span class="k">${k}</span><span class="v">${v.toFixed(3)}${n?` <span style="color:var(--txt-3);font-weight:400">n=${n}</span>`:''}</span></div>`;
+    accCard=`<div class="pcard"><h3>Model accuracy — this club</h3>
+      ${row('Model Brier',bs.model,bs.n)}
+      ${row('Market Brier',bs.market,bs.n_mkt)}
+      ${row('Naive Brier',bs.naive,null)}
+      <div class="hnote">Lower is better · naive = this season's league base rates${bs.market==null?' · no market lines matched this club yet':''} · model ${bs.model<bs.naive?'beats':'trails'} naive on this club's matches</div></div>`;
+  }
   $('#teamProfile').innerHTML=
     `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div></div>
      <div class="chart-wrap big">${chart}${trophLegend}<div class="troph-list">${chips}</div></div>
-     <div class="prof-grid">${inputsCard}${seasonCard}${forRealCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}</div>`;
+     <div class="prof-grid">${inputsCard}${seasonCard}${forRealCard}${accCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}</div>`;
   if(scroll)$('#teamProfile').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
