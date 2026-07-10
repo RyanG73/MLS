@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import requests  # noqa: E402
 
-from scripts.payload_utils import write_js_payload  # noqa: E402
+from scripts.payload_utils import registry_ids, write_js_payload  # noqa: E402
 
 # Full browser UA: several outlets (GFFN et al.) 403 anything with "bot" in it.
 _HDR = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -177,19 +177,9 @@ def _iso(published: str) -> str:
         return ""
 
 
-def _registry_ids() -> set[str]:
-    """All league ids in webapp/leagues.js — every one gets a news file (an
-    empty one beats a 404 in the console for 'soon' leagues)."""
-    try:
-        txt = Path("webapp/leagues.js").read_text()
-        return {l["id"] for l in json.loads(txt[txt.index("=") + 1:].rstrip().rstrip(";"))}
-    except Exception:
-        return set()
-
-
 def main() -> int:
     keywords = _league_keywords()
-    per_league: dict[str, list[dict]] = {lid: [] for lid in set(keywords) | _registry_ids()}
+    per_league: dict[str, list[dict]] = {lid: [] for lid in set(keywords) | registry_ids()}
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     for feed in FEEDS:

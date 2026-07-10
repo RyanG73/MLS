@@ -10,6 +10,12 @@ Two primitives that enforce the data contract across all builders:
                          family but returns None for both when the row slice is
                          empty (preseason), preventing the NaN that json.dumps
                          would otherwise emit.
+
+  registry_ids — every league id in webapp/leagues.js. Per-league lazy-loaded
+                extras (news/<lid>.js, drift-traj/<lid>.js, ...) should write a
+                file for every registry id, not just leagues with real data —
+                an empty file beats a 404 in the console for 'soon' leagues
+                (found 2026-07-09 for news, recurred 2026-07-10 for drift-traj).
 """
 from __future__ import annotations
 
@@ -90,3 +96,13 @@ def outcome_skill_block(league_id: str) -> dict | None:
                       "p_hit": m.get("p_actual_mean")}
         out[cp] = row
     return out
+
+
+def registry_ids(registry_path: Path | str = "webapp/leagues.js") -> set[str]:
+    """Every league id in webapp/leagues.js. Missing/unparseable file → {}."""
+    try:
+        txt = Path(registry_path).read_text()
+        return {league["id"] for league in
+                json.loads(txt[txt.index("=") + 1:].rstrip().rstrip(";"))}
+    except Exception:
+        return set()

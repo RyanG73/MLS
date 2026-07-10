@@ -19,7 +19,7 @@ WEBAPP_DATA = Path(__file__).parent.parent / "webapp" / "data"
 # logos.js is a global team→logo lookup (window.TEAM_LOGOS), not a league/power payload,
 # so it is excluded from the league-payload contract.
 _NON_PAYLOAD = {"logos.js", "ledger.js", "edge-board.js", "movers.js",
-                "coefficients.js"}
+                "coefficients.js", "drift.js"}
 JS_FILES = sorted(p for p in WEBAPP_DATA.glob("*.js") if p.name not in _NON_PAYLOAD)
 
 

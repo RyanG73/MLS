@@ -84,3 +84,18 @@ echo "--- payload validation ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/validate_payloads.py \
   && echo "  [OK] all payloads valid" \
   || echo "  [WARN] payload validation failed — review output above before publishing"
+
+# ── Drift-tracking accrual (docs/drift-playbook.md) ───────────────────────────
+# Must run AFTER every league is rebuilt above — these three scripts read the
+# just-written webapp/data/*.js payloads, not the model directly. Found
+# 2026-07-10: this whole chain was never wired into either scheduled build, so
+# odds_history.parquet had only accrued on ad hoc manual runs since B10 shipped.
+echo "--- odds/projection history archive ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/archive_odds_snapshot.py \
+  || echo "  [WARN] archive_odds_snapshot failed (non-fatal)"
+echo "--- model-odds movers ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_movers.py \
+  || echo "  [WARN] build_movers failed (non-fatal)"
+echo "--- drift report ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_drift_report.py \
+  || echo "  [WARN] build_drift_report failed (non-fatal)"

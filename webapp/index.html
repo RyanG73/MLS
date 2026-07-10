@@ -684,6 +684,7 @@ footer a:hover{color:var(--txt-2)}
 <script src="data/ledger.js"></script>
 <script src="data/movers.js"></script>
 <script src="data/coefficients.js"></script>
+<script src="data/drift.js"></script>
 <script>
 // League selected via ?league=<id>. No param at all → the cross-league edge board
 // (B12) is the site's landing view; ?league=mls etc. deep links are unchanged.
@@ -698,6 +699,12 @@ document.write('<scr'+'ipt src="data/'+(_isEdgeBoard?'edge-board':LID)+'.js?t='+
 // build not yet run) 404s harmlessly — window.NEWS_DATA just stays undefined.
 if(!_isEdgeBoard&&_rawLeague!=='power')
   document.write('<scr'+'ipt src="data/news/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
+// Per-league projection-drift trajectories (scripts/build_drift_report.py) —
+// lazy like news: only this league's file, only for the Model Health tab's
+// "Projection stability" card. Missing file 404s harmlessly (window.DRIFT_TRAJ
+// stays undefined; the card renders its insufficient-history state).
+if(!_isEdgeBoard&&_rawLeague!=='power')
+  document.write('<scr'+'ipt src="data/drift-traj/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
 const _isPower = new URLSearchParams(location.search).get('league')==='power';
@@ -1689,7 +1696,49 @@ function renderHealth(){
   }else{
     oskBlock=`<div class="hcard2"><h3>Season-outcome skill</h3><div class="hnote">Not measured for this league yet — the season-outcome replay covers leagues with sufficient history.</div></div>`;
   }
-  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+btCard+trustBlock+oskBlock+fresh;
+  // "Projection stability" (drift-tracking step 3, 2026-07-10): is odds
+  // movement between builds healthy churn or a pipeline problem? Reads the
+  // global window.DRIFT_DATA (webapp/data/drift.js, always loaded) + this
+  // league's window.DRIFT_TRAJ (lazy per-league file — see docs/drift-playbook.md
+  // for how to read every number on this card).
+  const driftBlock=(()=>{
+    const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const DD=window.DRIFT_DATA;
+    if(!DD||DD.status!=='ok')
+      return `<div class="hcard2"><h3>Projection stability</h3><div class="hnote">${DD&&DD.note?esc(DD.note):'Drift tracking not built yet.'}</div></div>`;
+    const churn=(DD.churn||{})[LID];
+    let churnHTML;
+    if(!churn||churn.status!=='ok'){
+      churnHTML=`<div class="pstat"><span class="k">Build-to-build churn</span><span class="v" style="color:var(--txt-3);font-weight:400">insufficient history${churn&&churn.note?' — '+esc(churn.note):''}</span></div>`;
+    }else{
+      const col=churn.alert?'#e25f4f':'var(--qualify)';
+      const movers=(churn.top_movers||[]).slice(0,5)
+        .map(m=>`<span class="cfg-chip"><i>${esc(m.team)}</i> ${esc(m.key)} ${m.delta>0?'+':''}${m.delta}pp</span>`).join('');
+      churnHTML=`<div class="pstat"><span class="k">Build-to-build churn (${esc(churn.window)})</span><span class="v" style="color:${col}">${churn.index_pp}pp ${churn.alert?'⚠':''}</span></div>`+
+        (movers?`<div class="cfg" style="margin-top:6px">${movers}</div>`:`<div class="hnote">No individual team moved &gt;0.05pp — a quiet, healthy pair.</div>`);
+    }
+    const markers=DD.config_markers||[];
+    const lastMarker=markers.length?markers[markers.length-1]:null;
+    const markerHTML=lastMarker
+      ?`<div class="pstat"><span class="k">Model config last changed</span><span class="v">${esc(lastMarker.date)}</span></div>`
+      :`<div class="pstat"><span class="k">Model config</span><span class="v" style="color:var(--txt-3);font-weight:400">no changes recorded yet</span></div>`;
+    const kf=DD.kickoff_funnel||{};
+    const funnelHTML=kf.status==='ok'
+      ?`<div class="hcard2"><h3>Kickoff funnel — does the quote sharpen as kickoff nears?</h3>`+
+        kf.buckets.map(b=>`<div class="pc-row"><span class="pc-l">${esc(b.label)} out</span><span class="pc-track"></span><span class="pc-v">${b.brier??'—'}</span><span class="pc-n">n=${b.n}</span></div>`).join('')+
+        `<div class="hnote">3-way Brier of the probability quoted at each days-to-kickoff window, scored against the eventual result — should fall left→right.</div></div>`
+      :`<div class="hcard2"><h3>Kickoff funnel</h3><div class="hnote">${esc(kf.note||'Not enough settled matches yet.')}</div></div>`;
+    const TJ=window.DRIFT_TRAJ;
+    const trajHTML=(TJ&&TJ.teams&&churn&&churn.top_movers&&churn.top_movers.length)
+      ?`<div class="hnote" style="margin-top:8px">Recent trend for the biggest movers: `+
+        [...new Set(churn.top_movers.map(m=>m.team))].slice(0,5).map(t=>{
+          const s=(TJ.teams[t]||[]).slice(-5).map(p=>p[churn.top_movers.find(m=>m.team===t).key]);
+          return `<b>${esc(t)}</b> ${s.filter(v=>v!=null).map(v=>v.toFixed(0)).join('→')}`;
+        }).join(' · ')+`</div>`
+      :'';
+    return `<div class="hcard2"><h3>Projection stability</h3>${churnHTML}${markerHTML}${trajHTML}</div>${funnelHTML}`;
+  })();
+  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+btCard+trustBlock+oskBlock+`<div class="hgrid2">${driftBlock}</div>`+fresh;
 }
 
 /* matches */
