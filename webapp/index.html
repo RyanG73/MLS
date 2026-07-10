@@ -1047,7 +1047,7 @@ function renderOutlook(){
 }
 /* ── table-league outlook: race strip (one card per race) + single ladder ── */
 // Accent class per race key (gold title / green UCL / blue Europa / red relegation).
-const RACE_ACCENT={title:'t',promo:'t',liguilla:'t',ucl:'u',playoff:'u',europa:'e',conf:'e',releg:'r',spoon:'r'};
+const RACE_ACCENT={title:'t',promo:'t',promoted:'t',liguilla:'t',ucl:'u',playoff:'u',europa:'e',conf:'e',releg:'r',spoon:'r'};
 function raceCard(card){
   const ranked=[...D.standings.map(vals)].sort((a,b)=>(b[card.key]||0)-(a[card.key]||0));
   const lead=ranked[0]; if(!lead)return'';
@@ -1060,6 +1060,18 @@ function raceCard(card){
     `<div class="rk"><span>${card.label}</span><em>${card.hint||''}</em></div>`+
     `<div class="lead">${crest(lead.team,lead.logo)}<span class="nm">${lead.team}</span><span class="pc">${fmt(lead[card.key]||0)}</span></div>`+
     `<div class="cont">${conts.map(contRow).join('')}</div></div>`;
+}
+// Promotion-playoff bracket — MUST mirror scripts/build_league_data.py
+// _promo_playoff_winner (SIM PORTING CONTRACT). seeds = team indices, best
+// seed first; higher seed hosts; P(host advances) = pH + 0.5·pD.
+function promoWinner(seeds){
+  const win=(hi,ai)=>{const c=SIM.pmatrix[hi][ai];return Math.random()<(c[0]+0.5*c[1])/1000?hi:ai;};
+  const host=(a,b)=>seeds.indexOf(a)<seeds.indexOf(b)?win(a,b):win(b,a);
+  let s=[...seeds];
+  if(s.length===1)return s[0];
+  if(s.length===3)return host(s[0],host(s[1],s[2]));            // Ligue 2 ladder
+  if(s.length===6)s=[s[0],s[1],host(s[2],s[5]),host(s[3],s[4])]; // Serie B prelims
+  return host(host(s[0],s[3]),host(s[1],s[2]));                  // 4-team bracket
 }
 // Single-table what-if Monte-Carlo (the table analog of MLS runSim): start from
 // current points, apply forced results, sample remaining via the pmatrix, rank
@@ -1086,6 +1098,13 @@ function runSimTable(N=10000){
     order.sort((a,b)=>key[b]-key[a]);
     cols.forEach(c=>{
       let lo,hi;
+      if(c.promo_top!==undefined){   // composite Promoted: auto spots + playoff winner (× barrage)
+        for(let k=0;k<Math.min(c.promo_top,NT);k++)acc[SIM.teams[order[k]]][c.key]++;
+        const seeds=order.slice(c.playoff_band[0]-1,Math.min(c.playoff_band[1],NT));
+        if(seeds.length&&Math.random()<(c.barrage_win_rate??1))
+          acc[SIM.teams[promoWinner(seeds)]][c.key]++;
+        return;
+      }
       if(c.top!==undefined){lo=0;hi=Math.min(c.top,NT);}
       else if(c.bottom!==undefined){lo=Math.max(0,NT-c.bottom);hi=NT;}
       else if(c.band!==undefined){lo=c.band[0]-1;hi=Math.min(c.band[1],NT);}
@@ -1109,7 +1128,9 @@ function tableLadder(){
   const ol=D.outlook, cols=ol.columns, hasUp=NF>0;
   const teams=D.standings.map(vals).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
   const mx={};cols.forEach(c=>mx[c.key]=Math.max(...teams.map(s=>s[c.key]||0),1));
-  const BRGB={title:[244,183,64],promo:[244,183,64],liguilla:[244,183,64],ucl:[61,220,132],europa:[74,163,255],conf:[74,163,255],playoff:[61,220,132],releg:[255,93,93]};
+  // promoted (the composite headline) gets green; the Auto and Playoff-berth
+  // components stay gold/blue so the three promotion columns read distinctly.
+  const BRGB={title:[244,183,64],promo:[244,183,64],promoted:[61,220,132],liguilla:[244,183,64],ucl:[61,220,132],europa:[74,163,255],conf:[74,163,255],playoff:[74,163,255],releg:[255,93,93]};
   const brgb=k=>BRGB[k]||[120,120,120];
   const hc=(v,k,t)=>v<0.05?`<span class="heat z"${finTip(t)}>·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}"${finTip(t)}>${oddsFmt(v)}</span>`;
   // dense column template: # · Club · Pts · Proj · ELO · <one 34px per outcome> · [Next5]
@@ -1188,9 +1209,12 @@ function renderTableOutlook(){
   const ol=D.outlook;
   $('#favs').className='races';
   $('#favs').innerHTML=ol.cards.map(raceCard).join('');
+  // Per-league competition rules from the build (2026-07-09 feedback: "top N
+  // qualify" undersold promotion playoffs etc.); fall back to the generic
+  // cut-line note for payloads that predate outlook.rules.
   const gl=ol.green_line?`top ${ol.green_line} qualify`:null;
   const rl=ol.red_line?`bottom ${ol.red_line} drop`:null;
-  const note=[gl,rl].filter(Boolean).join(' · ');
+  const note=ol.rules||[gl,rl].filter(Boolean).join(' · ');
   $('#laddernote').textContent=`${ol.n_teams}-team single table`+(note?` · ${note}`:'')+
     (NF>0?` · click the Next-5 boxes to force results and resimulate`:'');
   const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='minmax(0,1fr) minmax(0,1fr)';l.style.alignItems='start';

@@ -309,9 +309,19 @@ _TOP = lambda ucl=4, rel=3: [
     {"key": "europa", "label": "Europa Lg", "col": "Europa", "band": [ucl + 1, ucl + 1], "card": False},
     {"key": "conf", "label": "Conference Lg", "col": "Conf", "band": [ucl + 2, ucl + 2], "card": False},
     {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}]
-_PROMO = lambda promo, play, rel: [
-    {"key": "promo", "label": "Promotion", "col": "Promo", "top": promo},
-    {"key": "playoff", "label": "Playoff", "col": "Playoff", "band": play},
+# Promotion structure (2026-07-09 feedback): second tiers promote the top
+# `promo` automatically AND the winner of a playoff among `play`; the table
+# shows Auto / Playoff-berth / Promoted / Relegation, and the sim actually
+# plays the playoff bracket (see _promo_playoff_winner). `barrage` = the
+# probability the tier-2 side survives a cross-league barrage against the
+# top flight's relegation-playoff team (Germany/France) — the opponent isn't
+# in this league's pmatrix, so it's a historical base rate, not a sim.
+_PROMO = lambda promo, play, rel, barrage=None: [
+    {"key": "promo", "label": "Auto Promotion", "col": "Auto", "top": promo, "card": False},
+    {"key": "playoff", "label": "Promo Playoff", "col": "Playoff", "band": play, "card": False},
+    {"key": "promoted", "label": "Promoted", "col": "Promoted",
+     "promo_top": promo, "playoff_band": play,
+     **({"barrage_win_rate": barrage} if barrage else {})},
     {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}]
 _LIGUILLA = lambda: [
     {"key": "liguilla", "label": "Liguilla", "col": "Liguilla", "top": 8}]
@@ -321,53 +331,73 @@ OUTLOOK = {
     # UCL spots per the current coefficient allocation: England + Italy earned a 5th
     # Champions League place (2025-26 cycle); the others have 4. green_line = UCL spots.
     "epl":        {"name": "Premier League", "source": "understat", "n": 20,
-                   "buckets": _TOP(5), "green_line": 5, "red_line": 3},
+                   "buckets": _TOP(5), "green_line": 5, "red_line": 3,
+                   "rules": "Top 5 qualify for the Champions League (2025-26 coefficient allocation) · bottom 3 relegated"},
     "la-liga":    {"name": "La Liga", "source": "understat", "n": 20,
-                   "buckets": _TOP(4), "green_line": 4, "red_line": 3},
+                   "buckets": _TOP(4), "green_line": 4, "red_line": 3,
+                   "rules": "Top 4 qualify for the Champions League · bottom 3 relegated"},
     "serie-a":    {"name": "Serie A", "source": "understat", "n": 20,
-                   "buckets": _TOP(5), "green_line": 5, "red_line": 3},
+                   "buckets": _TOP(5), "green_line": 5, "red_line": 3,
+                   "rules": "Top 5 qualify for the Champions League (2025-26 coefficient allocation) · bottom 3 relegated"},
     "bundesliga": {"name": "Bundesliga", "source": "understat", "n": 18,
-                   "buckets": _TOP(4), "green_line": 4, "red_line": 3},
+                   "buckets": _TOP(4), "green_line": 4, "red_line": 3,
+                   "rules": "Top 4 qualify for the Champions League · bottom 2 relegated, 16th plays a barrage vs the 2. Bundesliga's 3rd"},
     "ligue-1":    {"name": "Ligue 1", "source": "understat", "n": 18,
-                   "buckets": _TOP(4), "green_line": 4, "red_line": 3},
-    # European 2nd tiers (football-data goals-only + market). Promotion/Playoff/Relegation.
+                   "buckets": _TOP(4), "green_line": 4, "red_line": 3,
+                   "rules": "Top 4 qualify for the Champions League · bottom 2 relegated, 16th plays a barrage vs the Ligue 2 playoff winner"},
+    # European 2nd tiers (football-data goals-only + market). Auto/Playoff/Promoted/Relegation;
+    # the sim plays the promotion playoff (see _promo_playoff_winner).
     "championship": {"name": "EFL Championship", "source": "footballdata", "n": 24,
-                     "buckets": _PROMO(2, [3, 6], 3), "green_line": 6, "red_line": 3},
+                     "buckets": _PROMO(2, [3, 6], 3), "green_line": 6, "red_line": 3,
+                     "rules": "Top 2 promoted automatically · 3–6 promotion playoff, winner also promoted · bottom 3 relegated"},
     "league-one":   {"name": "EFL League One", "source": "footballdata", "n": 24,
-                     "buckets": _PROMO(2, [3, 6], 4), "green_line": 6, "red_line": 4},
+                     "buckets": _PROMO(2, [3, 6], 4), "green_line": 6, "red_line": 4,
+                     "rules": "Top 2 promoted automatically · 3–6 promotion playoff, winner also promoted · bottom 4 relegated"},
     "league-two":   {"name": "EFL League Two", "source": "footballdata", "n": 24,
-                     "buckets": _PROMO(3, [4, 7], 2), "green_line": 7, "red_line": 2},
+                     "buckets": _PROMO(3, [4, 7], 2), "green_line": 7, "red_line": 2,
+                     "rules": "Top 3 promoted automatically · 4–7 promotion playoff, winner also promoted · bottom 2 relegated"},
     "bundesliga-2": {"name": "2. Bundesliga", "source": "footballdata", "n": 18,
-                     "buckets": _PROMO(2, [3, 3], 3), "green_line": 3, "red_line": 3},
+                     "buckets": _PROMO(2, [3, 3], 3, barrage=0.33), "green_line": 3, "red_line": 3,
+                     "rules": "Top 2 promoted automatically · 3rd plays a barrage vs the Bundesliga's 16th (modeled at 33%) · bottom 2 relegated, 16th plays the mirror barrage"},
     "serie-b":      {"name": "Serie B", "source": "footballdata", "n": 20,
-                     "buckets": _PROMO(2, [3, 8], 3), "green_line": 8, "red_line": 3},
+                     "buckets": _PROMO(2, [3, 8], 3), "green_line": 8, "red_line": 3,
+                     "rules": "Top 2 promoted automatically · 3–8 promotion playoff (3rd–4th get byes), winner also promoted · bottom 3 relegated"},
     "segunda":      {"name": "LaLiga 2", "source": "footballdata", "n": 22,
-                     "buckets": _PROMO(2, [3, 6], 4), "green_line": 6, "red_line": 4},
+                     "buckets": _PROMO(2, [3, 6], 4), "green_line": 6, "red_line": 4,
+                     "rules": "Top 2 promoted automatically · 3–6 promotion playoff, winner also promoted · bottom 4 relegated"},
     "ligue-2":      {"name": "Ligue 2", "source": "footballdata", "n": 18,
-                     "buckets": _PROMO(2, [3, 5], 4), "green_line": 5, "red_line": 4},
+                     "buckets": _PROMO(2, [3, 5], 4, barrage=0.33), "green_line": 5, "red_line": 4,
+                     "rules": "Top 2 promoted automatically · 3–5 playoff, winner faces the Ligue 1 barrage (modeled at 33%) · bottom 4 relegated"},
     # C1: non-big-5 top flights (football-data goals-only + market odds).
     # UCL/Europa/Conference spots are the coefficient-based approximations the
     # _TOP docstring already caveats; relegation counts include playoff spots
     # (the bundesliga precedent: bottom N = direct + playoff berths).
     "eredivisie":   {"name": "Eredivisie", "source": "footballdata", "n": 18,
-                     "buckets": _TOP(2), "green_line": 2, "red_line": 3},
+                     "buckets": _TOP(2), "green_line": 2, "red_line": 3,
+                     "rules": "Top 2 qualify for the Champions League · bottom 2 relegated, 16th enters the promotion/relegation playoffs"},
     "primeira":     {"name": "Primeira Liga", "source": "footballdata", "n": 18,
-                     "buckets": _TOP(2), "green_line": 2, "red_line": 3},
+                     "buckets": _TOP(2), "green_line": 2, "red_line": 3,
+                     "rules": "Top 2 qualify for the Champions League · bottom 2 relegated, 16th plays a barrage vs Liga Portugal 2"},
     "super-lig":    {"name": "Süper Lig", "source": "footballdata", "n": 18,
-                     "buckets": _TOP(2), "green_line": 2, "red_line": 3},
+                     "buckets": _TOP(2), "green_line": 2, "red_line": 3,
+                     "rules": "Top 2 qualify for the Champions League · bottom 3 relegated"},
     # Split/points-transform formats (Scotland split, Belgium halving+playoffs,
     # Greece playoff round) — sim format config lands with each league's ship.
     "scottish-prem": {"name": "Scottish Premiership", "source": "footballdata", "n": 12,
-                      "buckets": _TOP(1, rel=2), "green_line": 1, "red_line": 2},
+                      "buckets": _TOP(1, rel=2), "green_line": 1, "red_line": 2,
+                      "rules": "Champion qualifies for the Champions League · table splits top/bottom 6 after 33 rounds · bottom club relegated, 11th plays a barrage"},
     "belgian-pro":  {"name": "Belgian Pro League", "source": "footballdata", "n": 18,
-                     "buckets": _TOP(2, rel=2), "green_line": 2, "red_line": 2},
+                     "buckets": _TOP(2, rel=2), "green_line": 2, "red_line": 2,
+                     "rules": "Points halve before the championship playoff (top 6) · champion qualifies for the Champions League · bottom 2 relegated"},
     "greek-super":  {"name": "Greek Super League", "source": "footballdata", "n": 14,
-                     "buckets": _TOP(1, rel=2), "green_line": 1, "red_line": 2},
+                     "buckets": _TOP(1, rel=2), "green_line": 1, "red_line": 2,
+                     "rules": "Top 6 enter the championship playoff round · champion qualifies for the Champions League · bottom 2 relegated"},
     # Concacaf — ESPN goals-only (no xG, no market odds)
     # eval_seasons=None → derived dynamically from frame's season integers
     "liga-mx":      {"name": "Liga MX", "source": "espn", "n": 18, "confederation": "Concacaf",
                      "buckets": _LIGUILLA(), "green_line": 8, "red_line": None,
-                     "eval_seasons": None},
+                     "eval_seasons": None,
+                     "rules": "Top 8 reach the Liguilla (championship playoff) · no relegation (suspended through 2026)"},
     # C2 — ASA leagues (goals + ASA xG; played rows from ASA, scheduled
     # remainder from ESPN). No relegation. Family champions:
     # experiments/champion_nwsl.json / champion_usl.json.
@@ -376,7 +406,8 @@ OUTLOOK = {
                      "buckets": [
                          {"key": "shield", "label": "Shield", "col": "Shield", "top": 1},
                          {"key": "playoffs", "label": "Playoffs", "col": "Playoffs", "top": 8}],
-                     "green_line": 8, "red_line": None, "eval_seasons": None},
+                     "green_line": 8, "red_line": None, "eval_seasons": None,
+                     "rules": "Top 8 make the playoffs · Shield = best regular-season record · no relegation"},
     # USL playoffs are top-8 PER CONFERENCE (M4 2026-07-07: conference-aware —
     # `per_conf_top` counts within ESPN's Eastern/Western groups; falls back
     # to pooled top-16 if the conference fetch fails).
@@ -387,7 +418,8 @@ OUTLOOK = {
                              {"key": "shield", "label": "Best Record", "col": "Shield", "top": 1},
                              {"key": "playoffs", "label": "Playoffs", "col": "Playoffs",
                               "per_conf_top": 8, "top": 16}],
-                         "green_line": 16, "red_line": None, "eval_seasons": None},
+                         "green_line": 16, "red_line": None, "eval_seasons": None,
+                         "rules": "Top 8 per conference make the playoffs · no relegation"},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only
@@ -554,6 +586,41 @@ def _bucket_idx(bucket: dict, order, nT: int):
     if "band" in bucket:
         return order[bucket["band"][0] - 1:bucket["band"][1]]
     return order[:0]
+
+
+def _promo_playoff_winner(seeds, PM, rng):
+    """Simulate one promotion playoff among `seeds` (team indices, best seed
+    first) and return the winning team index.
+
+    Ties are abstracted to a single virtual match — higher seed hosts,
+    P(host advances) = pH + 0.5·pD from the same DC pairing matrix the client
+    what-if sim uses (the real formats are two-legged semis with a one-off or
+    two-legged final; the seed-hosting bias stands in for the higher seed's
+    aggregate edge). Bracket shapes (MUST stay mirrored in webapp/index.html
+    runSimTable — SIM PORTING CONTRACT):
+      1 team  → that team (cross-league barrage applied by the caller)
+      3 teams → s1 v s2, winner at s0 (Ligue 2: 4th v 5th, winner at 3rd)
+      4 teams → semis s0 v s3, s1 v s2, then the final (England/Spain)
+      6 teams → prelims s2 v s5, s3 v s4; semis s0 v w(s3,s4), s1 v w(s2,s5);
+                then the final (Serie B: 3rd–4th get byes)
+    """
+    def win(hi, ai):
+        p = PM[hi, ai]
+        return hi if rng.random() < p[0] + 0.5 * p[1] else ai
+
+    def host(a, b):                      # better (earlier) seed hosts
+        return win(a, b) if seeds.index(a) < seeds.index(b) else win(b, a)
+
+    s = list(seeds)
+    if len(s) == 1:
+        return s[0]
+    if len(s) == 3:
+        return host(s[0], host(s[1], s[2]))
+    if len(s) == 6:
+        # prelims 5v8 / 6v7; semis pair 3rd with w(6v7) and 4th with w(5v8)
+        s = [s[0], s[1], host(s[2], s[5]), host(s[3], s[4])]
+    # 4-team bracket (also the tail of the 6-team format)
+    return host(host(s[0], s[3]), host(s[1], s[2]))
 
 
 def _stub_team_meta(league_id: str) -> dict[str, dict]:
@@ -996,7 +1063,15 @@ def main():
         key = _grp_bonus + p * 10000 + base_gd * 10 + rng.random(nT) * 10
         order = np.argsort(-key)  # best first
         for b in buckets:
-            if _conf_arrays is not None and "per_conf_top" in b:
+            if "promo_top" in b:
+                # composite Promoted = auto spots + simulated playoff winner
+                # (× barrage survival rate when the final hurdle is cross-league)
+                counts[b["key"]][order[:b["promo_top"]]] += 1
+                _band = b["playoff_band"]
+                _seeds = list(order[_band[0] - 1:_band[1]])
+                if _seeds and rng.random() < b.get("barrage_win_rate", 1.0):
+                    counts[b["key"]][_promo_playoff_winner(_seeds, PM, rng)] += 1
+            elif _conf_arrays is not None and "per_conf_top" in b:
                 counts[b["key"]][_per_conf_members(key, _conf_arrays,
                                                    b["per_conf_top"])] += 1
             else:
@@ -1320,10 +1395,13 @@ def main():
                     "has_xg": has_xg,
                     "preseason": True if is_preseason else None,
                     "season_label": _season_label,
+                    "rules": cfg.get("rules"),
                     "cards": [{"key": b["key"], "label": b["label"]}
                               for b in buckets if b.get("card", True)],
                     "columns": [{"key": b["key"], "label": b.get("col", b["label"]),
-                                 **{k: b[k] for k in ("top", "bottom", "band") if k in b}}
+                                 **{k: b[k] for k in ("top", "bottom", "band", "promo_top",
+                                                      "playoff_band", "barrage_win_rate")
+                                    if k in b}}
                                 for b in buckets]},
         "perf_by_year": perf_by_year,
         "season": ts, "in_season": _sstate == IN_PROGRESS,
