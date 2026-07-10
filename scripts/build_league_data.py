@@ -35,7 +35,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from data_pipeline.understat import canonical_frame, espn_name
+from data_pipeline.understat import canonical_frame, espn_name, _COLS as _COLS_INTL
 from data_pipeline.football_data import match_results
 from data_pipeline.football_data_intl import (
     match_results as match_results_intl,
@@ -848,6 +848,29 @@ def main():
 
     # ── Load + feature-build the full history (played only) ───────────────────
     frame = _load_frame(lid, cfg["source"], cfg.get("asa_key"))
+    # football-data-intl leagues: the source CSV's refresh cadence varies by
+    # country (Brazil tracked live; Japan's file lagged a full season
+    # boundary, per docs/league-expansion-report.md's live-verification note)
+    # — when the frame's most recent season has NO rows for the season ESPN
+    # is already reporting RESULTS for, backfill those ESPN-completed matches
+    # onto the frame (goals-only, same _COLS schema) so they count as real
+    # played history (ELO/DC/points) instead of being silently dropped when
+    # the preseason-flip only asks ESPN for the still-unplayed remainder.
+    if cfg["source"] == "footballdata_intl" and lid not in fdi_no_espn:
+        try:
+            _fdi_cur_max = int(frame[frame["is_result"]]["season"].max())
+            _fdi_check = _fdi_cur_max + 1
+            if int((frame["season"] == _fdi_check).sum()) == 0:
+                _espn_bf = european_fixtures(lid, _fdi_check, use_cache=False)
+                _espn_played = _espn_bf[_espn_bf["is_result"]]
+                if len(_espn_played):
+                    _espn_played = _espn_names_to_fdintl(lid, _espn_played)[_COLS_INTL]
+                    frame = pd.concat([frame, _espn_played], ignore_index=True) \
+                             .sort_values("date").reset_index(drop=True)
+                    print(f"[{lid}] backfilled {len(_espn_played)} ESPN-played "
+                          f"matches for season {_fdi_check} (source CSV lagged)")
+        except Exception as _bf_err:
+            print(f"[{lid}] ESPN played-match backfill skipped: {_bf_err}")
     played_all = frame[frame["is_result"]].copy()
     played_all["home_goals"] = played_all["home_goals"].astype(int)
     played_all["away_goals"] = played_all["away_goals"].astype(int)
@@ -933,11 +956,18 @@ def main():
         except Exception as _espn_err:
             print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
 
-    # football-data-intl leagues: same mid-season forward-sim pattern as ASA —
-    # the results CSV has no future fixtures (verified 2026-07-10, module
-    # docstring), so ESPN supplies the scheduled remainder of the CURRENT
-    # season, names mapped via FDI_ESPN. Skipped entirely for NO_ESPN_SCHEDULE
-    # leagues (poland-ekstraklasa) — they ship results-only, no in-season sim.
+    # football-data-intl leagues: the results CSV has no future fixtures
+    # (verified 2026-07-10, module docstring), so ESPN always supplies the
+    # scheduled remainder of the CURRENT season (ASA's mid-season pattern).
+    # NOTE: `ts` already reflects the real current season by this point even
+    # when the source CSV lagged a season boundary — the backfill step above
+    # (right after `frame = _load_frame(...)`) merges any already-played
+    # ESPN matches for the next season into `frame` BEFORE max_played_season/
+    # ts are computed, so there is no separate preseason-flip needed (or safe
+    # to attempt) here: some leagues (J-League) publish next season's full
+    # fixture list many months ahead, so a flip-ahead check at this point
+    # would fire mid-season and wrongly treat an in-progress season as done.
+    # Skipped entirely for NO_ESPN_SCHEDULE leagues (poland-ekstraklasa).
     if cfg["source"] == "footballdata_intl" and lid not in fdi_no_espn:
         try:
             _espn = european_fixtures(lid, ts, use_cache=False)
