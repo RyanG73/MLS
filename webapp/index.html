@@ -229,6 +229,16 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .plot .rangebar{position:absolute;top:4px;height:6px;border-radius:3px;opacity:.42}
 .plot .fmed{position:absolute;top:2px;width:3px;height:10px;border-radius:1px}
 .plot .fleg{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;font-size:10px;color:var(--txt-3)}
+/* run-in difficulty rows (G1, 2026-07-09) — same 104px name gutter as .frow */
+.ri-row{display:grid;grid-template-columns:104px 1fr 32px 78px;gap:9px;align-items:center;padding:3px 0}
+.ri-row .fn{display:flex;align-items:center;gap:6px;min-width:0}
+.ri-row .fn .crest{width:16px;height:16px}
+.ri-row .fn b{font-size:11px;color:var(--txt-2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ri-track{height:7px;border-radius:4px;background:rgba(150,180,220,.10);overflow:hidden}
+.ri-track>span{display:block;height:100%;border-radius:4px;opacity:.75}
+.ri-v{font-family:var(--mono);font-weight:700;font-size:11px;text-align:right;color:var(--txt-2)}
+.ri-next{display:flex;gap:3px;justify-content:flex-end}
+.ri-chip{font-family:var(--mono);font-size:8.5px;font-weight:700;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 3px;white-space:nowrap}
 .plot .fleg span{display:inline-flex;align-items:center;gap:5px}
 .plot .fleg i{width:9px;height:9px;border-radius:2px;display:inline-block}
 /* ── knockout-view sub-tabs (UEFA Champions League etc.) ── */
@@ -1205,6 +1215,37 @@ function finishPlotPanel(){
     `<div class="plot"><div class="faxis">${axisTicks(N)}</div>${rows}${finishLegend()}</div>`;
   return panel;
 }
+/* ── run-in difficulty (fills the desktop whitespace under the finish plot,
+   2026-07-09 feedback): mean remaining-opponent ELO per team, hardest first,
+   home fixtures softened by the ELO home-advantage; next-3 opponent chips. ── */
+function runInPanel(){
+  if(!NF)return null;
+  const eloOf=t=>(STAND.get(t)||{}).elo||1500;
+  const rows=D.standings.map(s=>{
+    const fx=UPCOMING.filter(g=>g.home===s.team||g.away===s.team);
+    if(!fx.length)return null;
+    const d=fx.reduce((a,g)=>{const home=g.home===s.team;return a+eloOf(home?g.away:g.home)-(home?40:0);},0)/fx.length;
+    return {team:s.team,logo:s.logo,n:fx.length,diff:d,next:fx.slice(0,3)};
+  }).filter(Boolean).sort((a,b)=>b.diff-a.diff);
+  if(rows.length<2)return null;
+  const lo=Math.min(...rows.map(r=>r.diff)),hi=Math.max(...rows.map(r=>r.diff)),span=Math.max(1,hi-lo);
+  const chip=(t,g)=>{const home=g.home===t,opp=home?g.away:g.home;
+    return `<span class="ri-chip" title="${home?'vs':'@'} ${opp} · ${g.date}">${home?'v':'@'}${monogram(opp)}</span>`;};
+  const body=rows.map(r=>{
+    const w=8+92*(r.diff-lo)/span;
+    const col=w>66?'var(--drop)':w>36?'var(--win)':'var(--qualify)';
+    return `<div class="ri-row"><span class="fn">${crest(r.team,r.logo)}<b>${r.team}</b></span>`+
+      `<span class="ri-track"><span style="width:${w.toFixed(1)}%;background:${col}"></span></span>`+
+      `<span class="ri-v">${Math.round(r.diff)}</span>`+
+      `<span class="ri-next">${r.next.map(g=>chip(r.team,g)).join('')}</span></div>`;
+  }).join('');
+  const panel=el('div','panel plotpanel');
+  panel.innerHTML=`<div class="panel-h"><span class="dot" style="background:var(--win);box-shadow:0 0 8px var(--win)"></span>`+
+    `<h2>Run-in difficulty</h2><span class="meta">avg remaining-opponent ELO · hardest schedule first</span></div>`+
+    `<div class="plot">${body}<div class="fleg"><span><i style="background:var(--drop)"></i>Toughest</span>`+
+    `<span><i style="background:var(--qualify)"></i>Easiest</span><span>chips = next 3 (v home · @ away)</span></div></div>`;
+  return panel;
+}
 function renderTableOutlook(){
   const ol=D.outlook;
   $('#favs').className='races';
@@ -1227,7 +1268,13 @@ function renderTableOutlook(){
     banner.style.marginBottom='var(--s4)';banner.style.gridColumn='1/-1';
     l.appendChild(banner);
   }
-  l.append(tableLadder(), finishPlotPanel());
+  // Right column stacks the finish plot + run-in panel so the table's extra
+  // height no longer leaves dead space in the bottom-right corner (desktop).
+  const right=el('div');
+  right.style.cssText='display:flex;flex-direction:column;gap:var(--s4);min-width:0';
+  right.appendChild(finishPlotPanel());
+  const ri=runInPanel(); if(ri)right.appendChild(ri);
+  l.append(tableLadder(), right);
 }
 const KO_ROUND_ORDER=['RoundOne','KOplayoff','Playoff','R16','QF','SF','Final'];
 function bracketTree(){
