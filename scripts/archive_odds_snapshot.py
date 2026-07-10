@@ -35,7 +35,10 @@ _OUT = REPO_ROOT / "data" / "odds_history.parquet"
 # Same exclusion as validate_payloads / test_payload_contract.
 _NON_PAYLOAD = {"logos.js"}
 
-_ODDS_KEYS = ["title", "playoff", "shield", "cup", "ucl", "europa", "releg"]
+# promoted/promo/conf/liguilla/playoffs added 2026-07-09 (round-3 promotion
+# playoffs + drift-tracking step 1a — history not captured never exists).
+_ODDS_KEYS = ["title", "playoff", "shield", "cup", "ucl", "europa", "conf",
+              "releg", "promo", "promoted", "liguilla", "playoffs"]
 _DEDUP_KEYS = ["league", "team", "snapshot_date"]
 
 
