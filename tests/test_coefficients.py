@@ -76,3 +76,22 @@ def test_tier1_offset_is_positive_for_relegated_seeding():
     assert co.tier1_offset("championship") > 0
     assert co.tier1_offset("segunda") > 0
     assert co.tier1_offset("nonexistent") == 0.0
+
+
+# ── UEFA-spots page builder (I1, 2026-07-09) ─────────────────────────────────
+
+def test_coefficients_page_covers_all_modeled_uefa_leagues():
+    from scripts.build_coefficients_page import build
+    from scripts.build_league_data import OUTLOOK
+    data = build()
+    got = {r["league_id"] for r in data["associations"]}
+    want = {lid for lid, cfg in OUTLOOK.items()
+            if any(b["key"] == "ucl" for b in cfg["buckets"])}
+    assert want <= got, f"missing: {want - got}"
+    # ranks are 1..n by coefficient, descending
+    coeffs = [r["coeff"] for r in sorted(data["associations"], key=lambda r: r["rank"])]
+    assert coeffs == sorted(coeffs, reverse=True)
+    # EPS holders show the extra UCL spot the sim uses (5 vs base 4)
+    by_id = {r["league_id"]: r for r in data["associations"]}
+    assert by_id["epl"]["eps"] and by_id["epl"]["ucl"] == 5
+    assert by_id["la-liga"]["ucl"] == 4

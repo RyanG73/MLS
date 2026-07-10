@@ -172,6 +172,7 @@ def _parse_events(events: list[dict], league_id: str, season: int) -> list[dict]
         done = comp.get("status", {}).get("type", {}).get("completed", False)
         dt = pd.to_datetime(e.get("date"), utc=True, errors="coerce")
         date = dt.normalize().tz_localize(None) if pd.notna(dt) else pd.NaT
+        venue = comp.get("venue") or {}
 
         rec: dict = {
             "match_id":    f"espn-{league_id}-{season}-{espn_ht}-{espn_at}".replace(" ", "_"),
@@ -182,6 +183,11 @@ def _parse_events(events: list[dict], league_id: str, season: int) -> list[dict]
             "home_xg":     np.nan,
             "away_xg":     np.nan,
             "is_playoff":  0,
+            # Match metadata (F1, 2026-07-09): kept OUTSIDE the canonical _COLS
+            # contract as nullable extras — understat frames don't carry them.
+            "ko_utc":      e.get("date") or None,          # full ISO kickoff
+            "venue":       venue.get("fullName") or None,
+            "venue_city":  (venue.get("address") or {}).get("city") or None,
         }
 
         if done:
@@ -241,10 +247,16 @@ def european_fixtures(league_id: str, season: int,
                            calendar_year=league_id in CALENDAR_YEAR_LEAGUES)
     rows = _parse_events(events, league_id, season)
 
+    _META = ["ko_utc", "venue", "venue_city"]
     if rows:
-        df = _coerce(pd.DataFrame(rows)[_COLS])
+        full = pd.DataFrame(rows)
+        df = _coerce(full[_COLS])
+        for c in _META:                      # re-attach non-canonical extras
+            df[c] = full[c].values
     else:
         df = _coerce(pd.DataFrame(columns=_COLS))
+        for c in _META:
+            df[c] = pd.Series(dtype=object)
 
     df = df.sort_values("date").reset_index(drop=True)
 

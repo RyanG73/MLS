@@ -909,16 +909,26 @@ def main():
     has_xg = bool(len(played) > 0 and played["home_xg"].notna().any())
 
     # ── Upcoming fixtures → game cards + remaining-sim inputs ──────────────────
+    # F1/F2 (2026-07-09): kickoff/venue ride along when the fixture source is
+    # ESPN (nullable extras); weather is fetched only for the next 7 days.
+    from data_pipeline.weather import kickoff_weather
+    _wx_horizon = pd.Timestamp.now() + pd.Timedelta(days=7)
     remaining, upcoming_cards = [], []
     for _, r in upcoming.sort_values("date").iterrows():
         h, a = r["home_team"], r["away_team"]
         pH, pD, pA = dc_probs(h, a)
         lam, mu = dc_lam_mu(h, a)
+        _s = lambda v: v if (isinstance(v, str) and v) else None  # NaN → None
+        _ko, _venue, _city = _s(r.get("ko_utc")), _s(r.get("venue")), _s(r.get("venue_city"))
+        _wx = None
+        if _ko and _city and r["date"] <= _wx_horizon:
+            _wx = kickoff_weather(_city, _ko)
         upcoming_cards.append({"id": len(remaining), "date": r["date"].strftime("%Y-%m-%d"),
                                "home": tname(h), "away": tname(a),
                                "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
                                "lam": round(lam, 2), "mu": round(mu, 2),
                                "hg": None, "ag": None, "result": None,
+                               "ko": _ko, "venue": _venue, "wx": _wx,
                                "hlogo": tmeta(h).get("logo"), "alogo": tmeta(a).get("logo"),
                                "hcolor": tmeta(h).get("color"), "acolor": tmeta(a).get("color")})
         remaining.append((h, a))

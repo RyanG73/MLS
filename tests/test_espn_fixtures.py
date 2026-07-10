@@ -54,12 +54,14 @@ def test_to_understat_unknown_league():
 # ── _parse_events ──────────────────────────────────────────────────────────────
 
 def _make_event(home: str, away: str, completed: bool,
-                home_score: str = "2", away_score: str = "1") -> dict:
+                home_score: str = "2", away_score: str = "1",
+                venue: dict | None = None) -> dict:
     """Build a minimal ESPN event dict matching the API shape."""
     return {
         "date": "2026-08-16T15:00:00Z",
         "competitions": [{
             "status": {"type": {"completed": completed}},
+            **({"venue": venue} if venue else {}),
             "competitors": [
                 {"homeAway": "home", "team": {"displayName": home},
                  "score": home_score if completed else None},
@@ -129,6 +131,24 @@ def test_parse_events_is_playoff_zero():
     assert rows[0]["is_playoff"] == 0
 
 
+def test_parse_events_kickoff_and_venue_metadata():
+    """F1 (2026-07-09): full kickoff timestamp + venue name/city ride along."""
+    events = [_make_event("Arsenal", "Chelsea", completed=False,
+                          venue={"fullName": "Emirates Stadium",
+                                 "address": {"city": "London"}})]
+    r = _parse_events(events, "epl", 2026)[0]
+    assert r["ko_utc"] == "2026-08-16T15:00:00Z"
+    assert r["venue"] == "Emirates Stadium"
+    assert r["venue_city"] == "London"
+
+
+def test_parse_events_metadata_absent_is_none():
+    r = _parse_events([_make_event("Arsenal", "Chelsea", completed=False)],
+                      "epl", 2026)[0]
+    assert r["venue"] is None and r["venue_city"] is None
+    assert r["ko_utc"] == "2026-08-16T15:00:00Z"
+
+
 def test_parse_events_skips_missing_competitors():
     bad = {"date": "2026-08-16T15:00:00Z",
            "competitions": [{"status": {"type": {"completed": False}},
@@ -157,7 +177,9 @@ def test_european_fixtures_schema(tmp_path, monkeypatch):
 
     df = european_fixtures("epl", 2026, use_cache=False)
 
-    assert list(df.columns) == _COLS, f"Column mismatch: {list(df.columns)}"
+    # canonical columns first, then the F1 match-metadata extras (2026-07-09)
+    assert list(df.columns) == _COLS + ["ko_utc", "venue", "venue_city"], \
+        f"Column mismatch: {list(df.columns)}"
     assert len(df) == 2
     # Scheduled row
     scheduled = df[~df["is_result"]]

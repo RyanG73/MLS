@@ -474,6 +474,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .why-tbl{flex:1;max-width:480px;margin:0 auto}
 .why-r{display:grid;grid-template-columns:1fr minmax(96px,auto) 1fr;gap:10px;align-items:center;padding:3px 0;font-size:11.5px}
 .why-r .wl{text-align:center;color:var(--txt-3);font-size:10px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.why-meta{width:100%;text-align:center;font-size:11px;color:var(--txt-2);padding-bottom:4px}
 .why-r .wv{font-family:var(--mono);font-weight:600;color:var(--txt-2)}
 .why-r .wv:first-child{text-align:right}
 .why-r .wv:last-child{text-align:left}
@@ -611,6 +612,7 @@ footer a:hover{color:var(--txt-2)}
     <button role="tab" aria-selected="false" data-view="teams">Teams</button>
     <button role="tab" aria-selected="false" data-view="health">Model Health</button>
     <button role="tab" aria-selected="false" data-view="news">News</button>
+    <button role="tab" aria-selected="false" data-view="coeffs" id="segCoeffs" style="display:none">UEFA Spots</button>
   </div>
 
   <section id="view-outlook">
@@ -637,6 +639,11 @@ footer a:hover{color:var(--txt-2)}
   <section id="view-news" class="hidden">
     <div class="sec-h"><h2>News</h2><span class="note" id="newsNote"></span></div>
     <div class="news-list" id="newsList"></div>
+  </section>
+
+  <section id="view-coeffs" class="hidden">
+    <div class="sec-h"><h2>UEFA coefficients &amp; European spots</h2><span class="note">Why the number of Champions League places changes from season to season</span></div>
+    <div id="coeffsBody"></div>
   </section>
 
   <section id="view-matches" class="hidden">
@@ -676,6 +683,7 @@ footer a:hover{color:var(--txt-2)}
 <script>document.write('<scr'+'ipt src="data/logos.js?t='+Date.now()+'"></scr'+'ipt>');</script>
 <script src="data/ledger.js"></script>
 <script src="data/movers.js"></script>
+<script src="data/coefficients.js"></script>
 <script>
 // League selected via ?league=<id>. No param at all → the cross-league edge board
 // (B12) is the site's landing view; ?league=mls etc. deep links are unchanged.
@@ -1843,7 +1851,14 @@ function renderGames(){
       `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${american(g.pA)}</span><span class="tn">${g.away}</span></span>`+
       `<span class="gr-end">${end}</span>`;
     row.onclick=()=>row.classList.toggle('open');  // B3: expand for the why-strip
-    const why=el('div','gr-why',whyStrip(g.home,g.away));
+    // F1/F2 (2026-07-09): kickoff time (viewer-local), venue, kickoff weather
+    const meta=[];
+    if(g.ko){const kd=new Date(g.ko);
+      if(!isNaN(kd))meta.push('⏱ '+kd.toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}));}
+    if(g.venue)meta.push('📍 '+g.venue);
+    if(g.wx&&g.wx.temp_c!=null)meta.push(`🌡 ${g.wx.temp_c}°C${g.wx.precip_pct!=null?` · ${g.wx.precip_pct}% rain`:''}`);
+    const why=el('div','gr-why',
+      (meta.length?`<div class="why-meta">${meta.join('&ensp;·&ensp;')}</div>`:'')+whyStrip(g.home,g.away));
     row.appendChild(why);
     grp.appendChild(row);
     if(!played && g.lam!=null && g.mu!=null){
@@ -2243,13 +2258,46 @@ $('#eloGrid').addEventListener('mouseleave',()=>eloTip.style.display='none');
 $('#teamProfile').addEventListener('mousemove',eloHover);
 $('#teamProfile').addEventListener('mouseleave',()=>eloTip.style.display='none');
 
+/* ── I1 (2026-07-09): UEFA coefficients & spots explainer. Tab appears only
+   for UEFA leagues; data from scripts/build_coefficients_page.py. ── */
+(()=>{const lg=(window.LEAGUES||[]).find(l=>l.id===LID);
+  if(lg&&lg.confederation==='UEFA'&&window.COEFF_DATA)$('#segCoeffs').style.display='';})();
+function renderCoeffs(){
+  const box=$('#coeffsBody'); if(!box||box.dataset.done)return; box.dataset.done=1;
+  const C=window.COEFF_DATA; if(!C){box.innerHTML='<div class="hnote">Coefficient data not built yet.</div>';return;}
+  const explainer=`<div class="hcard2"><h3>How European places are decided</h3>
+    <div style="font-size:12.5px;color:var(--txt-2);line-height:1.6">
+    Every match a country's clubs play in the Champions League, Europa League and Conference League earns
+    <b>coefficient points</b> (2 per win, 1 per draw in the league phases, plus round bonuses, divided by the
+    number of clubs entered). UEFA averages the last <b>5 seasons</b> into the country ranking below, and that
+    ranking sets how many teams each league sends to Europe.<br><br>
+    On top of the base allocation (4 Champions League places for the top-4 ranked countries, fewer further down),
+    the two countries whose clubs performed best <b>in the season just played</b> earn a bonus
+    <b>European Performance Spot</b> — an extra Champions League place. That's why the
+    Premier League and Serie A send 5 in 2025-26 while La Liga sends 4, and why the number in this site's
+    UCL column can change from season to season.</div></div>`;
+  const cur=r=>r.league_id===LID?' style="box-shadow:inset 3px 0 0 var(--qualify);background:var(--ink-2)"':'';
+  const rows=C.associations.map(r=>`<div class="trow"${cur(r)} >
+      <span class="rank">${r.rank}</span>
+      <span class="tcell"><span class="tcol"><span class="tname">${r.assoc}${r.eps?' <span title="holds a European Performance Spot this season" style="color:var(--win)">★</span>':''}</span><span class="tsub">${r.league}</span></span></span>
+      <span class="pts">${r.coeff.toFixed(1)}</span>
+      <span class="heat" style="background:rgba(61,220,132,.18)">${r.ucl??'—'}</span>
+      <span class="heat" style="background:rgba(74,163,255,.15)">${r.europa??'—'}</span>
+      <span class="heat" style="background:rgba(74,163,255,.08)">${r.conf??'—'}</span></div>`).join('');
+  const table=`<div class="panel ladder tlad" style="--tgrid:26px minmax(150px,1fr) 56px 44px 44px 44px">
+    <div class="panel-h"><span class="dot"></span><h2>Country ranking — modeled leagues</h2><span class="meta">${C.coeff_season} 5-year coefficients</span></div>
+    <div class="thead"><span>#</span><span>Association</span><span class="c">Coeff</span><span class="c">UCL</span><span class="c">UEL</span><span class="c">UECL</span></div>${rows}</div>
+    <div class="hnote">★ = European Performance Spot holder (bonus Champions League place this season). ${C.note}</div>`;
+  box.innerHTML=explainer+table;
+}
 $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(c=>c.setAttribute('aria-selected',c===b?'true':'false'));
   const v=b.dataset.view;
-  ['outlook','matches','teams','health','news'].forEach(x=>$('#view-'+x).classList.toggle('hidden',v!==x));
+  ['outlook','matches','teams','health','news','coeffs'].forEach(x=>$('#view-'+x).classList.toggle('hidden',v!==x));
   if(v==='matches'&&!$('#gameList').children.length){renderMarketPanel();renderGames();}
   if(v==='teams'&&!$('#eloGrid').children.length)renderTeams();
   if(v==='health'&&!$('#healthBody').children.length)renderHealth();
-  if(v==='news')renderNews();};
+  if(v==='news')renderNews();
+  if(v==='coeffs')renderCoeffs();};
 // deep-link a team from the League Table → Teams tab
 function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfile(team,true);}
 }  /* end full-app (non-soon) block */

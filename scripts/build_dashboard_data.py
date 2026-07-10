@@ -171,7 +171,8 @@ def _toks(nn):
 
 
 def espn_schedule(season):
-    """Return list of fixtures: (date, home_norm, away_norm, status, hg, ag)."""
+    """Return list of fixtures:
+    (date, home_norm, away_norm, status, hg, ag, ko_utc, venue, venue_city)."""
     r = espn_get(f"{_ESPN}/scoreboard",
                  params={"dates": f"{season}0201-{season}1215", "limit": 1000})
     out = []
@@ -187,8 +188,11 @@ def espn_schedule(season):
                 hg, ag = int(cs["home"]["score"]), int(cs["away"]["score"])
             except Exception:
                 pass
+        venue = comp.get("venue") or {}
         out.append((e["date"][:10], _norm(cs["home"]["team"]["displayName"]),
-                    _norm(cs["away"]["team"]["displayName"]), state, hg, ag))
+                    _norm(cs["away"]["team"]["displayName"]), state, hg, ag,
+                    e.get("date") or None, venue.get("fullName") or None,
+                    (venue.get("address") or {}).get("city") or None))
     return out
 
 
@@ -366,9 +370,11 @@ def main():
 
     # ── ESPN schedule: played (for game cards) + remaining (for sim/cards) ────
     sched = espn_schedule(ts)
+    from data_pipeline.weather import kickoff_weather
+    _wx_horizon = (pd.Timestamp.now() + pd.Timedelta(days=7)).strftime("%Y-%m-%d")
     remaining = []   # (htid, atid) for unplayed MLS fixtures
     upcoming_cards = []
-    for date, hn, an, state, hg, ag in sched:
+    for date, hn, an, state, hg, ag, ko_utc, venue, venue_city in sched:
         htid, atid = map_team(hn), map_team(an)
         if not htid or not atid:        # non-MLS (All-Star game, etc.)
             continue
@@ -378,6 +384,10 @@ def main():
         if state != "post":
             pH, pD, pA = dc_probs(htid, atid)
             lam, mu = dc_lam_mu(htid, atid)
+            # F1/F2 (2026-07-09): kickoff/venue on every card; weather only
+            # inside the 7-day forecast window (open-meteo, failure → None)
+            wx = kickoff_weather(venue_city, ko_utc) \
+                if (ko_utc and venue_city and date <= _wx_horizon) else None
             # CONTRACT: "id" = index into the remaining/RP sim arrays (assignment
             # order here), NOT display order — games are re-sorted by date below.
             # The client what-if sim must key fixtures by id, never by position.
@@ -386,6 +396,7 @@ def main():
                                    "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
                                    "lam": round(lam, 2), "mu": round(mu, 2),
                                    "hg": None, "ag": None, "result": None,
+                                   "ko": ko_utc, "venue": venue, "wx": wx,
                                    "hlogo": meta(htid).get("logo"), "alogo": meta(atid).get("logo"),
                                    "hcolor": meta(htid).get("color"), "acolor": meta(atid).get("color")})
             remaining.append((htid, atid))
