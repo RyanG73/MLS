@@ -212,6 +212,59 @@ _FD_TEAM_ALIASES: dict[str, str] = {
 }
 
 _TIER2_ELO_CACHE: dict[str, dict[str, float]] = {}
+_TIER_SERIES_CACHE: dict[str, dict[str, list]] = {}
+
+
+def _tier_elo_series(lid: str) -> dict[str, list]:
+    """Per-team dated pre-match ELO series for a football-data league:
+    {fd_team_name: [(Timestamp, elo), ...]}. {} when the frame can't load.
+
+    R2 display fix (2026-07-09): team-page ELO charts froze while a club was
+    in another division ("the Hull City jump") — these series let the current
+    league's chart stitch the club's seasons in neighboring tiers.
+    """
+    if lid in _TIER_SERIES_CACHE:
+        return _TIER_SERIES_CACHE[lid]
+    out: dict[str, list] = {}
+    try:
+        df = match_results(lid).sort_values("date")
+        df = df.dropna(subset=["home_goals", "away_goals"])
+        if not df.empty:
+            edf, _ = compute_elo(df, K=25, home_adv=80, regress=0.40,
+                                 club_prior_beta=0.75, return_ratings=True)
+            long = pd.concat([
+                edf[["date", "home_team", "home_elo"]].rename(
+                    columns={"home_team": "team", "home_elo": "elo"}),
+                edf[["date", "away_team", "away_elo"]].rename(
+                    columns={"away_team": "team", "away_elo": "elo"}),
+            ]).dropna(subset=["elo"]).sort_values("date", kind="stable")
+            for team, g in long.groupby("team"):
+                out[team] = list(zip(g["date"], g["elo"]))
+    except Exception as e:  # noqa: BLE001
+        print(f"[warning] tier ELO series load failed for {lid}: {e}")
+    _TIER_SERIES_CACHE[lid] = out
+    return out
+
+
+def _neighbor_tier_offsets(lid: str) -> dict[str, float]:
+    """Neighboring divisions in this league's promotion/relegation chain →
+    cumulative ELO offset translating THEIR scale onto `lid`'s scale.
+
+    Walk down (feeder tiers): offsets compose via tier2_offset per hop;
+    walk up (parent flights): via tier1_offset per hop.
+    """
+    out: dict[str, float] = {}
+    off, cur = 0.0, lid                     # downward: epl → championship → …
+    while (child := _TIER2_FOR.get(cur)) is not None:
+        off += co.tier2_offset(child)
+        out[child] = off
+        cur = child
+    off, cur = 0.0, lid                     # upward: league-two → league-one → …
+    while (parent := _TIER1_FOR_BUILD.get(cur)) is not None:
+        off += co.tier1_offset(cur)
+        out[parent] = off
+        cur = parent
+    return out
 
 
 def _get_tier_elo_map(lid: str) -> dict[str, float]:
@@ -1161,6 +1214,12 @@ def main():
         print(f"[{lid}] for_real panel skipped: {_fr_err}")
 
     # ── ELO history (full Understat depth, 2014+) per team, downsampled ───────
+    # R2 (2026-07-09, "the Hull City jump"): a club's chart line used to freeze
+    # while it played in another division, then jump on return. Stitch the
+    # club's seasons from neighboring tiers (offset onto this league's scale
+    # with the fitted promotion/relegation offsets) so the line is continuous.
+    _neighbors = [(nlid, noff, _tier_elo_series(nlid))
+                  for nlid, noff in _neighbor_tier_offsets(lid).items()]
     elo_hist = {}
     for t in tids:
         _hm = _elo_df[_elo_df["home_team"] == t][["date", "home_elo"]].rename(columns={"home_elo": "elo"})
@@ -1168,9 +1227,17 @@ def main():
         _ser = pd.concat([_hm, _aw]).sort_values("date")
         if _ser.empty:
             continue
-        _step = max(1, len(_ser) // 120)
+        _pairs = list(zip(_ser["date"], _ser["elo"]))
+        for _nlid, _noff, _nser in _neighbors:
+            for _cand in {t, tname(t),
+                          _FD_TEAM_ALIASES.get(t, t), _FD_TEAM_ALIASES.get(tname(t), tname(t))}:
+                if _cand in _nser:
+                    _pairs += [(d, e + _noff) for d, e in _nser[_cand]]
+                    break
+        _pairs.sort(key=lambda p: p[0])
+        _step = max(1, len(_pairs) // 120)
         elo_hist[tname(t)] = [[d.strftime("%Y-%m-%d"), int(round(e))]
-                              for d, e in zip(_ser["date"].iloc[::_step], _ser["elo"].iloc[::_step])]
+                              for d, e in _pairs[::_step]]
 
     # ── Market prob lookup for per-game edge display (football-data + understat leagues) ─
     from models.research_model import walk_forward_predictions

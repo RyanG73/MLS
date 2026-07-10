@@ -113,3 +113,47 @@ def test_aggregate_team_zero_value_branch_still_has_four_way_keys():
     import math
     assert math.isnan(feats["mid_value_pct"])
     assert math.isnan(feats["gk_value_pct"])
+
+
+# ── top15_value_eur (R1, 2026-07-09): position-constrained best-XI+bench sum ──
+
+def test_top15_excludes_unplayable_striker_depth():
+    """16 strikers can't all play: only the 4 most valuable ATT count, while a
+    full complement of GK/DEF/MID does."""
+    rows = [("GK1", "Goalkeeper", 5_000_000, 25)]
+    rows += [(f"D{i}", "Centre-Back", 4_000_000, 25) for i in range(5)]
+    rows += [(f"M{i}", "Central Midfield", 4_000_000, 25) for i in range(5)]
+    rows += [(f"A{i}", "Striker", 10_000_000, 25) for i in range(4)]
+    rows += [("A_extra", "Striker", 9_000_000, 25)]      # 5th striker: excluded
+    feats = _aggregate_team(_players(rows))
+    # 5m + 5*4m + 5*4m + 4*10m = 85m; the 9m fifth striker must NOT count
+    assert feats["top15_value_eur"] == pytest.approx(85_000_000)
+    assert feats["squad_value_eur"] == pytest.approx(94_000_000)
+
+
+def test_top15_backfills_short_defense_from_best_remaining():
+    """Only 2 DEF on the books → the 3 missing slots go to the next most
+    valuable players regardless of position (positional flexibility)."""
+    rows = [("GK1", "Goalkeeper", 5_000_000, 25),
+            ("D1", "Centre-Back", 4_000_000, 25),
+            ("D2", "Right-Back", 4_000_000, 25)]
+    rows += [(f"M{i}", "Central Midfield", 6_000_000, 25) for i in range(5)]
+    rows += [(f"A{i}", "Striker", 8_000_000, 25) for i in range(7)]
+    feats = _aggregate_team(_players(rows))
+    # quota picks: 1 GK (5m) + 2 DEF (8m) + 5 MID (30m) + 4 ATT (32m) = 75m
+    # backfill 3 slots from the remaining 3 strikers (8m each) = +24m → 99m
+    assert feats["top15_value_eur"] == pytest.approx(99_000_000)
+
+
+def test_top15_equals_total_for_small_squads():
+    rows = [("GK1", "Goalkeeper", 5_000_000, 25),
+            ("M1", "Central Midfield", 6_000_000, 25),
+            ("A1", "Striker", 8_000_000, 25)]
+    feats = _aggregate_team(_players(rows))
+    assert feats["top15_value_eur"] == pytest.approx(feats["squad_value_eur"])
+
+
+def test_top15_zero_value_branch_key_present():
+    feats = _aggregate_team(_players([("P1", "Striker", 0, 24)]),
+                            keep_if_zero_value=True)
+    assert feats["top15_value_eur"] == 0.0

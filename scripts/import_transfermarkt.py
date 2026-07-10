@@ -423,6 +423,7 @@ def _aggregate_team(players: pd.DataFrame, keep_if_zero_value: bool = False) -> 
         avg_age = float(np.nanmean(ages)) if np.isfinite(ages).any() else np.nan
         return {
             "squad_value_eur":  0.0,
+            "top15_value_eur":  0.0,
             "att_value_pct":    np.nan,
             "def_value_pct":    np.nan,
             "mid_value_pct":    np.nan,
@@ -465,8 +466,26 @@ def _aggregate_team(players: pd.DataFrame, keep_if_zero_value: bool = False) -> 
     top3_val = float(np.sort(vals)[::-1][:3].sum())
     dp_value_share = top3_val / total_val
 
+    # R1 (2026-07-09): best-XI+bench proxy — top 1 GK + 5 DEF + 5 MID + 4 ATT
+    # by value. A squad's 16th striker can't play, so total value dilutes with
+    # unplayable depth; this constrains the sum to a fieldable spread. Short
+    # buckets (or UNK positions) backfill from the remaining most-valuable
+    # players regardless of position — modern positional flexibility.
+    _quota = {"GK": 1, "DEF": 5, "MID": 5, "ATT": 4}
+    _order = np.argsort(-vals)
+    _picked = np.zeros(len(vals), dtype=bool)
+    for _grp, _q in _quota.items():
+        _take = [i for i in _order if pos_groups[i] == _grp][:_q]
+        _picked[_take] = True
+    _short = sum(_quota.values()) - int(_picked.sum())
+    if _short > 0:
+        _fill = [i for i in _order if not _picked[i]][:_short]
+        _picked[_fill] = True
+    top15_value = float(vals[_picked].sum())
+
     return {
         "squad_value_eur":  total_val,
+        "top15_value_eur":  top15_value,
         "att_value_pct":    att_pct,
         "def_value_pct":    def_pct,
         "mid_value_pct":    mid_pct,

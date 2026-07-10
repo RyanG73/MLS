@@ -61,3 +61,66 @@ def test_build_exposes_tier1_for_inverse_map():
     from scripts.build_league_data import _TIER1_FOR_BUILD, _TIER2_FOR
     for t1, t2 in _TIER2_FOR.items():
         assert _TIER1_FOR_BUILD[t2] == t1
+
+
+# ── R2 (2026-07-09): cross-tier ELO history stitching ────────────────────────
+
+def test_neighbor_tier_offsets_compose_down_the_english_chain(monkeypatch):
+    """Building the EPL, the League One offset must be the SUM of both hops
+    (league-one→championship + championship→epl), not a single hop."""
+    import scripts.build_league_data as bld
+
+    monkeypatch.setattr(bld.co, "tier2_offset",
+                        lambda t2: {"championship": -100.0, "league-one": -80.0,
+                                    "league-two": -60.0}.get(t2, 0.0))
+    monkeypatch.setattr(bld.co, "tier1_offset", lambda t2: 0.0)
+    got = bld._neighbor_tier_offsets("epl")
+    assert got["championship"] == -100.0
+    assert got["league-one"] == -180.0
+    assert got["league-two"] == -240.0
+
+
+def test_neighbor_tier_offsets_compose_up_from_league_two(monkeypatch):
+    import scripts.build_league_data as bld
+
+    monkeypatch.setattr(bld.co, "tier1_offset",
+                        lambda t2: {"league-two": 60.0, "league-one": 80.0,
+                                    "championship": 100.0}.get(t2, 0.0))
+    monkeypatch.setattr(bld.co, "tier2_offset", lambda t2: 0.0)
+    got = bld._neighbor_tier_offsets("league-two")
+    assert got["league-one"] == 60.0
+    assert got["championship"] == 140.0
+    assert got["epl"] == 240.0
+
+
+def test_neighbor_tier_offsets_leagues_without_chain_are_empty():
+    import scripts.build_league_data as bld
+    assert bld._neighbor_tier_offsets("eredivisie") == {}
+    assert bld._neighbor_tier_offsets("liga-mx") == {}
+
+
+def test_tier_elo_series_shape(monkeypatch):
+    """Series come back per-team, date-ordered, from the FD frame's pre-match ELOs."""
+    import pandas as pd
+    import scripts.build_league_data as bld
+
+    frame = pd.DataFrame({
+        "date": pd.to_datetime(["2024-08-01", "2024-08-08", "2024-08-15"]),
+        "season": [2024, 2024, 2024],
+        "home_team": ["Hull", "Leeds", "Hull"],
+        "away_team": ["Leeds", "Hull", "Leeds"],
+        "home_goals": [1.0, 2.0, 0.0], "away_goals": [0.0, 2.0, 3.0],
+        "home_xg": [None] * 3, "away_xg": [None] * 3,
+        "label_result": [0.0, 1.0, 2.0], "is_result": [True] * 3,
+        "is_playoff": [0, 0, 0],
+        "match_id": ["a", "b", "c"],
+    })
+    monkeypatch.setattr(bld, "match_results", lambda lid: frame)
+    bld._TIER_SERIES_CACHE.clear()
+    ser = bld._tier_elo_series("championship")
+    assert set(ser) == {"Hull", "Leeds"}
+    hull = ser["Hull"]
+    assert len(hull) == 3
+    dates = [d for d, _ in hull]
+    assert dates == sorted(dates)
+    bld._TIER_SERIES_CACHE.clear()
