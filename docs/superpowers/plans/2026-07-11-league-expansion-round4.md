@@ -10,6 +10,17 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-11-league-expansion-round4-design.md`
 
+> **STATUS 2026-07-11 — Phases 1 & 2 COMPLETE & committed (12 leagues live).** Tasks 1–7 done
+> plus finalize (REGISTRY flipped live, leagues.js + logos.js regenerated, build_all.sh round-4
+> batch added, docs updated, Women sidebar group added). All 12 render in-browser with no console
+> errors; full test suite green except pre-existing environmental gaps (playwright, understatapi).
+> Two plan corrections applied: (a) Switzerland code is `SWZ` not `SUI`; (b) discovered the
+> `fetch_league_teams` crest-stub prerequisite + the clobber-ordering gotcha (see the plan header
+> WORKFLOW CORRECTION and the `league-build-workflow` memory). **Phase 3 (Tasks 8–11 for Finland +
+> Canadian PL) is PENDING the user's `API_FOOTBALL_KEY`.** Task 11's finalize was already done for
+> the Phase 1–2 leagues; when Phase 3 ships, extend build_all.sh with finland/canadian-pl and add
+> a PROJECT_HISTORY entry, then delete this plan file.
+
 **WORKFLOW CORRECTION (discovered 2026-07-11 during Task 2):** crests are seeded by a
 coming-soon **stub** created by `scripts/fetch_league_teams.py` from its `REGISTRY`. A
 brand-new league with no prior stub builds with **0 crests**. So the real per-league
