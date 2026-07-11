@@ -14,6 +14,25 @@
 <meta property="og:image:alt" content="Entenser — market-blind football probabilities, explained and audited" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:image" content="https://entenser.com/assets/og/og-image.png" />
+<script>
+/* Privacy-preserving analytics (Plausible — no cookies, GDPR-friendly, matches the
+   Privacy page copy). Active ONLY on the live domain, never on localhost/file
+   previews, so development and the test suite never emit events. To disable
+   entirely, set provider to 'none'; to switch vendors, change provider + loader.
+   NOTE: events are only *recorded* once entenser.com exists in a Plausible account
+   (or self-hosted instance). Until then track() is a no-op off-domain and a harmless
+   dropped beacon on-domain — no code change needed when the account is created. */
+const ANALYTICS = {provider:'plausible', domain:'entenser.com', host:'https://plausible.io'};
+const _analyticsOn = ANALYTICS.provider==='plausible' && location.hostname===ANALYTICS.domain;
+window.plausible = window.plausible || function(){(window.plausible.q=window.plausible.q||[]).push(arguments);};
+function track(event, props){ if(!_analyticsOn) return; try{ window.plausible(event, props?{props}:undefined); }catch(e){} }
+if(_analyticsOn){
+  const s=document.createElement('script');
+  s.defer=true; s.src=ANALYTICS.host+'/js/script.tagged-events.js';
+  s.setAttribute('data-domain', ANALYTICS.domain);
+  document.head.appendChild(s);
+}
+</script>
 <link rel="icon" type="image/png" href="assets/branding/favicon.png" />
 <title>Entenser — Football probabilities, explained and audited</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2066,7 +2085,7 @@ function renderGames(){
       `<span class="gr-bar">${cbar(g)}</span>`+
       `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${american(g.pA)}</span><span class="tn">${g.away}</span></span>`+
       `<span class="gr-end">${end}</span>`;
-    row.onclick=()=>row.classList.toggle('open');  // B3: expand for the why-strip
+    row.onclick=()=>{row.classList.toggle('open');track('match_expand',{league:LID});};  // B3: expand for the why-strip
     // F1/F2 (2026-07-09): kickoff time (viewer-local), venue, kickoff weather
     const meta=[];
     if(g.ko){const kd=new Date(g.ko);
@@ -2515,7 +2534,7 @@ $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.curr
   if(v==='news')renderNews();
   if(v==='coeffs')renderCoeffs();};
 // deep-link a team from the League Table → Teams tab
-function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfile(team,true);}
+function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfile(team,true);track('team_open',{league:LID});}
 }  /* end full-app (non-soon) block */
 </script>
 
@@ -2643,7 +2662,7 @@ function ebRow(r){
     ?`<span class="eb-edge">▲ ${bet.edge_pct.toFixed(1)}% edge ${bet.side==='H'?'Home':'Away'}</span> · quarter-Kelly ${bet.units}u`
     :(r.has_market?'<span class="eb-meta">priced · no qualifying edge</span>':'<span class="eb-meta">no line yet</span>');
   const risk=(r.risk_flags||[]).slice(0,4).map(x=>`<span class="cc-pill">${commandEsc(x.replaceAll('_',' '))}</span>`).join('');
-  return `<div class="eb-row${stale?' stale':''}" onclick="this.classList.toggle('open')">
+  return `<div class="eb-row${stale?' stale':''}" onclick="this.classList.toggle('open');track('edge_row_expand')">
     <div class="eb-top">
       <a class="eb-lg" href="?league=${r.league}" onclick="event.stopPropagation()" style="text-decoration:none">${r.league_name}</a>
       <span class="eb-teams">${crest(r.home,r.hlogo)} <b>${r.home}</b> v <b>${r.away}</b> ${crest(r.away,r.alogo)}</span>
@@ -2684,6 +2703,7 @@ function bindCommandSignup(){
     const input=form.querySelector('input[name="email"]');
     const email=(input&&input.value||'').trim();
     if(email)localStorage.setItem('entenser_email_interest',email);
+    if(email)track('email_signup');
     const btn=form.querySelector('button');
     if(btn)btn.textContent='Saved';
   });
@@ -2878,6 +2898,25 @@ if(_infoPage){
 // Every route must carry attribution + trust/legal links: the edge-board landing
 // and power route don't set the footer themselves, so backfill it if still empty.
 (()=>{ const _f=$('#foot'); if(_f && !_f.innerHTML.trim()) _f.innerHTML=FOOT_HTML; })();
+
+/* ── Analytics instrumentation (track() defined in <head>; no-op off entenser.com) ──
+   Events: pageview_route, tab_click, league_nav, article_click, match_expand,
+   edge_row_expand, team_open, email_signup. Delegated so it survives re-renders. */
+(()=>{
+  const route = _isEdgeBoard ? 'command-center'
+    : _infoPage ? ('info:'+_infoPage) : _isPower ? 'power' : LID;
+  track('pageview_route', {route});
+  document.addEventListener('click', ev=>{
+    const t = ev.target.closest && ev.target.closest('[data-view], a.news-card, a[href*="?league="]');
+    if(!t) return;
+    if(t.matches('[data-view]')) track('tab_click', {view:t.getAttribute('data-view'), league:LID});
+    else if(t.matches('a.news-card')) track('article_click', {league:LID});
+    else if(t.matches('a[href*="?league="]')){
+      const to=new URLSearchParams(t.search).get('league');
+      track('league_nav', {to: to||'command-center'});
+    }
+  }, true);
+})();
 </script>
 </body>
 </html>
