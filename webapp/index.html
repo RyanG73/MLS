@@ -2446,10 +2446,11 @@ function renderProfile(team,scroll){
       <div class="hnote">Lower is better · naive = this season's league base rates${bs.market==null?' · no market lines matched this club yet':''} · model ${bs.model<bs.naive?'beats':'trails'} naive on this club's matches</div></div>`;
   }
   $('#teamProfile').innerHTML=
-    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div></div>
+    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div><span class="fav-team-star${FavStore.hasTeam(LID,team)?' on':''}" id="favTeamStar" title="Pin to Favorites">${FavStore.hasTeam(LID,team)?'★':'☆'}</span></div>
      <div class="chart-wrap big">${chart}${trophLegend}<div class="troph-list">${chips}</div></div>
      <div class="prof-grid">${inputsCard}${seasonCard}${forRealCard}${accCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}<div class="pcard" style="grid-column:1/-1"><h3>Club news</h3><div id="clubNews" class="hnote">Loading…</div></div></div>`;
   fillClubNews(team);
+  const _fts=$('#favTeamStar'); if(_fts) _fts.onclick=()=>{const on=FavStore.toggleTeam(LID,team);_fts.classList.toggle('on',on);_fts.textContent=on?'★':'☆';};
   if(scroll)$('#teamProfile').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 /* E2 (2026-07-09): club-scoped stories filtered from the merged league feed —
@@ -2680,6 +2681,28 @@ if (_isPower && window.POWER_DATA) {
 .eb-strip{padding:8px 16px;border-bottom:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px}
 .eb-panel{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px}
 .eb-h{padding:9px 14px;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--line-2);background:var(--ink-2)}
+/* ── Leagues index page (sidebar's successor) ── */
+.lx-grp{font-family:var(--serif);font-size:17px;font-weight:700;border-bottom:1px solid var(--line-3);padding:var(--s4) 0 6px;margin-bottom:2px}
+.lx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 20px}
+.lx-lg{display:flex;align-items:center;gap:9px;padding:9px 4px;font-size:13.5px;color:var(--txt-2);text-decoration:none;border-bottom:1px solid var(--line)}
+.lx-lg:hover{color:var(--txt-1);background:var(--ink-1)}
+.lx-lg img{width:20px;height:20px;object-fit:contain;flex:none}
+.lx-lg .soon-tag{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
+.lx-star{margin-left:auto;color:var(--txt-3);font-size:15px;cursor:pointer;padding:2px 4px}
+.lx-star.on,.lx-star:hover{color:#e2b04f}
+/* ── Favorites page ── */
+.fv-empty{padding:var(--s5) 0;color:var(--txt-2);font-size:14px}
+.fv-empty a{color:var(--txt-1)}
+.fv-card{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;font-size:13.5px;flex-wrap:wrap}
+.fv-card:hover{background:var(--ink-1)}
+.fv-card img{width:19px;height:19px;object-fit:contain}
+.fv-card .lg{color:var(--txt-3);font-size:11px;text-transform:uppercase;letter-spacing:.03em;width:150px;flex:none}
+.fv-card b{font-family:var(--mono)}
+.fv-card .sub{color:var(--txt-3);font-size:11.5px;width:100%;padding-left:160px}
+.fv-unpin{margin-left:auto;color:#e2b04f;cursor:pointer;font-size:15px;padding:2px 6px}
+.prof-hd .fav-team-star{margin-left:auto;font-size:22px;color:var(--txt-3);cursor:pointer;align-self:center}
+.prof-hd .fav-team-star.on{color:#e2b04f}
+@media(max-width:900px){.fv-card .sub{padding-left:0}}
 /* NYT editorial homepage (2026-07-11 redesign) */
 .ed-wrap{padding-top:var(--s4)}
 .ed-kicker{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-3);margin-bottom:6px}
@@ -2993,6 +3016,89 @@ if(_isHome && window.HOME_DATA){
     </div>
     <div class="ed-sec">Around the Leagues</div><div class="ed-newsband">${news||'<div class="news-empty">No headlines yet.</div>'}</div>
   </div>`; }
+}
+
+// ── Leagues index (?league=leagues): the sidebar's successor, grouped by country ──
+if(_isLeagues){
+  const seg=$('#seg'); if(seg) seg.style.display='none';
+  const hd=document.querySelector('header'); if(hd) hd.style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
+  document.title="Leagues · Entenser";
+  const GROUP_ORDER=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}'],['Spain','\u{1F1EA}\u{1F1F8}'],['Italy','\u{1F1EE}\u{1F1F9}'],['Germany','\u{1F1E9}\u{1F1EA}'],['France','\u{1F1EB}\u{1F1F7}'],
+    ['Americas','\u{1F30E}'],['South America','\u{1F1E7}\u{1F1F7}'],['Other Europe','\u{1F1EA}\u{1F1FA}'],['Asia','\u{1F30F}'],['Cups','\u{1F3C6}'],['Women','⚽']];
+  const groups={};
+  (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
+  const render=()=>{
+    const favs=FavStore.leagues();
+    const link=l=>`<a class="lx-lg" href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span>${l.name}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}<span class="lx-star${favs.has(l.id)?' on':''}" data-lid="${l.id}" title="${favs.has(l.id)?'Unpin':'Pin to favorites'}">${favs.has(l.id)?'★':'☆'}</span></a>`;
+    const favLg=(window.LEAGUES||[]).filter(l=>favs.has(l.id));
+    let html='<div class="ed-wrap">';
+    if(favLg.length) html+=`<div class="lx-grp">★ Favorites</div><div class="lx-grid">${favLg.map(link).join('')}</div>`;
+    GROUP_ORDER.forEach(([g,flag])=>{ if(!groups[g]||!groups[g].length) return;
+      html+=`<div class="lx-grp">${flag} ${g==='Other Europe'?'Europe':g}</div><div class="lx-grid">${groups[g].map(link).join('')}</div>`;});
+    html+='</div>';
+    const target=$('#view-outlook'); if(!target) return;
+    target.classList.remove('hidden'); target.innerHTML=html;
+    target.querySelectorAll('.lx-star').forEach(s=>s.onclick=e=>{e.preventDefault();e.stopPropagation();FavStore.toggleLeague(s.dataset.lid);render();});
+  };
+  render();
+  const _fl=$('#foot'); if(_fl && !_fl.innerHTML.trim()) _fl.innerHTML=FOOT_HTML;
+}
+
+// ── Favorites (?league=favorites): pinned leagues (HOME_DATA snapshot) + pinned teams
+//    (lazy per-league data loads; a failed load degrades to a "data unavailable" row) ──
+if(_isFavs){
+  const seg=$('#seg'); if(seg) seg.style.display='none';
+  const hd=document.querySelector('header'); if(hd) hd.style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
+  document.title="Favorites · Entenser";
+  const H=window.HOME_DATA||{};
+  const nm=id=>{const l=(window.LEAGUES||[]).find(x=>x.id===id);return l?l.name:id;};
+  const target=$('#view-outlook');
+  const favLg=[...FavStore.leagues()], favTm=FavStore.teams();
+  const loadLeague=lid=>new Promise(res=>{const s=document.createElement('script');
+    s.src=`data/${lid}.js?t=${Date.now()}`;s.async=false;
+    s.onload=()=>res(window.LEAGUE_DATA);s.onerror=()=>res(null);document.head.appendChild(s);});
+  const leagueRow=lid=>{const l=(H.leaders||[]).find(x=>x.league===lid);
+    return `<a class="fv-card" href="?league=${lid}"><span class="lg">${nm(lid)}</span>${l?`${crest(l.team,l.logo)}<span>${l.team}</span><b>${l.pct}%</b><span style="color:var(--txt-3);font-size:11px">${l.metric_label}${l.preseason?' · preseason':''}</span>`:'<span style="color:var(--txt-3)">open league page</span>'}</a>`;};
+  const render=async()=>{
+    if(!target) return;
+    target.classList.remove('hidden');
+    if(!favLg.length&&!favTm.length){
+      target.innerHTML=`<div class="ed-wrap"><div class="ed-sec">★ Favorites</div>
+        <div class="fv-empty">Nothing pinned yet. Star a league on the <a href="?league=leagues">Leagues page</a>, or star a club from its team profile, and it will live here.</div></div>`;
+      return;
+    }
+    let html='<div class="ed-wrap">';
+    if(favLg.length) html+=`<div class="ed-sec">★ Leagues</div>${favLg.map(leagueRow).join('')}`;
+    html+=favTm.length?`<div class="ed-sec">★ Clubs</div><div id="fvTeams"><div class="fv-empty">Loading club data…</div></div>`:'';
+    html+='</div>';
+    target.innerHTML=html;
+    if(!favTm.length) return;
+    // group pinned teams by league; load each league file once, serially (each sets window.LEAGUE_DATA)
+    const byLg={}; favTm.forEach(t=>{(byLg[t.league]=byLg[t.league]||[]).push(t.team);});
+    let rows='';
+    for(const lid of Object.keys(byLg)){
+      const d=await loadLeague(lid);
+      for(const team of byLg[lid]){
+        const unpin=`<span class="fv-unpin" data-lg="${lid}" data-team="${commandEsc(team)}" title="Unpin">★</span>`;
+        const st=d&&(d.standings||[]).find(s=>s.team===team);
+        if(!st){rows+=`<div class="fv-card"><span class="lg">${nm(lid)}</span><span>${commandEsc(team)}</span><span style="color:var(--txt-3)">data unavailable</span>${unpin}</div>`;continue;}
+        const metric=(((d.outlook||{}).cards||[])[0])||null;
+        const next=(d.games||[]).filter(g=>g.result==null&&(g.home===team||g.away===team))
+          .sort((a,b)=>(a.date<b.date?-1:1))[0];
+        const nx=next?`next: ${next.home===team?'vs '+next.away:'@ '+next.home} ${next.date} · model ${Math.round((next.home===team?next.pH:next.pA)*100)}% win`:'no upcoming fixture';
+        rows+=`<a class="fv-card" href="?league=${lid}">${crest(team,st.logo)}<span class="lg">${nm(lid)}</span><span>${team}</span>
+          ${metric?`<b>${(+st[metric.key]||0).toFixed(1)}%</b><span style="color:var(--txt-3);font-size:11px">${metric.label}</span>`:''}${unpin}
+          <span class="sub">proj. #${Math.round(st.proj_rank)} · ${nx}</span></a>`;
+      }
+    }
+    const box=$('#fvTeams'); if(box) box.innerHTML=rows;
+    target.querySelectorAll('.fv-unpin').forEach(u=>u.onclick=e=>{e.preventDefault();e.stopPropagation();
+      FavStore.toggleTeam(u.dataset.lg,u.dataset.team);location.reload();});
+  };
+  render();
+  const _ff=$('#foot'); if(_ff && !_ff.innerHTML.trim()) _ff.innerHTML=FOOT_HTML;
 }
 
 // ── Static info / trust / legal routes (?league=about|data-sources|responsible-gambling|privacy) ──
