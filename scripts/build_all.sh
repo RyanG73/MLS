@@ -135,3 +135,6 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/build_edge_board.py \
 echo "--- public launch execution report ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_public_launch_report.py \
   || echo "  [WARN] build_public_launch_report failed (non-fatal)"
+echo "--- social share / OG cards ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_share_cards.py \
+  || echo "  [WARN] build_share_cards failed (non-fatal)"
