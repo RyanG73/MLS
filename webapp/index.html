@@ -550,6 +550,25 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 footer{color:var(--txt-3);font-size:11.5px;text-align:center;margin-top:var(--s6);padding-top:var(--s4);border-top:1px solid var(--line)}
 footer a{color:var(--txt-3);text-decoration:underline;text-underline-offset:2px}
 footer a:hover{color:var(--txt-2)}
+.foot-legal{margin-top:6px}
+.foot-legal a{margin:0 4px}
+/* ── Static info / trust / legal routes (?league=about|data-sources|…) ── */
+.info-wrap{max-width:760px;margin:0 auto}
+.info-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:var(--s5)}
+.info-nav a{font-size:12.5px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;color:var(--txt-2);text-decoration:none;white-space:nowrap}
+.info-nav a:hover{border-color:var(--txt-3);color:var(--txt-1)}
+.info-nav a.active{background:var(--accent,#3d7dff);border-color:transparent;color:#fff}
+.info-doc h2{font-size:20px;margin:0 0 6px}
+.info-doc .lead{color:var(--txt-2);margin:0 0 var(--s4)}
+.info-doc h3{font-size:14.5px;margin:var(--s5) 0 6px;color:var(--txt-1)}
+.info-doc p,.info-doc li{color:var(--txt-2);font-size:13.5px;line-height:1.62}
+.info-doc ul{margin:6px 0 6px 18px}
+.info-doc .callout{border:1px solid var(--line);border-left:3px solid var(--accent,#3d7dff);border-radius:6px;padding:12px 14px;margin:var(--s4) 0;background:var(--panel-2,rgba(255,255,255,.02))}
+.info-doc .metric-row{display:flex;flex-wrap:wrap;gap:8px;margin:var(--s4) 0}
+.info-doc .metric{border:1px solid var(--line);border-radius:6px;padding:8px 12px;min-width:120px}
+.info-doc .metric .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3)}
+.info-doc .metric .v{font-size:17px;font-weight:600;color:var(--txt-1)}
+.info-doc .fine{font-size:11.5px;color:var(--txt-3);margin-top:var(--s5)}
 .hidden{display:none!important}
 
 @media(max-width:1280px){
@@ -721,18 +740,23 @@ footer a:hover{color:var(--txt-2)}
 const _rawLeague=new URLSearchParams(location.search).get('league');
 const _isEdgeBoard=!_rawLeague;
 const LID=_rawLeague||'mls';
+// Static info / trust / legal routes render self-contained content — there is no
+// per-league data/news/drift file to fetch, so skip those document.writes.
+const _INFO_PAGES=['about','data-sources','responsible-gambling','privacy'];
+const _infoPage=_INFO_PAGES.includes(_rawLeague)?_rawLeague:null;
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
-document.write('<scr'+'ipt src="data/'+(_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
+if(!_infoPage)
+  document.write('<scr'+'ipt src="data/'+(_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Baked multi-source news (scripts/build_news.py). Missing file (new league,
 // build not yet run) 404s harmlessly — window.NEWS_DATA just stays undefined.
-if(!_isEdgeBoard&&_rawLeague!=='power')
+if(!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
   document.write('<scr'+'ipt src="data/news/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Per-league projection-drift trajectories (scripts/build_drift_report.py) —
 // lazy like news: only this league's file, only for the Model Health tab's
 // "Projection stability" card. Missing file 404s harmlessly (window.DRIFT_TRAJ
 // stays undefined; the card renders its insufficient-history state).
-if(!_isEdgeBoard&&_rawLeague!=='power')
+if(!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
   document.write('<scr'+'ipt src="data/drift-traj/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
@@ -741,8 +765,8 @@ const _isPower = new URLSearchParams(location.search).get('league')==='power';
 // (not a single league's LEAGUE_DATA). Use a benign empty stub so the league render code
 // below no-ops; renderPower()/renderEdgeBoard() (appended at the end of the page) then
 // hide the league UI and draw the real view.
-const D = (_isPower || _isEdgeBoard)
-  ? {league:{name:_isEdgeBoard?"Matches":'Cross-League Power Rankings'},
+const D = (_isPower || _isEdgeBoard || _infoPage)
+  ? {league:{name:_isEdgeBoard?"Matches":_infoPage?'Info':'Cross-League Power Rankings'},
      outlook:{mode:_isEdgeBoard?'edge-board':'power'}, standings:[], games:[],
      sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], team_inputs:{}, elo_history:{},
      health:null, model_card:{}, in_season_brier:{}, season:2026}
@@ -860,6 +884,12 @@ const FOOT_ATTR='Data: <a href="https://www.americansocceranalysis.com" target="
   ' · <a href="https://understat.com" target="_blank" rel="noopener">Understat</a>'+
   ' · <a href="https://www.football-data.co.uk" target="_blank" rel="noopener">football-data.co.uk</a>'+
   ' · squad values <a href="https://www.transfermarkt.com" target="_blank" rel="noopener">Transfermarkt.com</a>';
+// Trust/legal nav — shown in the footer on every route (P0 launch requirement).
+const FOOT_LEGAL='<div class="foot-legal"><a href="?league=about">About the model</a> · '+
+  '<a href="?league=data-sources">Data sources</a> · '+
+  '<a href="?league=responsible-gambling">Responsible gambling</a> · '+
+  '<a href="?league=privacy">Privacy</a></div>';
+const FOOT_HTML=FOOT_ATTR+FOOT_LEGAL;
 // B11/B12: live paper-ledger strip (cross-league; window.LEDGER_DATA from data/ledger.js).
 function ledgerStripHTML(){
   const L=(window.LEDGER_DATA||{}).summary;
@@ -888,11 +918,12 @@ function renderSoonView(){
   $('#soonTeams').innerHTML=(D.teams||[]).map(t=>
     `<div class="soon-team">${crest(t.name,t.logo)}<span>${t.name}</span></div>`).join('')
     ||'<div style="color:var(--txt-3)">Team list coming soon.</div>';
-  $('#foot').innerHTML=FOOT_ATTR;
+  $('#foot').innerHTML=FOOT_HTML;
 }
 if((D.league||{}).status==='soon'){ renderSoonView(); }
 else if(_isPower){ /* power route — renderPower handles this below, skip normal league render */ }
 else if(_isEdgeBoard){ /* edge-board route — renderEdgeBoard handles this below, skip normal league render */ }
+else if(_infoPage){ /* static info/legal route — renderInfo() handles this below, skip normal league render */ }
 else {
 /* header: % complete + simplified model-vs-naive accuracy card */
 const _pct=(D.league||{}).pct_complete;
@@ -947,7 +978,7 @@ $('#sub').textContent = isKnockout
      </div>
      <div class="acc-tracks">${row('vs naive',naiveMap)}${row('vs market',mktMap)}</div>`;
 })();
-$('#foot').innerHTML=FOOT_ATTR;
+$('#foot').innerHTML=FOOT_HTML;
 
 /* ═══════════════ WHAT-IF SIM ENGINE ═══════════════
    SIM PORTING CONTRACT (JS here ↔ Python in scripts/build_dashboard_data.py —
@@ -2745,6 +2776,100 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
     bindCommandSignup();
   }
 }
+
+// ── Static info / trust / legal routes (?league=about|data-sources|responsible-gambling|privacy) ──
+if(_infoPage){
+  const seg=$('#seg'); if(seg) seg.style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
+  const NAV=[['about','About the model'],['data-sources','Data sources'],['responsible-gambling','Responsible gambling'],['privacy','Privacy']];
+  const TITLES={'about':'About the model','data-sources':'Data & attribution','responsible-gambling':'Responsible gambling','privacy':'Privacy'};
+  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent=TITLES[_infoPage]||'Info';
+  const subEl=$('#sub'); if(subEl) subEl.textContent='Entenser · market-blind football probabilities, explained and audited';
+  const nav='<div class="info-nav">'+NAV.map(([id,label])=>`<a href="?league=${id}"${id===_infoPage?' class="active"':''}>${label}</a>`).join('')+'</div>';
+  const DOCS={};
+  DOCS['about']=`
+    <h2>About the model</h2>
+    <p class="lead">Entenser is a <b>market-blind</b> football prediction system. It estimates win / draw / loss probabilities from team strength and form — and is never trained on betting odds, so when the model disagrees with the market, that disagreement is genuinely independent.</p>
+    <h3>How a prediction is built</h3>
+    <ul>
+      <li><b>ELO ratings</b> track each team's strength over time (home advantage and between-season regression baked in).</li>
+      <li><b>Dixon–Coles</b> models goal rates with a 120-day time-decay, so recent matches matter more.</li>
+      <li>A <b>season-weighted XGBoost</b> classifier (5-model seed bag) blends xG, form, rest and schedule features.</li>
+      <li>The two are combined and then <b>temperature-calibrated</b> so a stated 60% really happens about 60% of the time.</li>
+    </ul>
+    <h3>How good is it? (lower Brier = better)</h3>
+    <p>We score with the <b>sum-form Brier score</b>. For reference, a coin-flip-ish uniform guess ≈ 0.6406 and an always-pick-home baseline ≈ 0.6667. Current per-family results on 2022–2025 walk-forward tests:</p>
+    <div class="metric-row">
+      <div class="metric"><div class="k">Big-5 Europe</div><div class="v">0.593</div><div class="s">vs 0.649 naive · +8.5%</div></div>
+      <div class="metric"><div class="k">Europe tiers</div><div class="v">0.615</div><div class="s">vs 0.650 naive · +5.3%</div></div>
+      <div class="metric"><div class="k">USL Champ.</div><div class="v">0.625</div><div class="s">vs 0.646 naive · +3.3%</div></div>
+      <div class="metric"><div class="k">MLS</div><div class="v">0.633</div><div class="s">vs 0.641 naive · +1.2%</div></div>
+      <div class="metric"><div class="k">NWSL</div><div class="v">0.646</div><div class="s">vs 0.651 naive · +0.8%</div></div>
+    </div>
+    <div class="callout"><b>We do not claim to beat the market.</b> Against sharp bookmakers the model typically trails by a couple of percent on aggregate Brier — that is expected for a market-blind model. Its value is in <i>specific disagreement pockets</i>, transparency, and tracking whether a projection is stable enough to trust.</div>
+    <h3>Where the model is weak (on purpose, we show this)</h3>
+    <ul>
+      <li><b>Draws</b> are structurally hard; draw-side recommendations are suppressed until a calibration gate clears.</li>
+      <li><b>Preseason</b> numbers are statistical <i>priors</i>, not live probabilities — they carry little skill on promotion/relegation until ~25% of a season is played.</li>
+      <li><b>Thin samples</b> (early season, lower tiers, cups) are flagged rather than hidden.</li>
+    </ul>
+    <p class="fine">Metrics reflect the current champion configuration and are regenerated as new results accrue. See the Model Health / Trust tab on any live league for that league's specific calibration and stability.</p>`;
+  DOCS['data-sources']=`
+    <h2>Data & attribution</h2>
+    <p class="lead">Entenser is built entirely on established public football-data sources. Aggregated, model-derived outputs are shown here; raw third-party datasets are not redistributed.</p>
+    <h3>Sources</h3>
+    <ul>
+      <li><b>American Soccer Analysis</b> — xG, possession and passing features (MLS, NWSL, USL).</li>
+      <li><b>ESPN</b> — fixtures, results and schedules across all leagues.</li>
+      <li><b>Understat</b> — shot-level xG for the European Big-5.</li>
+      <li><b>football-data.co.uk</b> — historical results and closing market odds (used only to <i>evaluate</i> the model after the fact — never as a model input).</li>
+      <li><b>Transfermarkt</b> — squad market values, shown only as <i>team-level aggregates</i> with attribution.</li>
+      <li><b>Open-Meteo</b> — kickoff weather for matches within a week.</li>
+    </ul>
+    <div class="callout"><b>Market-blind guarantee.</b> Betting odds are never used as a model feature. Training on closing lines would collapse the model-vs-market edge, so odds are only ever used after a prediction is made, for evaluation and CLV.</div>
+    <h3>Rights posture</h3>
+    <ul>
+      <li>Team-level Transfermarkt value aggregates are displayed with attribution; individual player valuations stay local-only.</li>
+      <li>Club crests and fixture data are used for identification with attribution to their sources.</li>
+      <li>Odds-derived figures appear only as aggregate model-evaluation metrics, not as redistributed raw data.</li>
+    </ul>
+    <p class="fine">If you represent a data source and have a question about usage or attribution, please get in touch and we will resolve it promptly.</p>`;
+  DOCS['responsible-gambling']=`
+    <h2>Responsible gambling</h2>
+    <p class="lead">Entenser is an informational analytics product. It is <b>not betting advice</b> and does not guarantee any outcome or return.</p>
+    <div class="callout"><b>18+ / 21+ where applicable.</b> Only gamble with money you can afford to lose. Probabilities shown here are model estimates and can be wrong; past backtest performance does not predict future results.</div>
+    <h3>If gambling stops being fun</h3>
+    <ul>
+      <li><b>United States</b> — call or text <b>1-800-GAMBLER</b>, or visit <a href="https://www.ncpgambling.org" target="_blank" rel="noopener">ncpgambling.org</a>.</li>
+      <li><b>United Kingdom</b> — visit <a href="https://www.begambleaware.org" target="_blank" rel="noopener">begambleaware.org</a> or call the National Gambling Helpline on 0808 8020 133.</li>
+      <li><b>Elsewhere</b> — please seek your national problem-gambling helpline.</li>
+    </ul>
+    <h3>Our stance</h3>
+    <ul>
+      <li>We publish probabilities, movement and model accuracy — not tips or "locks".</li>
+      <li>Draw-side and low-confidence recommendations are deliberately suppressed.</li>
+      <li>There are no sportsbook affiliate links on this site.</li>
+    </ul>`;
+  DOCS['privacy']=`
+    <h2>Privacy</h2>
+    <p class="lead">Entenser is a static website. It does not require an account and does not collect personal information to show you projections.</p>
+    <h3>What is and isn't collected</h3>
+    <ul>
+      <li>Your league favourites and collapsed-section preferences are stored <b>only in your own browser</b> (localStorage) and never sent to us.</li>
+      <li>We may use privacy-preserving, aggregate analytics to understand which pages are visited. No personally identifying profiles are built.</li>
+      <li>If you choose to submit your email for the weekly digest, it is used only to send that digest and nothing else.</li>
+    </ul>
+    <h3>Third parties</h3>
+    <p>Pages link out to data sources and problem-gambling resources; those sites have their own privacy policies. We do not sell or share any information you provide.</p>
+    <p class="fine">Questions about privacy? Reach out via the contact channel published at launch.</p>`;
+  const target=$('#view-outlook')||$('main.wrap');
+  if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="info-wrap">${nav}<div class="info-doc">${DOCS[_infoPage]||''}</div></div>`; }
+  const _fi=$('#foot'); if(_fi) _fi.innerHTML=FOOT_HTML;
+}
+
+// Every route must carry attribution + trust/legal links: the edge-board landing
+// and power route don't set the footer themselves, so backfill it if still empty.
+(()=>{ const _f=$('#foot'); if(_f && !_f.innerHTML.trim()) _f.innerHTML=FOOT_HTML; })();
 </script>
 </body>
 </html>
