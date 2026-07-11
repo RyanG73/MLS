@@ -156,6 +156,32 @@ def build_movers() -> list[dict]:
     return out
 
 
+def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
+                   days: int = 10) -> list[dict]:
+    """Upcoming fixtures (next `days` days) across live leagues, biggest
+    leagues first, for the homepage right-rail. Chronological within a league."""
+    from datetime import date, timedelta
+    today = date.today().isoformat()
+    horizon = (date.today() + timedelta(days=days)).isoformat()
+    fx = []
+    for lid, d in files:
+        name = (d.get("league") or {}).get("name", lid)
+        for g in d.get("games", []):
+            if g.get("result") is not None:
+                continue
+            gd = g.get("date") or ""
+            if not (today <= gd <= horizon):
+                continue
+            fx.append({
+                "league": lid, "name": name, "date": gd, "ko": g.get("ko"),
+                "home": g.get("home"), "away": g.get("away"),
+                "pH": g.get("pH"), "pD": g.get("pD"), "pA": g.get("pA"),
+                "hlogo": g.get("hlogo"), "alogo": g.get("alogo"),
+            })
+    fx.sort(key=lambda f: (_prom_key(f["league"]), f["date"]))
+    return fx[:limit]
+
+
 def build_news(limit: int = 12) -> list[dict]:
     items = []
     for f in glob.glob(str(DATA / "news" / "*.js")):
@@ -194,6 +220,7 @@ def main() -> None:
         "tight_races": build_tight_races(files),
         "releg_battles": build_releg_battles(files),
         "movers": build_movers(),
+        "fixtures": build_fixtures(files),
         "news": build_news(),
     }
     (DATA / "home.js").write_text(
@@ -201,7 +228,7 @@ def main() -> None:
     print(f"wrote webapp/data/home.js · {len(files)} leagues · "
           f"{len(leaders)} leaders · {len(payload['tight_races'])} tight races · "
           f"{len(payload['releg_battles'])} releg battles · {len(payload['movers'])} movers · "
-          f"{len(payload['news'])} news")
+          f"{len(payload['fixtures'])} fixtures · {len(payload['news'])} news")
 
 
 if __name__ == "__main__":
