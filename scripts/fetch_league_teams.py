@@ -73,6 +73,9 @@ REGISTRY = [
     ("swiss-super-league",  "Swiss Super League",       "sui.1",            "UEFA", "soon", "Other Europe"),
     ("romania-liga1",       "Liga I (Romania)",         "rou.1",            "UEFA", "soon", "Other Europe"),
     ("ireland-premier",     "League of Ireland Premier","irl.1",            "UEFA", "soon", "Other Europe"),
+    # Round-4 projection-only (footballdata_intl odds backbone + ESPN fixtures)
+    ("russia-premier",      "Russian Premier League",   "rus.1",            "UEFA", "soon", "Other Europe"),
+    ("china-super",         "Chinese Super League",     "chn.1",            "AFC",  "soon", "Asia"),
     ("belgian-pro",         "Belgian Pro League",       "bel.1",            "UEFA", "live", "Other Europe"),
     ("greek-super",         "Greek Super League",       "gre.1",            "UEFA", "live", "Other Europe"),
     # UEFA — Nordics + Poland (Tier-1 expansion, 2026-07-10)

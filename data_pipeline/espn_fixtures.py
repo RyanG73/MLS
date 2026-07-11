@@ -65,6 +65,8 @@ SLUGS = {
     # Round-4 Tier-1 (2026-07-11): footballdata_intl UEFA top flights.
     "austria-bundesliga": "aut.1", "swiss-super-league": "sui.1",
     "romania-liga1": "rou.1", "ireland-premier": "irl.1",
+    # Round-4 projection-only, footballdata_intl (odds backbone retained):
+    "china-super": "chn.1", "russia-premier": "rus.1",
 }
 
 # Leagues whose season is a calendar year (dates window Jan–Dec of `season`)
@@ -78,7 +80,10 @@ CALENDAR_YEAR_LEAGUES = {"nwsl", "usl-championship",
                          "norway-eliteserien", "argentina-primera",
                          # Round-4: Ireland's LOI Premier runs Feb–Nov (calendar
                          # year). Austria/Switzerland/Romania keep the Aug–May straddle.
-                         "ireland-premier"}
+                         "ireland-premier",
+                         # China Super League runs Mar–Nov (calendar year); Russia
+                         # keeps the Aug–May straddle.
+                         "china-super"}
 
 # ESPN displayName → Understat team key, per league.
 # Only names that DIFFER between the two sources need an entry.

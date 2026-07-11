@@ -63,6 +63,10 @@ COUNTRY: dict[str, str] = {
     "swiss-super-league": "SWZ",
     "romania-liga1": "ROU",
     "ireland-premier": "IRL",
+    # Round-4 projection-only (2026-07-11). Odds columns retained as a future
+    # edge-layer backbone; presented projection-only for now.
+    "china-super": "CHN",
+    "russia-premier": "RUS",
 }
 
 # poland-ekstraklasa: confirmed 2026-07-10 (docs/league-expansion-report.md) —

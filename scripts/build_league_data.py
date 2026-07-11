@@ -589,6 +589,19 @@ OUTLOOK = {
                         "buckets": _CONTINENTAL("European qualification", 3, 1),
                         "green_line": 3, "red_line": 1, "eval_seasons": None,
                         "rules": "Champion → Champions League qualifying; top sides → European competitions (approximate) · bottom club relegated, 9th plays a promotion/relegation playoff (not modeled) · calendar-year season"},
+    # Round-4 projection-only (2026-07-11). China/Russia keep the football-data
+    # Pinnacle odds columns (backbone for a future edge layer) but are presented
+    # projection-only. ESPN chn.1/rus.1 supply fixtures.
+    "china-super": {"name": "Chinese Super League", "source": "footballdata_intl",
+                    "n": 16, "confederation": "AFC",
+                    "buckets": _CONTINENTAL("AFC Champions League", 3, 2),
+                    "green_line": 3, "red_line": 2, "eval_seasons": None,
+                    "rules": "Champion + next 2 reach AFC club competitions (approximate) · bottom 2 relegated · calendar-year season"},
+    "russia-premier": {"name": "Russian Premier League", "source": "footballdata_intl",
+                       "n": 16, "confederation": "UEFA",
+                       "buckets": _CONTINENTAL("European qualification (currently suspended)", 3, 2),
+                       "green_line": 3, "red_line": 2, "eval_seasons": None,
+                       "rules": "Top 3 would qualify for UEFA competitions, but Russian clubs are currently suspended from European football (shown for domestic context) · bottom 2 relegated, 13th–14th play relegation playoffs (not modeled)"},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only
@@ -780,6 +793,17 @@ FDI_ESPN: dict[str, dict[str, str]] = {
     "ireland-premier": {
         "St. Patricks": "St. Patrick's Athletic", "Galway": "Galway United",
         "Drogheda": "Drogheda United",
+    },
+    "china-super": {
+        "Zhejiang Professional": "Zhejiang Professional FC",
+        "Henan Songshan Longmen": "Henan",
+    },
+    "russia-premier": {
+        "Zenit": "Zenit St Petersburg", "Baltika": "FC Baltika Kaliningrad",
+        "Dynamo Moscow": "Dinamo Moscow", "FK Rostov": "Rostov",
+        "Krylya Sovetov": "Krylia Sovetov", "Orenburg": "Gazovik Orenburg",
+        "Akron Togliatti": "Akron Tolyatti", "CSKA Moscow": "CSKA Moscow",
+        "Akhmat Grozny": "Akhmat Grozny", "Spartak Moscow": "Spartak Moscow",
     },
     "brazil-serie-a": {
         "Atletico-MG": "Atlético-MG", "Botafogo RJ": "Botafogo",
