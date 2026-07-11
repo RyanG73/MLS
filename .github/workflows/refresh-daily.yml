@@ -124,6 +124,7 @@ jobs:
           python scripts/build_power_rankings.py
           python scripts/archive_odds_snapshot.py
           python scripts/build_movers.py
+          python scripts/build_race_deltas.py
           python scripts/build_drift_report.py
           python scripts/build_slice_report.py
           python scripts/bet_ledger.py

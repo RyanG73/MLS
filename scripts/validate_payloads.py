@@ -42,6 +42,7 @@ _NON_PAYLOAD = {
     "coefficients.js",
     "drift.js",
     "model-slices.js",
+    "race-deltas.js",
 }
 
 

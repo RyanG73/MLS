@@ -66,6 +66,9 @@ jobs:
       - name: Model-odds movers strip
         run: python scripts/build_movers.py
 
+      - name: Per-race deltas (since last build)
+        run: python scripts/build_race_deltas.py
+
       - name: Paper-bet ledger
         run: python scripts/bet_ledger.py
 

@@ -192,6 +192,12 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .race .cl .cn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .race .cl .cv{flex:none;font-size:11px;font-weight:700}
 .race.t .cv{color:var(--win)}.race.u .cv{color:var(--qualify)}.race.e .cv{color:var(--europa)}.race.r .cv{color:var(--drop)}.race.s .cv{color:var(--shield)}
+/* U2: "since last build" delta + why-changed cause, neutral styling (no betting green/red) */
+.race .rdelta{display:flex;align-items:center;gap:6px;margin-top:9px;padding-top:7px;border-top:1px solid var(--line);font-size:10px;color:var(--txt-3)}
+.race .rdelta .rd-a{font-size:9px;color:var(--txt-2)}
+.race .rdelta .rd-v{font-weight:700;color:var(--txt-2);font-variant-numeric:tabular-nums}
+.race .rdelta .rd-c{margin-left:auto;letter-spacing:.02em;text-transform:uppercase;font-size:8.5px}
+.race .rdelta.res .rd-a,.race .rdelta.res .rd-v{color:var(--txt-1)}
 
 /* ladders */
 .ladders{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
@@ -755,6 +761,7 @@ footer a:hover{color:var(--txt-2)}
 <script>document.write('<scr'+'ipt src="data/logos.js?t='+Date.now()+'"></scr'+'ipt>');</script>
 <script src="data/ledger.js"></script>
 <script src="data/movers.js"></script>
+<script src="data/race-deltas.js"></script>
 <script src="data/coefficients.js"></script>
 <script src="data/drift.js"></script>
 <script>document.write('<scr'+'ipt src="data/model-slices.js?t='+Date.now()+'"></scr'+'ipt>');</script>
@@ -1185,6 +1192,22 @@ function renderOutlook(){
 /* ── table-league outlook: race strip (one card per race) + single ladder ── */
 // Accent class per race key (gold title / green UCL / blue Europa / red relegation).
 const RACE_ACCENT={title:'t',promo:'t',promoted:'t',liguilla:'t',ucl:'u',playoff:'u',europa:'e',conf:'e',releg:'r',spoon:'r'};
+// U2: "since last build" delta + why-changed chip for a race card. Sourced from
+// data/race-deltas.js (per-league leader move between the last two snapshots).
+// Only shown when this league's leader for this metric actually has history.
+function raceDeltaChip(cardKey, leadTeam){
+  const RD=window.RACE_DELTAS;
+  const e=RD&&RD.leagues&&RD.leagues[LID]&&RD.leagues[LID][cardKey];
+  if(!e || e.team!==leadTeam) return '';   // only annotate the current leader
+  const flat=Math.abs(e.delta)<0.05;
+  const arrow=flat?'▬':(e.delta>0?'▲':'▼');
+  const sign=e.delta>0?'+':'';
+  const cause=(RD.cause_label||{})[e.cause]||e.cause;
+  const since=(e.to||'').slice(5);
+  return `<div class="rdelta${e.cause==='result'?' res':''}">`+
+    `<span class="rd-a">${arrow}</span><span class="rd-v">${sign}${e.delta}pp</span>`+
+    `<span class="rd-c">${since?'since '+since+' · ':''}${cause}</span></div>`;
+}
 function raceCard(card){
   const ranked=[...D.standings.map(vals)].sort((a,b)=>(b[card.key]||0)-(a[card.key]||0));
   const lead=ranked[0]; if(!lead)return'';
@@ -1196,7 +1219,8 @@ function raceCard(card){
   return `<div class="race ${accent}">`+
     `<div class="rk"><span>${card.label}</span><em>${card.hint||''}</em></div>`+
     `<div class="lead">${crest(lead.team,lead.logo)}<span class="nm">${lead.team}</span><span class="pc">${fmt(lead[card.key]||0)}</span></div>`+
-    `<div class="cont">${conts.map(contRow).join('')}</div></div>`;
+    `<div class="cont">${conts.map(contRow).join('')}</div>`+
+    raceDeltaChip(card.key, lead.team)+`</div>`;
 }
 // Promotion-playoff bracket — MUST mirror scripts/build_league_data.py
 // _promo_playoff_winner (SIM PORTING CONTRACT). seeds = team indices, best

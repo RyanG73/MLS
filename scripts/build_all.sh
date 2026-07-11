@@ -120,6 +120,9 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/archive_odds_snapshot.py \
 echo "--- model-odds movers ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_movers.py \
   || echo "  [WARN] build_movers failed (non-fatal)"
+echo "--- per-race deltas (since last build) ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_race_deltas.py \
+  || echo "  [WARN] build_race_deltas failed (non-fatal)"
 echo "--- drift report ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_drift_report.py \
   || echo "  [WARN] build_drift_report failed (non-fatal)"
