@@ -301,6 +301,42 @@ def european_fixtures(league_id: str, season: int,
     return df
 
 
+def espn_results_frame(league_id: str, seasons=None) -> pd.DataFrame:
+    """Canonical goals-only frame (played + scheduled) for an ESPN-sourced league.
+
+    The generic analog of `liga_mx_frame` for leagues with no football-data / xG
+    source (Saudi Pro League, A-League, WSL): loops `european_fixtures` across
+    `seasons` and concatenates. liga-mx keeps its own torneo-specific frame; every
+    other `source="espn"` league routes here.
+
+    `seasons` defaults to 2015..current. Empty/failed seasons are skipped, so a
+    league with shorter ESPN history (e.g. WSL) simply yields fewer rows. The
+    latest season is fetched fresh; earlier seasons use the parquet cache.
+    """
+    if seasons is None:
+        this_year = pd.Timestamp.now().year
+        seasons = list(range(2015, this_year + 1))
+    else:
+        seasons = list(seasons)
+
+    latest = max(seasons) if seasons else None
+    frames: list[pd.DataFrame] = []
+    for s in seasons:
+        try:
+            df = european_fixtures(league_id, s, use_cache=(s != latest))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("espn_results_frame %s season=%s failed: %s", league_id, s, e)
+            continue
+        if not df.empty:
+            frames.append(df)
+
+    if not frames:
+        return _coerce(pd.DataFrame(columns=_COLS))
+    out = pd.concat(frames, ignore_index=True)
+    out["date"] = pd.to_datetime(out["date"])
+    return out.sort_values("date").reset_index(drop=True)
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__)

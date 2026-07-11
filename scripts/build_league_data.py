@@ -864,6 +864,12 @@ def _espn_names_to_fdintl(lid: str, fx: "pd.DataFrame") -> "pd.DataFrame":
     return fx
 
 
+# Optional per-league season ranges for the generic ESPN goals-only source.
+# Absent → espn_results_frame defaults to 2015..current. Narrow a range when a
+# league's ESPN history is short or noisy (e.g. WSL scoreboard coverage).
+ESPN_GOALS_ONLY_SEASONS: dict[str, list[int]] = {}
+
+
 def _load_frame(league_id: str, source: str, asa_key: str | None = None):
     """Route a league to its canonical-frame source."""
     if source == "understat":
@@ -872,8 +878,13 @@ def _load_frame(league_id: str, source: str, asa_key: str | None = None):
         return match_results(league_id)
     if source == "footballdata_intl":
         return match_results_intl(league_id)
-    if source == "espn" and league_id == "liga-mx":
-        return liga_mx_frame()
+    if source == "espn":
+        # liga-mx keeps its torneo-specific (Apertura/Clausura) frame; every other
+        # ESPN goals-only league (Saudi/A-League/WSL, round 4) uses the generic loop.
+        if league_id == "liga-mx":
+            return liga_mx_frame()
+        from data_pipeline.espn_fixtures import espn_results_frame
+        return espn_results_frame(league_id, ESPN_GOALS_ONLY_SEASONS.get(league_id))
     if source == "asa":
         return asa_canonical_frame(asa_key or league_id)
     raise ValueError(f"Unknown source '{source}' for league '{league_id}'")
