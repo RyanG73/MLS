@@ -766,7 +766,7 @@ const _isPower = new URLSearchParams(location.search).get('league')==='power';
 // below no-ops; renderPower()/renderEdgeBoard() (appended at the end of the page) then
 // hide the league UI and draw the real view.
 const D = (_isPower || _isEdgeBoard || _infoPage)
-  ? {league:{name:_isEdgeBoard?"Matches":_infoPage?'Info':'Cross-League Power Rankings'},
+  ? {league:{name:_isEdgeBoard?"Command Center":_infoPage?'Info':'Cross-League Power Rankings'},
      outlook:{mode:_isEdgeBoard?'edge-board':'power'}, standings:[], games:[],
      sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], team_inputs:{}, elo_history:{},
      health:null, model_card:{}, in_season_brier:{}, season:2026}
@@ -2737,6 +2737,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   const EB=window.EDGE_BOARD_DATA;
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Command Center";
+  document.title="Entenser — Command Center";
   const sub=$('#sub'); if(sub) sub.textContent=`Market-blind probabilities, movement, and trust · built ${EB.generated}`;
   const allMatches=[...(EB.priced||[]), ...(EB.no_line||[])];
   const seven=EB.upcoming_7d||{};
@@ -2784,6 +2785,7 @@ if(_infoPage){
   const NAV=[['about','About the model'],['data-sources','Data sources'],['responsible-gambling','Responsible gambling'],['privacy','Privacy']];
   const TITLES={'about':'About the model','data-sources':'Data & attribution','responsible-gambling':'Responsible gambling','privacy':'Privacy'};
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent=TITLES[_infoPage]||'Info';
+  document.title=(TITLES[_infoPage]||'Info')+' · Entenser';
   const subEl=$('#sub'); if(subEl) subEl.textContent='Entenser · market-blind football probabilities, explained and audited';
   const nav='<div class="info-nav">'+NAV.map(([id,label])=>`<a href="?league=${id}"${id===_infoPage?' class="active"':''}>${label}</a>`).join('')+'</div>';
   const DOCS={};
