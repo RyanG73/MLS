@@ -35,6 +35,18 @@ definitions, data sources, and run commands. Update it when any of these change.
 - Second-tier dashboard leagues: Championship, League One, League Two, 2.Bundesliga, Serie B, **Segunda (SP2)**, **Ligue 2 (F2)** — football-data goals-only source.
 - Power rankings gain a "UEFA Tier 2" group on the EPL=0 scale.
 - R2 follow-up (2026-07-11): hybrid bridge-decay windows 5/8/10 were tested on the England chain in `scripts/eval/unified_tier_elo.py`. Decay-8 tied seeded production (`0.6326`) and destination-league updating (`0.6325`) while beating frozen bridge (`0.6410`), so there is **no production change**. Keep bridge seeding for preseason and normal destination-league updating after kickoff; any future claim needs an early-window-only gate.
+- Expansion round 4 (2026-07-11, `docs/superpowers/specs/2026-07-11-*`): +12 leagues live.
+  Scottish Championship/League One/League Two (footballdata SC1/SC2/SC3, chained to
+  scottish-prem in `_TIER2_FOR`); Austria/Switzerland (`SWZ` code)/Romania/Ireland
+  (footballdata_intl); China/Russia (footballdata_intl, odds backbone retained, rendered
+  projection-only); Saudi Pro/A-League Men/WSL (source=`espn` via the new slug-generic
+  `espn_fixtures.espn_results_frame`; liga-mx keeps its torneo frame). Split-round formats are
+  plain-table approximations (caveat in each `rules`). Adding a league: follow the strict
+  fetch_league_teams ordering (see the league-build-workflow memory) — flip REGISTRY to `live`
+  before any later fetch or built data gets clobbered back to a stub.
+- Pending: Finland Veikkausliiga (footballdata_intl results + API-Football fixtures-override) and
+  Canadian Premier League (`source=api_football`, projection-only) are built behind
+  `data_pipeline/api_football.py` and gated on env `API_FOOTBALL_KEY` (free api-sports.io tier).
 
 **Walk-forward evaluation config:**
 - Train data: 2017+, 2020 excluded (COVID bubble); 2021 retained in training + as 2022 cal fold (A/B-validated 2026-06-09: excluding it costs +0.0019 Brier)

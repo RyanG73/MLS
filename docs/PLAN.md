@@ -1,5 +1,22 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-11 — League expansion round 4: 12 new leagues live (Phases 1–2), Phase 3 pending API key**
+> Extends the 2026-07-10 wave (`docs/league-expansion-report.md`). Phase 1 (Tier 1, no new
+> infra): **Scottish Championship / League One / League Two** (mmz4281 SC1/SC2/SC3, chained to
+> scottish-prem for tier-bridge seeding) + **Austria / Switzerland / Romania / Ireland**
+> (footballdata_intl new-leagues CSVs; Switzerland's code is `SWZ`, a report erratum). Phase 2
+> (projection-only, user "not worried about betting edge"): **China + Russia** kept on
+> footballdata_intl so the Pinnacle-odds backbone stays wired for a future edge layer, rendered
+> projection-only; **Saudi Pro League / A-League Men / WSL** on a new slug-generic
+> `espn_fixtures.espn_results_frame` (the liga-mx torneo frame stays special-cased). All 12 beat
+> or match naive in-season (WSL 0.505 vs 0.630, Russia 0.579 vs 0.647, Saudi 0.552 vs 0.644).
+> Split-round formats (Austria/Romania/Finland) ship as plain-table approximations with an honest
+> `rules` caveat, per the shipped Denmark/Poland precedent. Crest coverage: espn-source 100%,
+> footballdata/intl 88–100% except Romania 7/19 (ESPN lacks crests for many Romanian clubs +
+> split-format phantom playoff teams). **Phase 3 (Finland fixtures-override + Canadian Premier
+> League)** is built behind a new `data_pipeline/api_football.py` adapter and GATED on the user
+> provisioning a free `API_FOOTBALL_KEY`. Spec + plan: `docs/superpowers/{specs,plans}/2026-07-11-*`.
+
 > **2026-07-11 — Draw-Brier campaign: Phase 0 decomposition probe → NO-GO, campaign closed**
 > User-approved campaign to lower draw-class Brier (0.191867) via diagnostic + cheap harness
 > experiments. New `scripts/probe_draw_decomposition.py` replicated the champion fold loop

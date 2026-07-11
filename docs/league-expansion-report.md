@@ -23,6 +23,26 @@
 > schema as the existing per-season `football_data.py` adapter). England National League reused
 > the existing adapter directly (same old-format scheme England 1-4 already use).
 
+> **2026-07-11 update — Round 4: +12 leagues live, Finland + Canadian PL gated on an API key.**
+> Spec/plan: `docs/superpowers/{specs,plans}/2026-07-11-league-expansion-round4-*`.
+> - **Tier 1 shipped:** Scottish Championship/League One/League Two (mmz4281 `SC1/SC2/SC3`,
+>   chained to scottish-prem for tier-bridge seeding) + Austria/Switzerland/Romania/Ireland
+>   (footballdata_intl new-leagues CSVs).
+> - **Corrections to this report:** Switzerland's football-data code is **`SWZ`, not `SUI`**
+>   (the "key verified finding" above was wrong — `/new/SUI.csv` 404s, `/new/SWZ.csv` is the
+>   Swiss Super League back to 2012/13). Finland has **no ESPN slug** (`fin.1` returns 0 teams),
+>   so it is NOT a clean add — it needs a secondary fixture source.
+> - **Secondary schedule source decision:** TheSportsDB's free tier hard-caps `eventsseason` at
+>   5 rows (useless for history); **API-Football (api-sports.io), free tier 100 req/day** was
+>   chosen. New `data_pipeline/api_football.py`, env `API_FOOTBALL_KEY`. Only Finland (fixtures)
+>   and Canadian PL (everything — not on football-data OR ESPN) depend on it.
+> - **Projection-only tier shipped** (no betting-edge product): China + Russia kept on
+>   footballdata_intl (odds backbone retained for a future edge layer) rendered projection-only;
+>   Saudi Pro League / A-League Men / WSL on a new slug-generic `espn_results_frame`.
+> - **Workflow gotcha found:** `fetch_league_teams.py` rewrites every still-`"soon"` league to a
+>   stub, so a freshly-built league must be flipped to `"live"` in REGISTRY before any later
+>   fetch or its data is clobbered. Correct order documented in `docs/CURRENT_STATE.md`.
+
 ## How feasibility was scored
 
 Every candidate was checked against the five things a league needs to go live on this platform, in order of how hard they are to substitute:

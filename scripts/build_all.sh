@@ -82,6 +82,20 @@ for L in segunda ligue-2 eredivisie primeira super-lig scottish-prem \
     || echo "  [WARN] $L build failed (non-fatal)"
 done
 
+# ── 4d. League expansion round 4, 2026-07-11 ────────────────────────────────
+# Scottish lower tiers + Austria/Switzerland/Romania/Ireland (footballdata_intl)
+# + projection-only China/Russia (footballdata_intl) and Saudi/A-League/WSL
+# (source="espn"). Finland + canadian-pl are gated on API_FOOTBALL_KEY and added
+# to this loop once the key is provisioned (see docs/CURRENT_STATE.md).
+for L in scottish-champ scottish-league-one scottish-league-two \
+        austria-bundesliga swiss-super-league romania-liga1 ireland-premier \
+        china-super russia-premier saudi-pro australia-aleague wsl; do
+  echo "--- $L ---"
+  PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league "$L" \
+    && echo "  [OK] $L" \
+    || echo "  [WARN] $L build failed (non-fatal)"
+done
+
 # ── 5. Continental competitions ───────────────────────────────────────────────
 # For each comp: (a) merge-refresh the current season's ESPN cache,
 #               (b) rebuild the .js (auto-detects concluded vs. in-progress).
