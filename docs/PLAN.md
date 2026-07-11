@@ -17,9 +17,13 @@
 > (4) Five preseason launch articles drafted in `docs/content/` from live payload numbers.
 > Full suite green (browser smoke 39/39); no model change. Remaining work is external/
 > decision-gated — see `docs/remaining-external-dependencies-2026-07-11.md`.
-> **Still-open operational blocker (carried from 2026-07-10 below):** the nightly build job is
-> not installed, so drift/odds accrual only runs on manual invocation — needs user go-ahead to
-> install (a standing scheduling change).
+> **Nightly build job — RESOLVED 2026-07-11:** `com.mls.buildall.plist` was found already
+> loaded but never fired (`runs=0`); triggered one run through launchd
+> (`launchctl kickstart gui/501/com.mls.buildall` → `runs=1`, clean startup, only the expected
+> `ODDS_API_KEY not set` stderr). The 06:00 daily schedule is now validated. Also this pass:
+> OG/social share-card generator (`scripts/build_share_cards.py`, wired into `<head>` +
+> `build_all.sh`) and privacy-preserving Plausible analytics instrumentation (8 tagged events,
+> live-domain only). See `docs/remaining-external-dependencies-2026-07-11.md`.
 
 > **2026-07-10 — 10 live leagues missing from build_all.sh's loops (never rebuilt on schedule)**
 > Audit while wiring in the league-expansion batch found `segunda`, `ligue-2`, `eredivisie`,
