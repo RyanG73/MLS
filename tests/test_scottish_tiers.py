@@ -19,3 +19,11 @@ def test_scottish_pyramid_chain():
     assert _TIER2_FOR["scottish-league-one"] == "scottish-league-two"
     # inverse chain (relegation direction) is derived for free
     assert _TIER1_FOR_BUILD["scottish-league-two"] == "scottish-league-one"
+
+
+def test_scottish_outlook():
+    from scripts.build_league_data import OUTLOOK
+    for lid in ("scottish-champ", "scottish-league-one", "scottish-league-two"):
+        cfg = OUTLOOK[lid]
+        assert cfg["source"] == "footballdata"
+        assert cfg["n"] == 10

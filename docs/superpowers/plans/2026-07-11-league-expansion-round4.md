@@ -10,6 +10,22 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-11-league-expansion-round4-design.md`
 
+**WORKFLOW CORRECTION (discovered 2026-07-11 during Task 2):** crests are seeded by a
+coming-soon **stub** created by `scripts/fetch_league_teams.py` from its `REGISTRY`. A
+brand-new league with no prior stub builds with **0 crests**. So the real per-league
+order is:
+1. Add the league to `REGISTRY` in `scripts/fetch_league_teams.py` (id, name, ESPN slug,
+   confederation, status `"soon"`, sidebar group).
+2. Run `python3 scripts/fetch_league_teams.py` → writes `webapp/leagues.js` (nav) + a
+   `webapp/data/<id>.js` stub with `teams[]` (ESPN displayName + logo + color).
+3. Add DIV/COUNTRY + OUTLOOK + SLUGS (as the tasks below describe).
+4. Build with `build_league_data` — it reads the stub via `_stub_team_meta` and attaches
+   crests, overwriting the stub with the live payload (crests now persist in `standings`).
+5. FINAL step (Task 11): flip each built league's `REGISTRY` status `"soon"→"live"` and
+   re-run `fetch_league_teams.py` once to regenerate `leagues.js` (it never overwrites a
+   live league's data file). Also note: `espn_fixtures.SLUGS` needs each footballdata/intl
+   league's slug for upcoming-fixture/preseason support (separate from `REGISTRY`).
+
 **Conventions carried from the 2026-07-10 wave:**
 - Team name-maps (`FD_ESPN` / `FDI_ESPN` in `build_league_data.py`) are built *empirically*: run the build, read the `[warning] unmapped` lines, add only the entries that differ from the ESPN displayName. Do NOT pre-invent them.
 - Continental/relegation buckets are approximate; the `rules` string carries the honest caveat (plain-table, no split-round modeling).

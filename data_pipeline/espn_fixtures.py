@@ -52,6 +52,10 @@ SLUGS = {
     "eredivisie": "ned.1", "primeira": "por.1", "super-lig": "tur.1",
     "scottish-prem": "sco.1", "belgian-pro": "bel.1", "greek-super": "gre.1",
     "national-league": "eng.5",
+    # Scottish lower tiers (2026-07-11, round 4): ESPN sco.2/3/4. Aug–May straddle
+    # (not calendar-year), so no CALENDAR_YEAR_LEAGUES entry.
+    "scottish-champ": "sco.2", "scottish-league-one": "sco.3",
+    "scottish-league-two": "sco.4",
     # Tier-1 expansion (2026-07-10, docs/league-expansion-report.md): football-
     # data-intl leagues. poland-ekstraklasa has NO confirmed ESPN slug (probed
     # every plausible guess live) — omitted, ships results-only.

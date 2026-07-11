@@ -458,6 +458,21 @@ OUTLOOK = {
     "national-league": {"name": "National League", "source": "footballdata", "n": 24,
                         "buckets": _PROMO(1, [2, 7], 4), "green_line": 7, "red_line": 4,
                         "rules": "Champion promoted automatically · 2nd–7th promotion playoff, winner also promoted · bottom 4 relegated to National League North/South (not modeled)"},
+    # Scottish lower tiers (2026-07-11, round 4). Plain promotion-playoff shape —
+    # the real cross-division playoff (which pulls in the tier above's 11th/9th)
+    # is approximated; see rules caveat. n=10 for all three.
+    "scottish-champ": {"name": "Scottish Championship", "source": "footballdata", "n": 10,
+                       "confederation": "UEFA",
+                       "buckets": _PROMO(1, [2, 4], 1), "green_line": 4, "red_line": 1,
+                       "rules": "Champion promoted to the Premiership · 2nd–4th enter a promotion playoff (the Premiership's 11th also joins — not modeled) · bottom club relegated, 9th plays a playoff"},
+    "scottish-league-one": {"name": "Scottish League One", "source": "footballdata", "n": 10,
+                            "confederation": "UEFA",
+                            "buckets": _PROMO(1, [2, 4], 1), "green_line": 4, "red_line": 1,
+                            "rules": "Champion promoted to the Championship · 2nd–4th promotion playoff · bottom club relegated, 9th plays a playoff"},
+    "scottish-league-two": {"name": "Scottish League Two", "source": "footballdata", "n": 10,
+                            "confederation": "UEFA",
+                            "buckets": _PROMO(1, [2, 4], 1), "green_line": 4, "red_line": 1,
+                            "rules": "Champion promoted to League One · 2nd–4th promotion playoff · bottom club plays the pyramid playoff vs the Highland/Lowland League winners (not modeled)"},
     # C1: non-big-5 top flights (football-data goals-only + market odds).
     # UCL/Europa/Conference spots are the coefficient-based approximations the
     # _TOP docstring already caveats; relegation counts include playoff spots
@@ -557,6 +572,18 @@ OUTLOOK = {
 # leagues; football-data uses abbreviated names). Only entries that differ from
 # the ESPN displayName; teams with exact-matching names need no entry.
 FD_ESPN: dict[str, dict[str, str]] = {
+    # Scottish lower tiers (2026-07-11, round 4). Only names that differ from the
+    # ESPN displayName; East Kilbride/Clyde match by name but ESPN carries no crest
+    # for them (fall back to the global TEAM_LOGOS map / initials).
+    "scottish-champ": {},
+    "scottish-league-one": {
+        "Inverness C": "Inverness Caledonian Thistle", "Hamilton": "Hamilton Academical",
+        "Queen of Sth": "Queen of the South", "Alloa": "Alloa Athletic",
+    },
+    "scottish-league-two": {
+        "Spartans": "Spartans FC", "Forfar": "Forfar Athletic",
+        "Elgin": "Elgin City", "Stirling": "Stirling Albion",
+    },
     "national-league": {
         "Aldershot": "Aldershot Town", "Boston Utd": "Boston United",
         "Carlisle": "Carlisle United", "Forest Green": "Forest Green Rovers",
