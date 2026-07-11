@@ -189,7 +189,7 @@ from __future__ import annotations
 def test_intl_countries_registered():
     from data_pipeline.football_data_intl import COUNTRY
     assert COUNTRY["austria-bundesliga"] == "AUT"
-    assert COUNTRY["swiss-super-league"] == "SUI"
+    assert COUNTRY["swiss-super-league"] == "SWZ"
     assert COUNTRY["romania-liga1"] == "ROU"
     assert COUNTRY["ireland-premier"] == "IRL"
 ```
@@ -207,7 +207,7 @@ In `data_pipeline/football_data_intl.py`, extend `COUNTRY`:
     # Round-4 Tier-1 (2026-07-11). football-data "new leagues" CSVs, Pinnacle
     # closings back to ~2012. ESPN aut.1/sui.1/rou.1/irl.1 verified live.
     "austria-bundesliga": "AUT",
-    "swiss-super-league": "SUI",
+    "swiss-super-league": "SWZ",  # NB: football-data code is SWZ, not SUI (report erratum, verified 2026-07-11)
     "romania-liga1": "ROU",
     "ireland-premier": "IRL",
 ```

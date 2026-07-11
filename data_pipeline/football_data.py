@@ -52,13 +52,17 @@ DIV = {
     # division item) — verified live: same mmz4281 per-season-file scheme,
     # ESPN carries it at eng.5.
     "national-league": "EC",
+    # Scottish lower tiers (2026-07-11, expansion round 4). mmz4281 SC1/SC2/SC3,
+    # ESPN sco.2/sco.3/sco.4. Chain up to scottish-prem (SC0) for tier-bridge seeding.
+    "scottish-champ": "SC1", "scottish-league-one": "SC2", "scottish-league-two": "SC3",
 }
 BIG5 = ["epl", "la-liga", "serie-a", "bundesliga", "ligue-1"]
 GOALS_ONLY = ["championship", "league-one", "league-two", "bundesliga-2", "serie-b",
               "segunda", "ligue-2",
               "eredivisie", "primeira", "super-lig",
               "scottish-prem", "belgian-pro", "greek-super",
-              "national-league"]
+              "national-league",
+              "scottish-champ", "scottish-league-one", "scottish-league-two"]
 
 _RESULTS_CACHE_DIR = Path("data/football_data")
 _RAW_CACHE_DIR = _RESULTS_CACHE_DIR / "raw"

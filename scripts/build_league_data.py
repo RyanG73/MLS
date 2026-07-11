@@ -189,6 +189,12 @@ _TIER2_FOR: dict[str, str] = {
     # functioning default; precision improves once enough movers accrue to
     # fit experiments/tier2_offsets.json).
     "league-two":   "national-league",
+    # Scottish pyramid (2026-07-11): SC0→SC1→SC2→SC3. No fitted offsets yet;
+    # coefficients.tier2_offset/tier1_offset fall back to the 0.0 default until
+    # movers accrue (same posture as the England league-two→national-league hop).
+    "scottish-prem":       "scottish-champ",
+    "scottish-champ":      "scottish-league-one",
+    "scottish-league-one": "scottish-league-two",
 }
 # Inverse: tier-2 league ID → its top-flight. Used to seed RELEGATED teams when building a
 # second-tier league. Named distinctly from coefficients._TIER1_FOR to avoid confusion.
