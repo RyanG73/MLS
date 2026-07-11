@@ -602,6 +602,25 @@ OUTLOOK = {
                        "buckets": _CONTINENTAL("European qualification (currently suspended)", 3, 2),
                        "green_line": 3, "red_line": 2, "eval_seasons": None,
                        "rules": "Top 3 would qualify for UEFA competitions, but Russian clubs are currently suspended from European football (shown for domestic context) · bottom 2 relegated, 13th–14th play relegation playoffs (not modeled)"},
+    # Round-4 projection-only, ESPN goals-only (no football-data odds). Same model
+    # family as liga-mx / NWSL. eval_seasons=None → advisory only.
+    "saudi-pro": {"name": "Saudi Pro League", "source": "espn", "n": 18,
+                  "confederation": "AFC",
+                  "buckets": _CONTINENTAL("AFC Champions League", 4, 3),
+                  "green_line": 4, "red_line": 3, "eval_seasons": None,
+                  "rules": "Champion + top sides reach the AFC Champions League Elite (approximate) · bottom 3 relegated"},
+    "australia-aleague": {"name": "A-League Men", "source": "espn", "n": 12,
+                          "confederation": "AFC",
+                          "buckets": [
+                              {"key": "premiers", "label": "Premiers Plate", "col": "Premiers", "top": 1},
+                              {"key": "finals", "label": "Finals Series", "col": "Finals", "top": 6}],
+                          "green_line": 6, "red_line": None, "eval_seasons": None,
+                          "rules": "Premiers Plate = best regular-season record · top 6 reach the finals series (the championship is decided there, not by the table) · no relegation (closed league)"},
+    "wsl": {"name": "Women's Super League", "source": "espn", "n": 12,
+            "confederation": "UEFA",
+            "buckets": _CONTINENTAL("Women's Champions League", 2, 1),
+            "green_line": 2, "red_line": 1, "eval_seasons": None,
+            "rules": "Top sides qualify for the UEFA Women's Champions League (approximate) · bottom club relegated · goals-only (no xG source for this league)"},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only

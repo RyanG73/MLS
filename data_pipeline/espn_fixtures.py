@@ -67,6 +67,10 @@ SLUGS = {
     "romania-liga1": "rou.1", "ireland-premier": "irl.1",
     # Round-4 projection-only, footballdata_intl (odds backbone retained):
     "china-super": "chn.1", "russia-premier": "rus.1",
+    # Round-4 projection-only, ESPN goals-only (no football-data source). These
+    # route through espn_results_frame; all are Aug/Sep/Oct–May straddles (not
+    # calendar-year), so the default Jul–Jun window applies.
+    "saudi-pro": "ksa.1", "australia-aleague": "aus.1", "wsl": "eng.w.1",
 }
 
 # Leagues whose season is a calendar year (dates window Jan–Dec of `season`)

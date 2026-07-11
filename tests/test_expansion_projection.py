@@ -16,3 +16,22 @@ def test_china_russia_outlook():
         assert cfg["source"] == "footballdata_intl"  # odds backbone retained
         assert cfg["n"] == 16
         assert cfg["confederation"] == conf
+
+
+def test_espn_projection_leagues():
+    from scripts.build_league_data import OUTLOOK
+    from data_pipeline.espn_fixtures import SLUGS
+    expect = {"saudi-pro": ("ksa.1", 18, "AFC"),
+              "australia-aleague": ("aus.1", 12, "AFC"),
+              "wsl": ("eng.w.1", 12, "UEFA")}
+    for lid, (slug, n, conf) in expect.items():
+        cfg = OUTLOOK[lid]
+        assert cfg["source"] == "espn"
+        assert cfg["n"] == n
+        assert cfg["confederation"] == conf
+        assert SLUGS[lid] == slug
+
+
+def test_aleague_has_no_relegation():
+    from scripts.build_league_data import OUTLOOK
+    assert OUTLOOK["australia-aleague"]["red_line"] is None

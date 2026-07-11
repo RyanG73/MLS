@@ -76,6 +76,9 @@ REGISTRY = [
     # Round-4 projection-only (footballdata_intl odds backbone + ESPN fixtures)
     ("russia-premier",      "Russian Premier League",   "rus.1",            "UEFA", "soon", "Other Europe"),
     ("china-super",         "Chinese Super League",     "chn.1",            "AFC",  "soon", "Asia"),
+    ("saudi-pro",           "Saudi Pro League",         "ksa.1",            "AFC",  "soon", "Asia"),
+    ("australia-aleague",   "A-League Men",             "aus.1",            "AFC",  "soon", "Asia"),
+    ("wsl",                 "Women's Super League",     "eng.w.1",          "UEFA", "soon", "Women"),
     ("belgian-pro",         "Belgian Pro League",       "bel.1",            "UEFA", "live", "Other Europe"),
     ("greek-super",         "Greek Super League",       "gre.1",            "UEFA", "live", "Other Europe"),
     # UEFA — Nordics + Poland (Tier-1 expansion, 2026-07-10)
