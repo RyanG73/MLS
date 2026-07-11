@@ -1571,7 +1571,7 @@ function diagTapeHTML(title,rows,kind){
     const width=Math.max(6,Math.round((r.n||0)/max*100));
     const played=r.played_n!=null?`${r.played_n} played`:`n=${r.n}`;
     const hit=r.hit_rate!=null?`${diagPct(r.hit_rate)} hit`:played;
-    const mean=r.mean!=null?`avg ${diagPct(r.mean)}`:r.mean_draw_prob!=null?`draw ${diagPct(r.mean_draw_prob)}`:played;
+    const mean=r.mean!=null?`avg ${diagPct(r.mean)}`:r.mean_prob!=null?`avg ${diagPct(r.mean_prob)}`:r.mean_draw_prob!=null?`draw ${diagPct(r.mean_draw_prob)}`:played;
     return `<div class="tape-row ${kind||''}">
       <span class="tape-b">${escHTML(r.bucket)}</span>
       <span class="tape-track"><span style="width:${width}%"></span></span>
@@ -1579,6 +1579,16 @@ function diagTapeHTML(title,rows,kind){
     </div>`;
   }).join('');
   return `<div class="diag-tape"><h4>${escHTML(title)}</h4>${body}</div>`;
+}
+function underdogHistoryHTML(fam){
+  const under=fam.underdog_calibration||{};
+  const rows=Object.entries(under.by_probability||{}).map(([bucket,row])=>({bucket,...row}));
+  if(!rows.length)return '';
+  const sig=under.significant||{};
+  const sigCopy=sig.n?`Significant underdogs: ${diagPct(sig.mean_prob,1)} predicted · ${diagPct(sig.hit_rate,1)} hit · n=${sig.n}`:'Significant-underdog sample pending';
+  return `<div class="hnote">Historical underdog calibration</div>
+    <div class="diag-tapes">${diagTapeHTML('Model underdogs',rows,'total')}</div>
+    <div class="hnote">${escHTML(sigCopy)}</div>`;
 }
 function modelDiagHTML(fam){
   const diag=(fam.league_diagnostics||{})[LID];
@@ -1613,6 +1623,7 @@ function modelSliceCard(){
   return `<div class="hcard2"><h3>Known weak spots</h3>${metric}
     <div class="hnote">${escHTML(fam.policy)}</div>
     ${modelDiagHTML(fam)}
+    ${underdogHistoryHTML(fam)}
     <ul class="weak-list">${limits}</ul>
     ${teams?`<div class="cfg" style="margin-top:8px">${teams}</div>`:''}
     ${missing?`<div class="cfg" style="margin-top:8px">${missing}</div>`:''}</div>`;
