@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+# Repo root on the import path so scripts can `import data_pipeline` / `scripts.*`
+# (matches the local build_all.sh; prevents ModuleNotFoundError in CI).
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
@@ -66,6 +71,12 @@ jobs:
 
       - name: Edge board
         run: python scripts/build_edge_board.py
+
+      - name: Drift report
+        run: python scripts/build_drift_report.py
+
+      - name: Model slice report
+        run: python scripts/build_slice_report.py
 
       - name: Commit and push if changed
         run: |

@@ -17,6 +17,10 @@ on:
 permissions:
   contents: write
 
+# Repo root on the import path so scripts can `import data_pipeline` / `scripts.*`.
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
 jobs:
   snapshot:
     runs-on: ubuntu-latest
