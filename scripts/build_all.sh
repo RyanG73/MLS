@@ -85,11 +85,12 @@ done
 # ── 4d. League expansion round 4, 2026-07-11 ────────────────────────────────
 # Scottish lower tiers + Austria/Switzerland/Romania/Ireland (footballdata_intl)
 # + projection-only China/Russia (footballdata_intl) and Saudi/A-League/WSL
-# (source="espn"). Finland + canadian-pl are gated on API_FOOTBALL_KEY and added
-# to this loop once the key is provisioned (see docs/CURRENT_STATE.md).
+# (source="espn"). Finland: footballdata_intl results-only (current). canadian-pl:
+# source=api_football (needs .env API_FOOTBALL_KEY; free plan → 2024, results-only).
 for L in scottish-champ scottish-league-one scottish-league-two \
         austria-bundesliga swiss-super-league romania-liga1 ireland-premier \
-        china-super russia-premier saudi-pro australia-aleague wsl; do
+        china-super russia-premier saudi-pro australia-aleague wsl \
+        finland-veikkausliiga canadian-pl; do
   echo "--- $L ---"
   PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league "$L" \
     && echo "  [OK] $L" \

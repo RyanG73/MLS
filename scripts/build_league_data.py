@@ -637,7 +637,7 @@ OUTLOOK = {
                               "n": 12, "confederation": "UEFA",
                               "buckets": _CONTINENTAL("European qualification", 3, 2),
                               "green_line": 3, "red_line": 2, "eval_seasons": None,
-                              "rules": "Champion → Champions League qualifying; top sides → European competitions (approximate) · bottom relegated, others play a relegation group (the real championship/relegation split is not modeled — plain table) · calendar-year season · upcoming fixtures via API-Football (no ESPN coverage)"},
+                              "rules": "Champion → Champions League qualifying; top sides → European competitions (approximate) · bottom relegated, others play a relegation group (the real championship/relegation split is not modeled — plain table) · calendar-year season · results-only: no ESPN schedule source, so no in-season upcoming-fixture list (projections from played matches)"},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only
@@ -909,7 +909,13 @@ ESPN_GOALS_ONLY_SEASONS: dict[str, list[int]] = {}
 # a different provider because ESPN has no slug. Value = provider module key.
 # Finland: footballdata_intl results+odds, but ESPN `fin.1` is empty (0 teams),
 # so API-Football supplies the schedule. Generalises the Poland results-only gap.
-FIXTURE_OVERRIDE: dict[str, str] = {"finland-veikkausliiga": "api_football"}
+# Leagues whose RESULTS come from `source` but whose UPCOMING FIXTURES come from
+# a secondary provider (ESPN has no slug). Empty on the API-Football FREE plan,
+# which can't serve current-season (2026) fixtures — Finland/Poland ship
+# results-only off current football-data instead. Re-add {"finland-veikkausliiga":
+# "api_football", "poland-ekstraklasa": "api_football"} (and their LEAGUE entries)
+# once a paid plan unlocks the current season, to get their forward schedules.
+FIXTURE_OVERRIDE: dict[str, str] = {}
 
 
 def _load_frame(league_id: str, source: str, asa_key: str | None = None):
@@ -1700,6 +1706,11 @@ def main():
             _pyears = [y for y in (2017, 2019, 2021, 2022, 2023, 2024, 2025)
                        if y in set(df["season"])]
         _preds, _ = walk_forward_predictions(df, feat, _pyears, n_bags=1)
+        # Short-history leagues (e.g. Canadian PL: only 3 free API-Football seasons)
+        # can't produce walk-forward predictions for any test year → empty frame with
+        # no 'season' column. Skip the per-year accuracy diagnostic gracefully.
+        if _preds.empty or "season" not in _preds.columns:
+            _pyears = []
         if lid in _has_market and not _preds.empty:
             _preds = attach_market(_preds, lid, _pyears)
         _has_mkt = "mkt_home" in _preds.columns

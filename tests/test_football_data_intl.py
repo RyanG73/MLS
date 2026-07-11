@@ -182,5 +182,6 @@ def test_all_seven_tier1_leagues_registered():
     # … plus the 2026-07-11 round-4 additions (footballdata_intl top flights +
     # projection-only China/Russia). Finland is added with Phase 3 (API key).
     round4 = {"austria-bundesliga", "swiss-super-league", "romania-liga1",
-              "ireland-premier", "china-super", "russia-premier"}
+              "ireland-premier", "china-super", "russia-premier",
+              "finland-veikkausliiga"}
     assert set(fdi.COUNTRY) == wave1 | round4

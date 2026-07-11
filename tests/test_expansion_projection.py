@@ -45,10 +45,19 @@ def test_phase3_canadian_pl():
     assert cfg["red_line"] is None            # no relegation
 
 
-def test_phase3_finland_fixture_override():
-    from scripts.build_league_data import OUTLOOK, FIXTURE_OVERRIDE
+def test_phase3_finland_results_only():
+    # Finland ships results-only off current football-data (the API-Football free
+    # plan can't serve its 2026 upcoming fixtures). Same posture as Poland.
+    from scripts.build_league_data import OUTLOOK
     from data_pipeline.football_data_intl import COUNTRY, NO_ESPN_SCHEDULE
     assert COUNTRY["finland-veikkausliiga"] == "FIN"
     assert "finland-veikkausliiga" in NO_ESPN_SCHEDULE
     assert OUTLOOK["finland-veikkausliiga"]["source"] == "footballdata_intl"
-    assert FIXTURE_OVERRIDE["finland-veikkausliiga"] == "api_football"
+
+
+def test_finland_poland_not_in_api_football():
+    # results-only leagues must not hit API-Football (free plan lacks their seasons)
+    from data_pipeline.api_football import LEAGUE
+    assert "finland-veikkausliiga" not in LEAGUE
+    assert "poland-ekstraklasa" not in LEAGUE
+    assert LEAGUE["canadian-pl"][1] == [2022, 2023, 2024]

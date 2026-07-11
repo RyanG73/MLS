@@ -35,11 +35,14 @@ _HDR_KEY = "x-apisports-key"
 # Our league slug → (API-Football league id, [seasons]). IDs are confirmed live
 # via `find_league_id()` before the first real build (see the plan's Task 9/10).
 LEAGUE: dict[str, tuple[int, list[int]]] = {
-    # CPL: everything comes from API-Football → full history (launched 2019).
-    "canadian-pl":            (468, list(range(2019, 2027))),
-    # Finland: results+odds come from football-data; API-Football supplies only
-    # UPCOMING fixtures, so we fetch just the current season (1 request/day).
-    "finland-veikkausliiga":  (244, [2026]),
+    # IDs confirmed live via find_league_id (2026-07-11). CPL is the only league
+    # that depends on API-Football (not on football-data OR ESPN). The FREE plan
+    # only serves seasons 2022–2024, so CPL ships results-only off the latest free
+    # season (2024); widen this range once a paid plan unlocks the current season.
+    # Finland/Poland are NOT here — their results+odds come from current
+    # football-data and they ship results-only (the free tier can't serve their
+    # 2026 upcoming fixtures anyway).
+    "canadian-pl":            (479, [2022, 2023, 2024]),
 }
 
 

@@ -35,7 +35,7 @@ REGISTRY = [
     # Concacaf / Americas
     ("mls",                 "MLS",                      "usa.1",            "Concacaf", "live", "Americas"),
     ("liga-mx",             "Liga MX",                  "mex.1",            "Concacaf", "live", "Americas"),
-    ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "soon", "Americas"),
+    ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "live", "Americas"),
     # C2 (ASA track): flip to "live" when their dashboard builders ship;
     # eval gating is per-family (experiments/champion_nwsl.json / champion_usl.json).
     ("nwsl",                "NWSL",                     "usa.nwsl",         "Concacaf", "live", "Americas"),
@@ -87,8 +87,9 @@ REGISTRY = [
     ("denmark-superliga",   "Superliga",                 "den.1",            "UEFA", "live", "Other Europe"),
     # No confirmed ESPN slug (results-only league — see football_data_intl.NO_ESPN_SCHEDULE)
     ("poland-ekstraklasa",  "Ekstraklasa",               None,               "UEFA", "live", "Other Europe"),
-    # No ESPN slug, but upcoming fixtures come from API-Football (round-4 Phase 3)
-    ("finland-veikkausliiga","Veikkausliiga",            None,               "UEFA", "soon", "Other Europe"),
+    # No ESPN slug → results-only (like Poland). football-data results+odds are
+    # current; API-Football free plan can't serve 2026 fixtures (round-4 Phase 3).
+    ("finland-veikkausliiga","Veikkausliiga",            None,               "UEFA", "live", "Other Europe"),
     # CONMEBOL — South America (Tier-1 expansion, 2026-07-10)
     ("brazil-serie-a",      "Brasileirão Série A",       "bra.1",            "CONMEBOL", "live", "South America"),
     ("argentina-primera",   "Liga Profesional Argentina", "arg.1",           "CONMEBOL", "live", "South America"),
