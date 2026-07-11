@@ -16,10 +16,10 @@ from pathlib import Path
 import pytest
 
 WEBAPP_DATA = Path(__file__).parent.parent / "webapp" / "data"
-# logos.js is a global team→logo lookup (window.TEAM_LOGOS), not a league/power payload,
-# so it is excluded from the league-payload contract.
-_NON_PAYLOAD = {"logos.js", "ledger.js", "edge-board.js", "movers.js",
-                "coefficients.js", "drift.js"}
+# Cross-league data files (logos, drift, edge-board, model-slices, …) are not
+# league/power payloads. The exclusion list lives in one place — the production
+# validator — so it can't drift out of sync with the tests again.
+from scripts.validate_payloads import _NON_PAYLOAD
 JS_FILES = sorted(p for p in WEBAPP_DATA.glob("*.js") if p.name not in _NON_PAYLOAD)
 
 

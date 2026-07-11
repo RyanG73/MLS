@@ -288,13 +288,14 @@ class TestSquadValuePanel:
 
 
 class TestMatchesGroupedByDateAndLeague:
-    """The Matches (formerly Today's Edge) view groups fixtures by date, then league."""
+    """The no-query landing route renders the Command Center (formerly "Matches",
+    originally "Today's Edge"), which groups fixtures by date, then league."""
 
     def test_matches_view_has_day_groups(self, page: Page, webapp_url: str):
         page.goto(f"{webapp_url}/index.html", wait_until="networkidle")
         page.wait_for_timeout(400)
         title = page.locator("#leagueTitle").inner_text()
-        assert title == "Matches", f"Expected page title 'Matches', got {title!r}"
+        assert title == "Command Center", f"Expected page title 'Command Center', got {title!r}"
         # daygrp is only rendered when there are upcoming matches — skip gracefully
         # in a quiet data window rather than asserting on scraped external state.
         if page.locator(".eb-empty").count() > 0:

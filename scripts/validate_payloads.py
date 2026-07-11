@@ -29,8 +29,11 @@ _REQUIRED_KNOCKOUT = {"status", "league", "outlook", "games", "generated"}
 _REQUIRED_POWER = {"status", "groups", "generated"}
 _REQUIRED_PLACEHOLDER = {"status", "league"}  # "coming soon" stubs — minimal gate
 
-# logos.js is a global team→logo lookup (window.TEAM_LOGOS), not a league/power
-# payload — same exclusion as tests/test_payload_contract.py.
+# Canonical list of cross-league data files that are NOT per-league payloads
+# (globals like window.TEAM_LOGOS / MODEL_SLICES, not LEAGUE_DATA/POWER_DATA).
+# This is the single source of truth: tests/test_payload_contract.py and
+# tests/test_fetch_league_teams.py import this set so a new cross-league file
+# only has to be added here once (was duplicated + drifted through 2026-07-11).
 _NON_PAYLOAD = {
     "logos.js",
     "ledger.js",
