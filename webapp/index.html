@@ -770,8 +770,9 @@ footer a:hover{color:var(--txt-2)}
 // (B12) is the site's landing view; ?league=mls etc. deep links are unchanged.
 // Synchronous document.write so window.LEAGUE_DATA is set before the main render script runs.
 const _rawLeague=new URLSearchParams(location.search).get('league');
-const _isEdgeBoard=!_rawLeague;
-const LID=_rawLeague||'mls';
+const _isHome=!_rawLeague;                    // no param → the Home landing (window.HOME_DATA)
+const _isEdgeBoard=_rawLeague==='command';    // edge board moved to ?league=command ("Matches")
+const LID=(_rawLeague&&_rawLeague!=='command')?_rawLeague:'mls';
 // Static info / trust / legal routes render self-contained content — there is no
 // per-league data/news/drift file to fetch, so skip those document.writes.
 const _INFO_PAGES=['about','data-sources','responsible-gambling','privacy'];
@@ -779,16 +780,16 @@ const _infoPage=_INFO_PAGES.includes(_rawLeague)?_rawLeague:null;
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
 if(!_infoPage)
-  document.write('<scr'+'ipt src="data/'+(_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
+  document.write('<scr'+'ipt src="data/'+(_isHome?'home':_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Baked multi-source news (scripts/build_news.py). Missing file (new league,
 // build not yet run) 404s harmlessly — window.NEWS_DATA just stays undefined.
-if(!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
+if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
   document.write('<scr'+'ipt src="data/news/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Per-league projection-drift trajectories (scripts/build_drift_report.py) —
 // lazy like news: only this league's file, only for the Model Health tab's
 // "Projection stability" card. Missing file 404s harmlessly (window.DRIFT_TRAJ
 // stays undefined; the card renders its insufficient-history state).
-if(!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
+if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
   document.write('<scr'+'ipt src="data/drift-traj/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
@@ -797,9 +798,9 @@ const _isPower = new URLSearchParams(location.search).get('league')==='power';
 // (not a single league's LEAGUE_DATA). Use a benign empty stub so the league render code
 // below no-ops; renderPower()/renderEdgeBoard() (appended at the end of the page) then
 // hide the league UI and draw the real view.
-const D = (_isPower || _isEdgeBoard || _infoPage)
-  ? {league:{name:_isEdgeBoard?"Command Center":_infoPage?'Info':'Cross-League Power Rankings'},
-     outlook:{mode:_isEdgeBoard?'edge-board':'power'}, standings:[], games:[],
+const D = (_isPower || _isEdgeBoard || _isHome || _infoPage)
+  ? {league:{name:_isHome?"Home":_isEdgeBoard?"Command Center":_infoPage?'Info':'Cross-League Power Rankings'},
+     outlook:{mode:_isHome?'home':_isEdgeBoard?'edge-board':'power'}, standings:[], games:[],
      sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], team_inputs:{}, elo_history:{},
      health:null, model_card:{}, in_season_brier:{}, season:2026}
   : window.LEAGUE_DATA;
@@ -830,8 +831,9 @@ const isKnockout = (D.outlook||{}).mode === 'knockout';
     (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
     let html='';
     // Pinned cross-league views at the top — the platform's unique multi-league capability.
-    html+=`<a class="sb-lg sb-power${_isEdgeBoard?' active':''}" href="${location.pathname}"><span class="lgc">⚡</span><span>Matches</span></a>`;
-    html+=`<a class="sb-lg sb-power${!_isEdgeBoard&&LID==='power'?' active':''}" href="?league=power"><span class="lgc">🌍</span><span>Power Rankings</span></a>`;
+    html+=`<a class="sb-lg sb-power${_isHome?' active':''}" href="${location.pathname}"><span class="lgc">🏠</span><span>Home</span></a>`;
+    html+=`<a class="sb-lg sb-power${_isEdgeBoard?' active':''}" href="?league=command"><span class="lgc">⚡</span><span>Matches</span></a>`;
+    html+=`<a class="sb-lg sb-power${!_isEdgeBoard&&!_isHome&&LID==='power'?' active':''}" href="?league=power"><span class="lgc">🌍</span><span>Power Rankings</span></a>`;
     const favLeagues=(window.LEAGUES||[]).filter(l=>favs.has(l.id));
     if(favLeagues.length) html+=`<div class="sb-grp">Favorites</div>`+favLeagues.map(leagueLink).join('');
     GROUP_ORDER.forEach(g=>{
@@ -953,6 +955,7 @@ function renderSoonView(){
   $('#foot').innerHTML=FOOT_HTML;
 }
 if((D.league||{}).status==='soon'){ renderSoonView(); }
+else if(_isHome){ /* home route — renderHome handles this below, skip normal league render */ }
 else if(_isPower){ /* power route — renderPower handles this below, skip normal league render */ }
 else if(_isEdgeBoard){ /* edge-board route — renderEdgeBoard handles this below, skip normal league render */ }
 else if(_infoPage){ /* static info/legal route — renderInfo() handles this below, skip normal league render */ }
@@ -2187,7 +2190,7 @@ async function renderNews(){
   const list=$('#newsList'); if(!list||list.dataset.done)return; list.dataset.done=1;
   const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const lg=(window.LEAGUES||[]).find(l=>l.id===LID);
-  if(_isEdgeBoard||_isPower||!lg){
+  if(_isHome||_isEdgeBoard||_isPower||!lg){
     list.innerHTML='<div class="news-empty">No news feed available for this view yet.</div>';return;}
   list.innerHTML='<div class="news-empty">Loading headlines…</div>';
   const arts=await leagueNews();
@@ -2660,6 +2663,43 @@ if (_isPower && window.POWER_DATA) {
 .eb-strip{padding:8px 16px;border-bottom:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px}
 .eb-panel{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px}
 .eb-h{padding:9px 14px;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--line-2);background:var(--ink-2)}
+/* ── Home landing ─────────────────────────────────────────────── */
+.hm-sec{margin-bottom:var(--s4)}
+.hm-h{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-2);margin:0 2px 10px}
+.hm-leadgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:10px}
+.hm-lead{display:block;border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--ink-1);padding:12px 13px;text-decoration:none;color:inherit;transition:border-color .12s,transform .12s}
+.hm-lead:hover{border-color:var(--line-3);transform:translateY(-1px)}
+.hm-lead-lg{font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-lead-team{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;margin-bottom:9px}
+.hm-lead-team img{width:20px;height:20px;object-fit:contain;flex:none}
+.hm-lead-pct{display:flex;align-items:baseline;gap:7px}
+.hm-lead-pct b{font-family:var(--mono);font-size:19px;line-height:1}
+.hm-lead-pct span{font-size:11px;color:var(--txt-3)}
+.hm-lead-pct.hm-hot b{color:var(--qualify)}.hm-lead-pct.hm-warm b{color:var(--win)}.hm-lead-pct.hm-cool b{color:var(--txt-2)}
+.hm-race{display:block;padding:11px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.hm-race:hover{background:var(--ink-2)}.hm-race:last-child{border-bottom:none}
+.hm-race-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.hm-race-lg{font-weight:600;font-size:13px}
+.hm-race-gap{font-family:var(--mono);font-size:11px;color:var(--win)}
+.hm-race-gap.hm-drop{color:var(--drop)}
+.hm-race-teams{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--txt-2)}
+.hm-race-t{display:inline-flex;align-items:center;gap:5px}
+.hm-race-t img{width:15px;height:15px;object-fit:contain}
+.hm-race-t b{font-family:var(--mono);color:var(--txt-1)}
+.hm-race-t.lead b{color:var(--win)}
+.hm-vs{color:var(--txt-3);font-size:10px}
+.hm-dropdot{width:7px;height:7px;border-radius:50%;background:var(--drop);opacity:.7;display:inline-block}
+.hm-mover{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.hm-mover:hover{background:var(--ink-2)}.hm-mover:last-child{border-bottom:none}
+.hm-mv-arrow{font-size:11px}.hm-mv-arrow.up{color:var(--qualify)}.hm-mv-arrow.down{color:var(--drop)}
+.hm-mv-team{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden}
+.hm-mv-team em{display:block;font-style:normal;font-weight:400;font-size:11px;color:var(--txt-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-mv-delta{font-family:var(--mono);font-size:13px}.hm-mv-delta.up{color:var(--qualify)}.hm-mv-delta.down{color:var(--drop)}
+.hm-mv-now{font-family:var(--mono);font-size:12px;color:var(--txt-2);width:42px;text-align:right}
+.hm-news{display:block;padding:10px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.hm-news:hover{background:var(--ink-2)}.hm-news:last-child{border-bottom:none}
+.hm-news-t{font-size:13px;line-height:1.35;margin-bottom:3px}
+.hm-news-m{font-size:11px;color:var(--txt-3)}
 .eb-row{padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer}
 .eb-row:hover{background:var(--ink-2)}
 .eb-row:last-child{border-bottom:none}
@@ -2838,6 +2878,67 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   }
 }
 
+// ── Home landing (no ?league param) — cross-league leaders, races, movers, news ──
+if(_isHome && window.HOME_DATA){
+  const H=window.HOME_DATA;
+  const seg=$('#seg'); if(seg) seg.style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
+  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Home";
+  document.title="Entenser — Home";
+  const sub=$('#sub'); if(sub) sub.textContent=`Across ${H.stats.leagues} leagues · updated ${H.generated}`;
+  const nm=id=>{const l=(window.LEAGUES||[]).find(x=>x.id===id);return l?l.name:id;};
+  const pctClass=p=>p>=66?'hm-hot':p>=33?'hm-warm':'hm-cool';
+  const ago=iso=>{ if(!iso) return ''; const d=(Date.now()-new Date(iso))/36e5;
+    return d<1?`${Math.max(1,Math.round(d*60))}m`:d<24?`${Math.round(d)}h`:`${Math.round(d/24)}d`; };
+  const leaderCard=l=>`<a class="hm-lead" href="?league=${l.league}">
+    <div class="hm-lead-lg">${nm(l.league)}</div>
+    <div class="hm-lead-team">${crest(l.team,l.logo)}<span>${l.team}</span></div>
+    <div class="hm-lead-pct ${pctClass(l.pct)}"><b>${l.pct}%</b><span>${l.metric_label}${l.preseason?' · preseason':''}</span></div>
+  </a>`;
+  const raceRow=r=>`<a class="hm-race" href="?league=${r.league}">
+    <div class="hm-race-top"><span class="hm-race-lg">${r.name}</span><span class="hm-race-gap">${r.gap}pt gap</span></div>
+    <div class="hm-race-teams">${r.teams.map((t,i)=>`<span class="hm-race-t${i===0?' lead':''}">${crest(t.team,t.logo)}${t.team} <b>${t.pct}%</b></span>`).join('<span class="hm-vs">vs</span>')}</div>
+  </a>`;
+  const relRow=b=>`<a class="hm-race" href="?league=${b.league}">
+    <div class="hm-race-top"><span class="hm-race-lg">${b.name}</span><span class="hm-race-gap hm-drop">${b.n_contested} on the bubble</span></div>
+    <div class="hm-race-teams">${b.teams.map(t=>`<span class="hm-race-t"><span class="hm-dropdot"></span>${t.team} <b>${t.pct}%</b></span>`).join('')}</div>
+  </a>`;
+  const moverRow=m=>{const up=m.delta>=0;return `<a class="hm-mover" href="?league=${m.league}">
+    <span class="hm-mv-arrow ${up?'up':'down'}">${up?'▲':'▼'}</span>
+    <span class="hm-mv-team">${m.team}<em>${nm(m.league)} · ${m.metric_label}</em></span>
+    <span class="hm-mv-delta ${up?'up':'down'}">${up?'+':''}${m.delta}</span>
+    <span class="hm-mv-now">${m.now}%</span></a>`;};
+  const newsRow=n=>`<a class="hm-news" href="${n.link}" target="_blank" rel="noopener noreferrer">
+    <div class="hm-news-t">${commandEsc(n.title||'')}</div>
+    <div class="hm-news-m">${nm(n.league)} · ${commandEsc(n.source||'')}${n.published?' · '+ago(n.published):''}</div></a>`;
+  const target=$('#view-outlook')||$('main.wrap');
+  if(target){
+    target.classList.remove('hidden');
+    target.innerHTML=`<div class="cc-hero hm-hero">
+      <div class="cc-promise"><div class="cc-eyebrow">The football probability terminal</div>
+        <h2>Every title race, relegation scrap, and swing — in one place.</h2>
+        <div class="cc-copy">A cross-league snapshot of who's on top, which races are still live, what moved this week, and the latest headlines. Pick a league to go deeper, or open <a class="cc-link" style="display:inline;padding:0;border:0;background:none" href="?league=command">Matches</a> for the betting-edge board.</div></div>
+      <div class="cc-kpis">
+        <div class="cc-kpi"><div class="k">Leagues live</div><div class="v">${H.stats.leagues}</div><div class="s">projections tracked</div></div>
+        <div class="cc-kpi"><div class="k">Tight races</div><div class="v">${H.tight_races.length}</div><div class="s">contested titles</div></div>
+        <div class="cc-kpi"><div class="k">Big movers</div><div class="v">${H.movers.length}</div><div class="s">week-over-week swings</div></div>
+        <div class="cc-kpi"><div class="k">Headlines</div><div class="v">${H.news.length}</div><div class="s">across your leagues</div></div>
+      </div>
+    </div>
+    <div class="hm-sec"><div class="hm-h">🏆 League leaders</div><div class="hm-leadgrid">${H.leaders.map(leaderCard).join('')}</div></div>
+    <div class="cc-grid">
+      <div>
+        <div class="eb-panel"><div class="eb-h">🔥 Tightest title races</div>${H.tight_races.map(raceRow).join('')||'<div class="news-empty">No contested races right now.</div>'}</div>
+        <div class="eb-panel"><div class="eb-h">🛟 Relegation battles</div>${H.releg_battles.map(relRow).join('')||'<div class="news-empty">No relegation drama yet.</div>'}</div>
+      </div>
+      <div>
+        <div class="eb-panel"><div class="eb-h">📈 Biggest movers</div>${H.movers.map(moverRow).join('')||'<div class="news-empty">No notable movement.</div>'}</div>
+        <div class="eb-panel"><div class="eb-h">📰 Latest headlines</div>${H.news.map(newsRow).join('')||'<div class="news-empty">No headlines yet.</div>'}</div>
+      </div>
+    </div>`;
+  }
+}
+
 // ── Static info / trust / legal routes (?league=about|data-sources|responsible-gambling|privacy) ──
 if(_infoPage){
   const seg=$('#seg'); if(seg) seg.style.display='none';
@@ -2937,7 +3038,8 @@ if(_infoPage){
    Events: pageview_route, tab_click, league_nav, article_click, match_expand,
    edge_row_expand, team_open, email_signup. Delegated so it survives re-renders. */
 (()=>{
-  const route = _isEdgeBoard ? 'command-center'
+  const route = _isHome ? 'home'
+    : _isEdgeBoard ? 'command-center'
     : _infoPage ? ('info:'+_infoPage) : _isPower ? 'power' : LID;
   track('pageview_route', {route});
   document.addEventListener('click', ev=>{

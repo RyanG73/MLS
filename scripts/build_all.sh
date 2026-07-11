@@ -150,6 +150,9 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/bet_ledger.py \
 echo "--- edge board ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_edge_board.py \
   || echo "  [WARN] build_edge_board failed (non-fatal)"
+echo "--- home landing (cross-league leaders/races/movers/news) ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_home.py \
+  || echo "  [WARN] build_home failed (non-fatal)"
 echo "--- public launch execution report ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_public_launch_report.py \
   || echo "  [WARN] build_public_launch_report failed (non-fatal)"
