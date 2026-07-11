@@ -411,6 +411,25 @@ persistent cross-tier gap a continuous rating would need, so the bridge's explic
 doing real work implicit continuity can't replace. Full detail in `docs/feature-hunt-log.md`
 (2026-07-10 entries).
 
+## Public-launch completion pass (2026-07-11, plan completed and deleted)
+
+Assessed two Codex reports (a 2026-07-10 business/UI/model plan and its 2026-07-11 execution
+report) against the actual codebase and found the reports already stale — nearly all their
+infrastructure backlog had shipped. The pass closed the genuine remaining gaps rather than
+re-building done work: greened three failing tests (all guardrails lagging shipped features —
+`model-slices.js` missing from two payload-exclusion lists, and the browser smoke test still
+asserting the pre-rename "Matches" landing title), then DRY'd the duplicated exclusion list so
+both tests import the canonical `_NON_PAYLOAD` from `validate_payloads.py`. Shipped the P0
+trust/legal content as four static routes (`?league=about|data-sources|responsible-gambling|
+privacy`) with number-accurate copy, and fixed a real gap where the edge-board landing and
+power route shipped with an empty footer (no attribution or legal links). Verified in-browser:
+Command Center non-empty with zero horizontal overflow at 375px, corrected tab titles for
+share/SEO. Drafted five preseason launch articles in `docs/content/` from live payload numbers.
+No model change (feature hunt stays deferred; diagnostics showed no Brier gain). Remaining work
+is external/decision-gated and catalogued in `docs/remaining-external-dependencies-2026-07-11.md`
+— chiefly the still-uninstalled nightly build job, paid odds coverage, deploy, analytics, email
+backend, and legal review.
+
 ---
 
 ## Permanent constraints (do not re-litigate without explicit instruction)

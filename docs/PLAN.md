@@ -1,5 +1,26 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-11 — Public-launch completion pass (test suite, trust pages, UI verification, content)**
+> Assessed the two Codex reports (`docs/public-launch-model-ui-business-report-2026-07-10.md`,
+> `docs/public-launch-execution-report-2026-07-11.md`) against the *actual* codebase and found
+> the reports stale: nearly all their infrastructure backlog (slice/drift/edge/movers/ledger,
+> 8-league expansion) was already shipped. Real remaining gaps closed this pass: (1) **3 failing
+> tests**, all guardrails lagging shipped features — `model-slices.js` missing from two payload
+> exclusion lists, and the browser smoke test still asserting the old "Matches" landing title
+> (renamed to "Command Center"). Fixed + DRY'd: both tests now import the canonical `_NON_PAYLOAD`
+> from `scripts/validate_payloads.py` so a new cross-league file is added in one place.
+> (2) **P0 trust/legal content** — only an inline DISCLAIMER string existed; added four static
+> routes (`?league=about|data-sources|responsible-gambling|privacy`) with honest, number-accurate
+> copy, plus a persistent attribution+legal footer (the edge-board landing and power route were
+> shipping with an *empty* footer). (3) Verified in-browser: Command Center non-empty at 375px
+> with **zero page overflow**, info pages clean, tab titles corrected for SEO/share.
+> (4) Five preseason launch articles drafted in `docs/content/` from live payload numbers.
+> Full suite green (browser smoke 39/39); no model change. Remaining work is external/
+> decision-gated — see `docs/remaining-external-dependencies-2026-07-11.md`.
+> **Still-open operational blocker (carried from 2026-07-10 below):** the nightly build job is
+> not installed, so drift/odds accrual only runs on manual invocation — needs user go-ahead to
+> install (a standing scheduling change).
+
 > **2026-07-10 — 10 live leagues missing from build_all.sh's loops (never rebuilt on schedule)**
 > Audit while wiring in the league-expansion batch found `segunda`, `ligue-2`, `eredivisie`,
 > `primeira`, `super-lig`, `scottish-prem`, `belgian-pro`, `greek-super`, `nwsl`, and
