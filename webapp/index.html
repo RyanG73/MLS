@@ -3,8 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="description" content="Market-blind football probabilities, explained and audited across league races, match projections, model trust, and market-line status." />
+<meta property="og:title" content="Entenser — Football probabilities, explained and audited" />
+<meta property="og:description" content="Track football league races, model movement, market disagreement, and model trust signals from one static command center." />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
 <link rel="icon" type="image/png" href="assets/branding/favicon.png" />
-<title>Entenser</title>
+<title>Entenser — Football probabilities, explained and audited</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=Spline+Sans+Mono:wght@500;600;700&display=swap" rel="stylesheet">
@@ -1571,7 +1576,7 @@ function diagTapeHTML(title,rows,kind){
     const width=Math.max(6,Math.round((r.n||0)/max*100));
     const played=r.played_n!=null?`${r.played_n} played`:`n=${r.n}`;
     const hit=r.hit_rate!=null?`${diagPct(r.hit_rate)} hit`:played;
-    const mean=r.mean!=null?`avg ${diagPct(r.mean)}`:r.mean_prob!=null?`avg ${diagPct(r.mean_prob)}`:r.mean_draw_prob!=null?`draw ${diagPct(r.mean_draw_prob)}`:played;
+    const mean=r.mean!=null?`avg ${diagPct(r.mean)}`:r.mean_prob!=null?`avg ${diagPct(r.mean_prob)}`:r.mean_model_prob!=null?`model ${diagPct(r.mean_model_prob)}`:r.mean_draw_prob!=null?`draw ${diagPct(r.mean_draw_prob)}`:played;
     return `<div class="tape-row ${kind||''}">
       <span class="tape-b">${escHTML(r.bucket)}</span>
       <span class="tape-track"><span style="width:${width}%"></span></span>
@@ -1589,6 +1594,30 @@ function underdogHistoryHTML(fam){
   return `<div class="hnote">Historical underdog calibration</div>
     <div class="diag-tapes">${diagTapeHTML('Model underdogs',rows,'total')}</div>
     <div class="hnote">${escHTML(sigCopy)}</div>`;
+}
+function familyForwardEvidenceHTML(fam){
+  const fs=fam.forward_summary||{};
+  const md=fs.market_disagreement||{};
+  const pieces=[
+    diagTapeHTML('Family draw by total',fs.total_goals_draw,'total'),
+    diagTapeHTML('Model vs market edge',md.by_edge,'favorite'),
+  ].filter(Boolean).join('');
+  const du=md.disagreement_underdogs||{};
+  const note=du.n?`Market underdogs priced at least 8pp below model: ${diagPct(du.hit_rate,1)} hit · n=${du.n}`:'Market-disagreement sample pending';
+  if(!pieces)return '';
+  return `<div class="hnote">Family-level forward / played diagnostics</div>
+    <div class="diag-tapes">${pieces}</div>
+    <div class="hnote">${escHTML(note)}</div>`;
+}
+function promotedWindowsHTML(fam){
+  const rows=fam.promoted_relegated_windows||[];
+  if(!rows.length)return '';
+  const body=rows.map(r=>{
+    const delta=r.delta_decay8_vs_seeded;
+    const col=delta<0?'var(--qualify)':'var(--txt-3)';
+    return `<div class="gap-row"><b>${escHTML(r.window)} matches</b>seeded ${Number(r.seeded).toFixed(4)} · decay8 ${Number(r.decay8).toFixed(4)}<span style="color:${col}">${delta>0?'+':''}${Number(delta).toFixed(4)}</span></div>`;
+  }).join('');
+  return `<div class="hnote">Promoted/relegated early-window replay</div><div class="gap-list">${body}</div>`;
 }
 function modelDiagHTML(fam){
   const diag=(fam.league_diagnostics||{})[LID];
@@ -1624,6 +1653,8 @@ function modelSliceCard(){
     <div class="hnote">${escHTML(fam.policy)}</div>
     ${modelDiagHTML(fam)}
     ${underdogHistoryHTML(fam)}
+    ${familyForwardEvidenceHTML(fam)}
+    ${promotedWindowsHTML(fam)}
     <ul class="weak-list">${limits}</ul>
     ${teams?`<div class="cfg" style="margin-top:8px">${teams}</div>`:''}
     ${missing?`<div class="cfg" style="margin-top:8px">${missing}</div>`:''}</div>`;
@@ -2507,6 +2538,10 @@ if (_isPower && window.POWER_DATA) {
 .cc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
 .cc-link{display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--txt-1);background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:8px 11px;font-size:12px;font-weight:700}
 .cc-link:hover{border-color:var(--line-3);background:var(--ink-3)}
+.cc-email{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;max-width:500px}
+.cc-email input{min-width:220px;flex:1;background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:8px 10px;font-size:12px}
+.cc-email button{background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:8px 11px;font-size:12px;font-weight:700;cursor:pointer}
+.cc-email button:hover{background:var(--ink-3)}
 .cc-kpis{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
 .cc-kpi{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4);min-width:0}
 .cc-kpi .k{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3)}
@@ -2570,6 +2605,7 @@ function ebRow(r){
   const betChip=bet
     ?`<span class="eb-edge">▲ ${bet.edge_pct.toFixed(1)}% edge ${bet.side==='H'?'Home':'Away'}</span> · quarter-Kelly ${bet.units}u`
     :(r.has_market?'<span class="eb-meta">priced · no qualifying edge</span>':'<span class="eb-meta">no line yet</span>');
+  const risk=(r.risk_flags||[]).slice(0,4).map(x=>`<span class="cc-pill">${commandEsc(x.replaceAll('_',' '))}</span>`).join('');
   return `<div class="eb-row${stale?' stale':''}" onclick="this.classList.toggle('open')">
     <div class="eb-top">
       <a class="eb-lg" href="?league=${r.league}" onclick="event.stopPropagation()" style="text-decoration:none">${r.league_name}</a>
@@ -2577,11 +2613,44 @@ function ebRow(r){
       <span class="eb-meta">${r.date}</span>
     </div>
     <div style="margin-top:6px">${cbar(r)}</div>
-    <div style="margin-top:6px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">${betChip}${staleNote}</div>
+    <div style="margin-top:6px;display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap">${betChip}${staleNote}${risk}</div>
     <div class="eb-expand">${r.lam!=null&&r.mu!=null?('Likely scorelines: '+topScorelines(r.lam,r.mu,3)):''}</div>
   </div>`;
 }
 function commandEsc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function commandRiskHTML(EB){
+  const labels={
+    no_line:'No line yet',
+    draw_heavy:'Draw-heavy',
+    low_total_draw_setup:'Low-total draw',
+    home_model_underdog:'Home underdog',
+    away_model_underdog:'Away underdog',
+    qualifying_market_edge:'Qualifying edge',
+  };
+  const counts=EB.risk_counts||{};
+  const rows=Object.keys(labels).filter(k=>counts[k]).map(k=>
+    `<span class="cc-pill">${commandEsc(labels[k])} · <b>${counts[k]}</b></span>`).join('');
+  return rows||'<span class="cc-pill">No current risk flags</span>';
+}
+function commandSignupHTML(){
+  const saved=localStorage.getItem('entenser_email_interest');
+  return `<form class="cc-email" id="ccEmailForm">
+    <input type="email" name="email" placeholder="Email for weekly model movement" value="${commandEsc(saved||'')}" aria-label="Email for weekly model movement">
+    <button type="submit">${saved?'Saved':'Notify me'}</button>
+  </form>`;
+}
+function bindCommandSignup(){
+  const form=document.getElementById('ccEmailForm');
+  if(!form)return;
+  form.addEventListener('submit',ev=>{
+    ev.preventDefault();
+    const input=form.querySelector('input[name="email"]');
+    const email=(input&&input.value||'').trim();
+    if(email)localStorage.setItem('entenser_email_interest',email);
+    const btn=form.querySelector('button');
+    if(btn)btn.textContent='Saved';
+  });
+}
 function commandTrustHTML(){
   const MS=window.MODEL_SLICES;
   if(!MS||MS.status!=='ok')return '<div class="cc-panel-note">Model-slice report is not available yet.</div>';
@@ -2652,6 +2721,8 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
         <h2>What changed, what is priced, and where the model needs caution.</h2>
         <div class="cc-copy">Use the board as a probability terminal: scan upcoming matches, fragile season races, projection movement, and model weak spots before drilling into a league. ${BET_DISCLAIMER}</div></div>
         <div class="cc-actions"><a class="cc-link" href="?league=epl">Premier League</a><a class="cc-link" href="?league=power">Power Rankings</a><a class="cc-link" href="?league=mls">MLS</a></div>
+        ${commandSignupHTML()}
+        <div class="cc-cont" style="margin-top:14px">${commandRiskHTML(EB)}</div>
       </div>
       <div class="cc-kpis">
         <div class="cc-kpi"><div class="k">Next 7 days</div><div class="v">${seven.match_count??0}</div><div class="s">${seven.league_count??0} active leagues</div></div>
@@ -2671,6 +2742,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
         <div class="eb-panel"><div class="eb-h">Trust / known weak spots</div>${commandTrustHTML()}</div>
       </div>
     </div>`;
+    bindCommandSignup();
   }
 }
 </script>

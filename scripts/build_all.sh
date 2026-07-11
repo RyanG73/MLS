@@ -126,3 +126,12 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/build_drift_report.py \
 echo "--- model slice report ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_slice_report.py \
   || echo "  [WARN] build_slice_report failed (non-fatal)"
+echo "--- paper ledger ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/bet_ledger.py \
+  || echo "  [WARN] bet_ledger failed (non-fatal)"
+echo "--- edge board ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_edge_board.py \
+  || echo "  [WARN] build_edge_board failed (non-fatal)"
+echo "--- public launch execution report ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_public_launch_report.py \
+  || echo "  [WARN] build_public_launch_report failed (non-fatal)"

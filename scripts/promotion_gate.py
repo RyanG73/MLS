@@ -186,6 +186,28 @@ def evaluate_gate(champion: dict | None, challenger: dict) -> tuple[bool, list]:
         checks.append(("promoted_team_brier", True,
                        "no promoted_team_brier in report — skipped (advisory)"))
 
+    # ── launch-critical diagnostic slices (ADVISORY — reported, never blocks) ─
+    # These slices are product trust gates, not prediction features. Report their
+    # presence and sample sizes so future promotions cannot accidentally omit the
+    # diagnostics the public UI depends on.
+    slices = challenger.get("slices", {})
+    diag_bits = []
+    under = slices.get("underdog_calibration") or {}
+    if under:
+        sig = under.get("significant") or {}
+        diag_bits.append(f"underdogs n={sig.get('n', 0)}")
+    draw = slices.get("draw_reliability") or []
+    if draw:
+        diag_bits.append(f"draw bins={len(draw)}")
+    market = slices.get("market_disagreement") or {}
+    if market:
+        diag_bits.append(f"market rows={market.get('n', 0)}")
+    if diag_bits:
+        checks.append(("trust_diagnostics", True, "ok — " + " · ".join(diag_bits)))
+    else:
+        checks.append(("trust_diagnostics", True,
+                       "missing underdog/draw/market trust slices — skipped (advisory)"))
+
     # ── paired significance (ADVISORY — reported, never blocks) ──────────────
     # When both reports embed per-match Brier vectors (model_report.py
     # "per_match"), bootstrap the mean paired difference on common match_ids.

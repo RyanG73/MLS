@@ -1,6 +1,6 @@
 import pandas as pd
 
-from scripts.build_edge_board import collect_rows, next_kickoffs, season_races, upcoming_summary
+from scripts.build_edge_board import collect_rows, next_kickoffs, risk_counts, season_races, upcoming_summary
 
 NOW = pd.Timestamp("2026-07-03T12:00", tz="UTC")
 
@@ -62,6 +62,7 @@ def test_no_market_odds_goes_to_no_line_bucket():
     priced, no_line = collect_rows(payloads, now=NOW)
     assert not priced and len(no_line) == 1
     assert no_line[0]["bet"] is None and no_line[0]["has_market"] is False
+    assert "no_line" in no_line[0]["risk_flags"]
 
 
 def test_window_excludes_far_future_and_played_matches():
@@ -142,3 +143,21 @@ def test_season_races_extracts_uncertain_race_cards():
     assert races[0]["leader"]["team"] == "Alpha"
     assert races[0]["contenders"][0]["team"] == "Beta"
     assert races[0]["uncertainty"] == 57.5
+
+
+def test_risk_flags_and_counts_surface_current_slate_shape():
+    payloads = {
+        "epl": _live([
+            {"date": "2026-07-04", "home": "A", "away": "B", "result": None,
+             "pH": 0.56, "pD": 0.31, "pA": 0.13, "lam": 1.2, "mu": 0.9,
+             "mkt_home": 0.45, "mkt_draw": 0.30, "mkt_away": 0.25},
+        ]),
+    }
+    priced, no_line = collect_rows(payloads, now=NOW)
+    flags = priced[0]["risk_flags"]
+
+    assert "draw_heavy" in flags
+    assert "low_total_draw_setup" in flags
+    assert "away_model_underdog" in flags
+    assert "qualifying_market_edge" in flags
+    assert risk_counts(priced + no_line)["draw_heavy"] == 1

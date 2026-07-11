@@ -112,6 +112,32 @@ DIAGNOSTIC_QUEUE = [
 ]
 
 
+def _promoted_relegated_windows(family_id: str) -> list[dict[str, Any]]:
+    if family_id != "eur_tiers":
+        return []
+    path = REPO_ROOT / "experiments" / "r2-hybrid-bridge-decay.report.json"
+    if not path.exists():
+        return []
+    try:
+        report = _load_json(path)
+    except Exception:
+        return []
+    rows = []
+    for row in report.get("pooled_early_windows") or []:
+        if not isinstance(row, dict):
+            continue
+        rows.append({
+            "window": row.get("window"),
+            "n": row.get("n_matches"),
+            "seeded": row.get("brier_seeded"),
+            "league": row.get("brier_per_league"),
+            "decay8": row.get("brier_bridge_decay_8"),
+            "delta_decay8_vs_seeded": round(row.get("brier_bridge_decay_8", 0) - row.get("brier_seeded", 0), 4)
+            if row.get("brier_bridge_decay_8") is not None and row.get("brier_seeded") is not None else None,
+        })
+    return rows
+
+
 def _team_name_map() -> dict[str, str]:
     """Best-effort ASA opaque team_id -> display name map for legacy reports."""
     src = REPO_ROOT / "data_pipeline" / "team_metadata.py"
@@ -285,9 +311,73 @@ def _empty_forward_diag(league_id: str, league_name: str) -> dict[str, Any]:
             "market_count": 0,
             "disagreement_count": 0,
         },
-        "market_disagreement": {"status": "no_market", "n": 0, "max_edge_pp": None},
+        "market_disagreement": {
+            "status": "no_market",
+            "n": 0,
+            "max_edge_pp": None,
+            "by_edge": [],
+            "market_underdogs": {"n": 0, "hit_rate": None},
+            "disagreement_underdogs": {"n": 0, "hit_rate": None},
+        },
         "value_rank_gaps": [],
     }
+
+
+def _market_bucket_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    buckets = [
+        ("<=-8pp", -100.0, -8.0),
+        ("-8 to -4pp", -8.0, -4.0),
+        ("-4 to 0pp", -4.0, 0.0),
+        ("0 to 4pp", 0.0, 4.0),
+        ("4 to 8pp", 4.0, 8.0),
+        ("8pp+", 8.0, 100.0),
+    ]
+    out = []
+    for label, lo, hi in buckets:
+        group = [r for r in rows if lo <= r["edge_pp"] < hi]
+        if not group:
+            continue
+        out.append({
+            "bucket": label,
+            "n": len(group),
+            "mean_model_prob": _mean([r["model_prob"] for r in group]),
+            "mean_market_prob": _mean([r["market_prob"] for r in group]),
+            "mean_edge_pp": round(float(sum(r["edge_pp"] for r in group) / len(group)), 2),
+            "hit_rate": _mean([1.0 if r["hit"] else 0.0 for r in group]),
+        })
+    return out
+
+
+def _combine_bucket_rows(rows: list[dict[str, Any]], prob_key: str | None = None,
+                         hit_key: str = "hit_rate") -> list[dict[str, Any]]:
+    by_bucket: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        if row.get("n", 0):
+            by_bucket.setdefault(str(row["bucket"]), []).append(row)
+    out = []
+    for bucket, group in by_bucket.items():
+        n = sum(int(r["n"]) for r in group)
+        played = sum(int(r.get("played_n", r["n"])) for r in group)
+        item = {
+            "bucket": bucket,
+            "n": n,
+            "played_n": played,
+        }
+        for key in ("mean", "mean_total", "mean_draw_prob", "mean_model_prob", "mean_market_prob", "mean_edge_pp"):
+            vals = [(r.get(key), int(r["n"])) for r in group if r.get(key) is not None]
+            if vals:
+                item[key] = round(float(sum(v * w for v, w in vals) / sum(w for _, w in vals)), 4 if key != "mean_edge_pp" else 2)
+        vals = [(r.get(hit_key), int(r.get("played_n", r["n"]))) for r in group if r.get(hit_key) is not None]
+        if vals:
+            item[hit_key] = round(float(sum(v * w for v, w in vals) / sum(w for _, w in vals)), 4)
+        out.append(item)
+    order = {
+        "low total": 0, "middle total": 1, "high total": 2,
+        "<= -8pp": 3, "<=-8pp": 3, "-8 to -4pp": 4, "-4 to 0pp": 5,
+        "0 to 4pp": 6, "4 to 8pp": 7, "8pp+": 8,
+    }
+    out.sort(key=lambda r: order.get(r["bucket"], 99))
+    return out
 
 
 def _league_current_diagnostics(league_id: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -302,6 +392,7 @@ def _league_current_diagnostics(league_id: str, payload: dict[str, Any]) -> dict
     total_goal_rows = []
     underdogs = []
     market_edges = []
+    market_side_rows = []
     for game in games:
         result = _result_label(game)
         probs = {"H": float(game["pH"]), "D": float(game["pD"]), "A": float(game["pA"])}
@@ -337,6 +428,14 @@ def _league_current_diagnostics(league_id: str, payload: dict[str, Any]) -> dict
                 })
             if isinstance(mkt, (int, float)):
                 market_edges.append(abs(p - float(mkt)) * 100.0)
+                if result is not None:
+                    market_side_rows.append({
+                        "side": side,
+                        "model_prob": p,
+                        "market_prob": float(mkt),
+                        "edge_pp": (p - float(mkt)) * 100.0,
+                        "hit": result == side,
+                    })
 
     fav_bins = _bin_rows(
         favorite_rows,
@@ -370,6 +469,11 @@ def _league_current_diagnostics(league_id: str, payload: dict[str, Any]) -> dict
     disagreement_under = [
         r for r in underdogs
         if r["market_prob"] is not None and r["market_prob"] <= 0.25 and r["prob"] >= r["market_prob"] + 0.08
+    ]
+    market_under_rows = [r for r in market_side_rows if r["market_prob"] <= 0.25]
+    disagreement_under_rows = [
+        r for r in market_under_rows
+        if r["model_prob"] >= r["market_prob"] + 0.08
     ]
 
     standings = payload.get("standings") or []
@@ -415,6 +519,15 @@ def _league_current_diagnostics(league_id: str, payload: dict[str, Any]) -> dict
             "n": len(market_edges),
             "max_edge_pp": round(max(market_edges), 1) if market_edges else None,
             "mean_abs_edge_pp": round(float(sum(market_edges) / len(market_edges)), 1) if market_edges else None,
+            "by_edge": _market_bucket_rows(market_side_rows),
+            "market_underdogs": {
+                "n": len(market_under_rows),
+                "hit_rate": _mean([1.0 if r["hit"] else 0.0 for r in market_under_rows]),
+            },
+            "disagreement_underdogs": {
+                "n": len(disagreement_under_rows),
+                "hit_rate": _mean([1.0 if r["hit"] else 0.0 for r in disagreement_under_rows]),
+            },
         },
         "value_rank_gaps": value_gaps[:8],
     }
@@ -445,11 +558,42 @@ def _aggregate_forward(league_diags: dict[str, dict[str, Any]]) -> dict[str, Any
         for row in d.get("draw_bins") or []
         if row["bucket"] == "30%+"
     )
+    total_goals_draw = _combine_bucket_rows(
+        [row for d in values for row in d.get("total_goals_draw") or []],
+        hit_key="draw_hit_rate",
+    )
+    market_rows = [row for d in values for row in (d.get("market_disagreement") or {}).get("by_edge") or []]
+    market_by_edge = _combine_bucket_rows(market_rows)
+    market_under_n = sum((d.get("market_disagreement") or {}).get("market_underdogs", {}).get("n", 0) for d in values)
+    market_under_hits = [
+        ((d.get("market_disagreement") or {}).get("market_underdogs", {}).get("hit_rate"), (d.get("market_disagreement") or {}).get("market_underdogs", {}).get("n", 0))
+        for d in values
+        if (d.get("market_disagreement") or {}).get("market_underdogs", {}).get("hit_rate") is not None
+    ]
+    disagreement_under_n = sum((d.get("market_disagreement") or {}).get("disagreement_underdogs", {}).get("n", 0) for d in values)
+    disagreement_under_hits = [
+        ((d.get("market_disagreement") or {}).get("disagreement_underdogs", {}).get("hit_rate"), (d.get("market_disagreement") or {}).get("disagreement_underdogs", {}).get("n", 0))
+        for d in values
+        if (d.get("market_disagreement") or {}).get("disagreement_underdogs", {}).get("hit_rate") is not None
+    ]
     return {
         "matches": matches,
         "underdogs": under,
         "draw_heavy_matches": draw_heavy,
         "market_status": "ok" if matches["market"] else "no_market",
+        "total_goals_draw": total_goals_draw,
+        "market_disagreement": {
+            "status": "ok" if market_by_edge else "no_market",
+            "by_edge": market_by_edge,
+            "market_underdogs": {
+                "n": market_under_n,
+                "hit_rate": round(float(sum(v * n for v, n in market_under_hits) / sum(n for _, n in market_under_hits)), 4) if market_under_hits else None,
+            },
+            "disagreement_underdogs": {
+                "n": disagreement_under_n,
+                "hit_rate": round(float(sum(v * n for v, n in disagreement_under_hits) / sum(n for _, n in disagreement_under_hits)), 4) if disagreement_under_hits else None,
+            },
+        },
         "value_rank_gaps": value_gaps[:10],
     }
 
@@ -510,6 +654,7 @@ def _family_payload(spec: dict[str, Any]) -> dict[str, Any]:
         "season_phase": phase,
         "underdog_calibration": slices.get("underdog_calibration") or {},
         "historical_market_disagreement": slices.get("market_disagreement") or {},
+        "promoted_relegated_windows": _promoted_relegated_windows(spec["id"]),
         "forward_summary": _aggregate_forward(league_diagnostics),
         "league_diagnostics": league_diagnostics,
         "missing_diagnostics": missing,

@@ -50,7 +50,41 @@ def test_current_diagnostics_bins_underdogs_and_value_gaps():
     assert diag["underdogs"]["model_count"] == 2
     assert diag["underdogs"]["disagreement_count"] == 1
     assert diag["market_disagreement"]["status"] == "ok"
+    assert any(row["bucket"] == "4 to 8pp" for row in diag["market_disagreement"]["by_edge"])
+    assert diag["market_disagreement"]["market_underdogs"]["n"] == 2
     assert diag["value_rank_gaps"][0]["team"] == "B"
+
+
+def test_aggregate_forward_includes_draw_total_and_market_buckets():
+    league_diags = {
+        "a": {
+            "matches": {"total": 3, "upcoming": 1, "played": 2, "market": 2},
+            "underdogs": {"model_count": 2, "upcoming_count": 1, "market_count": 1, "disagreement_count": 1},
+            "draw_bins": [{"bucket": "30%+", "n": 2}],
+            "total_goals_draw": [
+                {"bucket": "low total", "n": 2, "played_n": 2, "mean_total": 2.1,
+                 "mean_draw_prob": 0.31, "draw_hit_rate": 0.5}
+            ],
+            "market_disagreement": {
+                "by_edge": [
+                    {"bucket": "8pp+", "n": 2, "mean_model_prob": 0.35,
+                     "mean_market_prob": 0.25, "mean_edge_pp": 10.0, "hit_rate": 0.5}
+                ],
+                "market_underdogs": {"n": 2, "hit_rate": 0.5},
+                "disagreement_underdogs": {"n": 1, "hit_rate": 1.0},
+            },
+            "value_rank_gaps": [],
+            "league": "a",
+            "league_name": "A",
+        }
+    }
+
+    summary = build_slice_report._aggregate_forward(league_diags)
+
+    assert summary["total_goals_draw"][0]["bucket"] == "low total"
+    assert summary["market_disagreement"]["status"] == "ok"
+    assert summary["market_disagreement"]["by_edge"][0]["bucket"] == "8pp+"
+    assert summary["market_disagreement"]["disagreement_underdogs"]["hit_rate"] == 1.0
 
 
 def test_main_writes_valid_js_payload(tmp_path, monkeypatch):
@@ -65,3 +99,10 @@ def test_main_writes_valid_js_payload(tmp_path, monkeypatch):
     assert data["status"] == "ok"
     assert data["league_family"]["epl"] == "eur_big5"
     assert any(f["id"] == "eur_tiers" for f in data["families"])
+
+
+def test_eur_tiers_can_surface_promoted_relegated_windows():
+    spec = next(f for f in build_slice_report.FAMILIES if f["id"] == "eur_tiers")
+    payload = build_slice_report._family_payload(spec)
+
+    assert "promoted_relegated_windows" in payload

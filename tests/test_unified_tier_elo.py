@@ -51,3 +51,19 @@ def test_bridge_decay_brier_uses_destination_elo_after_window():
     brier = ute._brier_bridge_decay(rows, history, window=1)
 
     assert 0.0 < brier < 2.0
+
+
+def test_early_window_slices_bucket_by_prior_mover_matches():
+    rows = [_row(day=d) for d in range(1, 19)]
+    history = {
+        "Mover": ([r.date for r in rows], [1500.0] * len(rows)),
+        "Opp": ([r.date for r in rows], [1500.0] * len(rows)),
+    }
+
+    slices = ute._early_window_slices(rows, history, history, history)
+
+    by_window = {row["window"]: row for row in slices}
+    assert by_window["0-5"]["n_matches"] == 5
+    assert by_window["6-15"]["n_matches"] == 10
+    assert by_window["16+"]["n_matches"] == 3
+    assert "brier_bridge_decay_8" in by_window["0-5"]

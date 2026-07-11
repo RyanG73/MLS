@@ -274,6 +274,13 @@ def _decay_weight(n_prior: int, window: int) -> float:
 def _brier_bridge_decay(rows: list[_MoverMatch], dst_hist: History, window: int) -> float:
     """Hybrid: bridge seed for preseason, then decay toward destination-league ELO."""
     counts = _mover_match_counts(rows)
+    return _brier_bridge_decay_indexed(list(enumerate(rows)), dst_hist, window, counts)
+
+
+def _brier_bridge_decay_indexed(indexed_rows: list[tuple[int, _MoverMatch]],
+                                dst_hist: History, window: int,
+                                counts: dict[int, int]) -> float:
+    """Bridge-decay Brier for row subsets while preserving full prior-match counts."""
 
     def mover_rating(idx: int, m: _MoverMatch) -> float | None:
         bridge = m.exit_elo + m.delta
@@ -283,10 +290,10 @@ def _brier_bridge_decay(rows: list[_MoverMatch], dst_hist: History, window: int)
         w = _decay_weight(counts[idx], window)
         return w * bridge + (1.0 - w) * league
 
-    if not rows:
+    if not indexed_rows:
         return float("nan")
     total = 0.0
-    for idx, m in enumerate(rows):
+    for idx, m in indexed_rows:
         me = mover_rating(idx, m)
         oe = _asof(dst_hist, m.opp, m.date)
         if me is None or oe is None:
@@ -298,7 +305,47 @@ def _brier_bridge_decay(rows: list[_MoverMatch], dst_hist: History, window: int)
         actual = [0.0, 0.0, 0.0]
         actual[m.outcome] = 1.0
         total += sum((probs[i] - actual[i]) ** 2 for i in range(3))
-    return total / len(rows)
+    return total / len(indexed_rows)
+
+
+def _early_window_slices(rows: list[_MoverMatch], dst_hist: History,
+                         seeded_hist: History, unified_hist: History) -> list[dict]:
+    """Brier by mover's prior destination-season match count: 0-5, 6-15, 16+."""
+    counts = _mover_match_counts(rows)
+    windows = [
+        ("0-5", 0, 5),
+        ("6-15", 5, 15),
+        ("16+", 15, 10_000),
+    ]
+    out = []
+    for label, lo, hi in windows:
+        indexed = [(idx, row) for idx, row in enumerate(rows) if lo <= counts[idx] < hi]
+        subset = [row for _, row in indexed]
+        if not subset:
+            continue
+        out.append({
+            "window": label,
+            "n_matches": len(subset),
+            "brier_bridge_frozen": round(_brier_rows(
+                subset,
+                lambda m: m.exit_elo + m.delta,
+                lambda m: _asof(dst_hist, m.opp, m.date)), 4),
+            "brier_seeded": round(_brier_rows(
+                subset,
+                lambda m: _asof(seeded_hist, m.mover, m.date),
+                lambda m: _asof(seeded_hist, m.opp, m.date)), 4),
+            "brier_per_league": round(_brier_rows(
+                subset,
+                lambda m: _asof(dst_hist, m.mover, m.date),
+                lambda m: _asof(dst_hist, m.opp, m.date)), 4),
+            "brier_unified": round(_brier_rows(
+                subset,
+                lambda m: _asof(unified_hist, m.mover, m.date),
+                lambda m: _asof(unified_hist, m.opp, m.date)), 4),
+            "brier_bridge_decay_8": round(_brier_bridge_decay_indexed(
+                indexed, dst_hist, 8, counts), 4),
+        })
+    return out
 
 
 def score_pair(src_lid: str, dst_lid: str, direction: str,
@@ -334,6 +381,7 @@ def score_pair(src_lid: str, dst_lid: str, direction: str,
         res[f"brier_bridge_decay_{window}"] = round(
             _brier_bridge_decay(rows, dst_hist, window), 4
         )
+    res["early_windows"] = _early_window_slices(rows, dst_hist, seeded_hist, unified_hist)
     return res
 
 
@@ -389,10 +437,29 @@ def main() -> int:
         pooled[key] = round(sum(x * b for x, b in w) / n, 4) if n else None
     pooled["n_matches"] = int(sum(r["n_matches"] for r in results))
 
+    pooled_early_windows = []
+    for label in ("0-5", "6-15", "16+"):
+        rows = [
+            w
+            for r in results
+            for w in r.get("early_windows", [])
+            if w.get("window") == label and w.get("n_matches")
+        ]
+        if not rows:
+            continue
+        n = sum(w["n_matches"] for w in rows)
+        item = {"window": label, "n_matches": n}
+        for key in variants:
+            vals = [(w["n_matches"], w.get(key)) for w in rows if w.get(key) is not None]
+            if vals:
+                item[key] = round(float(sum(nn * b for nn, b in vals) / sum(nn for nn, _ in vals)), 4)
+        pooled_early_windows.append(item)
+
     report = {
         "config": {"K": _ELO_K, "home_adv": _ELO_HA, "regress": _ELO_REGRESS,
                    "initial": _ELO_INIT, "chain": CHAIN, "score_from": _TRAIN_FROM},
         "pooled": pooled,
+        "pooled_early_windows": pooled_early_windows,
         "by_pair": results,
         "tier_gap_mean_elo": tier_gap_diagnostics(rated),
     }
@@ -417,6 +484,15 @@ def main() -> int:
           "(production analogue)\nleague = 1500 start, updating · unified = one "
           "cross-tier rating, updating · decay8 = bridge seed linearly decays to "
           "destination-league ELO after 8 mover matches")
+    if pooled_early_windows:
+        print("\nEarly-window pooled mover slices")
+        print(f"{'window':<8}{'n':>5}  {'seeded':>7}  {'league':>7}  {'decay8':>7}  {'d8−seed':>8}")
+        for row in pooled_early_windows:
+            print(f"{row['window']:<8}{row['n_matches']:>5}  "
+                  f"{row.get('brier_seeded', float('nan')):>7.4f}  "
+                  f"{row.get('brier_per_league', float('nan')):>7.4f}  "
+                  f"{row.get('brier_bridge_decay_8', float('nan')):>7.4f}  "
+                  f"{row.get('brier_bridge_decay_8', 0) - row.get('brier_seeded', 0):>+8.4f}")
 
     if args.out:
         from pathlib import Path

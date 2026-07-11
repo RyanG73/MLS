@@ -59,6 +59,26 @@ def _best_bet(g: dict) -> dict | None:
     return best
 
 
+def _risk_flags(g: dict, bet: dict | None) -> list[str]:
+    flags = []
+    if g.get("mkt_home") is None or g.get("mkt_away") is None:
+        flags.append("no_line")
+    if g.get("pD") is not None and g["pD"] >= 0.30:
+        flags.append("draw_heavy")
+    if isinstance(g.get("lam"), (int, float)) and isinstance(g.get("mu"), (int, float)):
+        if float(g["lam"]) + float(g["mu"]) < 2.4 and g.get("pD", 0) >= 0.28:
+            flags.append("low_total_draw_setup")
+    h, a = g.get("pH"), g.get("pA")
+    if isinstance(h, (int, float)) and isinstance(a, (int, float)):
+        if h <= 0.25 and a - h >= 0.15:
+            flags.append("home_model_underdog")
+        if a <= 0.25 and h - a >= 0.15:
+            flags.append("away_model_underdog")
+    if bet:
+        flags.append("qualifying_market_edge")
+    return flags
+
+
 def _row(league_id: str, league_name: str, g: dict, generated: str | None) -> dict:
     bet = _best_bet(g)
     return {
@@ -70,6 +90,7 @@ def _row(league_id: str, league_name: str, g: dict, generated: str | None) -> di
         "lam": g.get("lam"), "mu": g.get("mu"),
         "has_market": bool(g.get("mkt_home") is not None),
         "bet": bet,
+        "risk_flags": _risk_flags(g, bet),
         "built_at": generated,
     }
 
@@ -214,6 +235,14 @@ def season_races(payloads: dict[str, dict], limit: int = 18) -> list[dict]:
     return rows[:limit]
 
 
+def risk_counts(rows: list[dict]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        for flag in row.get("risk_flags") or []:
+            counts[flag] = counts.get(flag, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def _load_live_payloads(data_dir: Path) -> dict[str, dict]:
     return dict(_iter_live_payloads(data_dir))
 
@@ -228,6 +257,7 @@ def main() -> int:
         "next_kickoffs": [] if (priced or no_line) else next_kickoffs(payloads),
         "upcoming_7d": upcoming_summary(payloads),
         "season_races": season_races(payloads),
+        "risk_counts": risk_counts(priced + no_line),
         "edge_threshold_pct": EDGE_THRESH,
         "kelly_fraction": KELLY_FRACTION,
         "window_days": _WINDOW_DAYS,
