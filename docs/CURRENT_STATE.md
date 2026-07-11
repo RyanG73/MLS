@@ -44,9 +44,14 @@ definitions, data sources, and run commands. Update it when any of these change.
   plain-table approximations (caveat in each `rules`). Adding a league: follow the strict
   fetch_league_teams ordering (see the league-build-workflow memory) — flip REGISTRY to `live`
   before any later fetch or built data gets clobbered back to a stub.
-- Pending: Finland Veikkausliiga (footballdata_intl results + API-Football fixtures-override) and
-  Canadian Premier League (`source=api_football`, projection-only) are built behind
-  `data_pipeline/api_football.py` and gated on env `API_FOOTBALL_KEY` (free api-sports.io tier).
+- Expansion round 4 Phase 3 (2026-07-11, +2 → 14 total): `data_pipeline/api_football.py` adapter
+  (env/`.env` `API_FOOTBALL_KEY`). The free api-sports.io plan only serves seasons 2022–2024, so:
+  Finland Veikkausliiga ships **results-only off current football-data** (2026 season, like Poland
+  — no API-Football needed); Canadian Premier League ships `source=api_football` **results-only off
+  2024** (latest free season; 8/8 crests via `team_logos`). To make CPL current + unlock
+  Finland/Poland forward fixtures, upgrade the API-Football plan, then widen `api_football.LEAGUE`
+  season ranges and re-add the `build_league_data.FIXTURE_OVERRIDE` entries. Short-history leagues
+  are guarded in the per-year diagnostic (empty walk-forward preds no longer KeyError).
 
 **Walk-forward evaluation config:**
 - Train data: 2017+, 2020 excluded (COVID bubble); 2021 retained in training + as 2022 cal fold (A/B-validated 2026-06-09: excluding it costs +0.0019 Brier)

@@ -13,9 +13,12 @@
 > Split-round formats (Austria/Romania/Finland) ship as plain-table approximations with an honest
 > `rules` caveat, per the shipped Denmark/Poland precedent. Crest coverage: espn-source 100%,
 > footballdata/intl 88–100% except Romania 7/19 (ESPN lacks crests for many Romanian clubs +
-> split-format phantom playoff teams). **Phase 3 (Finland fixtures-override + Canadian Premier
-> League)** is built behind a new `data_pipeline/api_football.py` adapter and GATED on the user
-> provisioning a free `API_FOOTBALL_KEY`. Spec + plan: `docs/superpowers/{specs,plans}/2026-07-11-*`.
+> split-format phantom playoff teams). **Phase 3 shipped (14 total):** new
+> `data_pipeline/api_football.py` adapter (env/`.env` `API_FOOTBALL_KEY`). The free plan only
+> serves seasons 2022–2024, so **Finland** ships results-only off CURRENT football-data (2026
+> season, like Poland — no API-Football needed) and **Canadian PL** ships via API-Football
+> results-only off 2024 (8/8 crests; widen the `LEAGUE` season range on a paid plan to go current
+> + unlock Finland/Poland forward fixtures). Spec + plan: `docs/superpowers/{specs,plans}/2026-07-11-*`.
 
 > **2026-07-11 — Draw-Brier campaign: Phase 0 decomposition probe → NO-GO, campaign closed**
 > User-approved campaign to lower draw-class Brier (0.191867) via diagnostic + cheap harness

@@ -472,3 +472,29 @@ See `CLAUDE.md` for the full decision list with dates. Key ones with rationale:
 - **Verification protocol:** judge harness experiments on a single `--xgb-bag 5 --seed 42`
   run (σ≈0.0002), confirm gate-bound claims at a second base seed.
 - **Edge threshold 8%:** established across all leagues (MLS + European).
+
+## League expansion round 4 (2026-07-11, plan completed and deleted)
+
+Added 14 leagues in three dependency-ordered phases (spec + plan under
+`docs/superpowers/{specs,plans}/2026-07-11-league-expansion-round4-*`, since deleted).
+**Phase 1** (Tier 1, no new infra): Scottish Championship/League One/League Two (mmz4281
+`SC1/SC2/SC3`, chained to scottish-prem for tier-bridge seeding) + Austria/Switzerland/Romania/
+Ireland (footballdata_intl new-leagues CSVs; corrected the expansion report's Switzerland code to
+`SWZ`). **Phase 2** (projection-only, user "not worried about betting edge"): China + Russia kept
+on footballdata_intl (Pinnacle-odds backbone retained for a future edge layer) rendered
+projection-only; Saudi Pro League / A-League Men / WSL on a new slug-generic
+`espn_fixtures.espn_results_frame` (liga-mx keeps its torneo-specific frame). **Phase 3**: new
+`data_pipeline/api_football.py` adapter (env/`.env` `API_FOOTBALL_KEY`). The api-sports.io FREE
+plan only serves seasons 2022–2024, so Finland ships results-only off CURRENT football-data (2026,
+like Poland — API-Football not needed) and Canadian PL ships results-only off 2024 (8/8 crests via
+`team_logos`); a paid plan + wider `LEAGUE` season ranges makes both current and unlocks
+Finland/Poland forward fixtures via the (now-empty) `FIXTURE_OVERRIDE` hook.
+
+All 14 beat or match naive in-season (WSL 0.505 vs 0.630, Russia 0.579 vs 0.647, Saudi 0.552 vs
+0.644). Split-round formats (Austria/Romania/Finland) are plain-table approximations with an honest
+`rules` caveat. Two durable lessons: (1) `fetch_league_teams.py` rewrites every still-"soon" league
+to a stub, so a freshly-built league must be flipped to `"live"` in REGISTRY before any later fetch
+or its data is clobbered (correct batch order in the `league-build-workflow` memory + CURRENT_STATE);
+(2) `source="espn"` leagues get 100% crest coverage (frame uses ESPN names directly) while
+footballdata/intl leagues need `FD_ESPN`/`FDI_ESPN` short-name→displayName maps. Added a "Women"
+sidebar group for WSL and guarded short-history leagues (CPL's 3 seasons) in the per-year diagnostic.
