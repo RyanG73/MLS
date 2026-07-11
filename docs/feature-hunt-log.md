@@ -1,5 +1,34 @@
 # MLS Feature Hunt Log
 
+## 2026-07-11 — Total-goals-aware draw correction (M2) — DIAGNOSTIC: NO-GO on current evidence
+
+**Hypothesis:** the model miscalibrates draws as a function of expected total goals (λ+μ from
+DC) — under-pricing draws in low-scoring matchups, over-pricing them in high-scoring ones — so a
+total-goals-conditioned draw-temperature applied post-model could fix it. Motivated by the
+2026-07-11 execution report's payload-derived numbers (low total 30.0%→35.5% obs, mid 26.4%→30.1%,
+high 22.0%→18.3%, n≈616).
+**Method (diagnosis-first, per experiment-protocol):** before touching the harness, quantified
+the best-sampled draw calibration available. (1) Champion-report `draw_reliability` slice for MLS
+(full 2022–2025 walk-forward, ~2,100 draw-bin matches). (2) The total-goals-conditioned view from
+`total_goals_draw` in the slice pipeline. (3) Big-5 / tiers family reports.
+**Result:**
+- **MLS well-sampled draw calibration is good in the bulk:** pred 23.2%→actual 24.1% (n=568) and
+  pred 27.4%→27.2% (n=1072) are within ~1pp. Over-prediction appears only in **small-n tails**:
+  31.7%→26.0% (−5.7pp, n=369), 36.6%→24.0% (−12.7pp, n=25), 19.0%→13.5% (n=37).
+- **The total-goals signal is thin and self-contradictory.** It was only ever measured on a ~616-row
+  current-season sample; `total_goals_draw` is empty in the current slice build (preseason has few
+  played rows). Worse, its *direction conflicts* with the reliability tail: low-total games map to
+  high predicted-draw-prob bins, which `draw_reliability` shows the model **over**-predicts, yet the
+  total-goals sample said low-total games are **under**-predicted. Opposing signs across slices is the
+  signature of noise, not an exploitable miscalibration. Big-5/tiers reports carry no
+  `draw_reliability` at all.
+**Verdict: NO production change; do not build the correction on current evidence** — it would risk
+fitting small-sample noise, and the well-sampled bulk is already calibrated. Draw-side betting stays
+suppressed (unchanged). The definitive test is a harness run dumping full-test-set per-match
+(p_draw, λ+μ) so total-goals draw calibration can be measured at scale across families; deferred
+pending user go-ahead or more accrued in-season sample now that the daily pipeline is fixed. No
+change to `eval_baseline.py` or production.
+
 ## 2026-07-11 — Hybrid bridge-decay for promoted/relegated teams (R2 follow-up) — NULL / NO CHANGE
 
 **Hypothesis:** the R2 unified-ELO drop still suggested a narrower win: keep the explicit

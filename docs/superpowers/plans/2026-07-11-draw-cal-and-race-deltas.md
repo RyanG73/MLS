@@ -1,5 +1,11 @@
 # M2 draw calibration + U2 race-delta chips — Plan
 
+> **STATUS 2026-07-11:** U2 **shipped** (commit 9fd57fd, live). M2 diagnostic **done → NO-GO on
+> current evidence** (draws are already calibrated in the well-sampled bulk; the total-goals signal
+> is thin + self-contradictory — see `feature-hunt-log.md`). M2.3–M2.5 (harness experiment) are
+> **deferred pending a user decision**: run one eval to measure full-test-set total-goals draw
+> calibration definitively, or wait for in-season sample to accrue. No production model change.
+
 > Execute task-by-task; check boxes as you go. Resume anchor for the loop.
 
 **Goal:** (U2) surface per-race "since last build" deltas + a "why changed" cause chip on league race cards, sourced from the existing odds-history snapshots; (M2) diagnose draw miscalibration by league-family × total-goals rigorously and, if material, test a total-goals-aware draw correction through the eval gate.
