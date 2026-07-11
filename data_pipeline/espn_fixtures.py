@@ -62,6 +62,9 @@ SLUGS = {
     "brazil-serie-a": "bra.1", "japan-j1": "jpn.1",
     "sweden-allsvenskan": "swe.1", "norway-eliteserien": "nor.1",
     "denmark-superliga": "den.1", "argentina-primera": "arg.1",
+    # Round-4 Tier-1 (2026-07-11): footballdata_intl UEFA top flights.
+    "austria-bundesliga": "aut.1", "swiss-super-league": "sui.1",
+    "romania-liga1": "rou.1", "ireland-premier": "irl.1",
 }
 
 # Leagues whose season is a calendar year (dates window Jan–Dec of `season`)
@@ -72,7 +75,10 @@ SLUGS = {
 # plain-year for 2024+); Denmark keeps the Aug-May straddle like Europe.
 CALENDAR_YEAR_LEAGUES = {"nwsl", "usl-championship",
                          "brazil-serie-a", "japan-j1", "sweden-allsvenskan",
-                         "norway-eliteserien", "argentina-primera"}
+                         "norway-eliteserien", "argentina-primera",
+                         # Round-4: Ireland's LOI Premier runs Feb–Nov (calendar
+                         # year). Austria/Switzerland/Romania keep the Aug–May straddle.
+                         "ireland-premier"}
 
 # ESPN displayName → Understat team key, per league.
 # Only names that DIFFER between the two sources need an entry.

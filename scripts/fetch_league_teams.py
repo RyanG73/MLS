@@ -69,6 +69,10 @@ REGISTRY = [
     ("scottish-champ",      "Scottish Championship",    "sco.2",            "UEFA", "soon", "Other Europe"),
     ("scottish-league-one", "Scottish League One",      "sco.3",            "UEFA", "soon", "Other Europe"),
     ("scottish-league-two", "Scottish League Two",      "sco.4",            "UEFA", "soon", "Other Europe"),
+    ("austria-bundesliga",  "Austrian Bundesliga",      "aut.1",            "UEFA", "soon", "Other Europe"),
+    ("swiss-super-league",  "Swiss Super League",       "sui.1",            "UEFA", "soon", "Other Europe"),
+    ("romania-liga1",       "Liga I (Romania)",         "rou.1",            "UEFA", "soon", "Other Europe"),
+    ("ireland-premier",     "League of Ireland Premier","irl.1",            "UEFA", "soon", "Other Europe"),
     ("belgian-pro",         "Belgian Pro League",       "bel.1",            "UEFA", "live", "Other Europe"),
     ("greek-super",         "Greek Super League",       "gre.1",            "UEFA", "live", "Other Europe"),
     # UEFA — Nordics + Poland (Tier-1 expansion, 2026-07-10)

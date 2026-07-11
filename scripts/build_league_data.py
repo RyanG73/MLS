@@ -566,6 +566,29 @@ OUTLOOK = {
                           "buckets": _CONTINENTAL("Continental (Libertadores/Sudamericana)", 8),
                           "green_line": 8, "red_line": None, "eval_seasons": None,
                           "rules": "Top 8 reach Libertadores/Sudamericana (a rough approximation — Argentina's real qualification and relegation rules have changed repeatedly across recent seasons; relegation is not modeled here, see the expansion report's Tier-1 caveat)"},
+    # Round-4 Tier-1 UEFA top flights (2026-07-11). Split-round formats (Austria's
+    # points-halving championship/relegation groups, Romania's play-off/play-out)
+    # are approximated as a plain table — caveat in each rules string.
+    "austria-bundesliga": {"name": "Austrian Bundesliga", "source": "footballdata_intl",
+                           "n": 12, "confederation": "UEFA",
+                           "buckets": _CONTINENTAL("European qualification", 4, 2),
+                           "green_line": 4, "red_line": 2, "eval_seasons": None,
+                           "rules": "Champion → Champions League qualifying; top sides → European competitions (approximate) · bottom relegated (the real points-halving championship/relegation split is not modeled — plain regular-season table)"},
+    "swiss-super-league": {"name": "Swiss Super League", "source": "footballdata_intl",
+                           "n": 12, "confederation": "UEFA",
+                           "buckets": _CONTINENTAL("European qualification", 4, 2),
+                           "green_line": 4, "red_line": 2, "eval_seasons": None,
+                           "rules": "Champion → Champions League qualifying; top sides → European competitions (approximate) · bottom club relegated, 11th plays a barrage (not modeled)"},
+    "romania-liga1": {"name": "Liga I (Romania)", "source": "footballdata_intl",
+                      "n": 16, "confederation": "UEFA",
+                      "buckets": _CONTINENTAL("European qualification", 4, 3),
+                      "green_line": 4, "red_line": 3, "eval_seasons": None,
+                      "rules": "Champion → Champions League qualifying; top sides → European competitions (approximate) · bottom relegated. The real championship play-off / relegation play-out split (points halved) is not modeled — this is the plain full-season table, which can include promotion/relegation-playoff participants from Liga II, so the table may show more than 16 clubs"},
+    "ireland-premier": {"name": "League of Ireland Premier", "source": "footballdata_intl",
+                        "n": 10, "confederation": "UEFA",
+                        "buckets": _CONTINENTAL("European qualification", 3, 1),
+                        "green_line": 3, "red_line": 1, "eval_seasons": None,
+                        "rules": "Champion → Champions League qualifying; top sides → European competitions (approximate) · bottom club relegated, 9th plays a promotion/relegation playoff (not modeled) · calendar-year season"},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only
@@ -727,6 +750,37 @@ def _espn_names_to_fd(lid: str, fx: "pd.DataFrame") -> "pd.DataFrame":
 # left unmapped — they pass through to the promoted-team prior path, same
 # fallback as FD_ESPN's European entries.
 FDI_ESPN: dict[str, dict[str, str]] = {
+    # Round-4 Tier-1 (2026-07-11). football-data-intl short names → ESPN displayName.
+    # Recently-relegated teams shown in a completed-season table (e.g. BW Linz) have
+    # no entry in ESPN's current squad list — they self-resolve at the season flip.
+    "austria-bundesliga": {
+        "LASK": "LASK Linz", "Sturm Graz": "SK Sturm Graz", "Salzburg": "RB Salzburg",
+        "SK Rapid": "Rapid Vienna", "Hartberg": "TSV Hartberg",
+        "Altach": "SC Rheindorf Altach", "Ried": "SV Josko Ried",
+        "Wolfsberger AC": "Wolfsberger", "Tirol": "WSG Swarovski Tirol",
+        "A. Klagenfurt": "Austria Klagenfurt", "Austria Wien": "Austria Vienna",
+        "Rapid Wien": "Rapid Vienna", "Lustenau": "Austria Lustenau",
+        "Grazer AK": "Grazer AK",
+    },
+    "swiss-super-league": {
+        "Thun": "FC Thun", "Lugano": "FC Lugano", "Sion": "FC Sion", "Basel": "FC Basel",
+        "Luzern": "FC Luzern", "Lausanne": "Lausanne Sports", "Zurich": "FC Zürich",
+        "St Gallen": "St. Gallen", "Grasshoppers": "Grasshoppers",
+        "Yverdon": "Yverdon Sport", "Winterthur": "Winterthur", "Servette": "Servette",
+        "Young Boys": "Young Boys",
+    },
+    "romania-liga1": {
+        "Univ. Craiova": "CSU Craiova", "U. Cluj": "Universitatea Cluj",
+        "CFR Cluj": "CFR Cluj-Napoca", "FC Rapid Bucuresti": "Rapid Bucuresti",
+        "Otelul": "Otelul Galati", "Din. Bucuresti": "Dinamo Bucuresti",
+        "Csikszereda M. Ciuc": "Csíkszereda", "Farul Constanta": "FC Farul Constanta",
+        "Petrolul": "Petrolul Ploiesti", "FC Hermannstadt": "Hermannstadt",
+        "Metaloglobus Bucharest": "Metaloglobus", "FCSB": "FCSB",
+    },
+    "ireland-premier": {
+        "St. Patricks": "St. Patrick's Athletic", "Galway": "Galway United",
+        "Drogheda": "Drogheda United",
+    },
     "brazil-serie-a": {
         "Atletico-MG": "Atlético-MG", "Botafogo RJ": "Botafogo",
         "Bragantino": "Red Bull Bragantino", "Chapecoense-SC": "Chapecoense",

@@ -56,6 +56,13 @@ COUNTRY: dict[str, str] = {
     "denmark-superliga": "DNK",
     "poland-ekstraklasa": "POL",
     "argentina-primera": "ARG",
+    # Round-4 Tier-1 (2026-07-11). football-data "new leagues" CSVs, Pinnacle
+    # closings back to ~2012. ESPN aut.1/sui.1/rou.1/irl.1 verified live.
+    # NB: Switzerland's football-data code is SWZ, not SUI (report erratum).
+    "austria-bundesliga": "AUT",
+    "swiss-super-league": "SWZ",
+    "romania-liga1": "ROU",
+    "ireland-premier": "IRL",
 }
 
 # poland-ekstraklasa: confirmed 2026-07-10 (docs/league-expansion-report.md) —
