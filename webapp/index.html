@@ -1342,14 +1342,22 @@ function finishPlotPanel(){
     `<div class="plot"><div class="faxis">${axisTicks(N)}</div>${rows}${finishLegend()}</div>`;
   return panel;
 }
-/* ── run-in difficulty (fills the desktop whitespace under the finish plot,
-   2026-07-09 feedback): mean remaining-opponent ELO per team, hardest first,
-   home fixtures softened by the ELO home-advantage; next-3 opponent chips. ── */
+/* ── run-in difficulty (fills the desktop whitespace under the finish plot): mean
+   opponent ELO over each team's NEXT 5 fixtures, hardest first, home fixtures
+   softened by the ELO home-advantage; next-3 opponent chips.
+   Windowed to 5 (was whole-season remaining, 2026-07-09) because a full-season
+   average-opponent ELO is a mathematical inverse of team strength in a round-robin
+   — measured corr −1.000, ~zero information, "best team = easiest, worst = hardest"
+   (2026-07-11 feedback). A 5-game window breaks that symmetry (corr ≈ −0.2, ~4.5×
+   the spread): a genuinely variable "who faces a tough run" signal that works both
+   preseason (opening run) and in-season (upcoming run). ── */
+const RUNIN_N=5;
 function runInPanel(){
   if(!NF)return null;
   const eloOf=t=>(STAND.get(t)||{}).elo||1500;
   const rows=D.standings.map(s=>{
-    const fx=UPCOMING.filter(g=>g.home===s.team||g.away===s.team);
+    const fx=UPCOMING.filter(g=>g.home===s.team||g.away===s.team)
+      .sort((a,b)=>(a.date||'')<(b.date||'')?-1:1).slice(0,RUNIN_N);
     if(!fx.length)return null;
     const d=fx.reduce((a,g)=>{const home=g.home===s.team;return a+eloOf(home?g.away:g.home)-(home?40:0);},0)/fx.length;
     return {team:s.team,logo:s.logo,n:fx.length,diff:d,next:fx.slice(0,3)};
@@ -1367,8 +1375,10 @@ function runInPanel(){
       `<span class="ri-next">${r.next.map(g=>chip(r.team,g)).join('')}</span></div>`;
   }).join('');
   const panel=el('div','panel plotpanel');
+  const isPre=(D.outlook||{}).preseason;
+  const nLbl=rows.length&&rows.every(r=>r.n>=RUNIN_N)?RUNIN_N:`≤${RUNIN_N}`;
   panel.innerHTML=`<div class="panel-h"><span class="dot" style="background:var(--win);box-shadow:0 0 8px var(--win)"></span>`+
-    `<h2>Run-in difficulty</h2><span class="meta">avg remaining-opponent ELO · hardest schedule first</span></div>`+
+    `<h2>${isPre?'Opening run':'Upcoming run'}</h2><span class="meta">avg opponent ELO · next ${nLbl} fixtures · hardest first</span></div>`+
     `<div class="plot">${body}<div class="fleg"><span><i style="background:var(--drop)"></i>Toughest</span>`+
     `<span><i style="background:var(--qualify)"></i>Easiest</span><span>chips = next 3 (v home · @ away)</span></div></div>`;
   return panel;
