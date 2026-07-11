@@ -12,6 +12,10 @@ understatapi>=0.7.1,<1.0.0
 pandas>=2.0.0,<3.1.0
 numpy>=1.26.0,<3.0.0
 scipy>=1.12.0,<2.0.0
+# Parquet engine — required by the odds/drift/source-health/football-data-intl
+# reads+writes. Present locally as a transitive dep, but absent from a clean CI
+# `pip install -r requirements.txt`, which broke every parquet-reading build step.
+pyarrow>=14.0.0,<25.0.0
 
 # ── Machine learning ─────────────────────────────────────────────────────────
 xgboost>=2.0.0,<4.0.0

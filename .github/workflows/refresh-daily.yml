@@ -31,8 +31,11 @@ jobs:
           import json, re
           from pathlib import Path
           live = []
+          # Cross-league data files carry their own status but are NOT leagues —
+          # excluding them stops bogus matrix jobs like "build (edge-board)".
           for p in sorted(Path("webapp/data").glob("*.js")):
-              if p.name in ("logos.js", "ledger.js", "power.js"):
+              if p.name in ("logos.js", "ledger.js", "power.js", "edge-board.js",
+                            "movers.js", "drift.js", "model-slices.js", "coefficients.js"):
                   continue
               m = re.match(r"window\.\w+\s*=\s*(.*?);?\s*$", p.read_text(), re.DOTALL)
               if not m:
