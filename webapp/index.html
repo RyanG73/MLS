@@ -2947,12 +2947,16 @@ if(_isHome && window.HOME_DATA){
 
   // ── deterministic headline writer: movers → tight races → relegation ──
   const stories=[];
-  (H.movers||[]).forEach(m=>{const up=m.delta>=0;stories.push({league:m.league,mag:Math.abs(m.delta),
+  // Preseason leagues' "movement" is a rollover to statistical priors, not games —
+  // exclude them (leaders[] carries the per-league preseason flag), plus a belt-and-
+  // braces cap: |delta|>50pp in one week is never game-driven.
+  const _pre=new Set((H.leaders||[]).filter(l=>l.preseason).map(l=>l.league));
+  (H.movers||[]).filter(m=>!_pre.has(m.league)&&Math.abs(m.delta)<=50).forEach(m=>{const up=m.delta>=0;stories.push({league:m.league,mag:Math.abs(m.delta),
     kicker:`${nm(m.league)} · ${m.metric_label}`,
     h:`${m.team}’s ${m.metric_label} Odds ${up?'Jump':'Fall'} ${Math.abs(m.delta).toFixed(1)} Points`,
     deck:`This week’s results moved the model to ${m.now}% — the ${up?'biggest riser':'sharpest drop'} tracked in ${nm(m.league)}.`});});
   (H.tight_races||[]).forEach(r=>{const [a,b]=r.teams;if(!a||!b)return;stories.push({league:r.league,mag:Math.max(0,20-r.gap),
-    kicker:`${r.name} · ${r.metric_label} race`,
+    kicker:`${r.name} · ${r.metric_label} race${_pre.has(r.league)?' · preseason projection':''}`,
     h:`${a.team} Lead${a.team.endsWith('s')?'':'s'} the ${r.name} Race by Just ${r.gap} Points`,
     deck:`${a.team} (${a.pct}%) hold${a.team.endsWith('s')?'':'s'} off ${b.team} (${b.pct}%)${r.teams[2]?` with ${r.teams[2].team} (${r.teams[2].pct}%) lurking`:''}.`});});
   (H.releg_battles||[]).forEach(b=>{stories.push({league:b.league,mag:b.n_contested,
