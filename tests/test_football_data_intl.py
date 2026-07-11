@@ -175,7 +175,12 @@ def test_poland_flagged_as_no_espn_schedule():
 
 
 def test_all_seven_tier1_leagues_registered():
-    expected = {"brazil-serie-a", "japan-j1", "sweden-allsvenskan",
-               "norway-eliteserien", "denmark-superliga", "poland-ekstraklasa",
-               "argentina-primera"}
-    assert set(fdi.COUNTRY) == expected
+    # 2026-07-10 wave (the original seven) …
+    wave1 = {"brazil-serie-a", "japan-j1", "sweden-allsvenskan",
+             "norway-eliteserien", "denmark-superliga", "poland-ekstraklasa",
+             "argentina-primera"}
+    # … plus the 2026-07-11 round-4 additions (footballdata_intl top flights +
+    # projection-only China/Russia). Finland is added with Phase 3 (API key).
+    round4 = {"austria-bundesliga", "swiss-super-league", "romania-liga1",
+              "ireland-premier", "china-super", "russia-premier"}
+    assert set(fdi.COUNTRY) == wave1 | round4

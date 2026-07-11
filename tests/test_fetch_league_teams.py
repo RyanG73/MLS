@@ -12,7 +12,7 @@ _NON_LEAGUE_STEMS = {name.removesuffix(".js") for name in _NON_PAYLOAD} | {"powe
 # sidebar entry there silently vanishes from the UI (found 2026-07-10 shipping
 # the Tier-1 South America/Asia leagues).
 _VALID_GROUPS = {"Americas", "South America", "Asia", "England", "Spain", "Italy",
-                 "Germany", "France", "Other Europe", "Cups"}
+                 "Germany", "France", "Other Europe", "Women", "Cups"}
 
 
 def test_every_entry_has_a_valid_group():
