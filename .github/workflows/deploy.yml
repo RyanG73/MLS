@@ -3,6 +3,13 @@ name: Deploy webapp to GitHub Pages
 on:
   push:
     branches: [main]
+  # Data-refresh workflows commit with the default GITHUB_TOKEN, and GitHub does
+  # NOT fire workflows for GITHUB_TOKEN pushes — so those daily/weekly data commits
+  # never deployed. Re-run this deploy when a refresh workflow finishes so the
+  # freshly-committed payloads actually reach the live site.
+  workflow_run:
+    workflows: ["Daily In-Season Refresh", "Refresh European League Data", "Weekly Transfermarkt Snapshot"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
