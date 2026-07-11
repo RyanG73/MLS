@@ -1,5 +1,19 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-11 — Draw-Brier campaign: Phase 0 decomposition probe → NO-GO, campaign closed**
+> User-approved campaign to lower draw-class Brier (0.191867) via diagnostic + cheap harness
+> experiments. New `scripts/probe_draw_decomposition.py` replicated the champion fold loop
+> exactly (pooled 0.633117 / draw 0.191867 — matches `challenger-bag5.report.json` to 6 decimals)
+> and simulated the candidates offline with honest-vs-oracle fits. Findings: the draw column has
+> **no resolution** (Murphy: BS 0.1919 > climatology 0.1915; RES 0.0005 < REL 0.0009); per-class
+> blend weights and soft-hurdle recombination are dead even with oracle fitting (draw gain
+> 0.0001–0.0002 vs the 0.0005 bar); ref_draw_rate+recal skipped by pre-registered rule. M2's
+> total-goals question settled at full n=2,072: the ~616-row "under-priced low-total draws"
+> signal had the wrong sign (reality: draws over-predicted in high-total Q5 by +3.8pp, worth
+> ~0.0003, sub-noise honest). **No harness/production change; draw improvement requires new
+> information (T3b external data), not recombination.** Artifacts: `experiments/draw_probe/`,
+> log `experiments/draw_probe_seed42.log`; full write-up in `docs/feature-hunt-log.md`.
+
 > **2026-07-11 — Public-launch completion pass (test suite, trust pages, UI verification, content)**
 > Assessed the two Codex reports (`docs/public-launch-model-ui-business-report-2026-07-10.md`,
 > `docs/public-launch-execution-report-2026-07-11.md`) against the *actual* codebase and found

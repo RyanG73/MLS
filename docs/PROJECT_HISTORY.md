@@ -430,6 +430,31 @@ is external/decision-gated and catalogued in `docs/remaining-external-dependenci
 — chiefly the still-uninstalled nightly build job, paid odds coverage, deploy, analytics, email
 backend, and legal review.
 
+## Race-delta chips + draw-calibration diagnostic (2026-07-11, plan completed and deleted)
+
+U2 shipped per-race "since last build" delta chips with a why-changed cause label (result / model /
+refresh) on league race cards, sourced from `data/odds_history.parquet` snapshots (commit 9fd57fd).
+M2 diagnosed the hypothesized total-goals-conditioned draw miscalibration and returned **NO-GO**:
+the champion's `draw_reliability` slice shows the well-sampled bulk already calibrated within ~1pp
+(23.2%→24.1% n=568; 27.4%→27.2% n=1072), over-prediction confined to small-n tails, and the
+motivating ~616-row total-goals signal self-contradictory against the reliability curve. The
+deferred definitive per-match diagnostic (M2.3–M2.5) was approved by the user 2026-07-11 and became
+Phase 0 of the follow-on draw-Brier campaign (below).
+
+## Draw-Brier campaign — closed at Phase 0 with NO-GO (2026-07-11, plan completed and deleted)
+
+User-approved campaign to lower draw-class Brier via diagnostic + cheap harness experiments (no
+new architecture, no external data). Phase 0 built `scripts/probe_draw_decomposition.py`, which
+reproduces the champion pipeline exactly (0.633117 / draw 0.191867, 6-decimal match to the pinned
+report) and simulates candidate fixes offline against persisted per-match components. The verdict
+closed the campaign with zero harness churn: the draw column has no resolution (it scores worse
+than climatology; Murphy RES 0.0005 < REL 0.0009), per-class blend weights and soft-hurdle
+recombination show only 0.0001–0.0002 draw gain even when oracle-fitted on the test fold (bar:
+0.0005), and the M2 total-goals hypothesis was refuted at full n (the real residual is draw
+OVER-prediction in high-scoring matchups, worth ~0.0003, sub-noise). Draw improvement now has one
+credible path: new draw-discriminating data (T3b, deferred). Full write-up in
+`docs/feature-hunt-log.md` (2026-07-11 entry); artifacts in `experiments/draw_probe/`.
+
 ---
 
 ## Permanent constraints (do not re-litigate without explicit instruction)

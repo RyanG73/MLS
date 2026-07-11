@@ -1,5 +1,48 @@
 # MLS Feature Hunt Log
 
+## 2026-07-11 — Draw-Brier campaign Phase 0: per-match draw decomposition — NO-GO (campaign closed; settles M2 definitively)
+
+**Hypothesis:** with the full per-match component dump (calibrated DC/XGB/hurdle vectors, blend,
+λ+μ) over the 2022–2025 test window, at least one cheap draw intervention — per-class blend
+weights (B), soft hurdle recombination (C), or ref_draw_rate + draw-only ratio-preserving recal
+(D) — would show honest (cal-fold-fitted) draw-Brier headroom ≥ 0.0005 without net regression.
+**Method:** new read-only `scripts/probe_draw_decomposition.py` replicates the champion fold loop
+(`models/research_model.py` primitives, seed 42, 5-bag) persisting every intermediate to
+`experiments/draw_probe/draw_components_seed42.parquet`; runs Murphy decomposition (T1),
+reliability × λ+μ quintile (T2), component draw Brier (T3), and offline honest-vs-oracle sims of
+B and C (T4). **Correctness check passed exactly:** pooled n=2072, brier 0.633117, brier_draw
+0.191867 — identical to `challenger-bag5.report.json` to 6 decimals. Log:
+`experiments/draw_probe_seed42.log`.
+**Result:**
+- **T1 — the draw column has essentially no resolution.** Pooled BS 0.191867 vs UNC (climatology)
+  0.191535: the column scores *worse than always predicting the base rate* (REL 0.000926 >
+  RES 0.000477). The problem is missing signal, not miscalibration — even a perfect calibration
+  fix caps at ~0.0009 on the draw class.
+- **T2 — M2 settled at full n (2,072).** The model's λ+μ draw gradient has the right *direction*
+  (pred 0.280→0.260 across quintiles; obs 0.263→0.222) but under-responds: draws are
+  OVER-predicted at Q5 high-total (+3.8pp, n=414) and Q1 low-total (+1.7pp) — the original M2
+  claim (under-priced low-total draws, ~616-row sample) had the opposite sign and was noise.
+  Fully correcting the Q5 residual is worth only ~0.0003 pooled, 2024-trapped, sub-noise honest.
+- **T4/B (per-class blend w_ha, w_d) — KILLED.** Oracle (test-fitted) avg draw gain 0.0001
+  (< 0.0005 bar); oracle w_d pinned at the 0.70 floor in 3/4 folds. Honest: draw gain ≥ 0.0005 in
+  only 1/4 folds (2023).
+- **T4/C (soft hurdle α-mix) — KILLED.** Honest α = 0.00 in 3/4 folds (champion recovered);
+  2023 honestly picked α=1.00 on the cal fold and *lost* 0.0025 net on test — cal-fold
+  overfitting, exactly the risk the honest/oracle split was designed to expose. Oracle avg draw
+  gain 0.0002.
+- **D — SKIPPED by pre-registered rule** (T1 REL 0.000926 < 0.001 and concentrated in the
+  small-n 0.30+ prediction tail: rel_contrib 0.000574 @ bin 0.30 n=369, 0.000193 @ 0.35 n=25).
+- Champion blend note: w_xgb hit the 0.70 floor in 2022 and 2024 (DC at max 30%), 0.92/0.87 in
+  2023/2025.
+**Verdict: NO-GO — campaign closed at Phase 0, no harness or production change.** Even
+oracle-fitted recombinations of existing components can't reach the 0.0005 gate bar: draw
+improvement requires new draw-discriminating *information*, not reweighting what the model
+already has. This closes the draw door at a fourth level (component recombination), after
+features, architecture (T3a), and calibration (14-variant sweep). The remaining credible path is
+external data (T3b, deferred). A second-seed confirmation was not run: the probe reproduces the
+champion deterministically and the measured headroom is 3–5× below the bar, beyond rescue by
+σ≈0.0002 seed noise. Draw-side betting stays suppressed.
+
 ## 2026-07-11 — Total-goals-aware draw correction (M2) — DIAGNOSTIC: NO-GO on current evidence
 
 **Hypothesis:** the model miscalibrates draws as a function of expected total goals (λ+μ from

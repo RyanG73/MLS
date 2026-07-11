@@ -1,0 +1,56 @@
+# Probe: draw decomposition + offline sims (Phase 0, draw-Brier campaign)
+Frame 3,982 rows · 37 features · folds (2022, 2023, 2024, 2025) · seed 42 · bags 5 · D-sim off
+
+  2022: champ 0.629941 (draw 0.186004) w=0.700 | comp draw dc=0.1871 xgb=0.1867 hur=0.1857 pre2=0.1863
+        B honest (0.72,0.70) 0.629977/d0.186017 · oracle (0.70,0.70) 0.629941/d0.186004
+        C honest a=0.00 0.629941/d0.186004 · oracle a=1.00 0.628516/d0.185128
+  2023: champ 0.635596 (draw 0.207567) w=0.921 | comp draw dc=0.2056 xgb=0.2077 hur=0.2095 pre2=0.2074
+        B honest (0.97,0.70) 0.634485/d0.206945 · oracle (0.93,0.70) 0.634443/d0.206968
+        C honest a=1.00 0.638089/d0.209177 · oracle a=0.00 0.635596/d0.207567
+  2024: champ 0.635476 (draw 0.184852) w=0.700 | comp draw dc=0.1858 xgb=0.1856 hur=0.1865 pre2=0.1853
+        B honest (0.70,0.70) 0.635476/d0.184852 · oracle (0.88,0.70) 0.634816/d0.185008
+        C honest a=0.00 0.635476/d0.184852 · oracle a=0.00 0.635476/d0.184852
+  2025: champ 0.631319 (draw 0.188810) w=0.870 | comp draw dc=0.1916 xgb=0.1888 hur=0.1886 pre2=0.1890
+        B honest (0.75,1.00) 0.631652/d0.188710 · oracle (0.93,0.95) 0.631280/d0.188805
+        C honest a=0.00 0.631319/d0.188810 · oracle a=0.15 0.631296/d0.188746
+
+## Verification vs champion report
+  probe:  n=2072 brier=0.633117 draw=0.191867
+  report: n=2072 brier=0.633117 draw=0.191867
+
+## T1 Murphy decomposition of draw Brier (BS = UNC - RES + REL)
+  pooled: BS=0.191867 UNC=0.191535 RES=0.000477 REL=0.000926 (base 0.2582)
+  2022:   BS=0.186004 UNC=0.186215 RES=0.000782 REL=0.000922
+  2023:   BS=0.207567 UNC=0.205017 RES=0.001442 REL=0.003969
+  2024:   BS=0.184852 UNC=0.186055 RES=0.002093 REL=0.001072
+  2025:   BS=0.188810 UNC=0.187500 RES=0.000475 REL=0.001918
+
+## T2 draw reliability (pooled; report binning)
+  bin 0.15: n=  37 pred=0.1897 obs=0.1351 rel_contrib=0.000053
+  bin 0.20: n= 568 pred=0.2324 obs=0.2412 rel_contrib=0.000021
+  bin 0.25: n=1072 pred=0.2740 obs=0.2715 rel_contrib=0.000003
+  bin 0.30: n= 369 pred=0.3169 obs=0.2602 rel_contrib=0.000574
+  bin 0.35: n=  25 pred=0.3665 obs=0.2400 rel_contrib=0.000193
+  by lambda+mu quintile (pred vs obs draw rate):
+    Q1 (1.52-2.50): n=415 pred=0.2798 obs=0.2627 brier=0.194719
+    Q2 (2.50-2.76): n=414 pred=0.2736 obs=0.2850 brier=0.205156
+    Q3 (2.76-3.00): n=414 pred=0.2700 obs=0.2585 brier=0.192493
+    Q4 (3.00-3.31): n=415 pred=0.2663 obs=0.2627 brier=0.193004
+    Q5 (3.31-4.96): n=414 pred=0.2599 obs=0.2222 brier=0.173953
+
+## T3 component draw Brier (pooled)
+  dc             0.192602
+  xgb            0.192270
+  hurdle         0.192643
+  blend_pre2nd   0.192041
+  final          0.191867
+
+Wrote experiments/draw_probe/draw_components_seed42.parquet (4,076 rows) and experiments/draw_probe/summary.json
+
+## Decision rules (vs champion, per fold)
+  B:
+    honest avg draw -0.000177 · avg net -0.000186 · 2022:d+0.0000/n+0.0000  2023:d-0.0006/n-0.0011  2024:d+0.0000/n+0.0000  2025:d-0.0001/n+0.0003
+    oracle avg draw -0.000112 · avg net -0.000463 · 2022:d+0.0000/n+0.0000  2023:d-0.0006/n-0.0012  2024:d+0.0002/n-0.0007  2025:d-0.0000/n-0.0000
+  C:
+    honest avg draw +0.000403 · avg net +0.000623 · 2022:d+0.0000/n+0.0000  2023:d+0.0016/n+0.0025  2024:d+0.0000/n+0.0000  2025:d+0.0000/n+0.0000
+    oracle avg draw -0.000235 · avg net -0.000362 · 2022:d-0.0009/n-0.0014  2023:d+0.0000/n+0.0000  2024:d+0.0000/n+0.0000  2025:d-0.0001/n-0.0000
