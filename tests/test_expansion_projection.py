@@ -35,3 +35,20 @@ def test_espn_projection_leagues():
 def test_aleague_has_no_relegation():
     from scripts.build_league_data import OUTLOOK
     assert OUTLOOK["australia-aleague"]["red_line"] is None
+
+
+def test_phase3_canadian_pl():
+    from scripts.build_league_data import OUTLOOK
+    cfg = OUTLOOK["canadian-pl"]
+    assert cfg["source"] == "api_football"
+    assert cfg["confederation"] == "Concacaf"
+    assert cfg["red_line"] is None            # no relegation
+
+
+def test_phase3_finland_fixture_override():
+    from scripts.build_league_data import OUTLOOK, FIXTURE_OVERRIDE
+    from data_pipeline.football_data_intl import COUNTRY, NO_ESPN_SCHEDULE
+    assert COUNTRY["finland-veikkausliiga"] == "FIN"
+    assert "finland-veikkausliiga" in NO_ESPN_SCHEDULE
+    assert OUTLOOK["finland-veikkausliiga"]["source"] == "footballdata_intl"
+    assert FIXTURE_OVERRIDE["finland-veikkausliiga"] == "api_football"

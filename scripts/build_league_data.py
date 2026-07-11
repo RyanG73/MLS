@@ -621,6 +621,23 @@ OUTLOOK = {
             "buckets": _CONTINENTAL("Women's Champions League", 2, 1),
             "green_line": 2, "red_line": 1, "eval_seasons": None,
             "rules": "Top sides qualify for the UEFA Women's Champions League (approximate) · bottom club relegated · goals-only (no xG source for this league)"},
+    # Round-4 Phase 3 (2026-07-11, API-Football schedule source).
+    # Canadian Premier League: not on football-data OR ESPN — everything via
+    # API-Football. Projection-only (no odds). Single table + playoffs, no relegation.
+    "canadian-pl": {"name": "Canadian Premier League", "source": "api_football",
+                    "n": 8, "confederation": "Concacaf",
+                    "buckets": [
+                        {"key": "premiers", "label": "Best Record", "col": "Premiers", "top": 1},
+                        {"key": "playoffs", "label": "Playoffs", "col": "Playoffs", "top": 6}],
+                    "green_line": 6, "red_line": None, "eval_seasons": None,
+                    "rules": "Best regular-season record earns a home final · top 6 reach the playoffs (championship decided there) · no relegation · projections-only (no odds source)"},
+    # Finland Veikkausliiga: results+odds from football-data (footballdata_intl),
+    # upcoming fixtures via API-Football (ESPN fin.1 empty — see FIXTURE_OVERRIDE).
+    "finland-veikkausliiga": {"name": "Veikkausliiga", "source": "footballdata_intl",
+                              "n": 12, "confederation": "UEFA",
+                              "buckets": _CONTINENTAL("European qualification", 3, 2),
+                              "green_line": 3, "red_line": 2, "eval_seasons": None,
+                              "rules": "Champion → Champions League qualifying; top sides → European competitions (approximate) · bottom relegated, others play a relegation group (the real championship/relegation split is not modeled — plain table) · calendar-year season · upcoming fixtures via API-Football (no ESPN coverage)"},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only
@@ -888,6 +905,12 @@ def _espn_names_to_fdintl(lid: str, fx: "pd.DataFrame") -> "pd.DataFrame":
 # league's ESPN history is short or noisy (e.g. WSL scoreboard coverage).
 ESPN_GOALS_ONLY_SEASONS: dict[str, list[int]] = {}
 
+# Leagues whose RESULTS come from `source` but whose UPCOMING FIXTURES come from
+# a different provider because ESPN has no slug. Value = provider module key.
+# Finland: footballdata_intl results+odds, but ESPN `fin.1` is empty (0 teams),
+# so API-Football supplies the schedule. Generalises the Poland results-only gap.
+FIXTURE_OVERRIDE: dict[str, str] = {"finland-veikkausliiga": "api_football"}
+
 
 def _load_frame(league_id: str, source: str, asa_key: str | None = None):
     """Route a league to its canonical-frame source."""
@@ -904,6 +927,9 @@ def _load_frame(league_id: str, source: str, asa_key: str | None = None):
             return liga_mx_frame()
         from data_pipeline.espn_fixtures import espn_results_frame
         return espn_results_frame(league_id, ESPN_GOALS_ONLY_SEASONS.get(league_id))
+    if source == "api_football":
+        from data_pipeline.api_football import results_frame as apif_results
+        return apif_results(league_id)
     if source == "asa":
         return asa_canonical_frame(asa_key or league_id)
     raise ValueError(f"Unknown source '{source}' for league '{league_id}'")
@@ -1144,6 +1170,21 @@ def main():
         except Exception as _espn_err:
             print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
 
+    # Fixture-override leagues (Finland): results+odds from `source`, but upcoming
+    # fixtures from a secondary provider because ESPN has no slug. Only fires when
+    # the ESPN paths above found nothing (espn_upcoming still None).
+    if espn_upcoming is None and lid in FIXTURE_OVERRIDE:
+        try:
+            from data_pipeline.api_football import upcoming_fixtures as _apif_upcoming
+            _sched = _apif_upcoming(lid)
+            _last_played = frame[frame["season"] == ts]["date"].max()
+            if pd.notna(_last_played):
+                _sched = _sched[_sched["date"] > _last_played]
+            espn_upcoming = _sched
+            print(f"[{lid}] {FIXTURE_OVERRIDE[lid]} fixtures: {len(_sched)} scheduled for {ts}")
+        except Exception as _ovr_err:
+            print(f"[{lid}] {FIXTURE_OVERRIDE[lid]} fixture override failed: {_ovr_err}")
+
     played = df[df["season"] == ts].dropna(subset=["home_goals", "away_goals"]).copy()
     if espn_upcoming is not None:
         upcoming = espn_upcoming
@@ -1156,6 +1197,15 @@ def main():
     # Team-name resolution: model keys are Understat titles; ESPN crests keyed by
     # displayName. tname() = the display string; tmeta() = its logo/color.
     stub_meta = _stub_team_meta(lid)
+    # api_football-source leagues (Canadian PL) have no ESPN crest stub — seed
+    # crests from the adapter's own team logos, keyed by API-Football team name.
+    if cfg["source"] == "api_football" and not stub_meta:
+        try:
+            from data_pipeline.api_football import team_logos as _apif_logos
+            stub_meta = _apif_logos(lid)
+            print(f"[{lid}] api_football crests: {sum(1 for v in stub_meta.values() if v.get('logo'))} logos")
+        except Exception as _logo_err:
+            print(f"[{lid}] api_football team logos failed: {_logo_err}")
     _fd_map = (FD_ESPN.get(lid, {}) if cfg["source"] in ("footballdata", "asa")
               else FDI_ESPN.get(lid, {}) if cfg["source"] == "footballdata_intl"
               else {})

@@ -67,6 +67,9 @@ COUNTRY: dict[str, str] = {
     # edge-layer backbone; presented projection-only for now.
     "china-super": "CHN",
     "russia-premier": "RUS",
+    # Round-4 Phase 3 (2026-07-11): results+odds from football-data; upcoming
+    # fixtures via API-Football (ESPN fin.1 is empty). See build_league_data.FIXTURE_OVERRIDE.
+    "finland-veikkausliiga": "FIN",
 }
 
 # poland-ekstraklasa: confirmed 2026-07-10 (docs/league-expansion-report.md) —
@@ -74,7 +77,7 @@ COUNTRY: dict[str, str] = {
 # source. Ships in results-only mode (no in-season projection) until a
 # fixture source is found; excluded from PRESEASON_ESPN_LEAGUES so the
 # builder never tries to fetch a schedule that doesn't exist.
-NO_ESPN_SCHEDULE = {"poland-ekstraklasa"}
+NO_ESPN_SCHEDULE = {"poland-ekstraklasa", "finland-veikkausliiga"}
 
 # Odds-column triples in preference order: Pinnacle CLOSING (sharpest, this
 # file's headline column) → market max → market average → BetFair exchange →

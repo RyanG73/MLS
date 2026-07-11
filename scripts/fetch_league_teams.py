@@ -87,6 +87,8 @@ REGISTRY = [
     ("denmark-superliga",   "Superliga",                 "den.1",            "UEFA", "live", "Other Europe"),
     # No confirmed ESPN slug (results-only league — see football_data_intl.NO_ESPN_SCHEDULE)
     ("poland-ekstraklasa",  "Ekstraklasa",               None,               "UEFA", "live", "Other Europe"),
+    # No ESPN slug, but upcoming fixtures come from API-Football (round-4 Phase 3)
+    ("finland-veikkausliiga","Veikkausliiga",            None,               "UEFA", "soon", "Other Europe"),
     # CONMEBOL — South America (Tier-1 expansion, 2026-07-10)
     ("brazil-serie-a",      "Brasileirão Série A",       "bra.1",            "CONMEBOL", "live", "South America"),
     ("argentina-primera",   "Liga Profesional Argentina", "arg.1",           "CONMEBOL", "live", "South America"),
