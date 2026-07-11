@@ -772,6 +772,8 @@ footer a:hover{color:var(--txt-2)}
 const _rawLeague=new URLSearchParams(location.search).get('league');
 const _isHome=!_rawLeague;                    // no param → the Home landing (window.HOME_DATA)
 const _isEdgeBoard=_rawLeague==='command';    // edge board moved to ?league=command ("Matches")
+const _isLeagues=_rawLeague==='leagues';      // full league index (replaces the old sidebar)
+const _isFavs=_rawLeague==='favorites';       // pinned leagues + teams
 const LID=(_rawLeague&&_rawLeague!=='command')?_rawLeague:'mls';
 // Static info / trust / legal routes render self-contained content — there is no
 // per-league data/news/drift file to fetch, so skip those document.writes.
@@ -780,16 +782,16 @@ const _infoPage=_INFO_PAGES.includes(_rawLeague)?_rawLeague:null;
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
 if(!_infoPage)
-  document.write('<scr'+'ipt src="data/'+(_isHome?'home':_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
+  document.write('<scr'+'ipt src="data/'+((_isHome||_isLeagues||_isFavs)?'home':_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Baked multi-source news (scripts/build_news.py). Missing file (new league,
 // build not yet run) 404s harmlessly — window.NEWS_DATA just stays undefined.
-if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
+if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isFavs)
   document.write('<scr'+'ipt src="data/news/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Per-league projection-drift trajectories (scripts/build_drift_report.py) —
 // lazy like news: only this league's file, only for the Model Health tab's
 // "Projection stability" card. Missing file 404s harmlessly (window.DRIFT_TRAJ
 // stays undefined; the card renders its insufficient-history state).
-if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
+if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isFavs)
   document.write('<scr'+'ipt src="data/drift-traj/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
@@ -798,9 +800,9 @@ const _isPower = new URLSearchParams(location.search).get('league')==='power';
 // (not a single league's LEAGUE_DATA). Use a benign empty stub so the league render code
 // below no-ops; renderPower()/renderEdgeBoard() (appended at the end of the page) then
 // hide the league UI and draw the real view.
-const D = (_isPower || _isEdgeBoard || _isHome || _infoPage)
-  ? {league:{name:_isHome?"Home":_isEdgeBoard?"Command Center":_infoPage?'Info':'Cross-League Power Rankings'},
-     outlook:{mode:_isHome?'home':_isEdgeBoard?'edge-board':'power'}, standings:[], games:[],
+const D = (_isPower || _isEdgeBoard || _isHome || _infoPage || _isLeagues || _isFavs)
+  ? {league:{name:_isHome?"Home":_isEdgeBoard?"Command Center":_infoPage?'Info':_isLeagues?'Leagues':_isFavs?'Favorites':'Cross-League Power Rankings'},
+     outlook:{mode:_isHome?'home':_isEdgeBoard?'edge-board':_isLeagues?'leagues':_isFavs?'favorites':'power'}, standings:[], games:[],
      sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], team_inputs:{}, elo_history:{},
      health:null, model_card:{}, in_season_brier:{}, season:2026}
   : window.LEAGUE_DATA;
@@ -809,6 +811,21 @@ const $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElemen
 // otherwise the MLS conference + playoff + cup view. Set by the build's outlook block.
 const isTable = (D.outlook||{}).mode === 'table';
 const isKnockout = (D.outlook||{}).mode === 'knockout';
+// ── FavStore: league pins (existing key) + team pins (new), shared by masthead,
+//    Leagues index, Favorites page, and team profiles ──
+const FavStore=(()=>{
+  const LKEY='pitchside.favLeagues', TKEY='pitchside.favTeams';
+  const read=k=>{try{return JSON.parse(localStorage.getItem(k)||'[]');}catch(e){return[];}};
+  const write=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+  return {
+    leagues:()=>new Set(read(LKEY)),
+    toggleLeague:id=>{const s=new Set(read(LKEY));s.has(id)?s.delete(id):s.add(id);write(LKEY,[...s]);return s;},
+    teams:()=>read(TKEY),                                   // [{league,team}]
+    hasTeam:(lg,t)=>read(TKEY).some(x=>x.league===lg&&x.team===t),
+    toggleTeam:(lg,t)=>{const a=read(TKEY);const i=a.findIndex(x=>x.league===lg&&x.team===t);
+      const added=i<0; added?a.push({league:lg,team:t}):a.splice(i,1); write(TKEY,a); return added;},
+  };
+})();
 // ── Sidebar: leagues grouped by country/region (B13), collapsible, + starred favorites ──
 (()=>{
   const wrap=$('#sbLeagues');
