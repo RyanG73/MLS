@@ -1,5 +1,25 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-11 — NYT-style dark editorial redesign: masthead chrome, editorial Home, Leagues index, Favorites**
+> User-driven redesign after two NYT reference screenshots (desktop + app, dark). Site-wide
+> chrome replaces the left sidebar everywhere: three-row masthead (date · serif **Entenser**
+> wordmark · leagues-live stat), a country/flag section bar with hover/tap league dropdowns
+> (groups straight from `leagues.js`), a LIVE fixtures strip, and on mobile a fixed bottom tab
+> bar **Home · Matches · Leagues · Favorites** (hamburger deleted). The Home landing is now an
+> editorial front page: deterministic client-side headline writer over `HOME_DATA`
+> (movers → tight races → relegation; preseason leagues excluded from movers as rollover
+> artifacts and tagged `preseason projection` in race kickers), serif lead story + story ladder,
+> right rail with big-league model leaders and an **Upcoming Matches** module fed by a new
+> `fixtures` array in `scripts/build_home.py` (next 10 days, prominence-first, cap 12, pytest'd).
+> New routes: `?league=leagues` (flag-grouped index, the sidebar's successor, league pin stars)
+> and `?league=favorites` (pinned leagues + pinned clubs via new `pitchside.favTeams`
+> localStorage; club rows lazy-load their league payload and degrade to "data unavailable").
+> Team pin star lives on the team-profile header. Serif token `--serif` (Georgia stack);
+> mono retained for numbers. Housekeeping: `home.js` added to the canonical `_NON_PAYLOAD`
+> exclusion (fixes 3 stale contract-test failures from the first-draft home) and the
+> no-query smoke test repointed at `?league=command`. Full suite 970 passed / 15 skipped.
+> Spec: `docs/superpowers/specs/2026-07-11-nyt-editorial-redesign-design.md`.
+
 > **2026-07-11 — League expansion round 4: 12 new leagues live (Phases 1–2), Phase 3 pending API key**
 > Extends the 2026-07-10 wave (`docs/league-expansion-report.md`). Phase 1 (Tier 1, no new
 > infra): **Scottish Championship / League One / League Two** (mmz4281 SC1/SC2/SC3, chained to

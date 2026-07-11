@@ -288,11 +288,11 @@ class TestSquadValuePanel:
 
 
 class TestMatchesGroupedByDateAndLeague:
-    """The no-query landing route renders the Command Center (formerly "Matches",
-    originally "Today's Edge"), which groups fixtures by date, then league."""
+    """?league=command renders the Command Center (formerly the no-query landing,
+    which is the editorial Home since 2026-07-11), grouping fixtures by date, then league."""
 
     def test_matches_view_has_day_groups(self, page: Page, webapp_url: str):
-        page.goto(f"{webapp_url}/index.html", wait_until="networkidle")
+        page.goto(f"{webapp_url}/index.html?league=command", wait_until="networkidle")
         page.wait_for_timeout(400)
         title = page.locator("#leagueTitle").inner_text()
         assert title == "Command Center", f"Expected page title 'Command Center', got {title!r}"

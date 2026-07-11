@@ -498,3 +498,17 @@ or its data is clobbered (correct batch order in the `league-build-workflow` mem
 (2) `source="espn"` leagues get 100% crest coverage (frame uses ESPN names directly) while
 footballdata/intl leagues need `FD_ESPN`/`FDI_ESPN` short-name→displayName maps. Added a "Women"
 sidebar group for WSL and guarded short-history leagues (CPL's 3 seasons) in the per-year diagnostic.
+
+## NYT-style dark editorial redesign (2026-07-11, plan completed and deleted)
+
+User supplied two New York Times screenshots (desktop front page + mobile app, both dark) and asked
+for that layout language: the left sidebar was replaced site-wide by a three-row masthead (date,
+serif Entenser wordmark, country/flag section bar with league dropdowns, LIVE fixtures strip) plus a
+mobile bottom tab bar (Home · Matches · Leagues · Favorites), and the Home landing became an
+editorial front page whose headlines are written deterministically from HOME_DATA (movers/races/
+relegation, preseason rollover artifacts suppressed). New routes: `?league=leagues` (flag-grouped
+index that inherits the sidebar's role and pin stars) and `?league=favorites` (pinned leagues plus
+pinned clubs — new `pitchside.favTeams` key, star on the team-profile header, per-league lazy data
+loads). `build_home.py` gained a tested `fixtures` array (next 10 days, prominence-first) for the
+homepage rail; `home.js` joined the canonical `_NON_PAYLOAD` exclusion, fixing three contract-test
+failures that had been latent since the first-draft home page a day earlier.

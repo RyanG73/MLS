@@ -38,6 +38,7 @@ _NON_PAYLOAD = {
     "logos.js",
     "ledger.js",
     "edge-board.js",
+    "home.js",
     "movers.js",
     "coefficients.js",
     "drift.js",
