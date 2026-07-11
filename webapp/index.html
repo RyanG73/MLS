@@ -47,15 +47,16 @@ if(_analyticsOn){
   /* legacy aliases kept so not-yet-restyled code keeps working until its task lands */
   --floodlight:#3ddc84; --west:#f4b740; --hfa:#f4b740; --shield:#d7deea; --spoon:#bd7d4e;
   --mono:"Spline Sans Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:Georgia,'Times New Roman',serif;
   --r-sm:4px; --r-md:8px; --r-lg:10px;
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:36px;
-  --maxw:1320px; --sbw:220px;
+  --maxw:1320px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
 body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:var(--ink-0);
-  color:var(--txt-1); font-feature-settings:"tnum" 1; line-height:1.42;-webkit-font-smoothing:antialiased;padding-bottom:48px;padding-left:var(--sbw)}
+  color:var(--txt-1); font-feature-settings:"tnum" 1; line-height:1.42;-webkit-font-smoothing:antialiased;padding-bottom:48px}
 h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--s4)}
 
@@ -67,33 +68,42 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .panel-h .meta{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--txt-3)}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
-/* ── league sidebar ── */
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sbw);z-index:40;overflow-y:auto;
-  background:linear-gradient(180deg,var(--ink-1),var(--ink-0));border-right:1px solid var(--line-2);
-  padding:var(--s3) 0}
-.sb-brand{display:flex;align-items:center;padding:8px var(--s4) var(--s4);border-bottom:1px solid var(--line)}
-.sb-grp{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-3);padding:var(--s4) var(--s4) 6px}
-.sb-lg{display:flex;align-items:center;gap:9px;padding:7px var(--s4);font-size:13px;color:var(--txt-2);cursor:pointer;text-decoration:none;border-left:2px solid transparent;transition:.12s}
-.sb-lg:hover{background:var(--ink-2);color:var(--txt-1)}
-.sb-lg.active{background:var(--ink-2);color:var(--txt-1);border-left-color:var(--floodlight);font-weight:600}
-.sb-lg .lgc{width:20px;height:20px;flex:none;display:grid;place-items:center;object-fit:contain}
-.sb-lg .lgc img{width:100%;height:100%;object-fit:contain}
-.sb-lg.soon{opacity:.5} .sb-lg .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
-.sb-lg .sb-star{margin-left:auto;flex:none;padding-left:6px;color:var(--txt-3);font-size:13px;line-height:1}
-.sb-lg .sb-star:hover{color:#e2b04f}
-.sb-lg .sb-star.on{color:#e2b04f}
-.sb-grp-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
-.sb-grp-toggle:hover{color:var(--txt-2)}
-.sb-chev{font-size:9px}
-.sb-toggle{display:none}
+/* ── NYT-style masthead (site-wide chrome) ── */
+#mast{background:var(--ink-0);border-bottom:2px solid var(--line-3)}
+.mast-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:12px var(--s4) 8px;gap:var(--s3)}
+.mast-date{font-size:11px;color:var(--txt-2)}
+.mast-date span{display:block;color:var(--txt-3)}
+.mast-wordmark{font-family:var(--serif);font-weight:700;font-size:30px;letter-spacing:.01em;color:var(--txt-1);text-decoration:none;text-align:center}
+.mast-stat{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:right}
+.mast-bar{display:flex;justify-content:center;gap:2px;border-top:1px solid var(--line-2);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:0 var(--s4)}
+.mast-bar::-webkit-scrollbar{display:none}
+.mb-item{position:relative;flex:none}
+.mb-item>a{display:flex;align-items:center;gap:5px;padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--txt-2);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap}
+.mb-item>a:hover{color:var(--txt-1)}
+.mb-item>a.active{color:var(--txt-1);border-bottom-color:var(--txt-1)}
+.mb-menu{display:none;position:absolute;left:0;top:100%;z-index:60;min-width:210px;background:var(--ink-1);border:1px solid var(--line-3);border-radius:0 0 var(--r-md) var(--r-md);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:6px 0;max-height:60vh;overflow-y:auto}
+.mb-item.open .mb-menu,.mb-item:hover .mb-menu{display:block}
+.mb-menu a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
+.mb-menu a:hover{background:var(--ink-2);color:var(--txt-1)}
+.mb-menu a img{width:16px;height:16px;object-fit:contain}
+.mb-menu a .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
+.mast-live{display:flex;align-items:center;gap:8px;justify-content:center;padding:6px var(--s4);border-top:1px solid var(--line-2);font-size:11.5px;color:var(--txt-2)}
+.mast-live .dot{width:7px;height:7px;border-radius:50%;background:var(--drop);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.mast-live a{color:var(--txt-1);text-decoration:none;font-weight:600}
+/* ── mobile bottom tab bar ── */
+.bnav{display:none}
 @media(max-width:900px){
-  :root{--sbw:0px}
-  .sidebar{transform:translateX(-100%);transition:transform .2s;width:230px}
-  .sidebar.open{transform:translateX(0)}
-  .sb-toggle{display:flex;position:fixed;left:10px;top:10px;z-index:50;width:38px;height:38px;align-items:center;justify-content:center;
-    background:var(--ink-2);border:1px solid var(--line-2);border-radius:8px;color:var(--txt-1);font-size:18px;cursor:pointer}
-  /* clear the fixed hamburger so it doesn't overlap the league title */
-  .brand{margin-left:54px}
+  body{padding-bottom:84px}
+  .bnav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:70;
+    background:rgba(10,13,11,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line-3);padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
+  .bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--txt-3);text-decoration:none}
+  .bnav a .ico{font-size:19px;line-height:1}
+  .bnav a.active{color:var(--txt-1)}
+  .mast-top{grid-template-columns:1fr;justify-items:center;padding:10px var(--s4) 6px}
+  .mast-date,.mast-stat{display:none}
+  .mast-wordmark{font-size:24px}
+  .mast-bar{justify-content:flex-start}
 }
 
 header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7,8,9,.97),rgba(7,8,9,.86));
@@ -665,11 +675,7 @@ footer a:hover{color:var(--txt-2)}
 </style>
 </head>
 <body>
-<button class="sb-toggle" id="sbToggle" aria-label="Leagues">☰</button>
-<nav class="sidebar" id="sidebar">
-  <div class="sb-brand"><img src="assets/branding/entenser-lockup-light.png" alt="Entenser" style="width:100%;max-width:176px;height:auto;object-fit:contain" /></div>
-  <div id="sbLeagues"></div>
-</nav>
+<div id="mast"></div>
 <header>
   <div class="wrap head-in">
     <div class="brand">
@@ -751,6 +757,7 @@ footer a:hover{color:var(--txt-2)}
 </main>
 
 <footer class="wrap" id="foot"></footer>
+<nav class="bnav" id="bnav"></nav>
 
 <!-- Cache-bust like logos.js/the per-league data file: the registry changes
      whenever a league is added, and a stale cached copy would silently hide
@@ -826,56 +833,49 @@ const FavStore=(()=>{
       const added=i<0; added?a.push({league:lg,team:t}):a.splice(i,1); write(TKEY,a); return added;},
   };
 })();
-// ── Sidebar: leagues grouped by country/region (B13), collapsible, + starred favorites ──
+// ── NYT-style masthead: date row + country bar with league dropdowns + LIVE strip ──
 (()=>{
-  const wrap=$('#sbLeagues');
-  // Plan order (docs/superpowers/plans/2026-07-02-model-and-ui-improvements.md, B13).
-  const GROUP_ORDER=['Americas','South America','Asia','England','Spain','Italy','Germany','France','Other Europe','Women','Cups'];
-  const FAV_KEY='pitchside.favLeagues', COLLAPSE_KEY='pitchside.collapsedGroups';
-  const readSet=k=>{try{return new Set(JSON.parse(localStorage.getItem(k)||'[]'));}catch(e){return new Set();}};
-  const writeSet=(k,s)=>localStorage.setItem(k,JSON.stringify([...s]));
-  let favs=readSet(FAV_KEY), collapsed=readSet(COLLAPSE_KEY);
-
-  function leagueLink(l){
-    const lg=l.logo?`<span class="lgc"><img src="${l.logo}" alt="" onerror="this.remove()"></span>`:`<span class="lgc"></span>`;
-    const active=!_isEdgeBoard&&l.id===LID?' active':'', soon=l.status!=='live'?' soon':'';
-    const star=`<span class="sb-star${favs.has(l.id)?' on':''}" data-lid="${l.id}" title="${favs.has(l.id)?'Unpin':'Pin to favorites'}">${favs.has(l.id)?'★':'☆'}</span>`;
-    return `<a class="sb-lg${active}${soon}" href="?league=${l.id}">${lg}<span>${l.name}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}${star}</a>`;
-  }
-
-  function render(){
-    const groups={};
-    (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
-    let html='';
-    // Pinned cross-league views at the top — the platform's unique multi-league capability.
-    html+=`<a class="sb-lg sb-power${_isHome?' active':''}" href="${location.pathname}"><span class="lgc">🏠</span><span>Home</span></a>`;
-    html+=`<a class="sb-lg sb-power${_isEdgeBoard?' active':''}" href="?league=command"><span class="lgc">⚡</span><span>Matches</span></a>`;
-    html+=`<a class="sb-lg sb-power${!_isEdgeBoard&&!_isHome&&LID==='power'?' active':''}" href="?league=power"><span class="lgc">🌍</span><span>Power Rankings</span></a>`;
-    const favLeagues=(window.LEAGUES||[]).filter(l=>favs.has(l.id));
-    if(favLeagues.length) html+=`<div class="sb-grp">Favorites</div>`+favLeagues.map(leagueLink).join('');
-    GROUP_ORDER.forEach(g=>{
-      if(!groups[g]||!groups[g].length)return;
-      const isCollapsed=collapsed.has(g);
-      html+=`<div class="sb-grp sb-grp-toggle" data-group="${g}">${g}<span class="sb-chev">${isCollapsed?'▸':'▾'}</span></div>`
-          +`<div data-group-body="${g}"${isCollapsed?' style="display:none"':''}>${groups[g].map(leagueLink).join('')}</div>`;
-    });
-    wrap.innerHTML=html;
-    wrap.querySelectorAll('.sb-grp-toggle').forEach(h=>h.onclick=()=>{
-      const g=h.dataset.group;
-      collapsed.has(g)?collapsed.delete(g):collapsed.add(g);
-      writeSet(COLLAPSE_KEY,collapsed);
-      render();
-    });
-    wrap.querySelectorAll('.sb-star').forEach(s=>s.onclick=e=>{
-      e.preventDefault();e.stopPropagation();
-      const lid=s.dataset.lid;
-      favs.has(lid)?favs.delete(lid):favs.add(lid);
-      writeSet(FAV_KEY,favs);
-      render();
-    });
-  }
-  render();
-  $('#sbToggle').onclick=()=>$('#sidebar').classList.toggle('open');
+  const mast=$('#mast'); if(!mast) return;
+  const MAST_GROUPS=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}','England'],['Spain','\u{1F1EA}\u{1F1F8}','Spain'],['Italy','\u{1F1EE}\u{1F1F9}','Italy'],
+    ['Germany','\u{1F1E9}\u{1F1EA}','Germany'],['France','\u{1F1EB}\u{1F1F7}','France'],['Americas','\u{1F30E}','Americas'],
+    ['South America','\u{1F1E7}\u{1F1F7}','S. America'],['Other Europe','\u{1F1EA}\u{1F1FA}','Europe'],['Asia','\u{1F30F}','Asia'],
+    ['Cups','\u{1F3C6}','Cups'],['Women','\u26BD','Women']];
+  const groups={};
+  (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
+  const menuLink=l=>{const lg=l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:'';
+    return `<a href="?league=${l.id}">${lg}<span>${l.name}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`;};
+  const activeGroup=(!_isHome&&!_isEdgeBoard&&!_isLeagues&&!_isFavs&&!_infoPage&&LID!=='power')
+    ? ((window.LEAGUES||[]).find(l=>l.id===LID)||{}).group : null;
+  const H=window.HOME_DATA;
+  const dstr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  let bar=`<div class="mb-item"><a href="${location.pathname}" class="${_isHome?'active':''}">\u{1F3E0} Home</a></div>`
+         +`<div class="mb-item"><a href="?league=command" class="${_isEdgeBoard?'active':''}">\u26A1 Matches</a></div>`;
+  MAST_GROUPS.forEach(([g,flag,label])=>{ if(!groups[g]||!groups[g].length) return;
+    bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${groups[g][0].id}" class="${activeGroup===g?'active':''}">${flag} ${label}</a>
+      <div class="mb-menu">${groups[g].map(menuLink).join('')}</div></div>`;});
+  bar+=`<div class="mb-item"><a href="?league=power" class="${!_isEdgeBoard&&!_isHome&&!_isLeagues&&!_isFavs&&!_infoPage&&LID==='power'?'active':''}">\u{1F30D} Power</a></div>`;
+  const live=(H&&H.fixtures&&H.fixtures.length)
+    ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">${H.fixtures.length} fixtures modeled in the next 10 days</a><span>\u00B7 across ${H.stats.leagues} leagues</span></div>`:'';
+  mast.innerHTML=`<div class="mast-top">
+      <div class="mast-date">${dstr}${H?`<span>Updated ${H.generated}</span>`:''}</div>
+      <a class="mast-wordmark" href="${location.pathname}">Entenser</a>
+      <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
+    </div><nav class="mast-bar">${bar}</nav>${live}`;
+  // tap-to-toggle dropdowns (hover covers desktop; click covers touch)
+  mast.querySelectorAll('.mb-item[data-group]>a').forEach(a=>a.addEventListener('click',e=>{
+    if(matchMedia('(hover:hover)').matches) return;           // desktop: follow link
+    const it=a.parentElement;
+    if(!it.classList.contains('open')){e.preventDefault();
+      mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));
+      it.classList.add('open');}
+  }));
+  document.addEventListener('click',e=>{if(!mast.contains(e.target))mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));});
+  // bottom tab bar
+  const bn=$('#bnav'); if(bn) bn.innerHTML=
+    `<a href="${location.pathname}" class="${_isHome?'active':''}"><span class="ico">\u{1F3E0}</span>Home</a>
+     <a href="?league=command" class="${_isEdgeBoard?'active':''}"><span class="ico">\u26A1</span>Matches</a>
+     <a href="?league=leagues" class="${_isLeagues?'active':''}"><span class="ico">\u{1F5C2}\uFE0F</span>Leagues</a>
+     <a href="?league=favorites" class="${_isFavs?'active':''}"><span class="ico">\u2605</span>Favorites</a>`;
 })();
 // ── League header (title + logo + % complete) ──
 (()=>{
