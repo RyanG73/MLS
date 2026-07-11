@@ -1,6 +1,6 @@
 import pandas as pd
 
-from scripts.build_edge_board import collect_rows, next_kickoffs
+from scripts.build_edge_board import collect_rows, next_kickoffs, season_races, upcoming_summary
 
 NOW = pd.Timestamp("2026-07-03T12:00", tz="UTC")
 
@@ -9,6 +9,21 @@ def _live(games, mode="table"):
     return {"status": "live", "generated": "2026-07-03 12:00 UTC",
             "league": {"name": "Test League"}, "outlook": {"mode": mode},
             "games": games}
+
+
+def _race_payload():
+    return {
+        "status": "live",
+        "generated": "2026-07-03 12:00 UTC",
+        "league": {"name": "Race League"},
+        "outlook": {"mode": "table", "cards": [{"key": "title", "label": "Title"}]},
+        "games": [],
+        "standings": [
+            {"team": "Alpha", "title": 42.5, "logo": "a.png", "color": "#111"},
+            {"team": "Beta", "title": 39.0, "logo": "b.png", "color": "#222"},
+            {"team": "Gamma", "title": 10.0, "logo": "g.png", "color": "#333"},
+        ],
+    }
 
 
 def test_priced_row_gets_best_bet_above_threshold():
@@ -101,3 +116,29 @@ def test_next_kickoffs_fallback_is_edge_agnostic_and_sorted():
     }
     nk = next_kickoffs(payloads, n=8)
     assert [r["home"] for r in nk] == ["Early", "Late"]
+
+
+def test_upcoming_summary_uses_seven_day_command_center_window():
+    payloads = {
+        "epl": _live([
+            {"date": "2026-07-04", "home": "A", "away": "B", "result": None,
+             "pH": 0.5, "pD": 0.3, "pA": 0.2},
+            {"date": "2026-07-09", "home": "C", "away": "D", "result": None,
+             "pH": 0.5, "pD": 0.3, "pA": 0.2},
+            {"date": "2026-07-12", "home": "Late", "away": "D", "result": None,
+             "pH": 0.5, "pD": 0.3, "pA": 0.2},
+        ]),
+    }
+    summary = upcoming_summary(payloads, now=NOW)
+    assert summary["match_count"] == 2
+    assert summary["league_count"] == 1
+    assert summary["first_kickoff"]["home"] == "A"
+
+
+def test_season_races_extracts_uncertain_race_cards():
+    races = season_races({"race": _race_payload()})
+    assert races[0]["league_name"] == "Race League"
+    assert races[0]["label"] == "Title"
+    assert races[0]["leader"]["team"] == "Alpha"
+    assert races[0]["contenders"][0]["team"] == "Beta"
+    assert races[0]["uncertainty"] == 57.5

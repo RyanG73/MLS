@@ -322,6 +322,26 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .cfg{display:flex;flex-wrap:wrap;gap:7px}
 .cfg-chip{font-size:11px;color:var(--txt-2);background:var(--ink-0);border:1px solid var(--line);border-radius:6px;padding:4px 9px}
 .cfg-chip i{color:var(--txt-3);font-style:normal;margin-right:4px}
+.weak-list{margin:10px 0 0 16px;color:var(--txt-2);font-size:12px;line-height:1.55}
+.weak-list li{margin:3px 0}
+.diag-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px}
+.diag-cell{background:var(--ink-0);border:1px solid var(--line);border-radius:6px;padding:8px}
+.diag-cell .dk{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3);font-weight:700}
+.diag-cell .dv{font-family:var(--mono);font-size:15px;font-weight:700;margin-top:3px}
+.diag-tapes{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:10px}
+.diag-tape{background:var(--ink-0);border:1px solid var(--line);border-radius:6px;padding:8px}
+.diag-tape h4{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt-3);font-weight:700;margin:0 0 7px}
+.tape-row{display:grid;grid-template-columns:56px 1fr 88px;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--line)}
+.tape-row:first-of-type{border-top:none;padding-top:0}
+.tape-b{font-size:11px;font-weight:700;color:var(--txt-2);white-space:nowrap}
+.tape-track{height:7px;border-radius:4px;background:rgba(150,180,220,.10);overflow:hidden}
+.tape-track>span{display:block;height:100%;border-radius:4px;background:var(--floodlight)}
+.tape-row.draw .tape-track>span{background:var(--draw)}
+.tape-row.total .tape-track>span{background:var(--west)}
+.tape-meta{font-size:10.5px;color:var(--txt-3);font-family:var(--mono);text-align:right;white-space:nowrap}
+.gap-list{display:flex;flex-direction:column;gap:5px;margin-top:9px}
+.gap-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--txt-2);background:var(--ink-0);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.gap-row b{color:var(--txt-1);font-size:11.5px}.gap-row span{margin-left:auto;font-family:var(--mono);color:var(--txt-3)}
 .pc-row{display:grid;grid-template-columns:72px 1fr 54px auto;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
 .pc-row:last-child{border-bottom:none}
 .pc-l{font-size:12.5px;font-weight:600}
@@ -610,7 +630,7 @@ footer a:hover{color:var(--txt-2)}
     <button role="tab" aria-selected="true" data-view="outlook">League Projections</button>
     <button role="tab" aria-selected="false" data-view="matches">Match Projections</button>
     <button role="tab" aria-selected="false" data-view="teams">Teams</button>
-    <button role="tab" aria-selected="false" data-view="health">Model Health</button>
+    <button role="tab" aria-selected="false" data-view="health">Trust</button>
     <button role="tab" aria-selected="false" data-view="news">News</button>
     <button role="tab" aria-selected="false" data-view="coeffs" id="segCoeffs" style="display:none">UEFA Spots</button>
   </div>
@@ -632,7 +652,7 @@ footer a:hover{color:var(--txt-2)}
   </section>
 
   <section id="view-health" class="hidden">
-    <div class="sec-h"><h2>Model &amp; data health</h2><span class="note">How the model is built, how well it predicts, and how complete its inputs are</span></div>
+    <div class="sec-h"><h2>Trust</h2><span class="note">How the model is built, where it is reliable, and where to be cautious</span></div>
     <div id="healthBody"></div>
   </section>
 
@@ -688,6 +708,7 @@ footer a:hover{color:var(--txt-2)}
 <script src="data/movers.js"></script>
 <script src="data/coefficients.js"></script>
 <script src="data/drift.js"></script>
+<script>document.write('<scr'+'ipt src="data/model-slices.js?t='+Date.now()+'"></scr'+'ipt>');</script>
 <script>
 // League selected via ?league=<id>. No param at all → the cross-league edge board
 // (B12) is the site's landing view; ?league=mls etc. deep links are unchanged.
@@ -1534,6 +1555,68 @@ function reliabilitySVG(trust,w=460,h=230){
     `<text x="${pad-6}" y="${py(v)+4}" class="axis" text-anchor="end">${(v*100).toFixed(0)}%</text>`;
   return `<svg viewBox="0 0 ${w} ${h}" class="chart-svg" style="min-width:0">${grid}${diag}${dots(favPts,'var(--floodlight)')}${dots(drawPts,'#e25f4f')}${[0,0.5,1].map(axLbl).join('')}</svg>`;
 }
+function escHTML(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function modelSliceForLeague(id=LID){
+  const MS=window.MODEL_SLICES;
+  if(!MS||MS.status!=='ok')return null;
+  const fid=(MS.league_family||{})[id];
+  return (MS.families||[]).find(f=>f.id===fid)||null;
+}
+function diagPct(v,d=0){return v==null?'--':`${(v*100).toFixed(d)}%`;}
+function diagTapeHTML(title,rows,kind){
+  rows=(rows||[]).filter(r=>r&&r.n);
+  if(!rows.length)return '';
+  const max=Math.max(...rows.map(r=>r.n||0),1);
+  const body=rows.map(r=>{
+    const width=Math.max(6,Math.round((r.n||0)/max*100));
+    const played=r.played_n!=null?`${r.played_n} played`:`n=${r.n}`;
+    const hit=r.hit_rate!=null?`${diagPct(r.hit_rate)} hit`:played;
+    const mean=r.mean!=null?`avg ${diagPct(r.mean)}`:r.mean_draw_prob!=null?`draw ${diagPct(r.mean_draw_prob)}`:played;
+    return `<div class="tape-row ${kind||''}">
+      <span class="tape-b">${escHTML(r.bucket)}</span>
+      <span class="tape-track"><span style="width:${width}%"></span></span>
+      <span class="tape-meta">${escHTML(mean)} · ${escHTML(hit)}</span>
+    </div>`;
+  }).join('');
+  return `<div class="diag-tape"><h4>${escHTML(title)}</h4>${body}</div>`;
+}
+function modelDiagHTML(fam){
+  const diag=(fam.league_diagnostics||{})[LID];
+  if(!diag)return '';
+  const m=diag.matches||{}, u=diag.underdogs||{}, md=diag.market_disagreement||{};
+  const drawHeavy=(diag.draw_bins||[]).find(r=>r.bucket==='30%+')||{n:0};
+  const marketTxt=md.status==='ok'?`${m.market} priced · max ${md.max_edge_pp}pp`:'no market lines';
+  const tapes=[
+    diagTapeHTML('Favorite distribution',diag.favorite_bins,'favorite'),
+    diagTapeHTML('Draw distribution',diag.draw_bins,'draw'),
+    diagTapeHTML('Draw by goal total',diag.total_goals_draw,'total'),
+  ].filter(Boolean).join('');
+  const gapRows=(diag.value_rank_gaps||[]).slice(0,4).map(g=>
+    `<div class="gap-row"><b>${escHTML(g.team)}</b>${escHTML(g.label)}<span>${g.gap>0?'+':''}${g.gap}</span></div>`).join('');
+  return `<div class="diag-strip">
+      <div class="diag-cell"><div class="dk">Current matches</div><div class="dv">${m.upcoming||0} up · ${m.played||0} played</div></div>
+      <div class="diag-cell"><div class="dk">Draw-heavy</div><div class="dv">${drawHeavy.n||0}</div></div>
+      <div class="diag-cell"><div class="dk">Model underdogs</div><div class="dv">${u.upcoming_count||0} up</div></div>
+      <div class="diag-cell"><div class="dk">Market status</div><div class="dv" style="color:${md.status==='ok'?'var(--win)':'var(--txt-3)'}">${escHTML(marketTxt)}</div></div>
+    </div>${tapes?`<div class="diag-tapes">${tapes}</div>`:''}${gapRows?`<div class="hnote">Value/table disagreement watchlist</div><div class="gap-list">${gapRows}</div>`:''}`;
+}
+function modelSliceCard(){
+  const fam=modelSliceForLeague();
+  if(!fam)return `<div class="hcard2"><h3>Known weak spots</h3><div class="hnote">Family slice report is not built yet.</div></div>`;
+  const metric=fam.model_brier!=null
+    ?`<div class="pstat"><span class="k">${escHTML(fam.label)} champion Brier</span><span class="v">${fam.model_brier.toFixed(4)}${fam.improvement_pct!=null?` <span style="color:var(--qualify);font-weight:600">+${fam.improvement_pct}% vs naive</span>`:''}</span></div>`
+    :'';
+  const limits=(fam.limits||[]).slice(0,4).map(x=>`<li>${escHTML(x)}</li>`).join('');
+  const teams=(fam.worst_home_teams||[]).slice(0,5).map(t=>
+    `<span class="cfg-chip"><i>${escHTML(t.team)}</i> ${t.brier.toFixed(3)} Brier · n=${t.n}</span>`).join('');
+  const missing=(fam.missing_diagnostics||[]).slice(0,4).map(x=>`<span class="cfg-chip"><i>Needed</i> ${escHTML(x)}</span>`).join('');
+  return `<div class="hcard2"><h3>Known weak spots</h3>${metric}
+    <div class="hnote">${escHTML(fam.policy)}</div>
+    ${modelDiagHTML(fam)}
+    <ul class="weak-list">${limits}</ul>
+    ${teams?`<div class="cfg" style="margin-top:8px">${teams}</div>`:''}
+    ${missing?`<div class="cfg" style="margin-top:8px">${missing}</div>`:''}</div>`;
+}
 /* Mean 3-way Brier for a set of games (model / market on its matched subset /
    naive = this season's league base rates). Shared by the health phase card
    (H2) and the per-club accuracy card (H3) — computed client-side from the
@@ -1741,7 +1824,9 @@ function renderHealth(){
       :'';
     return `<div class="hcard2"><h3>Projection stability</h3>${churnHTML}${markerHTML}${trajHTML}</div>${funnelHTML}`;
   })();
-  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelCard}${pcCard}</div>`+feat+btCard+trustBlock+oskBlock+`<div class="hgrid2">${driftBlock}</div>`+fresh;
+  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelSliceCard()}${modelCard}</div>`+
+    (pcCard?`<div class="hgrid2">${pcCard}</div>`:'')+
+    feat+btCard+trustBlock+oskBlock+`<div class="hgrid2">${driftBlock}</div>`+fresh;
 }
 
 /* matches */
@@ -2403,6 +2488,39 @@ if (_isPower && window.POWER_DATA) {
 
 <style>
 .eb-intro{color:var(--txt-2);font-size:13px;max-width:820px;margin:0 0 14px;line-height:1.55}
+.cc-hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:var(--s4);align-items:stretch;margin-bottom:var(--s4)}
+.cc-promise{border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--ink-1);padding:var(--s5);display:flex;flex-direction:column;justify-content:space-between;min-height:190px}
+.cc-eyebrow{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qualify);margin-bottom:8px}
+.cc-promise h2{font-size:28px;line-height:1.05;letter-spacing:0;margin-bottom:10px}
+.cc-copy{font-size:13px;color:var(--txt-2);max-width:720px;line-height:1.55}
+.cc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.cc-link{display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--txt-1);background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:8px 11px;font-size:12px;font-weight:700}
+.cc-link:hover{border-color:var(--line-3);background:var(--ink-3)}
+.cc-kpis{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+.cc-kpi{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4);min-width:0}
+.cc-kpi .k{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3)}
+.cc-kpi .v{font-family:var(--mono);font-size:25px;font-weight:700;line-height:1.1;margin:6px 0 2px}
+.cc-kpi .s{font-size:11px;color:var(--txt-3);line-height:1.35}
+.cc-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr);gap:var(--s4);align-items:start}
+.cc-races{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;padding:10px}
+.cc-race{display:flex;flex-direction:column;gap:8px;background:var(--ink-2);border:1px solid var(--line);border-radius:var(--r-md);padding:10px;min-width:0}
+.cc-race-h{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);font-weight:700}
+.cc-race-h a{color:var(--txt-3);text-decoration:none}
+.cc-race-main{display:flex;align-items:center;gap:8px}
+.cc-race-main .crest{width:24px;height:24px}
+.cc-race-main b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cc-race-main .pct{margin-left:auto;font-family:var(--mono);font-weight:700;color:var(--win)}
+.cc-cont{display:flex;gap:6px;flex-wrap:wrap}
+.cc-pill{font-size:10.5px;color:var(--txt-2);background:var(--ink-0);border:1px solid var(--line);border-radius:5px;padding:3px 6px}
+.cc-panel-note{padding:0 14px 12px;color:var(--txt-3);font-size:11px}
+.cc-trust{display:grid;gap:10px;padding:10px}
+.cc-family{border:1px solid var(--line);border-radius:var(--r-md);background:var(--ink-2);padding:10px}
+.cc-family-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
+.cc-family-h b{font-size:12px}.cc-family-h span{font-family:var(--mono);font-size:11px;color:var(--qualify)}
+.cc-family p{font-size:11px;color:var(--txt-2);line-height:1.45}
+.mv-chip{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;margin:3px;border:1px solid var(--line-2);border-radius:8px;font-size:12px;text-decoration:none;color:var(--txt-2)}
+@media(max-width:900px){.cc-hero,.cc-grid{grid-template-columns:1fr}.cc-promise h2{font-size:23px}.cc-kpis{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.cc-kpis{grid-template-columns:1fr}.cc-races{grid-template-columns:1fr}.cc-promise{padding:var(--s4)}}
 .eb-strip{padding:8px 16px;border-bottom:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px}
 .eb-panel{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px}
 .eb-h{padding:9px 14px;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--line-2);background:var(--ink-2)}
@@ -2452,54 +2570,96 @@ function ebRow(r){
     <div class="eb-expand">${r.lam!=null&&r.mu!=null?('Likely scorelines: '+topScorelines(r.lam,r.mu,3)):''}</div>
   </div>`;
 }
+function commandEsc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function commandTrustHTML(){
+  const MS=window.MODEL_SLICES;
+  if(!MS||MS.status!=='ok')return '<div class="cc-panel-note">Model-slice report is not available yet.</div>';
+  return `<div class="cc-trust">`+(MS.families||[]).slice(0,5).map(f=>{
+    const b=f.model_brier!=null?f.model_brier.toFixed(4):'—';
+    const imp=f.improvement_pct!=null?`+${f.improvement_pct}% vs naive`:'diagnostics pending';
+    const limit=(f.limits||[])[0]||f.policy||'No public limitation note yet.';
+    const fs=f.forward_summary||{}, matches=fs.matches||{}, under=fs.underdogs||{};
+    const tape=`${matches.upcoming||0} upcoming · ${fs.draw_heavy_matches||0} draw-heavy · ${under.upcoming_count||0} underdogs`;
+    return `<div class="cc-family"><div class="cc-family-h"><b>${commandEsc(f.label)}</b><span>${b} · ${imp}</span></div><p>${commandEsc(limit)}</p><div class="hnote">${commandEsc(tape)} · ${fs.market_status==='ok'?'market lines present':'no market lines'}</div></div>`;
+  }).join('')+`</div>`;
+}
+function commandRaceHTML(races){
+  if(!races||!races.length)return '<div class="eb-empty">Season-race payload not built yet.</div>';
+  return `<div class="cc-races">`+races.map(r=>{
+    const cont=(r.contenders||[]).map(c=>`<span class="cc-pill">${commandEsc(c.team)} ${c.prob.toFixed(1)}%</span>`).join('');
+    return `<a class="cc-race" href="?league=${r.league}" style="text-decoration:none;color:inherit">
+      <div class="cc-race-h"><span>${commandEsc(r.label)}</span><span>${commandEsc(r.league_name)}</span></div>
+      <div class="cc-race-main">${crest(r.leader.team,r.leader.logo)}<b>${commandEsc(r.leader.team)}</b><span class="pct">${r.leader.prob.toFixed(1)}%</span></div>
+      <div class="cc-cont">${cont||'<span class="cc-pill">clear leader</span>'}</div>
+    </a>`;
+  }).join('')+`</div><div class="cc-panel-note">Sorted by uncertainty so fragile races surface before decided ones.</div>`;
+}
+function commandMoversHTML(){
+  const MV=window.MOVERS_DATA;
+  if(!(MV&&MV.status==='ok'&&MV.movers?.length))return '<div class="cc-panel-note">No model movers yet; this will populate as projection snapshots accrue.</div>';
+  const lname=id=>((window.LEAGUES||[]).find(l=>l.id===id)||{}).name||id;
+  return `<div style="padding:6px 8px">`+MV.movers.map(m=>{
+    const up=m.delta>0, col=up?'var(--qualify,#41d18c)':'#e25f4f';
+    return `<a class="mv-chip" href="?league=${m.league}" title="${lname(m.league)} · since ${m.from}">
+      <b>${commandEsc(m.team)}</b><span style="color:var(--txt-3)">${commandEsc((MV.metric_labels||{})[m.metric]||m.metric)}</span>
+      <span style="font-family:var(--mono)">${m.prev}%→${m.now}%</span>
+      <b style="color:${col}">${up?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</b></a>`;
+  }).join('')+`</div>`;
+}
+function commandMatchHTML(EB, allMatches){
+  if(allMatches.length){
+    const byDate={};
+    allMatches.forEach(r=>{(byDate[r.date]=byDate[r.date]||[]).push(r);});
+    const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    return Object.keys(byDate).sort().map(date=>{
+      const rows=byDate[date].slice(0,8).map(ebRow).join('');
+      return `<div class="daygrp"><div class="dayhead">${fmtDay(date)}</div>${rows}</div>`;
+    }).join('');
+  }
+  const next=(EB.upcoming_7d&&EB.upcoming_7d.next&&EB.upcoming_7d.next.length?EB.upcoming_7d.next:EB.next_kickoffs)||[];
+  if(!next.length)return `<div class="eb-empty">No upcoming matches found across active leagues.</div>`;
+  return `<div class="eb-empty" style="text-align:left">No matches in the 48-hour edge window. Next scheduled kickoffs:<br>`+
+    next.slice(0,8).map(k=>`${commandEsc(k.league_name)}: <b>${commandEsc(k.home)}</b> v <b>${commandEsc(k.away)}</b> (${commandEsc(k.date)})`).join('<br>')+`</div>`;
+}
 if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   const seg=$('#seg'); if(seg) seg.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   const EB=window.EDGE_BOARD_DATA;
-  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Matches";
-  const sub=$('#sub'); if(sub) sub.textContent=`Cross-league upcoming matches, grouped by date and league · ≥${EB.edge_threshold_pct}% edges flagged per match · built ${EB.generated}`;
-  const allMatches=[...(EB.priced||[]), ...(EB.no_line||[])], nextKo=EB.next_kickoffs||[];
-  let body;
-  if(!allMatches.length){
-    body=`<div class="eb-empty">No upcoming matches in this window.<br>${nextKo.length
-      ? 'Next kickoffs: '+nextKo.map(k=>`${k.league_name}: ${k.home} v ${k.away} (${k.date})`).join(' · ')
-      : 'No upcoming matches in the next '+(EB.window_days*24)+'h across live leagues.'}</div>`;
-  } else {
-    // Group by date (already chronological), then by league within each date.
-    const byDate={};
-    allMatches.forEach(r=>{(byDate[r.date]=byDate[r.date]||[]).push(r);});
-    const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
-    body=Object.keys(byDate).sort().map(date=>{
-      const byLeague={};
-      byDate[date].forEach(r=>{(byLeague[r.league_name]=byLeague[r.league_name]||[]).push(r);});
-      const leaguePanels=Object.keys(byLeague).sort().map(lg=>
-        `<div class="eb-panel"><div class="eb-h">${lg}</div>${byLeague[lg].map(ebRow).join('')}</div>`
-      ).join('');
-      return `<div class="daygrp"><div class="dayhead">${fmtDay(date)}</div>${leaguePanels}</div>`;
-    }).join('');
-  }
-  // U2 (2026-07-07): model-odds movers strip — biggest season-odds changes
-  // between each team's last two builds (pure model odds; market columns join
-  // when the odds feed activates).
-  let moversHTML='';
-  const MV=window.MOVERS_DATA;
-  if(MV&&MV.status==='ok'&&MV.movers?.length){
-    const lname=id=>((window.LEAGUES||[]).find(l=>l.id===id)||{}).name||id;
-    const chips=MV.movers.map(m=>{
-      const up=m.delta>0, col=up?'var(--qualify,#41d18c)':'#e25f4f';
-      return `<a class="mv-chip" href="?league=${m.league}" title="${lname(m.league)} · since ${m.from}"
-        style="display:inline-flex;gap:6px;align-items:center;padding:5px 10px;margin:3px;border:1px solid var(--line-2);border-radius:8px;font-size:12px;text-decoration:none;color:var(--txt-2)">
-        <b>${m.team}</b><span style="color:var(--txt-3)">${(MV.metric_labels||{})[m.metric]||m.metric}</span>
-        <span style="font-family:var(--mono)">${m.prev}%→${m.now}%</span>
-        <b style="color:${col}">${up?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</b></a>`;
-    }).join('');
-    moversHTML=`<div class="eb-panel"><div class="eb-h">Model movers — biggest season-odds shifts since the last builds</div><div style="padding:6px 8px">${chips}</div></div>`;
-  }
+  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Command Center";
+  const sub=$('#sub'); if(sub) sub.textContent=`Market-blind probabilities, movement, and trust · built ${EB.generated}`;
+  const allMatches=[...(EB.priced||[]), ...(EB.no_line||[])];
+  const seven=EB.upcoming_7d||{};
+  const priced=(EB.priced||[]).length, edges=(EB.priced||[]).filter(r=>r.bet).length;
+  const first=seven.first_kickoff;
+  const firstCopy=first?`${first.league_name}: ${first.home} v ${first.away} · ${first.date}`:'No kickoff in the next 7 days';
   const target=$('#view-outlook')||$('main.wrap');
   if(target){
     target.classList.remove('hidden');
-    target.innerHTML=`<div class="eb-intro">Every upcoming match in the next ${EB.window_days*24}h across live leagues, model probability vs de-vigged market odds where a line exists. Continental competitions excluded this cycle (no odds source yet). ${BET_DISCLAIMER}</div>`
-      +ledgerStripHTML()+moversHTML+body;
+    target.innerHTML=`<div class="cc-hero">
+      <div class="cc-promise">
+        <div><div class="cc-eyebrow">Market-blind football probabilities</div>
+        <h2>What changed, what is priced, and where the model needs caution.</h2>
+        <div class="cc-copy">Use the board as a probability terminal: scan upcoming matches, fragile season races, projection movement, and model weak spots before drilling into a league. ${BET_DISCLAIMER}</div></div>
+        <div class="cc-actions"><a class="cc-link" href="?league=epl">Premier League</a><a class="cc-link" href="?league=power">Power Rankings</a><a class="cc-link" href="?league=mls">MLS</a></div>
+      </div>
+      <div class="cc-kpis">
+        <div class="cc-kpi"><div class="k">Next 7 days</div><div class="v">${seven.match_count??0}</div><div class="s">${seven.league_count??0} active leagues</div></div>
+        <div class="cc-kpi"><div class="k">First kickoff</div><div class="v">${first?first.date.slice(5):'—'}</div><div class="s">${commandEsc(firstCopy)}</div></div>
+        <div class="cc-kpi"><div class="k">Priced lines</div><div class="v">${priced}</div><div class="s">${edges} above ${EB.edge_threshold_pct}% model edge</div></div>
+        <div class="cc-kpi"><div class="k">Trust files</div><div class="v">${(window.MODEL_SLICES&&window.MODEL_SLICES.families||[]).length||0}</div><div class="s">family reports surfaced</div></div>
+      </div>
+    </div>
+    ${ledgerStripHTML()}
+    <div class="cc-grid">
+      <div>
+        <div class="eb-panel"><div class="eb-h">Today / edge window</div>${commandMatchHTML(EB, allMatches)}</div>
+        <div class="eb-panel"><div class="eb-h">Season races — most fragile first</div>${commandRaceHTML(EB.season_races||[])}</div>
+      </div>
+      <div>
+        <div class="eb-panel"><div class="eb-h">Model movers</div>${commandMoversHTML()}</div>
+        <div class="eb-panel"><div class="eb-h">Trust / known weak spots</div>${commandTrustHTML()}</div>
+      </div>
+    </div>`;
   }
 }
 </script>

@@ -123,3 +123,6 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/build_movers.py \
 echo "--- drift report ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_drift_report.py \
   || echo "  [WARN] build_drift_report failed (non-fatal)"
+echo "--- model slice report ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_slice_report.py \
+  || echo "  [WARN] build_slice_report failed (non-fatal)"

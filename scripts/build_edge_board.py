@@ -131,6 +131,89 @@ def next_kickoffs(payloads: dict[str, dict], n: int = 8) -> list[dict]:
     return rows[:n]
 
 
+def upcoming_summary(payloads: dict[str, dict], now: pd.Timestamp | None = None,
+                     window_days: int = 7) -> dict:
+    """Count upcoming matches across the broader command-center window."""
+    today = (now or pd.Timestamp.now(tz="UTC")).normalize()
+    cutoff = today + pd.Timedelta(days=window_days)
+    rows = []
+    leagues = set()
+    for league_id, payload in payloads.items():
+        if not _is_eligible(payload):
+            continue
+        league_name = (payload.get("league") or {}).get("name", league_id)
+        for g in payload.get("games") or []:
+            if g.get("result") is not None:
+                continue
+            try:
+                d = pd.Timestamp(g["date"], tz="UTC")
+            except Exception:
+                continue
+            if today <= d < cutoff:
+                rows.append({"league": league_id, "league_name": league_name,
+                             "date": g["date"], "home": g["home"], "away": g["away"]})
+                leagues.add(league_name)
+    rows.sort(key=lambda r: r["date"])
+    return {
+        "window_days": window_days,
+        "match_count": len(rows),
+        "league_count": len(leagues),
+        "first_kickoff": rows[0] if rows else None,
+        "next": rows[:10],
+    }
+
+
+def season_races(payloads: dict[str, dict], limit: int = 18) -> list[dict]:
+    """Always-populated cross-league season-race cards for the landing page."""
+    preferred = ["title", "shield", "cup", "ucl", "promoted", "promotion", "playoff", "releg"]
+    rows = []
+    for league_id, payload in payloads.items():
+        if not _is_eligible(payload):
+            continue
+        standings = payload.get("standings") or []
+        if not standings:
+            continue
+        league_name = (payload.get("league") or {}).get("name", league_id)
+        card_labels = {
+            c.get("key"): c.get("label", c.get("key"))
+            for c in (payload.get("outlook") or {}).get("cards") or []
+        }
+        available = []
+        for key in preferred:
+            vals = [r.get(key) for r in standings if isinstance(r.get(key), (int, float))]
+            if vals:
+                available.append((key, card_labels.get(key, key.replace("_", " ").title())))
+        for key, label in available[:3]:
+            contenders = [
+                {
+                    "team": r.get("team"),
+                    "prob": round(float(r.get(key)), 1),
+                    "logo": r.get("logo"),
+                    "color": r.get("color"),
+                }
+                for r in standings
+                if isinstance(r.get(key), (int, float))
+            ]
+            contenders.sort(key=lambda r: r["prob"], reverse=True)
+            if not contenders:
+                continue
+            leader = contenders[0]
+            second = contenders[1]["prob"] if len(contenders) > 1 else 0.0
+            rows.append({
+                "league": league_id,
+                "league_name": league_name,
+                "race": key,
+                "label": label,
+                "leader": leader,
+                "contenders": contenders[1:4],
+                "uncertainty": round(100.0 - leader["prob"], 1),
+                "margin": round(leader["prob"] - second, 1),
+                "generated": payload.get("generated"),
+            })
+    rows.sort(key=lambda r: (-r["uncertainty"], r["margin"], r["league_name"]))
+    return rows[:limit]
+
+
 def _load_live_payloads(data_dir: Path) -> dict[str, dict]:
     return dict(_iter_live_payloads(data_dir))
 
@@ -143,6 +226,8 @@ def main() -> int:
         "priced": priced,
         "no_line": no_line,
         "next_kickoffs": [] if (priced or no_line) else next_kickoffs(payloads),
+        "upcoming_7d": upcoming_summary(payloads),
+        "season_races": season_races(payloads),
         "edge_threshold_pct": EDGE_THRESH,
         "kelly_fraction": KELLY_FRACTION,
         "window_days": _WINDOW_DAYS,

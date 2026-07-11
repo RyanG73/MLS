@@ -31,7 +31,15 @@ _REQUIRED_PLACEHOLDER = {"status", "league"}  # "coming soon" stubs — minimal 
 
 # logos.js is a global team→logo lookup (window.TEAM_LOGOS), not a league/power
 # payload — same exclusion as tests/test_payload_contract.py.
-_NON_PAYLOAD = {"logos.js", "ledger.js", "edge-board.js", "movers.js", "coefficients.js", "drift.js"}
+_NON_PAYLOAD = {
+    "logos.js",
+    "ledger.js",
+    "edge-board.js",
+    "movers.js",
+    "coefficients.js",
+    "drift.js",
+    "model-slices.js",
+}
 
 
 def _load_payload(path: Path) -> dict:

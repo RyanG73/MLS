@@ -252,6 +252,55 @@ def _brier_rows(rows: list[_MoverMatch], mover_fn, opp_fn) -> float:
     return total / len(rows)
 
 
+def _mover_match_counts(rows: list[_MoverMatch]) -> dict[int, int]:
+    """For each row index, count prior destination-season matches by that mover."""
+    counts: dict[tuple[str, int], int] = {}
+    out: dict[int, int] = {}
+    ordered = sorted(enumerate(rows), key=lambda item: (item[1].season, item[1].mover, item[1].date))
+    for idx, row in ordered:
+        key = (row.mover, row.season)
+        out[idx] = counts.get(key, 0)
+        counts[key] = counts.get(key, 0) + 1
+    return out
+
+
+def _decay_weight(n_prior: int, window: int) -> float:
+    """Linear bridge weight: 1.0 before first match, 0.0 after `window` prior matches."""
+    if window <= 0:
+        return 0.0
+    return max(0.0, min(1.0, 1.0 - (n_prior / float(window))))
+
+
+def _brier_bridge_decay(rows: list[_MoverMatch], dst_hist: History, window: int) -> float:
+    """Hybrid: bridge seed for preseason, then decay toward destination-league ELO."""
+    counts = _mover_match_counts(rows)
+
+    def mover_rating(idx: int, m: _MoverMatch) -> float | None:
+        bridge = m.exit_elo + m.delta
+        league = _asof(dst_hist, m.mover, m.date)
+        if league is None:
+            return bridge
+        w = _decay_weight(counts[idx], window)
+        return w * bridge + (1.0 - w) * league
+
+    if not rows:
+        return float("nan")
+    total = 0.0
+    for idx, m in enumerate(rows):
+        me = mover_rating(idx, m)
+        oe = _asof(dst_hist, m.opp, m.date)
+        if me is None or oe is None:
+            probs = (1 / 3, 1 / 3, 1 / 3)
+        elif m.is_home:
+            probs = match_probs(me, oe, conf="UEFA")
+        else:
+            probs = match_probs(oe, me, conf="UEFA")
+        actual = [0.0, 0.0, 0.0]
+        actual[m.outcome] = 1.0
+        total += sum((probs[i] - actual[i]) ** 2 for i in range(3))
+    return total / len(rows)
+
+
 def score_pair(src_lid: str, dst_lid: str, direction: str,
                rows: list[_MoverMatch], unified_hist: History,
                seeded_hist: History) -> dict:
@@ -281,6 +330,10 @@ def score_pair(src_lid: str, dst_lid: str, direction: str,
             lambda m: _asof(unified_hist, m.mover, m.date),
             lambda m: _asof(unified_hist, m.opp, m.date)), 4),
     }
+    for window in (5, 8, 10):
+        res[f"brier_bridge_decay_{window}"] = round(
+            _brier_bridge_decay(rows, dst_hist, window), 4
+        )
     return res
 
 
@@ -326,7 +379,8 @@ def main() -> int:
                                   seeded_hists[dst]))
 
     variants = ("brier_bridge_frozen", "brier_seeded", "brier_per_league",
-                "brier_unified")
+                "brier_unified", "brier_bridge_decay_5", "brier_bridge_decay_8",
+                "brier_bridge_decay_10")
     pooled = {}
     for key in variants:
         w = [(r["n_matches"], r[key]) for r in results
@@ -346,22 +400,23 @@ def main() -> int:
     print("\nR2 — unified two-tier ELO vs seed-on-promotion (England chain)")
     print("=" * 88)
     hdr = (f"{'pair':<34}{'n':>5}  {'bridge':>7}  {'seeded':>7}  {'league':>7}  "
-           f"{'unified':>8}  {'uni−seed':>8}")
+           f"{'decay8':>7}  {'unified':>8}  {'d8−seed':>8}")
     print(hdr); print("-" * len(hdr))
     for r in results:
         print(f"{r['pair'] + ' (' + r['direction'][:4] + ')':<34}{r['n_matches']:>5}  "
               f"{r['brier_bridge_frozen']:>7.4f}  {r['brier_seeded']:>7.4f}  "
-              f"{r['brier_per_league']:>7.4f}  {r['brier_unified']:>8.4f}  "
-              f"{r['brier_unified'] - r['brier_seeded']:>+8.4f}")
+              f"{r['brier_per_league']:>7.4f}  {r['brier_bridge_decay_8']:>7.4f}  "
+              f"{r['brier_unified']:>8.4f}  {r['brier_bridge_decay_8'] - r['brier_seeded']:>+8.4f}")
     print("-" * len(hdr))
     print(f"{'POOLED':<34}{pooled['n_matches']:>5}  {pooled['brier_bridge_frozen']:>7.4f}  "
           f"{pooled['brier_seeded']:>7.4f}  {pooled['brier_per_league']:>7.4f}  "
-          f"{pooled['brier_unified']:>8.4f}  "
-          f"{pooled['brier_unified'] - pooled['brier_seeded']:>+8.4f}")
+          f"{pooled['brier_bridge_decay_8']:>7.4f}  {pooled['brier_unified']:>8.4f}  "
+          f"{pooled['brier_bridge_decay_8'] - pooled['brier_seeded']:>+8.4f}")
     print(f"\nnaive (uniform) = {_NAIVE:.4f}; lower is better; sum-form Brier")
     print("bridge = frozen exit+δ (gate metric) · seeded = exit+δ then updating "
           "(production analogue)\nleague = 1500 start, updating · unified = one "
-          "cross-tier rating, updating")
+          "cross-tier rating, updating · decay8 = bridge seed linearly decays to "
+          "destination-league ELO after 8 mover matches")
 
     if args.out:
         from pathlib import Path

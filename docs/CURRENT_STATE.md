@@ -34,6 +34,7 @@ definitions, data sources, and run commands. Update it when any of these change.
 - `build_league_data._TIER1_FOR_BUILD` + generalised `_get_tier_elo_map` drive the reverse seeding path when building a second-tier league in preseason.
 - Second-tier dashboard leagues: Championship, League One, League Two, 2.Bundesliga, Serie B, **Segunda (SP2)**, **Ligue 2 (F2)** — football-data goals-only source.
 - Power rankings gain a "UEFA Tier 2" group on the EPL=0 scale.
+- R2 follow-up (2026-07-11): hybrid bridge-decay windows 5/8/10 were tested on the England chain in `scripts/eval/unified_tier_elo.py`. Decay-8 tied seeded production (`0.6326`) and destination-league updating (`0.6325`) while beating frozen bridge (`0.6410`), so there is **no production change**. Keep bridge seeding for preseason and normal destination-league updating after kickoff; any future claim needs an early-window-only gate.
 
 **Walk-forward evaluation config:**
 - Train data: 2017+, 2020 excluded (COVID bubble); 2021 retained in training + as 2022 cal fold (A/B-validated 2026-06-09: excluding it costs +0.0019 Brier)

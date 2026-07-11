@@ -1,5 +1,26 @@
 # MLS Feature Hunt Log
 
+## 2026-07-11 — Hybrid bridge-decay for promoted/relegated teams (R2 follow-up) — NULL / NO CHANGE
+
+**Hypothesis:** the R2 unified-ELO drop still suggested a narrower win: keep the explicit
+cross-tier bridge for preseason seeding, but decay its influence after the mover starts playing
+in the destination league. This should preserve the bridge's tier-gap information while letting
+destination-league evidence take over quickly.
+**Method:** extended `scripts/eval/unified_tier_elo.py` with `brier_bridge_decay_{5,8,10}`.
+For each first-destination-season mover match, the mover rating is
+`w(n) * (exit_elo + bridge_delta) + (1-w(n)) * destination_league_elo`, with linear `w(n)`
+from 1.0 before the first mover match to 0.0 after N prior mover matches. Same England-chain
+match sets as R2, same champion constants, same sum-form Brier.
+**Result:** decay-8 pooled Brier = **0.6326**, tied with seeded production analogue
+(`0.6326`) and essentially tied with destination-league updating (`0.6325`), while still
+beating the frozen bridge gate metric (`0.6410`). Pair results were mixed: EPL promoted
+teams improved vs seeded (0.6019 vs 0.6051), but lower-chain promoted/relegated legs gave
+back small amounts.
+**Verdict:** no production change. The correct policy remains: bridge seed at preseason,
+then normal destination-league updating. If revisited, it needs an early-window-only gate
+(first 5, 6-15, rest) rather than full-season pooling.
+**Artifact:** `experiments/r2-hybrid-bridge-decay.report.json`.
+
 ## 2026-07-10 — Unified two-tier ELO for promoted/relegated teams (R2) — DROP
 
 **Hypothesis:** one ELO rating updated continuously through both tiers (no seed-on-promotion,
