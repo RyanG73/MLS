@@ -16,6 +16,8 @@ def test_family_payload_includes_measured_mls_slices():
     assert "mls" in payload["leagues"]
     assert payload["forward_summary"]["matches"]["total"] > 0
     assert "mls" in payload["league_diagnostics"]
+    assert "underdog_calibration" in payload
+    assert "historical_market_disagreement" in payload
 
 
 def test_current_diagnostics_bins_underdogs_and_value_gaps():

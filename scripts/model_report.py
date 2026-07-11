@@ -184,6 +184,119 @@ def _max_decile_cal_error(probs: np.ndarray, y: np.ndarray, bins: int = 10) -> f
     return round(float(max_err), 6)
 
 
+def _binary_side_metrics(rows: pd.DataFrame) -> dict:
+    """Metrics for side-level yes/no events such as home/away underdog wins."""
+    if rows.empty:
+        return {"n": 0}
+    p = rows["prob"].astype(float).to_numpy()
+    hit = rows["hit"].astype(float).to_numpy()
+    p_clip = np.clip(p, 1e-6, 1 - 1e-6)
+    return {
+        "n": int(len(rows)),
+        "mean_prob": round(float(p.mean()), 4),
+        "hit_rate": round(float(hit.mean()), 4),
+        "binary_brier": round(float(np.mean((p - hit) ** 2)), 4),
+        "binary_log_loss": round(float(np.mean(
+            -(hit * np.log(p_clip) + (1 - hit) * np.log(1 - p_clip))
+        )), 4),
+    }
+
+
+def _side_rows(preds: pd.DataFrame, P: np.ndarray, y: np.ndarray) -> pd.DataFrame:
+    """Return one row per non-draw side (home/away) with model and optional market prob."""
+    rows = []
+    has_market = {"mkt_home", "mkt_away"}.issubset(preds.columns)
+    for i, (_, match) in enumerate(preds.iterrows()):
+        for side, prob_idx, team_col, mkt_col in [
+            ("home", 0, "home_team", "mkt_home"),
+            ("away", 2, "away_team", "mkt_away"),
+        ]:
+            prob = float(P[i, prob_idx])
+            row = {
+                "match_index": i,
+                "side": side,
+                "team": match.get(team_col),
+                "prob": prob,
+                "hit": int(y[i] == prob_idx),
+                "opponent_prob": float(P[i, 2 if prob_idx == 0 else 0]),
+            }
+            if has_market:
+                mkt = match.get(mkt_col)
+                row["market_prob"] = float(mkt) if pd.notna(mkt) else np.nan
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def _underdog_slices(side_df: pd.DataFrame) -> dict:
+    """Calibration slices for home/away teams the model prices as underdogs."""
+    out = {}
+    under = side_df[side_df["prob"] <= 0.40].copy()
+    if under.empty:
+        return {
+            "by_probability": {},
+            "significant": {"n": 0},
+        }
+
+    buckets = pd.cut(
+        under["prob"],
+        bins=[0.0, 0.10, 0.20, 0.25, 0.30, 0.40],
+        labels=["0-10%", "10-20%", "20-25%", "25-30%", "30-40%"],
+        include_lowest=True,
+    )
+    by_prob = {}
+    for bucket, grp in under.groupby(buckets, observed=True):
+        if grp.empty:
+            continue
+        by_prob[str(bucket)] = _binary_side_metrics(grp)
+
+    significant = under[(under["opponent_prob"] - under["prob"]) >= 0.15]
+    by_side = {}
+    for side, grp in under.groupby("side"):
+        by_side[str(side)] = _binary_side_metrics(grp)
+
+    out["by_probability"] = by_prob
+    out["by_side"] = by_side
+    out["significant"] = _binary_side_metrics(significant)
+    return out
+
+
+def _market_disagreement_slices(side_df: pd.DataFrame) -> dict | None:
+    """Side-level model-vs-market disagreement buckets, when market columns exist."""
+    if "market_prob" not in side_df.columns:
+        return None
+    priced = side_df[side_df["market_prob"].notna()].copy()
+    if priced.empty:
+        return {"status": "no_market", "n": 0, "by_edge": {}, "market_underdogs": {}}
+
+    priced["edge_pp"] = (priced["prob"] - priced["market_prob"]) * 100.0
+    edges = pd.cut(
+        priced["edge_pp"],
+        bins=[-100.0, -8.0, -4.0, 0.0, 4.0, 8.0, 100.0],
+        labels=["<=-8pp", "-8 to -4pp", "-4 to 0pp", "0 to 4pp", "4 to 8pp", "8pp+"],
+        include_lowest=True,
+    )
+    by_edge = {}
+    for bucket, grp in priced.groupby(edges, observed=True):
+        if grp.empty:
+            continue
+        metrics = _binary_side_metrics(grp)
+        metrics["mean_market_prob"] = round(float(grp["market_prob"].mean()), 4)
+        metrics["mean_edge_pp"] = round(float(grp["edge_pp"].mean()), 2)
+        by_edge[str(bucket)] = metrics
+
+    market_under = priced[priced["market_prob"] <= 0.25]
+    disagreement_under = market_under[market_under["edge_pp"] >= 8.0]
+    return {
+        "status": "ok",
+        "n": int(len(priced)),
+        "max_abs_edge_pp": round(float(priced["edge_pp"].abs().max()), 2),
+        "mean_abs_edge_pp": round(float(priced["edge_pp"].abs().mean()), 2),
+        "by_edge": by_edge,
+        "market_underdogs": _binary_side_metrics(market_under),
+        "disagreement_underdogs": _binary_side_metrics(disagreement_under),
+    }
+
+
 def _slice_table(preds: pd.DataFrame) -> dict:
     """Compute the slice metrics block."""
     P = preds[["prob_home", "prob_draw", "prob_away"]].values
@@ -275,6 +388,11 @@ def _slice_table(preds: pd.DataFrame) -> dict:
                       "p_mean": round(float(P[m, 1].mean()), 4),
                       "freq": round(float((y[m] == 1).mean()), 4)})
     out["draw_reliability"] = curve
+    side_df = _side_rows(preds, P, y)
+    out["underdog_calibration"] = _underdog_slices(side_df)
+    market = _market_disagreement_slices(side_df)
+    if market is not None:
+        out["market_disagreement"] = market
     return out
 
 

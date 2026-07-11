@@ -39,3 +39,31 @@ def test_draw_reliability_curve_present():
     out = _slice_table(_fake_preds())
     curve = out["draw_reliability"]           # list of {bin, n, p_mean, freq}
     assert all({"n", "p_mean", "freq"} <= set(b) for b in curve)
+
+def test_underdog_calibration_slice_present():
+    out = _slice_table(_fake_preds(n=500, seed=2))
+    under = out["underdog_calibration"]
+    assert {"by_probability", "by_side", "significant"} <= set(under)
+    assert under["by_probability"]
+    assert {"n", "mean_prob", "hit_rate", "binary_brier"} <= set(
+        next(iter(under["by_probability"].values()))
+    )
+
+def test_market_disagreement_slice_present_when_market_columns_exist():
+    preds = _fake_preds(n=500, seed=3)
+    model = preds[["prob_home", "prob_draw", "prob_away"]].to_numpy()
+    market = model.copy()
+    market[:, 0] = np.clip(market[:, 0] - 0.08, 0.01, 0.98)
+    market[:, 2] = np.clip(market[:, 2] + 0.08, 0.01, 0.98)
+    market = market / market.sum(axis=1, keepdims=True)
+    preds["mkt_home"] = market[:, 0]
+    preds["mkt_draw"] = market[:, 1]
+    preds["mkt_away"] = market[:, 2]
+
+    out = _slice_table(preds)
+    market_slice = out["market_disagreement"]
+
+    assert market_slice["status"] == "ok"
+    assert market_slice["n"] == len(preds) * 2
+    assert market_slice["by_edge"]
+    assert "disagreement_underdogs" in market_slice

@@ -182,6 +182,28 @@ def test_roi_by_edge_bucket_empty_bucket_is_null():
     assert result.get("8%+", {}).get("n", 0) == 0
 
 
+def test_market_disagreement_buckets_home_away_by_default():
+    from scripts.market_eval import market_disagreement_buckets
+    df = _synthetic_matched_df()
+    result = market_disagreement_buckets(df)
+
+    assert result["status"] == "ok"
+    assert result["n"] == len(df) * 2
+    assert result["include_draw"] is False
+    assert result["by_edge"]
+    assert "market_underdogs" in result
+
+
+def test_market_disagreement_buckets_can_include_draw():
+    from scripts.market_eval import market_disagreement_buckets
+    df = _synthetic_matched_df()
+    result = market_disagreement_buckets(df, include_draw=True)
+
+    assert result["status"] == "ok"
+    assert result["n"] == len(df) * 3
+    assert result["include_draw"] is True
+
+
 def test_model_report_market_slices_loads_from_json(tmp_path):
     """model_report._load_market_slices fills from market_eval.json when present."""
     fake_eval = {

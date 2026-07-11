@@ -41,6 +41,11 @@ definitions, data sources, and run commands. Update it when any of these change.
 - Test seasons: 2022–2025 (2022 evaluates with the 2021 cal fold; 2025 added 2026-06-09 once the
   season completed — 540 matches, cal fold 2024)
 - 2026 in-progress: used for training only, never in test window
+- Model-report diagnostics (2026-07-11): `scripts/model_report.py` now emits side-level
+  `underdog_calibration` buckets and optional `market_disagreement` buckets when market
+  probability columns are present. `scripts/market_eval.py` has the same home/away
+  market-disagreement primitive for row-level odds analysis; draw sides remain opt-in
+  diagnostics only. No production model change.
 - ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07; synergistic with whl=6). MLS-only —
   A8 (2026-07-03) tested a club-prior regression target (β=0.75, regress toward each team's
   own 3-season history instead of flat 1500) and it did not clear the MLS gate at both seeds.

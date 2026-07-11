@@ -114,6 +114,82 @@ def roi_by_edge_bucket(df: pd.DataFrame,
     return result
 
 
+def market_disagreement_buckets(df: pd.DataFrame,
+                                include_draw: bool = False) -> dict:
+    """Side-level model-vs-market calibration by edge bucket.
+
+    Market odds stay evaluation-only. By default this uses home/away sides and
+    excludes draw, matching the current product policy of suppressing draw-side
+    betting recommendations until draw calibration clears.
+    """
+    required = {"prob_home", "prob_draw", "prob_away",
+                "mkt_home", "mkt_draw", "mkt_away", "label_result"}
+    if not required.issubset(df.columns):
+        return {"status": "missing_columns", "n": 0, "by_edge": {}}
+    matched = df[df["mkt_home"].notna()].copy()
+    if matched.empty:
+        return {"status": "no_market", "n": 0, "by_edge": {}}
+
+    sides = [("home", 0), ("away", 2)]
+    if include_draw:
+        sides.insert(1, ("draw", 1))
+    rows = []
+    for _, match in matched.iterrows():
+        for side, label in sides:
+            model_p = float(match[f"prob_{side}"])
+            market_p = float(match[f"mkt_{side}"])
+            rows.append({
+                "side": side,
+                "model_prob": model_p,
+                "market_prob": market_p,
+                "edge_pp": (model_p - market_p) * 100.0,
+                "hit": int(int(match["label_result"]) == label),
+            })
+    side_df = pd.DataFrame(rows)
+    if side_df.empty:
+        return {"status": "no_market", "n": 0, "by_edge": {}}
+
+    edge_bins = pd.cut(
+        side_df["edge_pp"],
+        bins=[-100.0, -8.0, -4.0, 0.0, 4.0, 8.0, 100.0],
+        labels=["<=-8pp", "-8 to -4pp", "-4 to 0pp", "0 to 4pp", "4 to 8pp", "8pp+"],
+        include_lowest=True,
+    )
+    out = {}
+    for bucket, grp in side_df.groupby(edge_bins, observed=True):
+        if grp.empty:
+            continue
+        out[str(bucket)] = {
+            "n": int(len(grp)),
+            "mean_model_prob": round(float(grp["model_prob"].mean()), 4),
+            "mean_market_prob": round(float(grp["market_prob"].mean()), 4),
+            "mean_edge_pp": round(float(grp["edge_pp"].mean()), 2),
+            "hit_rate": round(float(grp["hit"].mean()), 4),
+            "binary_brier": round(float(np.mean((grp["model_prob"] - grp["hit"]) ** 2)), 4),
+        }
+
+    market_under = side_df[side_df["market_prob"] <= 0.25]
+    disagreement_under = market_under[market_under["edge_pp"] >= 8.0]
+    return {
+        "status": "ok",
+        "n": int(len(side_df)),
+        "include_draw": bool(include_draw),
+        "mean_abs_edge_pp": round(float(side_df["edge_pp"].abs().mean()), 2),
+        "max_abs_edge_pp": round(float(side_df["edge_pp"].abs().max()), 2),
+        "by_edge": out,
+        "market_underdogs": {
+            "n": int(len(market_under)),
+            "hit_rate": round(float(market_under["hit"].mean()), 4)
+            if len(market_under) else None,
+        },
+        "disagreement_underdogs": {
+            "n": int(len(disagreement_under)),
+            "hit_rate": round(float(disagreement_under["hit"].mean()), 4)
+            if len(disagreement_under) else None,
+        },
+    }
+
+
 # ── MLS market join ───────────────────────────────────────────────────────────
 
 def _asa_id_to_name() -> dict[str, str]:

@@ -480,6 +480,8 @@ def _family_payload(spec: dict[str, Any]) -> dict[str, Any]:
         missing.append("favorite probability bins")
     if "draw_reliability" not in slices:
         missing.append("draw reliability curve")
+    if "underdog_calibration" not in slices:
+        missing.append("underdog calibration")
     if "market_disagreement" not in slices:
         missing.append("market disagreement buckets")
     league_diagnostics = {}
@@ -506,6 +508,8 @@ def _family_payload(spec: dict[str, Any]) -> dict[str, Any]:
         "confidence": confidence,
         "worst_home_teams": worst_teams,
         "season_phase": phase,
+        "underdog_calibration": slices.get("underdog_calibration") or {},
+        "historical_market_disagreement": slices.get("market_disagreement") or {},
         "forward_summary": _aggregate_forward(league_diagnostics),
         "league_diagnostics": league_diagnostics,
         "missing_diagnostics": missing,
