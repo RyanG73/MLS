@@ -65,7 +65,8 @@ the biggest live leagues (cap ~12), reading the same per-league JSON it already 
 
 - League pins: existing localStorage star system carries over (stars move to the Leagues
   index page). Shows each pinned league's leader/race snapshot from HOME_DATA.
-- Team pins: new star affordance on standings rows and team profiles, stored as
+- Team pins: new star affordance on the team profile header (standings rows keep their
+  fixed dense grid; profiles are one click away via the existing team links), stored as
   `entenser-fav-teams` = `[{league, team}]`. The Favorites page dynamically injects
   `data/<league>.js` scripts for pinned teams' leagues, then shows each team's next
   fixture (model probabilities) + a one-line season projection.
