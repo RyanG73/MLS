@@ -73,8 +73,21 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mast-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:12px var(--s4) 8px;gap:var(--s3)}
 .mast-date{font-size:11px;color:var(--txt-2)}
 .mast-date span{display:block;color:var(--txt-3)}
-.mast-wordmark{font-family:var(--serif);font-weight:700;font-size:30px;letter-spacing:.01em;color:var(--txt-1);text-decoration:none;text-align:center}
+.mast-wordmark{font-family:var(--serif);font-weight:700;font-size:30px;letter-spacing:.01em;color:var(--txt-1);text-decoration:none;text-align:center;display:flex;align-items:center;gap:10px;justify-content:center}
+.mast-moose{width:34px;height:34px;object-fit:contain}
+.mast-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .mast-stat{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:right}
+.mast-search{position:relative;width:210px}
+.mast-search input{width:100%;background:var(--ink-1);border:1px solid var(--line-3);border-radius:999px;color:var(--txt-1);font-size:12px;padding:6px 12px;outline:none}
+.mast-search input:focus{border-color:var(--txt-3)}
+.ms-results{display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:80;width:280px;background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);box-shadow:0 12px 30px rgba(0,0,0,.55);max-height:55vh;overflow-y:auto;padding:4px 0}
+.ms-results.open{display:block}
+.ms-results a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
+.ms-results a:hover{background:var(--ink-2);color:var(--txt-1)}
+.ms-k{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px;flex:none}
+.ms-empty{padding:9px 12px;font-size:12px;color:var(--txt-3)}
+.mb-nm{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.mb-nm em{font-style:normal;font-size:10px;color:var(--txt-3)}
 .mast-bar{display:flex;justify-content:center;gap:2px;border-top:1px solid var(--line-2);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:0 var(--s4)}
 .mast-bar::-webkit-scrollbar{display:none}
 .mb-item{position:relative;flex:none}
@@ -100,9 +113,13 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
   .bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--txt-3);text-decoration:none}
   .bnav a .ico{font-size:19px;line-height:1}
   .bnav a.active{color:var(--txt-1)}
-  .mast-top{grid-template-columns:1fr;justify-items:center;padding:10px var(--s4) 6px}
+  .mast-top{grid-template-columns:1fr;justify-items:center;padding:10px var(--s4) 6px;gap:8px}
   .mast-date,.mast-stat{display:none}
   .mast-wordmark{font-size:24px}
+  .mast-moose{width:26px;height:26px}
+  .mast-right{width:100%;align-items:stretch}
+  .mast-search{width:100%}
+  .ms-results{left:0;right:0;width:auto}
   .mast-bar{justify-content:flex-start}
 }
 
@@ -833,49 +850,82 @@ const FavStore=(()=>{
       const added=i<0; added?a.push({league:lg,team:t}):a.splice(i,1); write(TKEY,a); return added;},
   };
 })();
-// ── NYT-style masthead: date row + country bar with league dropdowns + LIVE strip ──
+// ── NYT-style masthead: date row + moose wordmark + search + country bar with
+//    league dropdowns (click or hover to open; rows show country · division) + LIVE strip ──
 (()=>{
   const mast=$('#mast'); if(!mast) return;
-  const MAST_GROUPS=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}','England'],['Spain','\u{1F1EA}\u{1F1F8}','Spain'],['Italy','\u{1F1EE}\u{1F1F9}','Italy'],
-    ['Germany','\u{1F1E9}\u{1F1EA}','Germany'],['France','\u{1F1EB}\u{1F1F7}','France'],['Americas','\u{1F30E}','Americas'],
-    ['South America','\u{1F1E7}\u{1F1F7}','S. America'],['Other Europe','\u{1F1EA}\u{1F1FA}','Europe'],['Asia','\u{1F30F}','Asia'],
-    ['Cups','\u{1F3C6}','Cups'],['Women','\u26BD','Women']];
+  // Ribbon order per 2026-07-11 feedback. [group-key, icon, label]
+  const MAST_GROUPS=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}','England'],
+    ['Germany','\u{1F1E9}\u{1F1EA}','Germany'],['France','\u{1F1EB}\u{1F1F7}','France'],
+    ['Italy','\u{1F1EE}\u{1F1F9}','Italy'],['Spain','\u{1F1EA}\u{1F1F8}','Spain'],
+    ['Americas','\u{1F30E}','North America'],['South America','\u{1F1E7}\u{1F1F7}','South America'],
+    ['Other Europe','\u{1F1EA}\u{1F1FA}','Europe'],['Asia','\u{1F30F}','Asia'],
+    ['Cups','\u{1F3C6}','Cups'],['Women','♀','Women']];
   const groups={};
   (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
+  const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
   const menuLink=l=>{const lg=l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:'';
-    return `<a href="?league=${l.id}">${lg}<span>${l.name}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`;};
+    return `<a href="?league=${l.id}">${lg}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`;};
   const activeGroup=(!_isHome&&!_isEdgeBoard&&!_isLeagues&&!_isFavs&&!_infoPage&&LID!=='power')
     ? ((window.LEAGUES||[]).find(l=>l.id===LID)||{}).group : null;
   const H=window.HOME_DATA;
   const dstr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   let bar=`<div class="mb-item"><a href="${location.pathname}" class="${_isHome?'active':''}">\u{1F3E0} Home</a></div>`
-         +`<div class="mb-item"><a href="?league=command" class="${_isEdgeBoard?'active':''}">\u26A1 Matches</a></div>`;
+         +`<div class="mb-item"><a href="?league=command" class="${_isEdgeBoard?'active':''}">⚽ Matches</a></div>`;
   MAST_GROUPS.forEach(([g,flag,label])=>{ if(!groups[g]||!groups[g].length) return;
     bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${groups[g][0].id}" class="${activeGroup===g?'active':''}">${flag} ${label}</a>
       <div class="mb-menu">${groups[g].map(menuLink).join('')}</div></div>`;});
-  bar+=`<div class="mb-item"><a href="?league=power" class="${!_isEdgeBoard&&!_isHome&&!_isLeagues&&!_isFavs&&!_infoPage&&LID==='power'?'active':''}">\u{1F30D} Power</a></div>`;
+  bar+=`<div class="mb-item"><a href="?league=power" class="${!_isEdgeBoard&&!_isHome&&!_isLeagues&&!_isFavs&&!_infoPage&&LID==='power'?'active':''}">\u{1F30D} Rankings</a></div>`;
   const live=(H&&H.fixtures&&H.fixtures.length)
-    ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">${H.fixtures.length} fixtures modeled in the next 10 days</a><span>\u00B7 across ${H.stats.leagues} leagues</span></div>`:'';
+    ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">${H.fixtures.length} fixtures modeled in the next 10 days</a><span>· across ${H.stats.leagues} leagues</span></div>`:'';
   mast.innerHTML=`<div class="mast-top">
       <div class="mast-date">${dstr}${H?`<span>Updated ${H.generated}</span>`:''}</div>
-      <a class="mast-wordmark" href="${location.pathname}">Entenser</a>
-      <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
+      <a class="mast-wordmark" href="${location.pathname}"><img class="mast-moose" src="assets/branding/entenser-icon-light.png" alt="">Entenser</a>
+      <div class="mast-right">
+        <div class="mast-search"><input id="msq" type="search" placeholder="Search leagues & teams…" autocomplete="off" spellcheck="false"><div class="ms-results" id="msr"></div></div>
+        <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
+      </div>
     </div><nav class="mast-bar">${bar}</nav>${live}`;
-  // tap-to-toggle dropdowns (hover covers desktop; click covers touch)
+  // dropdowns: click toggles (all devices), hover also works via CSS on pointer devices
   mast.querySelectorAll('.mb-item[data-group]>a').forEach(a=>a.addEventListener('click',e=>{
-    if(matchMedia('(hover:hover)').matches) return;           // desktop: follow link
-    const it=a.parentElement;
-    if(!it.classList.contains('open')){e.preventDefault();
-      mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));
-      it.classList.add('open');}
+    e.preventDefault();
+    const it=a.parentElement, was=it.classList.contains('open');
+    mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));
+    if(!was) it.classList.add('open');
   }));
   document.addEventListener('click',e=>{if(!mast.contains(e.target))mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));});
-  // bottom tab bar
+  // ── search: leagues from the registry + teams from the lazy-loaded baked index ──
+  const msq=$('#msq'), msr=$('#msr');
+  let idxLoading=false;
+  const ensureIndex=()=>{ if(window.SEARCH_INDEX||idxLoading) return; idxLoading=true;
+    const s=document.createElement('script'); s.src='data/search-index.js?t='+Date.now();
+    s.onload=()=>{ if(msq.value) searchRender(msq.value); }; document.head.appendChild(s); };
+  const norm=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const lgName=id=>{const l=(window.LEAGUES||[]).find(x=>x.id===id);return l?l.name:id;};
+  function searchRender(q){
+    q=norm(q.trim());
+    if(q.length<2){ msr.classList.remove('open'); msr.innerHTML=''; return; }
+    const L=(window.LEAGUES||[]).filter(l=>norm(l.name).includes(q)||norm(l.country||'').includes(q)).slice(0,5)
+      .map(l=>`<a href="?league=${l.id}"><span class="ms-k">league</span><span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span></a>`);
+    const T=(window.SEARCH_INDEX||[]).filter(e=>norm(e.t).includes(q)).slice(0,9)
+      .map(e=>`<a href="?league=${e.l}&team=${encodeURIComponent(e.t)}"><span class="ms-k">team</span><span class="mb-nm">${e.t}<em>${lgName(e.l)}</em></span></a>`);
+    const rows=[...L,...T];
+    msr.innerHTML=rows.join('')||`<div class="ms-empty">${window.SEARCH_INDEX?'No matches.':'Loading team index…'}</div>`;
+    msr.classList.add('open');
+  }
+  if(msq){
+    msq.addEventListener('focus',ensureIndex);
+    msq.addEventListener('input',()=>{ensureIndex();searchRender(msq.value);});
+    msq.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const first=msr.querySelector('a'); if(first) location.href=first.getAttribute('href'); }
+      if(e.key==='Escape'){ msr.classList.remove('open'); msq.blur(); }});
+    document.addEventListener('click',e=>{ if(!e.target.closest('.mast-search')) msr.classList.remove('open'); });
+  }
+  // bottom tab bar (⚽ Matches + standings-style Leagues icon per mobile feedback)
   const bn=$('#bnav'); if(bn) bn.innerHTML=
     `<a href="${location.pathname}" class="${_isHome?'active':''}"><span class="ico">\u{1F3E0}</span>Home</a>
-     <a href="?league=command" class="${_isEdgeBoard?'active':''}"><span class="ico">\u26A1</span>Matches</a>
-     <a href="?league=leagues" class="${_isLeagues?'active':''}"><span class="ico">\u{1F5C2}\uFE0F</span>Leagues</a>
-     <a href="?league=favorites" class="${_isFavs?'active':''}"><span class="ico">\u2605</span>Favorites</a>`;
+     <a href="?league=command" class="${_isEdgeBoard?'active':''}"><span class="ico">⚽</span>Matches</a>
+     <a href="?league=leagues" class="${_isLeagues?'active':''}"><span class="ico">\u{1F4CA}</span>Leagues</a>
+     <a href="?league=favorites" class="${_isFavs?'active':''}"><span class="ico">★</span>Favorites</a>`;
 })();
 // ── League header (title + logo + % complete) ──
 (()=>{
