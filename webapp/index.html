@@ -94,7 +94,12 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mb-item>a{display:flex;align-items:center;gap:5px;padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--txt-2);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap}
 .mb-item>a:hover{color:var(--txt-1)}
 .mb-item>a.active{color:var(--txt-1);border-bottom-color:var(--txt-1)}
-.mb-menu{display:none;position:absolute;left:0;top:100%;z-index:60;min-width:210px;background:var(--ink-1);border:1px solid var(--line-3);border-radius:0 0 var(--r-md) var(--r-md);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:6px 0;max-height:60vh;overflow-y:auto}
+/* position:fixed (not absolute) — .mast-bar has overflow-x:auto, which per spec
+   forces its overflow-y to compute as auto too, clipping any absolutely-positioned
+   dropdown to the ribbon's own ~38px height (2026-07-12 feedback: "the dropdown
+   only shows within the thin horizontal bar"). Fixed positioning's containing
+   block is the viewport, so it escapes that clipping entirely; JS sets left/top. */
+.mb-menu{display:none;position:fixed;z-index:60;min-width:210px;max-width:min(90vw,260px);background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:6px 0;max-height:60vh;overflow-y:auto}
 .mb-item.open .mb-menu,.mb-item:hover .mb-menu{display:block}
 .mb-menu a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
 .mb-menu a:hover{background:var(--ink-2);color:var(--txt-1)}
@@ -888,13 +893,28 @@ const FavStore=(()=>{
         <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
       </div>
     </div><nav class="mast-bar">${bar}</nav>${live}`;
-  // dropdowns: click toggles (all devices), hover also works via CSS on pointer devices
-  mast.querySelectorAll('.mb-item[data-group]>a').forEach(a=>a.addEventListener('click',e=>{
-    e.preventDefault();
-    const it=a.parentElement, was=it.classList.contains('open');
-    mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));
-    if(!was) it.classList.add('open');
-  }));
+  // dropdowns: click toggles (all devices), hover also works via CSS on pointer devices.
+  // .mb-menu is position:fixed (see CSS note), so JS must set left/top before it
+  // shows — both on click and on hover, since CSS `:hover{display:block}` alone
+  // has no positioning info to work with under fixed layout.
+  const positionMbMenu=item=>{
+    const a=item.querySelector('a'), menu=item.querySelector('.mb-menu');
+    if(!a||!menu) return;
+    const r=a.getBoundingClientRect(), mw=260;
+    const left=Math.max(8,Math.min(r.left,innerWidth-8-mw));
+    menu.style.left=left+'px';
+    menu.style.top=(r.bottom+2)+'px';
+  };
+  mast.querySelectorAll('.mb-item[data-group]').forEach(item=>{
+    const a=item.querySelector('a');
+    a.addEventListener('click',e=>{
+      e.preventDefault();
+      const was=item.classList.contains('open');
+      mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));
+      if(!was){ positionMbMenu(item); item.classList.add('open'); }
+    });
+    item.addEventListener('mouseenter',()=>positionMbMenu(item));
+  });
   document.addEventListener('click',e=>{if(!mast.contains(e.target))mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));});
   // ── search: leagues from the registry + teams from the lazy-loaded baked index ──
   const msq=$('#msq'), msr=$('#msr');
@@ -3231,7 +3251,8 @@ if(_isLeagues){
   (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
   const render=()=>{
     const favs=FavStore.leagues();
-    const link=l=>`<a class="lx-lg" href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span>${l.name}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}<span class="lx-star${favs.has(l.id)?' on':''}" data-lid="${l.id}" title="${favs.has(l.id)?'Unpin':'Pin to favorites'}">${favs.has(l.id)?'★':'☆'}</span></a>`;
+    const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
+    const link=l=>`<a class="lx-lg" href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}<span class="lx-star${favs.has(l.id)?' on':''}" data-lid="${l.id}" title="${favs.has(l.id)?'Unpin':'Pin to favorites'}">${favs.has(l.id)?'★':'☆'}</span></a>`;
     const favLg=(window.LEAGUES||[]).filter(l=>favs.has(l.id));
     let html='<div class="ed-wrap">';
     if(favLg.length) html+=`<div class="lx-grp">★ Favorites</div><div class="lx-grid">${favLg.map(link).join('')}</div>`;
