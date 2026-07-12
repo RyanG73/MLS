@@ -40,6 +40,7 @@ _NON_PAYLOAD = {
     "edge-board.js",
     "home.js",
     "search-index.js",
+    "europe-map.js",
     "movers.js",
     "coefficients.js",
     "drift.js",

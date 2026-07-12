@@ -828,6 +828,11 @@ if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isF
 // stays undefined; the card renders its insufficient-history state).
 if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isFavs)
   document.write('<scr'+'ipt src="data/drift-traj/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
+// Real European country borders for the homepage's country-shaped explorer
+// (scripts/build_europe_map.py). Static asset, no cache-bust needed — it only
+// changes when the league roster itself changes, unlike per-league payloads.
+if(_isHome)
+  document.write('<scr'+'ipt src="data/europe-map.js"></scr'+'ipt>');
 </script>
 <script>
 const _isPower = new URLSearchParams(location.search).get('league')==='power';
@@ -2930,20 +2935,28 @@ if (_isPower && window.POWER_DATA) {
 .ed-news:hover h4{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
 .ed-news .m{font-size:10.5px;color:var(--txt-3)}
 .ed-newsband{display:grid;grid-template-columns:repeat(3,1fr);gap:0 24px;margin-top:2px}
-/* ── world map explorer ── */
-.wm-wrap{position:relative;width:100%;aspect-ratio:2/1;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:visible;margin-top:2px}
-.wm-wrap svg{position:absolute;inset:0;width:100%;height:100%;border-radius:var(--r-lg);overflow:hidden}
-.wm-land{fill:var(--ink-3);stroke:var(--line-3);stroke-width:1}
-.wm-dot{position:absolute;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:var(--qualify);box-shadow:0 0 9px rgba(61,220,132,.75);cursor:pointer;z-index:5}
-.wm-dot:hover,.wm-dot.open{background:#fff;box-shadow:0 0 12px rgba(255,255,255,.85)}
-.wm-dot .wm-n{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:8px;font-weight:700;color:#06121d}
-.wm-pop{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);padding:6px 0;min-width:190px;max-width:240px;box-shadow:0 12px 28px rgba(0,0,0,.55);z-index:30}
-.wm-dot:hover .wm-pop,.wm-dot.open .wm-pop{display:block}
-.wm-pop-h{padding:4px 12px 6px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);border-bottom:1px solid var(--line-2);margin-bottom:2px}
-.wm-pop a{display:flex;align-items:center;gap:7px;padding:5px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
-.wm-pop a:hover{background:var(--ink-2);color:var(--txt-1)}
-.wm-pop a img{width:15px;height:15px;object-fit:contain;flex:none}
-.wm-pop a .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
+/* ── Europe explorer: real country borders (Natural Earth 110m, via
+   scripts/build_europe_map.py -> webapp/data/europe-map.js), not stylized
+   blobs — clicking IS the country shape, not a pin floating over it
+   (2026-07-12 feedback: "the map should be much more defined and exploring
+   the leagues should be a function of clicking the actual country"). ── */
+.eu-wrap{position:relative;width:100%;aspect-ratio:1000/760;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;margin-top:2px}
+.eu-wrap svg{position:absolute;inset:0;width:100%;height:100%}
+.eu-country{fill:var(--ink-3);stroke:var(--ink-0);stroke-width:1;transition:fill .12s}
+.eu-country.has-league{fill:rgba(61,220,132,.28);stroke:rgba(61,220,132,.6);cursor:pointer}
+.eu-country.has-league:hover,.eu-country.has-league.open{fill:rgba(61,220,132,.5)}
+/* shared popover portal — a true DOM sibling of the map, not a descendant,
+   so it can never be clipped by an ancestor's overflow (same fix applied to
+   the masthead dropdown, 2026-07-12: -webkit-overflow-scrolling:touch and
+   plain overflow:hidden both create clipping contexts fixed-position
+   descendants can get trapped inside). Position is JS-computed on open. ── */
+.eu-portal{display:none;position:fixed;z-index:60;min-width:190px;max-width:min(90vw,240px);background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);padding:6px 0;max-height:60vh;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.55)}
+.eu-portal.open{display:block}
+.eu-portal-h{padding:4px 12px 6px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);border-bottom:1px solid var(--line-2);margin-bottom:2px}
+.eu-portal a{display:flex;align-items:center;gap:7px;padding:5px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
+.eu-portal a:hover{background:var(--ink-2);color:var(--txt-1)}
+.eu-portal a img{width:15px;height:15px;object-fit:contain;flex:none}
+.eu-portal a .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
 @media(max-width:900px){
   .ed-lead h1{font-size:28px}
   /* Mobile leads with the models, not the AI-written headlines (2026-07-11
@@ -2951,7 +2964,6 @@ if (_isPower && window.POWER_DATA) {
   .ed-wrap{grid-template-columns:1fr;column-gap:0;grid-template-areas:"models" "lead" "stories" "map" "news"}
   .ga-models{border-left:none;padding-left:0}
   .ed-cols,.ed-newsband{grid-template-columns:1fr}
-  .wm-wrap{aspect-ratio:4/3}
 }
 /* ── Home landing ─────────────────────────────────────────────── */
 .hm-sec{margin-bottom:var(--s4)}
@@ -3231,33 +3243,26 @@ if(_isHome && window.HOME_DATA){
   const news=(H.news||[]).filter(n=>!_usedNews.has(n)).slice(0,9).map(n=>`<a class="ed-news" href="${n.link}" target="_blank" rel="noopener noreferrer">
     <h4>${commandEsc(n.title||'')}</h4><div class="m">${nm(n.league)} · ${commandEsc(n.source||'')}${n.published?' · '+ago(n.published):''}</div></a>`).join('');
 
-  // ── world map: one dot per country with a live league, sized by league
-  // count, hover/tap popover lists that country's leagues (2026-07-11
-  // feedback: "a map that encourages users to explore leagues"). Equirect-
-  // angular projection (x=(lng+180)/360*100%, y=(90-lat)/180*100%) — simplified
-  // continent silhouettes are decorative backdrop only, positions are exact. ──
-  const COUNTRY_LATLNG={'United States':[39.1,-94.6],'Mexico':[19.4,-99.1],'Canada':[43.7,-79.4],
-    'North America':[25.8,-80.2],'England':[51.5,-0.12],'Scotland':[55.9,-3.2],'Germany':[52.5,13.4],
-    'France':[48.85,2.35],'Italy':[41.9,12.5],'Spain':[40.4,-3.7],'Netherlands':[52.37,4.9],
-    'Portugal':[38.7,-9.1],'Turkey':[41.0,28.9],'Austria':[48.2,16.4],'Switzerland':[46.9,7.4],
-    'Romania':[44.4,26.1],'Ireland':[53.3,-6.3],'Russia':[55.75,37.6],'China':[39.9,116.4],
-    'Saudi Arabia':[24.7,46.7],'Australia':[-33.9,151.2],'Belgium':[50.85,4.35],'Greece':[37.98,23.7],
-    'Sweden':[59.3,18.1],'Norway':[59.9,10.75],'Denmark':[55.7,12.6],'Poland':[52.2,21.0],
-    'Finland':[60.2,24.9],'Brazil':[-15.8,-47.9],'Argentina':[-34.6,-58.4],'Japan':[35.7,139.7],
-    'Europe':[46.4,6.2]};
-  const CONTINENTS=`<path class="wm-land" d="M148,64 Q210,52 268,72 Q300,96 288,132 Q276,168 240,196 Q204,222 176,214 Q150,204 138,172 Q124,132 132,96 Q138,76 148,64 Z"/>
-    <path class="wm-land" d="M262,236 Q296,224 320,248 Q336,280 328,320 Q318,360 296,384 Q276,362 268,324 Q260,280 262,236 Z"/>
-    <path class="wm-land" d="M452,68 Q520,56 588,72 Q612,88 600,112 Q580,128 548,124 Q500,140 468,124 Q444,104 452,68 Z"/>
-    <path class="wm-land" d="M470,148 Q548,136 588,168 Q604,220 580,272 Q560,320 524,340 Q496,316 484,272 Q468,220 470,148 Z"/>
-    <path class="wm-land" d="M600,72 Q720,56 860,80 Q900,120 880,168 Q860,208 800,220 Q740,236 680,212 Q620,188 604,140 Q596,104 600,72 Z"/>
-    <path class="wm-land" d="M866,300 Q916,288 952,312 Q948,344 912,356 Q876,352 862,328 Q858,312 866,300 Z"/>`;
-  const groups={}; (window.LEAGUES||[]).forEach(l=>{const c=l.country; if(!c)return;(groups[c]=groups[c]||[]).push(l);});
-  const mapDot=(country,leagues)=>{const ll=COUNTRY_LATLNG[country]; if(!ll)return'';
-    const x=((ll[1]+180)/360*100).toFixed(2), y=((90-ll[0])/180*100).toFixed(2);
-    const rows=leagues.map(l=>`<a href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span>${l.name}${l.tier?` <span style="color:var(--txt-3)">· tier ${l.tier}</span>`:''}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`).join('');
-    return `<div class="wm-dot" style="left:${x}%;top:${y}%" data-country="${country}">${leagues.length>1?`<span class="wm-n">${leagues.length}</span>`:''}
-      <div class="wm-pop"><div class="wm-pop-h">${country}</div>${rows}</div></div>`;};
-  const mapDots=Object.entries(groups).map(([c,ls])=>mapDot(c,ls)).join('');
+  // ── Europe explorer: real country shapes from window.EUROPE_MAP
+  // (scripts/build_europe_map.py, Natural Earth 110m). Clicking a country
+  // IS the click target — no floating pin — countries with a live league
+  // highlight and open a popover listing them; others render as plain
+  // context geography (2026-07-12 feedback: "the map should be much more
+  // defined and exploring the leagues should be a function of clicking the
+  // actual country... countries with leagues... should be highlighted").
+  // England/Scotland leagues both attach to the single United Kingdom shape.
+  const EU_NAME_ALIAS={'England':'United Kingdom','Scotland':'United Kingdom'};
+  const euGroups={};
+  (window.LEAGUES||[]).forEach(l=>{const c=EU_NAME_ALIAS[l.country]||l.country; if(!c)return;
+    (euGroups[c]=euGroups[c]||[]).push(l);});
+  const euMapHTML=()=>{
+    const M=window.EUROPE_MAP; if(!M) return '<div class="news-empty">Map data unavailable.</div>';
+    const paths=Object.entries(M.paths).map(([name,d])=>{
+      const has=euGroups[name]&&euGroups[name].length;
+      return `<path class="eu-country${has?' has-league':''}" data-country="${name}" d="${d}"></path>`;
+    }).join('');
+    return `<svg viewBox="${M.viewBox}" xmlns="http://www.w3.org/2000/svg">${paths}</svg><div class="eu-portal" id="euPortal"></div>`;
+  };
 
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap">
@@ -3268,20 +3273,30 @@ if(_isHome && window.HOME_DATA){
       <div class="ed-sec">Upcoming Matches</div>${fixtures}
     </div>
     <div class="ga-map">
-      <div class="ed-sec">Explore the World's Leagues</div>
-      <div class="wm-wrap"><svg viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">${CONTINENTS}</svg>${mapDots}</div>
+      <div class="ed-sec">Explore Europe's Leagues</div>
+      <div class="eu-wrap">${euMapHTML()}</div>
     </div>
     <div class="ga-news"><div class="ed-sec">Around the Leagues</div><div class="ed-newsband">${news||'<div class="news-empty">No more headlines right now.</div>'}</div></div>
   </div>`;
-    // tap-to-toggle popovers on touch devices (hover covers desktop)
-    target.querySelectorAll('.wm-dot').forEach(d=>d.addEventListener('click',e=>{
-      if(matchMedia('(hover:hover)').matches) return;
-      e.stopPropagation();
-      const was=d.classList.contains('open');
-      target.querySelectorAll('.wm-dot.open').forEach(o=>o.classList.remove('open'));
-      if(!was) d.classList.add('open');
-    }));
-    document.addEventListener('click',()=>target.querySelectorAll('.wm-dot.open').forEach(o=>o.classList.remove('open')));
+    // country click → popover listing that country's leagues, positioned at
+    // the click point (position:fixed portal, see CSS note on .eu-portal)
+    const portal=$('#euPortal');
+    if(portal){
+      target.querySelectorAll('.eu-country.has-league').forEach(p=>p.addEventListener('click',e=>{
+        e.stopPropagation();
+        const name=p.dataset.country, was=p.classList.contains('open');
+        target.querySelectorAll('.eu-country.open').forEach(o=>o.classList.remove('open'));
+        if(was){ portal.classList.remove('open'); return; }
+        const rows=euGroups[name].map(l=>`<a href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span class="mb-nm">${l.name}${l.tier?`<em>tier ${l.tier}</em>`:''}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`).join('');
+        portal.innerHTML=`<div class="eu-portal-h">${name}</div>${rows}`;
+        const mw=Math.min(240,innerWidth*0.9);
+        portal.style.left=Math.max(8,Math.min(e.clientX,innerWidth-8-mw))+'px';
+        portal.style.top=Math.max(8,Math.min(e.clientY+10,innerHeight-8-40))+'px';
+        portal.classList.add('open');
+        p.classList.add('open');
+      }));
+      document.addEventListener('click',()=>{portal.classList.remove('open');target.querySelectorAll('.eu-country.open').forEach(o=>o.classList.remove('open'));});
+    }
   }
 }
 
