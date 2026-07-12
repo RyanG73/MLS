@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from data_pipeline.understat import (
-    _COLS, _coerce, _default_seasons, _parse_season, espn_name,
+    _COLS, _canonicalize_names, _coerce, _default_seasons, _parse_season, espn_name,
 )
 
 
@@ -89,3 +89,25 @@ def test_default_seasons_starts_2014_and_is_sorted():
     assert s[0] == 2014
     assert s == sorted(s)
     assert all(isinstance(y, int) for y in s)
+
+
+def test_canonicalize_names_renames_leipzig_in_bundesliga_only():
+    rows = [
+        _match("1", "RasenBallsport Leipzig", "Bayern Munich", 1, 2, 1.4, 2.1),
+        _match("2", "Wolfsburg", "RasenBallsport Leipzig", 0, 0, 0.9, 0.8),
+    ]
+    df = _canonicalize_names(_parse_season(rows, 2023), "bundesliga")
+    assert set(df["home_team"]) | set(df["away_team"]) == {
+        "RB Leipzig", "Bayern Munich", "Wolfsburg"}
+    assert "RasenBallsport Leipzig" not in set(df["home_team"]) | set(df["away_team"])
+
+
+def test_canonicalize_names_leaves_other_leagues_untouched():
+    rows = [_match("1", "RasenBallsport Leipzig", "Arsenal", 1, 1, 1.0, 1.0)]
+    df = _canonicalize_names(_parse_season(rows, 2023), "epl")
+    assert "RasenBallsport Leipzig" in set(df["home_team"])
+
+
+def test_canonicalize_names_empty_frame_passthrough():
+    df = _canonicalize_names(pd.DataFrame(), "bundesliga")
+    assert df.empty

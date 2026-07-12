@@ -107,6 +107,7 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mb-portal a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
 .mb-portal a:hover{background:var(--ink-2);color:var(--txt-1)}
 .mb-portal a img{width:16px;height:16px;object-fit:contain}
+.mb-portal a .mb-flag{width:16px;flex:none;text-align:center;font-size:15px;line-height:1}
 .mb-portal a .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
 .mast-live{display:flex;align-items:center;gap:8px;justify-content:center;padding:6px var(--s4);border-top:1px solid var(--line-2);font-size:11.5px;color:var(--txt-2)}
 .mast-live .dot{width:7px;height:7px;border-radius:50%;background:var(--drop);animation:pulse 1.6s infinite}
@@ -870,12 +871,28 @@ const FavStore=(()=>{
     ['Italy','\u{1F1EE}\u{1F1F9}','Italy'],['Spain','\u{1F1EA}\u{1F1F8}','Spain'],
     ['Americas','\u{1F30E}','North America'],['South America','\u{1F1E7}\u{1F1F7}','South America'],
     ['Other Europe','\u{1F1EA}\u{1F1FA}','Europe'],['Asia','\u{1F30F}','Asia'],
-    ['Cups','\u{1F3C6}','Cups'],['Women','♀','Women']];
+    ['Cups','\u{1F3C6}','Cups']];
+  // Multi-country groups: show each league's own country flag instead of its
+  // league logo in the dropdown (2026-07-12 feedback) — the ribbon icon/label
+  // is a region, not a country, so the logo alone doesn't say where a given
+  // entry plays. Single-country groups (England, Germany, …) keep logos.
+  const FLAG_GROUPS=new Set(['Americas','South America','Other Europe']);
+  const COUNTRY_FLAG={
+    'United States':'\u{1F1FA}\u{1F1F8}','Mexico':'\u{1F1F2}\u{1F1FD}','Canada':'\u{1F1E8}\u{1F1E6}',
+    'Brazil':'\u{1F1E7}\u{1F1F7}','Argentina':'\u{1F1E6}\u{1F1F7}',
+    'Netherlands':'\u{1F1F3}\u{1F1F1}','Portugal':'\u{1F1F5}\u{1F1F9}','Turkey':'\u{1F1F9}\u{1F1F7}',
+    'Scotland':'\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}',
+    'Austria':'\u{1F1E6}\u{1F1F9}','Switzerland':'\u{1F1E8}\u{1F1ED}','Romania':'\u{1F1F7}\u{1F1F4}',
+    'Ireland':'\u{1F1EE}\u{1F1EA}','Russia':'\u{1F1F7}\u{1F1FA}','Belgium':'\u{1F1E7}\u{1F1EA}',
+    'Greece':'\u{1F1EC}\u{1F1F7}','Sweden':'\u{1F1F8}\u{1F1EA}','Norway':'\u{1F1F3}\u{1F1F4}',
+    'Denmark':'\u{1F1E9}\u{1F1F0}','Poland':'\u{1F1F5}\u{1F1F1}','Finland':'\u{1F1EB}\u{1F1EE}',
+  };
   const groups={};
   (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
   const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
-  const menuLink=l=>{const lg=l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:'';
-    return `<a href="?league=${l.id}">${lg}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`;};
+  const menuLink=l=>{const flag=FLAG_GROUPS.has(l.group)&&COUNTRY_FLAG[l.country];
+    const icon=flag?`<span class="mb-flag">${flag}</span>`:(l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:'');
+    return `<a href="?league=${l.id}">${icon}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`;};
   const activeGroup=(!_isHome&&!_isEdgeBoard&&!_isLeagues&&!_isFavs&&!_infoPage&&LID!=='power')
     ? ((window.LEAGUES||[]).find(l=>l.id===LID)||{}).group : null;
   const H=window.HOME_DATA;
@@ -3258,7 +3275,7 @@ if(_isLeagues){
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   document.title="Leagues · Entenser";
   const GROUP_ORDER=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}'],['Spain','\u{1F1EA}\u{1F1F8}'],['Italy','\u{1F1EE}\u{1F1F9}'],['Germany','\u{1F1E9}\u{1F1EA}'],['France','\u{1F1EB}\u{1F1F7}'],
-    ['Americas','\u{1F30E}'],['South America','\u{1F1E7}\u{1F1F7}'],['Other Europe','\u{1F1EA}\u{1F1FA}'],['Asia','\u{1F30F}'],['Cups','\u{1F3C6}'],['Women','⚽']];
+    ['Americas','\u{1F30E}'],['South America','\u{1F1E7}\u{1F1F7}'],['Other Europe','\u{1F1EA}\u{1F1FA}'],['Asia','\u{1F30F}'],['Cups','\u{1F3C6}']];
   const groups={};
   (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
   const render=()=>{

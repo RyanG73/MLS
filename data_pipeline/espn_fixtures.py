@@ -122,7 +122,9 @@ ESPN_TO_UNDERSTAT: dict[str, dict[str, str]] = {
         "Hamburg SV":                   "Hamburger SV",
         "TSG Hoffenheim":               "Hoffenheim",
         "Mainz":                        "Mainz 05",
-        "RB Leipzig":                   "RasenBallsport Leipzig",
+        # RB Leipzig: no entry needed — ESPN's name already matches the
+        # canonical name (2026-07-12: canonical changed from "RasenBallsport
+        # Leipzig" to "RB Leipzig", see data_pipeline/understat.py).
         "1. FC Union Berlin":           "Union Berlin",
         "VfL Wolfsburg":                "Wolfsburg",
     },

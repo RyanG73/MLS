@@ -88,7 +88,10 @@ _NAME_MAP: dict[str, dict[str, str]] = {
         "Dortmund": "Borussia Dortmund", "Ein Frankfurt": "Eintracht Frankfurt",
         "Heidenheim": "FC Heidenheim", "Leverkusen": "Bayer Leverkusen",
         "M'gladbach": "Borussia M.Gladbach", "Mainz": "Mainz 05",
-        "RB Leipzig": "RasenBallsport Leipzig", "St Pauli": "St. Pauli",
+        # RB Leipzig: no entry needed — football-data's raw name already matches
+        # the canonical name (2026-07-12: canonical changed from "RasenBallsport
+        # Leipzig" to "RB Leipzig", see data_pipeline/understat.py).
+        "St Pauli": "St. Pauli",
         "Stuttgart": "VfB Stuttgart", "FC Koln": "FC Cologne",
         "Hamburg": "Hamburger SV", "Hertha": "Hertha Berlin",
     },

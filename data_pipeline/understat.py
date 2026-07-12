@@ -99,7 +99,6 @@ _ESPN_NAME_OVERRIDES: dict[str, dict[str, str]] = {
         "Hamburger SV": "Hamburg SV",
         "Hoffenheim": "TSG Hoffenheim",
         "Mainz 05": "Mainz",
-        "RasenBallsport Leipzig": "RB Leipzig",
         "Union Berlin": "1. FC Union Berlin",
         "Wolfsburg": "VfL Wolfsburg",
     },
@@ -183,6 +182,29 @@ def _coerce(df: pd.DataFrame) -> pd.DataFrame:
     return df[_COLS]
 
 
+# Understat's raw title is this pipeline's canonical team name (the base identity
+# source everything else — ESPN, football-data, Transfermarkt — joins against via
+# their own NAME_MAP/ESPN_TO_UNDERSTAT/TM_CANON_ALIASES tables). Renames applied
+# here are canonical-identity changes, not the cosmetic espn_name() logo-lookup
+# override table above — keep this list short and scoped; a rename here ripples
+# into every other source's join table (2026-07-12: "RasenBallsport Leipzig" is
+# nobody's real name for the club — the other three sources already natively
+# call it "RB Leipzig", so their now-unneeded translation entries were removed).
+_CANONICAL_RENAMES: dict[str, dict[str, str]] = {
+    "bundesliga": {"RasenBallsport Leipzig": "RB Leipzig"},
+}
+
+
+def _canonicalize_names(df: pd.DataFrame, league_id: str) -> pd.DataFrame:
+    renames = _CANONICAL_RENAMES.get(league_id)
+    if not renames or df.empty:
+        return df
+    df = df.copy()
+    df["home_team"] = df["home_team"].replace(renames)
+    df["away_team"] = df["away_team"].replace(renames)
+    return df
+
+
 def _fetch_seasons(code: str, seasons: list[int]) -> pd.DataFrame:
     """Fetch the given seasons from Understat and parse to canonical rows."""
     from understatapi import UnderstatClient  # local import: optional dependency
@@ -245,6 +267,7 @@ def canonical_frame(league_id: str, seasons: list[int] | None = None,
 
     df = combined[combined["season"].isin(seasons)].copy()
     df = df.sort_values("date").reset_index(drop=True)
+    df = _canonicalize_names(df, league_id)
 
     try:
         from data_pipeline.source_health import record_source_run

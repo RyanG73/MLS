@@ -67,7 +67,7 @@ REGISTRY = [
     ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "live", "Americas"),
     # C2 (ASA track): flip to "live" when their dashboard builders ship;
     # eval gating is per-family (experiments/champion_nwsl.json / champion_usl.json).
-    ("nwsl",                "NWSL",                     "usa.nwsl",         "Concacaf", "live", "Women"),
+    ("nwsl",                "NWSL",                     "usa.nwsl",         "Concacaf", "live", "Americas"),
     ("usl-championship",    "USL Championship",         "usa.usl.1",        "Concacaf", "live", "Americas"),
     ("leagues-cup",         "Leagues Cup",              "concacaf.leagues.cup","Concacaf", "live", "Cups"),
     ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "live", "Cups"),
@@ -107,7 +107,7 @@ REGISTRY = [
     ("china-super",         "Chinese Super League",     "chn.1",            "AFC",  "live", "Asia"),
     ("saudi-pro",           "Saudi Pro League",         "ksa.1",            "AFC",  "live", "Asia"),
     ("australia-aleague",   "A-League Men",             "aus.1",            "AFC",  "live", "Asia"),
-    ("wsl",                 "Women's Super League",     "eng.w.1",          "UEFA", "live", "Women"),
+    ("wsl",                 "Women's Super League",     "eng.w.1",          "UEFA", "live", "England"),
     ("belgian-pro",         "Belgian Pro League",       "bel.1",            "UEFA", "live", "Other Europe"),
     ("greek-super",         "Greek Super League",       "gre.1",            "UEFA", "live", "Other Europe"),
     # UEFA — Nordics + Poland (Tier-1 expansion, 2026-07-10)

@@ -202,7 +202,9 @@ TM_CANON_ALIASES: dict[str, str] = {
     # Italy
     "Inter Milan": "Inter",               # serie-a payload uses the short form
     # Germany
-    "RB Leipzig": "RasenBallsport Leipzig",
+    # RB Leipzig: no entry needed — Transfermarkt's name already matches the
+    # canonical name (2026-07-12: canonical changed from "RasenBallsport
+    # Leipzig" to "RB Leipzig", see data_pipeline/understat.py).
     "Borussia Mönchengladbach": "Borussia M.Gladbach",
     "1.FC Köln": "FC Cologne",
     "1.FC Nuremberg": "1. FC Nürnberg",

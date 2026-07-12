@@ -92,11 +92,11 @@ _ESPN_TO_MODELED: dict[str, tuple[str, str]] = {
     "Bologna": ("serie-a", "Bologna"),
     "Internazionale": ("serie-a", "Inter"),
     "Juventus": ("serie-a", "Juventus"),
-    # Bundesliga — ESPN: "RB Leipzig"; Understat: "RasenBallsport Leipzig"
+    # Bundesliga
     "Bayer Leverkusen": ("bundesliga", "Bayer Leverkusen"),
     "Bayern Munich": ("bundesliga", "Bayern Munich"),
     "Borussia Dortmund": ("bundesliga", "Borussia Dortmund"),
-    "RB Leipzig": ("bundesliga", "RasenBallsport Leipzig"),
+    "RB Leipzig": ("bundesliga", "RB Leipzig"),
     "VfB Stuttgart": ("bundesliga", "VfB Stuttgart"),
     # Ligue-1 — ESPN: "AS Monaco"; Understat: "Monaco"; ESPN: "Paris Saint-Germain"; Understat: "Paris Saint Germain"
     "AS Monaco": ("ligue-1", "Monaco"),
