@@ -63,14 +63,24 @@ def _prom_key(lid: str) -> tuple[int, str]:
     return (_PROMINENCE.index(lid) if lid in _PROMINENCE else len(_PROMINENCE), lid)
 
 
+# Which outlook card headlines a league's leader box. Default: cards[0] (title/
+# promoted/…). MLS overridden per 2026-07-11 feedback — the box should show the
+# most likely MLS Cup winner, not the playoff-odds leader.
+_METRIC_OVERRIDE = {"mls": "cup"}
+
+
 def build_leaders(files: list[tuple[str, dict]]) -> list[dict]:
     leaders = []
     for lid, d in files:
         cards = (d.get("outlook") or {}).get("cards") or []
         if not cards:
             continue
-        metric = cards[0]["key"]        # headline bucket (title/promo/premiers/shield/…)
-        st = sorted(d["standings"], key=lambda t: t.get("proj_rank", 999))
+        metric = _METRIC_OVERRIDE.get(lid, cards[0]["key"])
+        card = next((c for c in cards if c["key"] == metric), cards[0])
+        metric = card["key"]
+        # leader = the team maximising the headline metric (for title-style
+        # metrics this matches proj_rank #1; for MLS Cup it can differ)
+        st = sorted(d["standings"], key=lambda t: -float(t.get(metric, 0) or 0))
         if not st:
             continue
         top = st[0]
@@ -81,7 +91,7 @@ def build_leaders(files: list[tuple[str, dict]]) -> list[dict]:
             "logo": top.get("logo"),
             "color": top.get("color"),
             "metric": metric,
-            "metric_label": cards[0].get("label", metric.title()),
+            "metric_label": card.get("label", metric.title()),
             "pct": round(float(top.get(metric, 0) or 0), 1),
             "preseason": bool((d.get("outlook") or {}).get("preseason")),
             "season_label": (d.get("outlook") or {}).get("season_label", ""),
@@ -166,6 +176,7 @@ def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
     fx = []
     for lid, d in files:
         name = (d.get("league") or {}).get("name", lid)
+        elo = {s.get("team"): s.get("elo") for s in d.get("standings", [])}
         for g in d.get("games", []):
             if g.get("result") is not None:
                 continue
@@ -177,9 +188,24 @@ def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
                 "home": g.get("home"), "away": g.get("away"),
                 "pH": g.get("pH"), "pD": g.get("pD"), "pA": g.get("pA"),
                 "hlogo": g.get("hlogo"), "alogo": g.get("alogo"),
+                "hcolor": g.get("hcolor"), "acolor": g.get("acolor"),
+                "lam": g.get("lam"), "mu": g.get("mu"),
+                "helo": elo.get(g.get("home")), "aelo": elo.get(g.get("away")),
             })
     fx.sort(key=lambda f: (_prom_key(f["league"]), f["date"]))
     return fx[:limit]
+
+
+def build_search_index(files: list[tuple[str, dict]]) -> list[dict]:
+    """Flat team→league index for the masthead search box (webapp/data/
+    search-index.js, lazy-loaded on first focus). League names themselves come
+    from leagues.js client-side; only teams need a baked index."""
+    idx = []
+    for lid, d in files:
+        for s in d.get("standings", []):
+            if s.get("team"):
+                idx.append({"t": s["team"], "l": lid})
+    return idx
 
 
 def build_news(limit: int = 12) -> list[dict]:
@@ -225,6 +251,10 @@ def main() -> None:
     }
     (DATA / "home.js").write_text(
         "window.HOME_DATA = " + json.dumps(payload, separators=(",", ":")) + ";\n")
+    sidx = build_search_index(files)
+    (DATA / "search-index.js").write_text(
+        "window.SEARCH_INDEX = " + json.dumps(sidx, separators=(",", ":")) + ";\n")
+    print(f"wrote webapp/data/search-index.js · {len(sidx)} teams")
     print(f"wrote webapp/data/home.js · {len(files)} leagues · "
           f"{len(leaders)} leaders · {len(payload['tight_races'])} tight races · "
           f"{len(payload['releg_battles'])} releg battles · {len(payload['movers'])} movers · "
