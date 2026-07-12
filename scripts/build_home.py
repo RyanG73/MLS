@@ -177,6 +177,7 @@ def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
     for lid, d in files:
         name = (d.get("league") or {}).get("name", lid)
         elo = {s.get("team"): s.get("elo") for s in d.get("standings", [])}
+        team_inputs = d.get("team_inputs") or {}
         for g in d.get("games", []):
             if g.get("result") is not None:
                 continue
@@ -191,6 +192,14 @@ def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
                 "hcolor": g.get("hcolor"), "acolor": g.get("acolor"),
                 "lam": g.get("lam"), "mu": g.get("mu"),
                 "helo": elo.get(g.get("home")), "aelo": elo.get(g.get("away")),
+                # Full model-inputs snapshot (elo/xg_for/xg_against/form/gk_z/avail)
+                # so the homepage fixture card can show the same "model inputs"
+                # comparison table the Matches tab's expanded game card shows
+                # (2026-07-12 feedback: "more detail like ... individual league
+                # pages"). None when a league doesn't carry team_inputs (goals-
+                # only leagues) — the client renders its own empty state for that.
+                "hinp": team_inputs.get(g.get("home")),
+                "ainp": team_inputs.get(g.get("away")),
             })
     fx.sort(key=lambda f: (_prom_key(f["league"]), f["date"]))
     return fx[:limit]

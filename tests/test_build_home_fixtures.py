@@ -60,6 +60,24 @@ def test_mls_leader_is_most_likely_cup_winner():
     assert leaders[0]["metric_label"] == "MLS Cup"
 
 
+def test_fixture_carries_team_inputs_snapshot():
+    files = [("mls", {"league": {"name": "MLS"}, "games": [_g(1, home="LAFC", away="LA Galaxy")],
+                      "team_inputs": {
+                          "LAFC": {"elo": 1600, "xg_for": 1.8, "xg_against": 1.1,
+                                   "form": 2.1, "gk_z": 0.5, "avail": 1.0},
+                          "LA Galaxy": {"elo": 1500, "xg_for": 1.4, "xg_against": 1.3,
+                                        "form": 1.2, "gk_z": -0.2, "avail": 0.9}}})]
+    fx = build_home.build_fixtures(files)
+    assert fx[0]["hinp"]["elo"] == 1600
+    assert fx[0]["ainp"]["form"] == 1.2
+
+
+def test_fixture_team_inputs_none_when_league_has_no_inputs():
+    files = [_mk("epl", [_g(1)])]
+    fx = build_home.build_fixtures(files)
+    assert fx[0]["hinp"] is None and fx[0]["ainp"] is None
+
+
 def test_search_index_lists_all_teams():
     files = [("epl", {"league": {"name": "EPL"}, "games": [],
                       "standings": [{"team": "Arsenal"}, {"team": "Hull"}]}),

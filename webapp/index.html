@@ -1011,6 +1011,37 @@ const txtOn=hex=>lum(hexrgb(hex))>0.6?'#06121d':'#fff';
 const cbar=g=>{const S=[[g.pH,vis(g.hcolor),txtOn(g.hcolor)],[g.pD,'var(--draw)','#0a111e'],[g.pA,vis(g.acolor),txtOn(g.acolor)]];
   return `<span class="cbar">`+S.map(([p,bg,fg])=>{const w=p*100;
     return `<span style="width:${w.toFixed(1)}%;background:${bg};color:${fg}">${w>=12?w.toFixed(0)+'%':''}</span>`;}).join('')+`</span>`;};
+// Pure over explicit (home,away,h,a) inputs so both the Matches-tab game card
+// (via whyStrip, looking up D.team_inputs for the current league) and the
+// homepage fixture card (which has no single "current league" D — each
+// fixture carries its own hinp/ainp snapshot from build_home.py) render the
+// identical "model inputs" comparison table (2026-07-12 feedback: "more
+// detail like the upcoming matches on individual league pages"). Declared
+// here (unconditional top-level), NOT inside the per-league render branch
+// below — that branch is skipped entirely on the Home route, and Annex-B
+// conditional function hoisting only assigns a function's VALUE when its
+// enclosing block actually executes, so a home-route call would otherwise
+// throw "modelInputsTable is not defined" despite the name being hoisted.
+function modelInputsTable(home,away,h,a){
+  h=h||{}; a=a||{};
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const rows=[  // label, home, away, fmt, higher-is-better
+    ['ELO',            h.elo,        a.elo,        v=>Math.round(v),         true ],
+    ['xG for /gm',     h.xg_for,     a.xg_for,     v=>v.toFixed(2),          true ],
+    ['xG against /gm', h.xg_against, a.xg_against, v=>v.toFixed(2),          false],
+    ['Form (pts/gm)',  h.form,       a.form,       v=>v.toFixed(1),          true ],
+    ['GK z-score',     h.gk_z,       a.gk_z,       v=>v.toFixed(2),          true ],
+    ['Availability',   h.avail,      a.avail,      v=>Math.round(v*100)+'%', true ],
+  ].filter(([,hv,av])=>hv!=null&&av!=null);
+  if(!rows.length)return '<span style="color:var(--txt-3)">No model inputs available for this matchup.</span>';
+  const body=rows.map(([label,hv,av,fmt,hi])=>{
+    const hb=hi?hv>av:hv<av, ab=hi?av>hv:av<hv;
+    return `<div class="why-r"><span class="wv${hb?' better':''}">${fmt(hv)}</span>`+
+      `<span class="wl">${label}</span><span class="wv${ab?' better':''}">${fmt(av)}</span></div>`;
+  }).join('');
+  return `<div class="why-tbl"><div class="why-r why-hd"><span class="wv">${esc(home)}</span>`+
+    `<span class="wl">model inputs</span><span class="wv">${esc(away)}</span></div>${body}</div>`;
+}
 /* heatmap background for an odds value */
 function heat(v,rgb,maxv){const a=v<=0?0:Math.min(0.62,0.07+0.55*(v/(maxv||100)));return `background:rgba(${rgb.join(',')},${a.toFixed(3)})`;}
 const RGB={po:[61,220,132],hfa:[244,183,64],sh:[215,222,234],sp:[189,125,78]};
@@ -2213,24 +2244,8 @@ function leverageScore(g,rankOf){
 /* ── B3: "why this pick" — pure render over D.team_inputs, no model math.
    Rows hidden (not zero) when either team lacks that input (goals-only leagues). ── */
 function whyStrip(home,away){
-  const T=D.team_inputs||{}, h=T[home]||{}, a=T[away]||{};
-  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const rows=[  // label, home, away, fmt, higher-is-better
-    ['ELO',            h.elo,        a.elo,        v=>Math.round(v),         true ],
-    ['xG for /gm',     h.xg_for,     a.xg_for,     v=>v.toFixed(2),          true ],
-    ['xG against /gm', h.xg_against, a.xg_against, v=>v.toFixed(2),          false],
-    ['Form (pts/gm)',  h.form,       a.form,       v=>v.toFixed(1),          true ],
-    ['GK z-score',     h.gk_z,       a.gk_z,       v=>v.toFixed(2),          true ],
-    ['Availability',   h.avail,      a.avail,      v=>Math.round(v*100)+'%', true ],
-  ].filter(([,hv,av])=>hv!=null&&av!=null);
-  if(!rows.length)return '<span style="color:var(--txt-3)">No model inputs available for this matchup.</span>';
-  const body=rows.map(([label,hv,av,fmt,hi])=>{
-    const hb=hi?hv>av:hv<av, ab=hi?av>hv:av<hv;
-    return `<div class="why-r"><span class="wv${hb?' better':''}">${fmt(hv)}</span>`+
-      `<span class="wl">${label}</span><span class="wv${ab?' better':''}">${fmt(av)}</span></div>`;
-  }).join('');
-  return `<div class="why-tbl"><div class="why-r why-hd"><span class="wv">${esc(home)}</span>`+
-    `<span class="wl">model inputs</span><span class="wv">${esc(away)}</span></div>${body}</div>`;
+  const T=D.team_inputs||{};
+  return modelInputsTable(home,away,T[home],T[away]);
 }
 /* ── B5: model-vs-market panel (scatter + ROI buckets + honest backtest) ── */
 function renderMarketPanel(){
@@ -2904,6 +2919,7 @@ if (_isPower && window.POWER_DATA) {
 .ed-fix .t img{width:15px;height:15px;object-fit:contain}
 .ed-fix .t .vs{color:var(--txt-3);font-weight:400;font-size:11px}
 .ed-fix .m{font-size:10.5px;color:var(--txt-3);margin-top:5px;font-family:var(--mono)}
+.ed-fix .why-tbl{max-width:none;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
 .ed-fix .cbar{margin-top:6px}
 .ed-fix-odds{display:flex;justify-content:space-between;margin-top:4px;font-family:var(--mono);font-size:10.5px;color:var(--txt-3)}
 .ed-fix-odds span{width:33%;text-align:center}
@@ -3208,7 +3224,8 @@ if(_isHome && window.HOME_DATA){
     return `<a class="ed-fix" href="?league=${f.league}"><div class="t">${crest(f.home,f.hlogo)}${f.home}<span class="vs">v</span>${crest(f.away,f.alogo)}${f.away}</div>
     ${cbar(f)}
     <div class="ed-fix-odds"><span>${american(f.pH)}</span><span>${american(f.pD)}</span><span>${american(f.pA)}</span></div>
-    <div class="m">${f.date} · ${f.name}${f.helo!=null?` · ELO ${f.helo}–${f.aelo}`:''}${sc?` · proj. ${sc.split(' ')[0]}`:''}</div></a>`;};
+    <div class="m">${f.date} · ${f.name}${sc?` · proj. ${sc.split(' ')[0]}`:''}</div>
+    ${f.hinp&&f.ainp?modelInputsTable(f.home,f.away,f.hinp,f.ainp):''}</a>`;};
   const fixtures=(H.fixtures||[]).slice(0,8).map(fix).join('')||'<div class="news-empty">No fixtures modeled in the next 10 days.</div>';
 
   const news=(H.news||[]).filter(n=>!_usedNews.has(n)).slice(0,9).map(n=>`<a class="ed-news" href="${n.link}" target="_blank" rel="noopener noreferrer">
