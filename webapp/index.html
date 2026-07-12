@@ -2640,6 +2640,13 @@ $('#seg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.curr
   if(v==='coeffs')renderCoeffs();};
 // deep-link a team from the League Table → Teams tab
 function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfile(team,true);track('team_open',{league:LID});}
+// ── ?team= deep link (from masthead search / Favorites): open the team profile
+//    on load, same path as clicking a team in the standings. Runs after the
+//    #seg click handler below is attached, so the tab switch actually fires. ──
+if(!_isHome&&!_isEdgeBoard&&!_isLeagues&&!_isFavs&&!_isPower&&!_infoPage){
+  const _teamParam=new URLSearchParams(location.search).get('team');
+  if(_teamParam && (D.standings||[]).some(s=>s.team===_teamParam)) openTeam(_teamParam);
+}
 }  /* end full-app (non-soon) block */
 </script>
 
