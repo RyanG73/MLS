@@ -512,3 +512,18 @@ pinned clubs — new `pitchside.favTeams` key, star on the team-profile header, 
 loads). `build_home.py` gained a tested `fixtures` array (next 10 days, prominence-first) for the
 homepage rail; `home.js` joined the canonical `_NON_PAYLOAD` exclusion, fixing three contract-test
 failures that had been latent since the first-draft home page a day earlier.
+
+## NYT redesign feedback round (2026-07-11, plan completed and deleted)
+
+Same-day follow-up to the NYT editorial redesign: a 16-item feedback batch covering search,
+masthead structure, headline quality, a world map, MLS parity, and season-currency honesty.
+The most consequential fix was structural rather than cosmetic — a `?team=` deep-link
+silently failed because it ran before the tab-switch click handler was attached later in the
+script, a reminder that this file is one large script block where execution order matters
+even with function hoisting. The season-status work surfaced a real data-freshness problem:
+14 leagues were rendering an ambiguous "season projection" label for seasons that had fully
+concluded with no next-season fixtures published yet; a background rebuild queue confirmed
+12 of them were genuinely between seasons (not a build failure) and the UI now says so
+explicitly. MLS's finish-plot parity was implemented by extending the existing `runSim()`
+simulation with a conference-relative rank histogram rather than writing a parallel sim, so
+the what-if resimulation path updates the new panel for free.

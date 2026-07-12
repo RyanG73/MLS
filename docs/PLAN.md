@@ -1,5 +1,31 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-11 — NYT redesign feedback round: search, world map, MLS finish plot, season status, headline rewrite**
+> User feedback batch on the redesign shipped earlier the same day (16 items). Registry
+> gained `country`+`tier` metadata on every league (NWSL moved to the Women group);
+> masthead reworked to the user's exact ribbon order with a moose logo, click-toggle
+> dropdowns showing `country · tier N`, and a lazy-loaded search bar (leagues + teams,
+> `?team=` deep-links into a league page's Teams tab — fixed a real bug where the deep-link
+> fired before the tab's click handler was attached). Headlines reworded to lead with the
+> outcome percentage instead of an ambiguous "points" delta (read as league-table points);
+> top 3 RSS stories now interleave into the story ladder alongside the AI-written ones, with
+> the rest still in a trimmed "Around the Leagues" band. Homepage fixtures box upgraded to
+> Matches-tab parity (team-colored bars, fair American odds, ELO, projected score) by reusing
+> existing helpers (`cbar`/`american`/`topScorelines`) instead of duplicating them. New world
+> map section: one glowing dot per country (not per league, to avoid overlap on
+> multi-league countries), positioned by an exact equirectangular projection, hover/tap
+> popover lists that country's leagues. Every league page now shows a season status line
+> (label, start–end dates, % complete, or an honest "season complete, next season not yet
+> published" state — replacing an ambiguous message 12 leagues were rendering after their
+> real-world season wrapped with no new fixtures published yet). MLS gained right-side
+> "Projected finish" (per-conference, extending `runSim()`'s existing histogram so what-if
+> resimulation updates it for free) + "Upcoming run" panels, matching table-league layout.
+> Mobile home now leads with The Models before the AI headlines, via CSS `grid-template-areas`
+> (no markup duplication between breakpoints). Also: 14 stale-season league payloads
+> refreshed via a background rebuild queue (13 confirmed genuinely season-complete, Süper
+> Lig rolled to 2026-27); `home.js`/`search-index.js` added to the canonical `_NON_PAYLOAD`
+> exclusion list. Full suite 973 passed / 15 skipped.
+
 > **2026-07-11 — NYT-style dark editorial redesign: masthead chrome, editorial Home, Leagues index, Favorites**
 > User-driven redesign after two NYT reference screenshots (desktop + app, dark). Site-wide
 > chrome replaces the left sidebar everywhere: three-row masthead (date · serif **Entenser**
