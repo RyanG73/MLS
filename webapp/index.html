@@ -94,17 +94,20 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mb-item>a{display:flex;align-items:center;gap:5px;padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--txt-2);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap}
 .mb-item>a:hover{color:var(--txt-1)}
 .mb-item>a.active{color:var(--txt-1);border-bottom-color:var(--txt-1)}
-/* position:fixed (not absolute) — .mast-bar has overflow-x:auto, which per spec
-   forces its overflow-y to compute as auto too, clipping any absolutely-positioned
-   dropdown to the ribbon's own ~38px height (2026-07-12 feedback: "the dropdown
-   only shows within the thin horizontal bar"). Fixed positioning's containing
-   block is the viewport, so it escapes that clipping entirely; JS sets left/top. */
-.mb-menu{display:none;position:fixed;z-index:60;min-width:210px;max-width:min(90vw,260px);background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:6px 0;max-height:60vh;overflow-y:auto}
-.mb-item.open .mb-menu,.mb-item:hover .mb-menu{display:block}
-.mb-menu a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
-.mb-menu a:hover{background:var(--ink-2);color:var(--txt-1)}
-.mb-menu a img{width:16px;height:16px;object-fit:contain}
-.mb-menu a .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
+/* Shared portal, a SIBLING of .mast-bar (not its descendant) — .mast-bar uses
+   -webkit-overflow-scrolling:touch for smooth ribbon scrolling, and iOS Safari
+   treats that as a new containing block for position:fixed descendants, trapping
+   them inside the ribbon's own clipped ~38px box regardless of z-index (2026-07-12
+   feedback, repro'd on a real iPhone — Chrome-based dev preview doesn't hit this
+   WebKit-specific quirk, which is why the earlier position:fixed-only fix looked
+   correct in testing but still failed on device). Being a true sibling sidesteps
+   the quirk entirely: there is no scrolling ancestor between it and the viewport. */
+.mb-portal{display:none;position:fixed;z-index:60;min-width:210px;max-width:min(90vw,260px);background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:6px 0;max-height:60vh;overflow-y:auto}
+.mb-portal.open{display:block}
+.mb-portal a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
+.mb-portal a:hover{background:var(--ink-2);color:var(--txt-1)}
+.mb-portal a img{width:16px;height:16px;object-fit:contain}
+.mb-portal a .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
 .mast-live{display:flex;align-items:center;gap:8px;justify-content:center;padding:6px var(--s4);border-top:1px solid var(--line-2);font-size:11.5px;color:var(--txt-2)}
 .mast-live .dot{width:7px;height:7px;border-radius:50%;background:var(--drop);animation:pulse 1.6s infinite}
 @keyframes pulse{50%{opacity:.35}}
@@ -877,11 +880,19 @@ const FavStore=(()=>{
     ? ((window.LEAGUES||[]).find(l=>l.id===LID)||{}).group : null;
   const H=window.HOME_DATA;
   const dstr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  // Dropdown HTML is kept OUT of the ribbon's DOM subtree (menuHTML map, not an
+  // in-place child) — iOS Safari treats -webkit-overflow-scrolling:touch as a new
+  // containing block for position:fixed descendants, trapping them inside the
+  // ribbon's own clipped box (2026-07-12 feedback, repro'd on a real iPhone; the
+  // Chrome-based preview browser used during dev doesn't hit this WebKit quirk).
+  // A single shared #mbPortal, a sibling of .mast-bar rather than its descendant,
+  // sidesteps the quirk entirely regardless of engine.
+  const menuHTML={};
   let bar=`<div class="mb-item"><a href="${location.pathname}" class="${_isHome?'active':''}">\u{1F3E0} Home</a></div>`
          +`<div class="mb-item"><a href="?league=command" class="${_isEdgeBoard?'active':''}">⚽ Matches</a></div>`;
   MAST_GROUPS.forEach(([g,flag,label])=>{ if(!groups[g]||!groups[g].length) return;
-    bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${groups[g][0].id}" class="${activeGroup===g?'active':''}">${flag} ${label}</a>
-      <div class="mb-menu">${groups[g].map(menuLink).join('')}</div></div>`;});
+    menuHTML[g]=groups[g].map(menuLink).join('');
+    bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${groups[g][0].id}" class="${activeGroup===g?'active':''}">${flag} ${label}</a></div>`;});
   bar+=`<div class="mb-item"><a href="?league=power" class="${!_isEdgeBoard&&!_isHome&&!_isLeagues&&!_isFavs&&!_infoPage&&LID==='power'?'active':''}">\u{1F30D} Rankings</a></div>`;
   const live=(H&&H.fixtures&&H.fixtures.length)
     ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">${H.fixtures.length} fixtures modeled in the next 10 days</a><span>· across ${H.stats.leagues} leagues</span></div>`:'';
@@ -892,30 +903,31 @@ const FavStore=(()=>{
         <div class="mast-search"><input id="msq" type="search" placeholder="Search leagues & teams…" autocomplete="off" spellcheck="false"><div class="ms-results" id="msr"></div></div>
         <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
       </div>
-    </div><nav class="mast-bar">${bar}</nav>${live}`;
-  // dropdowns: click toggles (all devices), hover also works via CSS on pointer devices.
-  // .mb-menu is position:fixed (see CSS note), so JS must set left/top before it
-  // shows — both on click and on hover, since CSS `:hover{display:block}` alone
-  // has no positioning info to work with under fixed layout.
-  const positionMbMenu=item=>{
-    const a=item.querySelector('a'), menu=item.querySelector('.mb-menu');
-    if(!a||!menu) return;
+    </div><nav class="mast-bar">${bar}</nav>${live}<div class="mb-portal" id="mbPortal"></div>`;
+  // dropdowns: click toggles (all devices), hover also works via CSS on pointer devices
+  const portal=$('#mbPortal');
+  const openMenu=item=>{
+    const g=item.dataset.group, a=item.querySelector('a');
+    if(!g||!menuHTML[g]) return;
+    portal.innerHTML=menuHTML[g];
     const r=a.getBoundingClientRect(), mw=260;
     const left=Math.max(8,Math.min(r.left,innerWidth-8-mw));
-    menu.style.left=left+'px';
-    menu.style.top=(r.bottom+2)+'px';
+    portal.style.left=left+'px';
+    portal.style.top=(r.bottom+2)+'px';
+    portal.classList.add('open');
+    mast.querySelectorAll('.mb-item.open').forEach(o=>{ if(o!==item) o.classList.remove('open'); });
+    item.classList.add('open');
   };
+  const closeMenu=()=>{ portal.classList.remove('open'); mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open')); };
   mast.querySelectorAll('.mb-item[data-group]').forEach(item=>{
     const a=item.querySelector('a');
     a.addEventListener('click',e=>{
       e.preventDefault();
-      const was=item.classList.contains('open');
-      mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));
-      if(!was){ positionMbMenu(item); item.classList.add('open'); }
+      item.classList.contains('open') ? closeMenu() : openMenu(item);
     });
-    item.addEventListener('mouseenter',()=>positionMbMenu(item));
+    item.addEventListener('mouseenter',()=>openMenu(item));
   });
-  document.addEventListener('click',e=>{if(!mast.contains(e.target))mast.querySelectorAll('.mb-item.open').forEach(o=>o.classList.remove('open'));});
+  document.addEventListener('click',e=>{if(!mast.contains(e.target)&&!portal.contains(e.target))closeMenu();});
   // ── search: leagues from the registry + teams from the lazy-loaded baked index ──
   const msq=$('#msq'), msr=$('#msr');
   let idxLoading=false;
