@@ -31,6 +31,35 @@ _HDR = {"User-Agent": "Mozilla/5.0"}
 # espn_code None → menu entry only (no ESPN team data available under a clean code yet).
 # `group` drives the sidebar's collapsible country/region sections (B13); confederation
 # stays for the Power Rankings cross-league grouping, which is coarser by design.
+# Presentation metadata for the masthead dropdowns / leagues index (2026-07-11
+# feedback: "clear what country the league plays in and what division level").
+# tier=None → cup / continental competition. Keyed by REGISTRY league id.
+LEAGUE_INFO = {
+    "mls": ("United States", 1), "liga-mx": ("Mexico", 1), "canadian-pl": ("Canada", 1),
+    "nwsl": ("United States", 1), "usl-championship": ("United States", 2),
+    "leagues-cup": ("North America", None), "concacaf-champions": ("North America", None),
+    "epl": ("England", 1), "championship": ("England", 2), "league-one": ("England", 3),
+    "league-two": ("England", 4), "national-league": ("England", 5),
+    "bundesliga": ("Germany", 1), "bundesliga-2": ("Germany", 2),
+    "ligue-1": ("France", 1), "ligue-2": ("France", 2),
+    "la-liga": ("Spain", 1), "segunda": ("Spain", 2),
+    "serie-a": ("Italy", 1), "serie-b": ("Italy", 2),
+    "eredivisie": ("Netherlands", 1), "primeira": ("Portugal", 1), "super-lig": ("Turkey", 1),
+    "scottish-prem": ("Scotland", 1), "scottish-champ": ("Scotland", 2),
+    "scottish-league-one": ("Scotland", 3), "scottish-league-two": ("Scotland", 4),
+    "austria-bundesliga": ("Austria", 1), "swiss-super-league": ("Switzerland", 1),
+    "romania-liga1": ("Romania", 1), "ireland-premier": ("Ireland", 1),
+    "russia-premier": ("Russia", 1), "china-super": ("China", 1),
+    "saudi-pro": ("Saudi Arabia", 1), "australia-aleague": ("Australia", 1),
+    "wsl": ("England", 1), "belgian-pro": ("Belgium", 1), "greek-super": ("Greece", 1),
+    "sweden-allsvenskan": ("Sweden", 1), "norway-eliteserien": ("Norway", 1),
+    "denmark-superliga": ("Denmark", 1), "poland-ekstraklasa": ("Poland", 1),
+    "finland-veikkausliiga": ("Finland", 1),
+    "brazil-serie-a": ("Brazil", 1), "argentina-primera": ("Argentina", 1),
+    "japan-j1": ("Japan", 1),
+    "ucl": ("Europe", None), "europa": ("Europe", None), "conference": ("Europe", None),
+}
+
 REGISTRY = [
     # Concacaf / Americas
     ("mls",                 "MLS",                      "usa.1",            "Concacaf", "live", "Americas"),
@@ -38,7 +67,7 @@ REGISTRY = [
     ("canadian-pl",         "Canadian Premier League",  None,               "Concacaf", "live", "Americas"),
     # C2 (ASA track): flip to "live" when their dashboard builders ship;
     # eval gating is per-family (experiments/champion_nwsl.json / champion_usl.json).
-    ("nwsl",                "NWSL",                     "usa.nwsl",         "Concacaf", "live", "Americas"),
+    ("nwsl",                "NWSL",                     "usa.nwsl",         "Concacaf", "live", "Women"),
     ("usl-championship",    "USL Championship",         "usa.usl.1",        "Concacaf", "live", "Americas"),
     ("leagues-cup",         "Leagues Cup",              "concacaf.leagues.cup","Concacaf", "live", "Cups"),
     ("concacaf-champions",  "Concacaf Champions Cup",   "concacaf.champions","Concacaf", "live", "Cups"),
@@ -135,8 +164,10 @@ def main():
     registry = []
     for lid, name, code, conf, status, group in REGISTRY:
         logo = _league_logo(code) if code else None
+        country, tier = LEAGUE_INFO.get(lid, (None, None))
         registry.append({"id": lid, "name": name, "confederation": conf, "group": group,
-                         "status": status, "logo": logo, "espn_code": code})
+                         "status": status, "logo": logo, "espn_code": code,
+                         "country": country, "tier": tier})
         if status == "live":
             print(f"  {lid:18s} live   · logo {'ok' if logo else 'none'} (data built separately: MLS→build_dashboard_data, others→build_league_data)")
             continue
