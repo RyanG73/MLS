@@ -292,6 +292,8 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .plot .rangebar{position:absolute;top:4px;height:6px;border-radius:3px;opacity:.42}
 .plot .fmed{position:absolute;top:2px;width:3px;height:10px;border-radius:1px}
 .plot .fleg{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;font-size:10px;color:var(--txt-3)}
+.plot .fconf-h{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-3);padding:9px 0 4px;border-top:1px solid var(--line)}
+.plot .fconf-h:first-of-type{border-top:none;padding-top:0}
 /* run-in difficulty rows (G1, 2026-07-09) — same 104px name gutter as .frow */
 .ri-row{display:grid;grid-template-columns:104px 1fr 32px 78px;gap:9px;align-items:center;padding:3px 0}
 .ri-row .fn{display:flex;align-items:center;gap:6px;min-width:0}
@@ -1146,6 +1148,10 @@ let simVals=null;         // team -> overridden odds when what-if active
 function runSim(N=10000){
   const t0=performance.now();
   const acc={};SIM.teams.forEach(t=>acc[t]={proj:0,playoff:0,hfa:0,shield:0,spoon:0,conf_win:0,cup:0});
+  // conference-relative finishing-position histogram → feeds finishPlotPanelMLS()
+  // (2026-07-11 feedback: MLS lacked the "projected finish" panel other leagues have).
+  const _confN=Math.max(EAST.length,WEST.length);
+  const finishHist={};SIM.teams.forEach(t=>finishHist[t]=new Float64Array(_confN));
   const fixedPts=new Float64Array(NT);
   const free=[];
   for(let id=0;id<NF;id++){
@@ -1169,6 +1175,7 @@ function runSim(N=10000){
       for(let k=0;k<D.playoff_slots;k++)acc[SIM.teams[order[k]]].playoff++;
       for(let k=0;k<D.hfa_slots;k++)acc[SIM.teams[order[k]]].hfa++;
       acc[SIM.teams[order[0]]].conf_win++;
+      order.forEach((idx,r)=>finishHist[SIM.teams[idx]][r]++);
       finalists.push(confBracket(order.slice(0,9)));
     }
     let bi=0,wi=0;for(let i=1;i<NT;i++){if(key[i]>key[bi])bi=i;if(key[i]<key[wi])wi=i;}
@@ -1177,11 +1184,13 @@ function runSim(N=10000){
     acc[SIM.teams[Math.random()<pwinET(host,guest)?host:guest]].cup++;
     for(let i=0;i<NT;i++)acc[SIM.teams[i]].proj+=pts[i];
   }
+  const pctile=(hist,q)=>{let c=0;const target=q*N;for(let r=0;r<hist.length;r++){c+=hist[r];if(c>=target)return r+1;}return hist.length;};
   const out={};
-  for(const t of SIM.teams){const a=acc[t];out[t]={proj_pts:+(a.proj/N).toFixed(1),
+  for(const t of SIM.teams){const a=acc[t],h=finishHist[t];out[t]={proj_pts:+(a.proj/N).toFixed(1),
     playoff:+(a.playoff/N*100).toFixed(1),hfa:+(a.hfa/N*100).toFixed(1),
     shield:+(a.shield/N*100).toFixed(1),spoon:+(a.spoon/N*100).toFixed(1),
-    conf_win:+(a.conf_win/N*100).toFixed(1),cup:+(a.cup/N*100).toFixed(1)};}
+    conf_win:+(a.conf_win/N*100).toFixed(1),cup:+(a.cup/N*100).toFixed(1),
+    fin_p10:pctile(h,0.10),fin_med:pctile(h,0.50),fin_p90:pctile(h,0.90)};}
   console.log(`runSim(${N}) ${(performance.now()-t0).toFixed(0)}ms`);
   return out;
 }
@@ -1267,9 +1276,53 @@ function ladder(conf){
   });
   return box;
 }
+// ── MLS projected-finish plot (2026-07-11 feedback: "if we are going to stack
+//    the MLS league tables, include the right-side visualizations other
+//    leagues have"). Conference-relative rank distribution, reusing the same
+//    runSim() histogram both the initial load and what-if resimulation share. ──
+let finishValsMLS=null;
+function ensureFinishMLS(){ if(!finishValsMLS && SIM.teams.length) finishValsMLS=runSim(10000); }
+function finishZoneMLS(rank){
+  if(rank<=D.hfa_slots) return 'var(--win)';       // hosts round one
+  if(rank<=D.playoff_slots) return 'var(--qualify)';
+  return 'var(--draw)';
+}
+function finishPlotPanelMLS(){
+  ensureFinishMLS();
+  const src=simVals||finishValsMLS||{};
+  const confN=Math.max(EAST.length,WEST.length);
+  const pos=p=>((p-1)/(Math.max(1,confN-1))*100);
+  const confRows=conf=>{
+    const ranked=D.standings.filter(s=>s.conf===conf).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
+    const rankOf=new Map(ranked.map((s,i)=>[s.team,i+1]));
+    const teams=ranked.map(s=>Object.assign({},s,src[s.team]||{},{fin_med:rankOf.get(s.team)}));
+    return teams.map(t=>{
+      const m=t.fin_med,a=Math.min(t.fin_p10||m,m),b=Math.max(t.fin_p90||m,m),c=finishZoneMLS(Math.round(m));
+      const L=pos(a),W=Math.max(2,pos(b)-pos(a));
+      return `<div class="frow"><span class="fn">${crest(t.team,t.logo)}<b>${t.team}</b></span>`+
+        `<span class="ftrack"><span class="rangebar" style="left:${L.toFixed(1)}%;width:${W.toFixed(1)}%;background:${c}"></span>`+
+        `<span class="fmed" style="left:calc(${pos(m).toFixed(1)}% - 1px);background:${c}"></span></span></div>`;
+    }).join('');
+  };
+  const panel=el('div','panel plotpanel');
+  panel.innerHTML=`<div class="panel-h"><span class="dot" style="background:var(--europa);box-shadow:0 0 8px var(--europa)"></span>`+
+    `<h2>Projected finish</h2><span class="meta">10th–90th pct within conference · ● projected seed</span></div>`+
+    `<div class="plot"><div class="faxis">${axisTicks(confN)}</div>`+
+    `<div class="fconf-h">Eastern Conference</div>${confRows('East')}`+
+    `<div class="fconf-h">Western Conference</div>${confRows('West')}`+
+    `<div class="fleg"><span><i style="background:var(--win)"></i>Hosts Rd 1</span>`+
+    `<span><i style="background:var(--qualify)"></i>Playoffs</span><span><i style="background:var(--draw)"></i>Out</span></div></div>`;
+  return panel;
+}
 function renderOutlook(){
   renderFavs();
-  const l=$('#ladders');l.innerHTML='';l.append(ladder('East'),ladder('West'));
+  const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='minmax(0,1fr) minmax(0,1fr)';l.style.alignItems='start';
+  const left=el('div');left.style.cssText='display:flex;flex-direction:column;gap:var(--s4);min-width:0';
+  left.append(ladder('East'),ladder('West'));
+  const right=el('div');right.style.cssText='display:flex;flex-direction:column;gap:var(--s4);min-width:0';
+  right.appendChild(finishPlotPanelMLS());
+  const ri=runInPanel(); if(ri)right.appendChild(ri);
+  l.append(left,right);
 }
 /* ── table-league outlook: race strip (one card per race) + single ladder ── */
 // Accent class per race key (gold title / green UCL / blue Europa / red relegation).
