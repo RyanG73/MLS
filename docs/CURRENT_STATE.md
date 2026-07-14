@@ -174,6 +174,7 @@ compare half-form values directly with research Brier.
 | MLS dashboard | `scripts/build_dashboard_data.py` | `webapp/data/mls.js` | `models/research_model` |
 | European / table leagues | `scripts/build_league_data.py` | `webapp/data/{epl,la-liga,…}.js` | `models/research_model` |
 | League expansion (Tier-1 + Eng. tier 5) | `scripts/build_league_data.py` (same entrypoint, `--league brazil-serie-a` etc.) | `webapp/data/{brazil-serie-a,japan-j1,sweden-allsvenskan,norway-eliteserien,denmark-superliga,poland-ekstraklasa,argentina-primera,national-league}.js` | `models/research_model` |
+| League expansion round 5 (South America + more Asia + Eerste Divisie) | `scripts/build_league_data.py` (`--league chile-primera` etc.) | `webapp/data/{chile-primera,colombia-primera-a,uruguay-primera,peru-liga1,thai-league-1,eerste-divisie,k-league-1}.js` | `models/research_model` |
 | Continental knockouts | `scripts/build_continental_data.py` | `webapp/data/{ucl,europa,…}.js` | bracket simulator |
 | "Coming soon" stubs + registry | `scripts/fetch_league_teams.py` | placeholders + `webapp/leagues.js` | — |
 | Curated news feeds | `scripts/build_news.py` | `webapp/data/news/<lid>.js` | — (8 RSS sources + routing) |
@@ -206,6 +207,30 @@ an in-season projection. `_CONTINENTAL()` is the non-UEFA bucket shape
 (Champion / one lumped continental-qualification zone / Relegation) used
 for Brazil/Japan/Argentina, since `_TOP()`'s UCL/Europa/Conference labels
 are UEFA-specific.
+
+League expansion round 5 (2026-07-14, `docs/league-expansion-report.md`):
+Chile/Colombia/Uruguay/Peru (CONMEBOL top flights), Thailand (AFC), and
+Eerste Divisie (Netherlands tier 2) source from `data_pipeline/espn_fixtures.py`
+(`source: "espn"`, the same `espn_results_frame` family as Saudi/A-League/WSL)
+— none of the 7 candidates are on football-data.co.uk. South American top
+flights are calendar-year (added to `CALENDAR_YEAR_LEAGUES`); Thailand and
+Eerste Divisie are Aug–May straddles (confirmed live via monthly event-count
+probes — a naive "spans Jan–Dec" check is NOT sufficient, Thailand's raw event
+window spans Jan–Dec too but has a May–Jul gap). K League 1 (South Korea) has
+no ESPN slug under any plausible guess (`kor.1`/`kor.k1`/`k.league.1` all
+verified live to return 0 teams) and ships results-only via
+`data_pipeline/api_football.py` (id 292, free-plan seasons 2022-2024, same
+family as `canadian-pl`) — its raw fixture feed mixes in a K1-vs-K2
+promotion/relegation crossover match under a bare `"Relegation Round"` label
+(distinct from the real `"Relegation Round - N"` bottom-6 split games) and
+uses an inconsistent name for one club in one season; both fixed generically
+in `api_football.py` (`ROUND_EXCLUDE`, `TEAM_RENAME`). Found + fixed in the
+same pass: `liga_mx_label()` (torneo-index → "Cl./Ap.YYYY" labels) was being
+applied to every `source="espn"` league's `perf_by_year`, not just `liga-mx` —
+harmless for `liga-mx` (whose `season` really is a torneo index) but produced
+nonsense labels like `"Ap.3028"` for every other espn-source league (Saudi/
+A-League/WSL had been shipping with this bug since round 4); now gated on
+`lid == "liga-mx"` and all 4 affected leagues rebuilt.
 
 Round-3 payload-contract additions (2026-07-09): second-tier `outlook.columns`
 include a composite `promoted` bucket (`promo_top` + `playoff_band` +

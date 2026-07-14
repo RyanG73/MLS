@@ -639,6 +639,66 @@ OUTLOOK = {
                               "buckets": _CONTINENTAL("European qualification", 3, 2),
                               "green_line": 3, "red_line": 2, "eval_seasons": None,
                               "rules": "Champion → Champions League qualifying; top sides → European competitions (approximate) · bottom relegated, others play a relegation group (the real championship/relegation split is not modeled — plain table) · calendar-year season · results-only: no ESPN schedule source, so no in-season upcoming-fixture list (projections from played matches)"},
+    # Round 5 (2026-07-14): South America + more Asia + Eerste Divisie
+    # (docs/league-expansion-report.md, round-5 section). All ESPN goals-only
+    # (source="espn", same family as Saudi/A-League/WSL) except K League 1
+    # (no ESPN slug — API-Football results-only, CPL's family). South American
+    # top flights split into Apertura/Clausura(+Intermedio) tournaments with
+    # their own playoffs and use multi-year rolling-average relegation tables —
+    # NOT modeled here (same simplification precedent as Argentina's Tier-1
+    # entry): this is a single combined-season table, continental/relegation
+    # counts are real qualification counts even though the underlying format
+    # is approximated. Verified live 2026-07-14: ESPN chi.1/col.1/uru.1/per.1/
+    # tha.1/ned.2 all resolve; kor.1 (and kor.k1/k.league.1) do not.
+    "chile-primera": {"name": "Liga de Primera", "source": "espn", "n": 16,
+                      "confederation": "CONMEBOL",
+                      "buckets": _CONTINENTAL("Copa Libertadores / Sudamericana", 7, 2),
+                      "green_line": 7, "red_line": 2, "eval_seasons": None,
+                      "rules": "Champion, runner-up, and the Copa Chile winner reach the Copa Libertadores; 4th-7th reach the Copa Sudamericana (approximate — the Copa Chile-linked spot creates a gap at 3rd that a simple cut line can't represent) · bottom 2 relegated by a 3-year rolling average table (not modeled here — this is the single-season table) · calendar-year season"},
+    "colombia-primera-a": {"name": "Categoría Primera A", "source": "espn", "n": 20,
+                           "confederation": "CONMEBOL",
+                           "buckets": _CONTINENTAL("Copa Libertadores / Sudamericana", 8, 2),
+                           "green_line": 8, "red_line": 2, "eval_seasons": None,
+                           "rules": "Season splits into Apertura and Clausura round-robin tournaments, each followed by an 8-team playoff (not modeled here — this is a combined single table of all matches played) · the two tournament champions plus the next 2 in the aggregate table reach the Copa Libertadores, the next 3 reach the Copa Sudamericana (approximate) · bottom 2 relegated by a 3-year rolling average table (not modeled here) · calendar-year season"},
+    "uruguay-primera": {"name": "Primera División", "source": "espn", "n": 16,
+                        "confederation": "CONMEBOL",
+                        "buckets": _CONTINENTAL("Copa Libertadores / Sudamericana", 4, 2),
+                        "green_line": 4, "red_line": 2, "eval_seasons": None,
+                        "rules": "Season combines Apertura, Intermedio, and Clausura phases into an annual aggregate table (not modeled here — this is a plain combined-season table) · champion + runner-up + next 2 reach the Copa Libertadores or Copa Sudamericana (approximate — some spots depend on the separate Copa AUF Uruguay and Intermedio results, not modeled) · bottom 2 relegated by a 2-year rolling average table (not modeled here) · calendar-year season"},
+    "peru-liga1": {"name": "Liga 1", "source": "espn", "n": 18,
+                  "confederation": "CONMEBOL",
+                  "buckets": _CONTINENTAL("Copa Libertadores / Sudamericana", 8, 2),
+                  "green_line": 8, "red_line": 2, "eval_seasons": None,
+                  "rules": "Top 4 of the season's cumulative table reach the Copa Libertadores, next 4 reach the Copa Sudamericana · bottom 2 of the cumulative table relegated · the season is actually split into Apertura/Clausura tournaments plus a playoff for the title (not modeled here — this is a combined single table, matching how the cumulative/continental and relegation table is officially built) · calendar-year season"},
+    "thai-league-1": {"name": "Thai League 1", "source": "espn", "n": 16,
+                      "confederation": "AFC",
+                      "buckets": _CONTINENTAL("AFC Champions League", 4, 3),
+                      "green_line": 4, "red_line": 3, "eval_seasons": None,
+                      "rules": "Top 4 reach the AFC Champions League Elite/Two (approximate) · bottom 3 relegated to Thai League 2"},
+    # Eerste Divisie (Netherlands tier 2): no football-data coverage confirmed
+    # (data.php's country list stops at Eredivisie tier 1) and no xG source, so
+    # this ships goals-only via source="espn" rather than the footballdata
+    # second-tier family — custom buckets (not the _PROMO helper) because there
+    # is no reliably modelable automatic relegation (licensing-based, rare) to
+    # put in a trailing "releg" bucket.
+    "eerste-divisie": {"name": "Eerste Divisie", "source": "espn", "n": 20,
+                       "confederation": "UEFA",
+                       "buckets": [
+                           {"key": "promo", "label": "Auto Promotion", "col": "Auto", "top": 2, "card": False},
+                           {"key": "playoff", "label": "Promo Playoff", "col": "Playoff", "band": [3, 8], "card": False},
+                           {"key": "promoted", "label": "Promoted", "col": "Promoted",
+                            "promo_top": 2, "playoff_band": [3, 8]}],
+                       "green_line": 8, "red_line": None, "eval_seasons": None,
+                       "rules": "Champion and runner-up promoted automatically to the Eredivisie · 3rd-8th enter a promotion playoff whose winner faces the Eredivisie's 16th-placed team for the final promotion spot (that cross-league leg isn't modeled — the playoff-band winner is shown directly as promoted) · no fixed automatic relegation (licensing-based, not modeled) · goals-only (no xG source for this tier)"},
+    # K League 1 (South Korea): no ESPN slug under any plausible guess (kor.1,
+    # kor.k1, k.league.1 all confirmed live to return 0 teams) and not on
+    # football-data.co.uk — ships results-only off API-Football's free-plan
+    # seasons (2022-2024), same treatment as Canadian PL.
+    "k-league-1": {"name": "K League 1", "source": "api_football", "n": 12,
+                   "confederation": "AFC",
+                   "buckets": _CONTINENTAL("AFC Champions League", 3, 1),
+                   "green_line": 3, "red_line": 1, "eval_seasons": None,
+                   "rules": "Champion, runner-up, and 3rd reach the AFC Champions League Elite/Two (approximate — a Korea Cup wildcard berth isn't modeled) · bottom club (12th) relegated automatically; 10th-11th enter a relegation playoff vs K League 2 sides (not modeled) · the real format splits into a Championship Round (top 6) / Relegation Round (bottom 6) after 33 rounds — not modeled here, this is the plain full-season table · results-only: no ESPN schedule source and the API-Football free plan only serves 2022-2024 (no current-season fixtures) · no odds source"},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only
@@ -1742,8 +1802,15 @@ def main():
             _tr = df[df["season"] < _y - 1].dropna(subset=["label_result"])
             _fq = np.bincount(_tr["label_result"].values.astype(int), minlength=3) / max(len(_tr), 1)
             _nb = float(np.mean(np.sum((np.tile(_fq, (len(_g), 1)) - _yoh) ** 2, axis=1)))
-            # label: human-readable for accuracy card (ESPN uses torneo labels, others use year)
-            _label = liga_mx_label(_y) if cfg["source"] == "espn" else str(_y)
+            # label: human-readable for accuracy card. liga_mx_label decodes a
+            # sequential Apertura/Clausura torneo index (liga-mx's own season
+            # numbering) into "Cl.2026"/"Ap.2026" — it does NOT apply to other
+            # source="espn" leagues, whose `season` is a real calendar year
+            # (Saudi/A-League/WSL, and round-5's South America/Thailand/Eerste
+            # Divisie); feeding a real year like 2026 through it previously
+            # produced nonsense labels like "Ap.3028" (bug found + fixed
+            # 2026-07-14 while shipping round 5 — see league-expansion-report.md).
+            _label = liga_mx_label(_y) if lid == "liga-mx" else str(_y)
             _rec = {"year": _y, "label": _label,
                     "model": round(_model_b, 4), "naive": round(_nb, 4),
                     "improve_pct": round((_nb - _model_b) / _nb * 100, 2)}
@@ -1784,7 +1851,7 @@ def main():
                                           "pnl": (_fair_odds - 1.0) if _won else -1.0})
                     if _edge < _THRESH:
                         continue
-                    _lbl = liga_mx_label(int(_r["season"])) if cfg["source"] == "espn" else str(int(_r["season"]))
+                    _lbl = liga_mx_label(int(_r["season"])) if lid == "liga-mx" else str(int(_r["season"]))
                     _br.append({"season": int(_r["season"]), "label": _lbl,
                                  "outcome": _oc, "edge": _edge,
                                  "won": _won, "pnl": (_fair_odds - 1.0) if _won else -1.0})

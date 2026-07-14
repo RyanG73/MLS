@@ -57,6 +57,11 @@ LEAGUE_INFO = {
     "finland-veikkausliiga": ("Finland", 1),
     "brazil-serie-a": ("Brazil", 1), "argentina-primera": ("Argentina", 1),
     "japan-j1": ("Japan", 1),
+    # Round 5 (2026-07-14)
+    "chile-primera": ("Chile", 1), "colombia-primera-a": ("Colombia", 1),
+    "uruguay-primera": ("Uruguay", 1), "peru-liga1": ("Peru", 1),
+    "thai-league-1": ("Thailand", 1), "k-league-1": ("South Korea", 1),
+    "eerste-divisie": ("Netherlands", 2),
     "ucl": ("Europe", None), "europa": ("Europe", None), "conference": ("Europe", None),
 }
 
@@ -124,6 +129,17 @@ REGISTRY = [
     ("argentina-primera",   "Liga Profesional Argentina", "arg.1",           "CONMEBOL", "live", "South America"),
     # AFC — Asia (Tier-1 expansion, 2026-07-10)
     ("japan-j1",            "J1 League",                 "jpn.1",            "AFC", "live", "Asia"),
+    # Round 5 (2026-07-14): South America + more Asia + Eerste Divisie
+    # (docs/league-expansion-report.md). ESPN slugs verified live.
+    ("chile-primera",       "Liga de Primera",           "chi.1",            "CONMEBOL", "live", "South America"),
+    ("colombia-primera-a",  "Categoría Primera A",       "col.1",            "CONMEBOL", "live", "South America"),
+    ("uruguay-primera",     "Primera División",          "uru.1",            "CONMEBOL", "live", "South America"),
+    ("peru-liga1",          "Liga 1",                    "per.1",            "CONMEBOL", "live", "South America"),
+    ("thai-league-1",       "Thai League 1",             "tha.1",            "AFC", "live", "Asia"),
+    ("eerste-divisie",      "Eerste Divisie",            "ned.2",            "UEFA", "live", "Other Europe"),
+    # No confirmed ESPN slug (kor.1/kor.k1/k.league.1 all return 0 teams) —
+    # results-only via API-Football, same as canadian-pl above.
+    ("k-league-1",          "K League 1",                None,               "AFC", "live", "Asia"),
     # UEFA — continental cups
     ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "live", "Cups"),
     ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "live", "Cups"),

@@ -2,6 +2,122 @@
 
 *2026-07-09 · prepared for UI feedback round 3 ("write a report of all leagues around the world we should consider expanding to — rank by feasibility")*
 
+> **2026-07-14 update — Round 5: South America + more Asia + Eerste Divisie, all 7 candidates shipped.**
+> User decision: Chile/Colombia/Uruguay/Peru Primera División (CONMEBOL top flights), K League 1
+> (South Korea), Thai League 1, and Eerste Divisie (Netherlands tier 2). Follow-up: "complete item 7"
+> — a prior attempt died mid-run to an account spend-limit error after confirming K League 1 has no
+> ESPN slug; that finding is reused below, everything else is a fresh pass. **All 7 fully shipped** —
+> none needed a `"soon"` placeholder.
+>
+> **Source-verification order used (per league):**
+> 1. ESPN teams endpoint (`site.api.espn.com/apis/site/v2/sports/soccer/<slug>/teams`), live-probed,
+>    not guessed.
+> 2. If no ESPN slug: API-Football free tier (100 req/day shared quota, seasons 2022-2024 only) for
+>    a results-only build, the `canadian-pl` precedent.
+> 3. If neither: `"soon"` placeholder with a `reason` string. Not needed this round.
+>
+> football-data.co.uk was ruled out for all 7 before dispatch (checked live 2026-07-14: its country
+> list has no South American entry besides Argentina/Brazil, no Asian entry besides Japan/China, and
+> no Eerste Divisie — only Eredivisie tier 1).
+>
+> **ESPN slugs verified live (teams endpoint, non-zero team count):**
+>
+> | League | Slug | Teams | Season shape |
+> |---|---|---|---|
+> | Chile Primera División (Liga de Primera) | `chi.1` | 16 | Calendar-year |
+> | Colombia Primera A (Categoría Primera A) | `col.1` | 20 | Calendar-year |
+> | Uruguay Primera División | `uru.1` | 16 | Calendar-year |
+> | Peru Liga 1 | `per.1` | 18 | Calendar-year |
+> | Thai League 1 | `tha.1` | 16 | Aug–May straddle |
+> | Eerste Divisie (Netherlands tier 2) | `ned.2` | 20 | Aug–May straddle |
+> | K League 1 (South Korea) | — none found — | — | — |
+>
+> **Gotcha #1 — a date-span check alone misclassifies season shape.** Naively fetching
+> `dates=20250101-20251231` and checking whether events span the full year is NOT enough to call a
+> league calendar-year: Thai League 1's window for that query spans January through December too,
+> but has a hard gap May–July (its season actually runs Aug–May, straddling two calendar years — the
+> Jan–Apr and Aug–Dec events belong to *different* seasons). Same check applied to Eerste Divisie
+> shows the same Jun–Jul gap. Confirmed via a monthly event-count breakdown, not just first/last
+> event date. The 4 South American leagues have no such gap (continuous Feb/Jan–Dec, format churn
+> from Apertura/Clausura splits notwithstanding) and are genuinely calendar-year.
+>
+> **Gotcha #2 — K League 1 has no ESPN slug, confirmed against 4 guesses.** `kor.1`, `kor.k1`,
+> `k.league.1`, `kor.ext` all return 0 teams live (reused finding + 3 more guesses this round).
+> Not on football-data.co.uk either (Korea absent from its country list). Shipped **results-only**
+> via `data_pipeline/api_football.py` (league id `292`, confirmed via `find_league_id`), free-plan
+> seasons 2022-2024 — same treatment as `canadian-pl`. Two data-quality issues found in K League 1's
+> raw fixture feed and fixed generically in `api_football.py`:
+> - **Cross-tier playoff contamination.** Every season carries a fixture under the bare round label
+>   `"Relegation Round"` (no dash-number — distinct from the real `"Relegation Round - N"` bottom-6
+>   split games) that pits K League 1's relegation-round loser against a K League 2 side. Left in,
+>   this shows up as a 13th team in standings for a handful of matches. Fixed with a new
+>   `ROUND_EXCLUDE: dict[int, set[str]]` (keyed by API-Football league id) applied in
+>   `_parse_fixtures`/`_fetch_league`.
+> - **Inconsistent team naming within one season.** In the 2022 season, the military-rotation club
+>   (which relocates cities every few years) is named `"Sangju Sangmu FC"` in every `"Regular
+>   Season"` fixture but `"Gimcheon Sangmu FC"` (its 2023+ name, post-relocation) in that same
+>   season's `"Relegation Round - N"` fixtures — an API-side retroactive-renaming artifact, not a
+>   real mid-season rename. Fixed with a new `TEAM_RENAME: dict[tuple[int, int], dict[str, str]]`
+>   (keyed by `(af_id, season)`), applied at parse time. Verified after both fixes: all 3 free
+>   seasons (2022-2024) show exactly 12 real K League 1 teams in `"Regular Season"` rounds.
+>
+> **Gotcha #3 — a real, unrelated bug found and fixed in the shared build path.**
+> `build_league_data.py` was calling `liga_mx_label()` — which decodes a *sequential Apertura/
+> Clausura torneo index* (liga-mx's own season numbering, e.g. `19 → "Cl.2026"`) — for `perf_by_year`
+> and edge-backtest labels on **every** `source="espn"` league, gated on `cfg["source"] == "espn"`
+> instead of `lid == "liga-mx"`. Harmless for liga-mx (whose `season` really is a torneo index), but
+> for every other espn-source league `season` is a real calendar year — feeding e.g. `2026` through
+> `season_label()` computes a bogus multi-thousand year (`idx = 2025`, `year = base + 2025 // 2`),
+> producing nonsense labels like `"Ap.3028"`. This has been shipping since round 4: Saudi Pro League
+> and A-League Men and WSL's `perf_by_year` arrays have carried these bogus labels since 2026-07-11.
+> Fixed by gating both call sites on `lid == "liga-mx"`; Saudi/A-League/WSL rebuilt alongside the 7
+> new leagues to pick up the fix (labels now read e.g. `"2024"`, `"2025"`).
+>
+> **Continental qualification / relegation counts** (the numbers that matter for each league's
+> `rules` string and bucket `top`/`bottom` cutoffs) were verified via live web search per country
+> (not assumed from stale general knowledge), since several of these federations changed their
+> allocation rules for the current CONMEBOL/AFC cycle. Where the real format is a split
+> Apertura/Clausura(+playoff) season with multi-year rolling-average relegation tables (Chile,
+> Colombia, Uruguay, Peru — same shape as Argentina's round-1 caveat), the shipped model uses a
+> single combined-season table with the real qualification/relegation **counts**, and the `rules`
+> string says plainly that the split-format/rolling-average mechanics aren't modeled. Peru's format
+> maps unusually cleanly onto a plain table (its own "cumulative table" IS the official continental/
+> relegation basis, contiguous top 4 → Libertadores, next 4 → Sudamericana, bottom 2 relegated) — no
+> gap-cutline caveat needed there. Chile has a real discontinuity (Copa Chile winner takes a
+> Libertadores berth that would otherwise be 3rd's; Sudamericana is 4th-7th, skipping 3rd) that a
+> simple top-N cut line can't represent — caveated explicitly rather than silently overstated.
+>
+> Eerste Divisie ships on `source="espn"` (not the `footballdata` second-tier family, since it has
+> no football-data coverage) with **custom buckets** instead of the `_PROMO()` helper — there is no
+> reliably modelable automatic relegation (licensing-based, rare) to put in a trailing `"releg"`
+> bucket, so the bucket list stops after `promo`/`playoff`/`promoted`, matching the no-relegation
+> precedent already used by `australia-aleague`/`liga-mx`/`nwsl`/`usl-championship`. Live-verified
+> 2025-26 format (search, not memory): champion + runner-up promote automatically (a change from the
+> historically-remembered "only the champion" rule); 3rd-8th enter a promotion playoff whose winner
+> then faces the Eredivisie's 16th-placed side for the final spot — that cross-league leg isn't
+> modeled (no fabricated `barrage_win_rate`; the playoff-band winner is shown directly as promoted,
+> which is the sim's default behavior when `barrage_win_rate` is omitted).
+>
+> **Two more pre-existing, unrelated bugs found while validating this round's payloads** (both
+> flagged as separate follow-up tasks, not fixed here — out of scope for a league-expansion pass):
+> `scripts/build_logo_map.py` crashes (`AttributeError: 'list' object has no attribute 'get'`) on
+> `webapp/data/search-index.js`, which is a top-level JSON list; the script has its own stale
+> exclusion list instead of importing the canonical `_NON_PAYLOAD` set from `validate_payloads.py`.
+> `tests/test_build_movers.py` has 3 failures because `compute_movers()` now returns a 3-tuple
+> `(movers, actual_span_days, earliest_used_date)` but the tests still unpack it as a plain list.
+> One drive-by fix WAS made here (directly blocking this round's own validation): `calendar.js`
+> (added in `3279e2a`, the commit immediately prior to this round) was missing from the canonical
+> `_NON_PAYLOAD` set in `validate_payloads.py`, failing both payload-contract validation and
+> `tests/test_fetch_league_teams.py`'s REGISTRY-vs-disk test — added to the set.
+>
+> **Registration:** `scripts/fetch_league_teams.py` REGISTRY + `LEAGUE_INFO` (all `status: "live"`
+> from the start — no interim `"soon"` stub needed since every source was already confirmed working
+> before registration); `scripts/build_league_data.py` OUTLOOK entries; `data_pipeline/
+> espn_fixtures.py` SLUGS + `CALENDAR_YEAR_LEAGUES`; `data_pipeline/api_football.py` LEAGUE entry.
+> `webapp/leagues.js` now 56 leagues (0 `"soon"` stubs). All 7 new payloads + the 3 rebuilt
+> pre-existing ones pass `scripts/validate_payloads.py` (57/57 after the `calendar.js` fix) and the
+> full test suite (1006 passed / 15 skipped / 3 pre-existing unrelated failures flagged above).
+
 > **2026-07-10 update — all 7 Tier-1 leagues + the England National League item now LIVE**,
 > built and shipped in this report's ranked order (Brazil → Japan → Sweden → Norway → Denmark
 > → Poland → Argentina), England National League last, per an explicit user decision. Two

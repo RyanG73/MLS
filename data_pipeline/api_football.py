@@ -43,6 +43,36 @@ LEAGUE: dict[str, tuple[int, list[int]]] = {
     # football-data and they ship results-only (the free tier can't serve their
     # 2026 upcoming fixtures anyway).
     "canadian-pl":            (479, [2022, 2023, 2024]),
+    # Round 5 (2026-07-14): K League 1 (South Korea) has NO working ESPN slug
+    # (kor.1 / kor.k1 / k.league.1 all confirmed live to return 0 teams) and
+    # is not on football-data.co.uk. Ships results-only off the free plan's
+    # 2022-2024 seasons, same treatment as CPL.
+    "k-league-1":             (292, [2022, 2023, 2024]),
+}
+
+# Some leagues' /fixtures response mixes in a promotion/relegation playoff vs a
+# team from the tier below (not part of the league table). Found in K League 1
+# (id 292): every season carries a bare "Relegation Round" fixture (no dash-
+# number, distinct from the real "Relegation Round - N" bottom-6 split games)
+# that pits K League 1's relegation-round loser against a K League 2 side —
+# confirmed by diffing round-by-round team sets across all 3 free seasons
+# (2022-2024), each of which has exactly 12 real K League 1 teams in "Regular
+# Season" rounds plus exactly one extra name appearing ONLY in the bare
+# "Relegation Round". Excluded by exact round-name match so standings don't
+# pick up a 13th team for a handful of matches.
+ROUND_EXCLUDE: dict[int, set[str]] = {
+    292: {"Relegation Round"},
+}
+
+# Some leagues' /fixtures response uses inconsistent team names for the SAME
+# club within one season. Found in K League 1's 2022 season: the military
+# rotation club is "Sangju Sangmu FC" in every "Regular Season" fixture but
+# "Gimcheon Sangmu FC" (its 2023+ name, after relocating cities) in that
+# season's "Relegation Round - N" fixtures — an API-side data artifact, not a
+# real name change mid-season. Renamed at parse time so 2022 doesn't split one
+# club's record across two identities. Keyed by (af_id, season).
+TEAM_RENAME: dict[tuple[int, int], dict[str, str]] = {
+    (292, 2022): {"Gimcheon Sangmu FC": "Sangju Sangmu FC"},
 }
 
 
@@ -98,17 +128,28 @@ def find_league_id(search: str) -> list[dict]:
 
 
 # ── parsing ──────────────────────────────────────────────────────────────────
-def _parse_fixtures(payload: dict) -> pd.DataFrame:
-    """API-Football /fixtures response → canonical _COLS frame."""
+def _parse_fixtures(payload: dict, exclude_rounds: set[str] | None = None,
+                     af_id: int | None = None) -> pd.DataFrame:
+    """API-Football /fixtures response → canonical _COLS frame.
+
+    `exclude_rounds` drops fixtures whose exact `league.round` string matches
+    (see ROUND_EXCLUDE) — used to strip cross-tier playoff fixtures that
+    aren't part of the league table. `af_id` (with the row's season) looks up
+    TEAM_RENAME to fix same-club naming inconsistencies within one season.
+    """
     rows = []
     for f in payload.get("response", []):
+        if exclude_rounds and f.get("league", {}).get("round") in exclude_rounds:
+            continue
         fx, teams, goals = f["fixture"], f["teams"], f.get("goals", {})
         st = fx.get("status", {}).get("short", "")
         is_result = st in _FINISHED
         season = int(f["league"]["season"])
         dt = pd.to_datetime(fx.get("date"), utc=True, errors="coerce")
         date = dt.tz_localize(None).normalize() if pd.notna(dt) else pd.NaT
-        ht, at = teams["home"]["name"], teams["away"]["name"]
+        rename = TEAM_RENAME.get((af_id, season), {}) if af_id is not None else {}
+        ht = rename.get(teams["home"]["name"], teams["home"]["name"])
+        at = rename.get(teams["away"]["name"], teams["away"]["name"])
         hg = goals.get("home") if is_result else None
         ag = goals.get("away") if is_result else None
         label = np.nan
@@ -136,6 +177,7 @@ def _parse_fixtures(payload: dict) -> pd.DataFrame:
 def _fetch_league(af_id: int, seasons: list[int]) -> pd.DataFrame:
     _CACHE.mkdir(parents=True, exist_ok=True)
     latest = max(seasons) if seasons else None
+    exclude = ROUND_EXCLUDE.get(af_id)
     frames = []
     for s in seasons:
         cache = _CACHE / f"{af_id}_{s}.json"
@@ -145,7 +187,7 @@ def _fetch_league(af_id: int, seasons: list[int]) -> pd.DataFrame:
             payload = _get("fixtures", {"league": af_id, "season": s})
             cache.write_text(json.dumps(payload))
             time.sleep(1)                      # gentle on the free tier
-        frames.append(_parse_fixtures(payload))
+        frames.append(_parse_fixtures(payload, exclude, af_id))
     frames = [f for f in frames if not f.empty]
     if not frames:
         return pd.DataFrame(columns=_COLS)

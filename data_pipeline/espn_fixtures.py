@@ -71,6 +71,13 @@ SLUGS = {
     # route through espn_results_frame; all are Aug/Sep/Oct–May straddles (not
     # calendar-year), so the default Jul–Jun window applies.
     "saudi-pro": "ksa.1", "australia-aleague": "aus.1", "wsl": "eng.w.1",
+    # Round 5 (2026-07-14): South America + more Asia + Eerste Divisie. All
+    # slugs verified live against the ESPN teams endpoint before use (kor.1 /
+    # kor.k1 / k.league.1 tried for South Korea and confirmed to return 0
+    # teams — K League 1 has no ESPN slug, see api_football.py instead).
+    "chile-primera": "chi.1", "colombia-primera-a": "col.1",
+    "uruguay-primera": "uru.1", "peru-liga1": "per.1",
+    "thai-league-1": "tha.1", "eerste-divisie": "ned.2",
 }
 
 # Leagues whose season is a calendar year (dates window Jan–Dec of `season`)
@@ -87,7 +94,14 @@ CALENDAR_YEAR_LEAGUES = {"nwsl", "usl-championship",
                          "ireland-premier",
                          # China Super League runs Mar–Nov (calendar year); Russia
                          # keeps the Aug–May straddle.
-                         "china-super"}
+                         "china-super",
+                         # Round 5 (2026-07-14): South American top flights run
+                         # calendar-year (Feb/Jan–Dec, verified live via monthly
+                         # event-count probes). Thai League 1 and Eerste Divisie
+                         # are Aug–May straddles (probe showed a May–Aug gap for
+                         # both) — intentionally NOT in this set.
+                         "chile-primera", "colombia-primera-a",
+                         "uruguay-primera", "peru-liga1"}
 
 # ESPN displayName → Understat team key, per league.
 # Only names that DIFFER between the two sources need an entry.
