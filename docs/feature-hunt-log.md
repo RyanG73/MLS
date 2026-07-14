@@ -1,5 +1,66 @@
 # MLS Feature Hunt Log
 
+## 2026-07-14 — Value x Age interaction (+TM_ValueAge, user contract/age hypothesis) — DROP
+
+**Hypothesis (user-directed, 2026-07-14 feedback):** raw Transfermarkt squad value conflates
+current playing quality with age-driven reputation/contract effects — "two of the exact same
+player might be worth different amounts if one has five years left on his contract and the
+other has one," and an aging superstar (Messi) can carry high value despite declining current
+output. Requested features: contract-years-remaining and age, "modeling transfer value only
+based on current season value."
+
+**Data-availability finding (blocks half the ask):** contract-years-remaining is **not
+available anywhere in this codebase.** Traced the full ingestion path —
+`scripts/import_transfermarkt.py` and `models/r_bridge/transfermarkt_squad_values.R` — the R
+bridge only scrapes `player_name`, `position`, `market_value_eur`, `age`, `nationality` via
+`tm_squad_stats()` + the kader market-value page; no contract-expiry field is fetched. Per-player
+rows are also never persisted past the team-season aggregation — only the team-level
+`*_mapped.csv` files (squad_value_eur, tilt, value_wtd_age, dp_value_share, etc.) survive to
+disk, so there's no local per-player data to backfill a contract feature from either. Adding
+contract-years would require a new scrape (editing the R bridge / import script), which is both
+out of the feature-engineer's component scope (feature-computation + `AB_SETS` in
+`eval_baseline.py` only) and out of the ASA/already-fetched-data source constraint. This is a
+pipeline-level gap, not a modeling one — flagged for a future data-ingestion task, not attempted
+here.
+
+**What was tested instead:** the closest available proxy for the age/value-conflation part of
+the hypothesis, built entirely from already-fetched data. New `+TM_ValueAge` AB set: an explicit
+value x age interaction term —
+`home_value_age_interact = home_squad_value_z * (home_val_age - 27)` (27 = canonical
+football-analytics "prime" age), symmetric for away, plus the diff. This directly encodes "same
+value, different age → different true current quality" as a signed interaction (old+valuable =
+reputation/legacy value; young+valuable = rising quality), on top of the two features that feed
+it (`+TM_SquadValue`, previously DROP; `+TM_Age`/`value_wtd_age`, previously marginal Δ=+0.0002).
+
+**Result** (`--ab-only "Base,+TM_ValueAge" --xgb-bag 5 --seed 42 --cache`, `ens_stacked_brier`,
+2022–2024 3-fold, MLS):
+
+| AB set | Brier | Δ vs Base |
+|--------|-------|-----------|
+| Base | 0.635213 | — |
+| +TM_ValueAge | 0.638497 | **−0.003284** |
+
+best_brier (BestAB, i.e. Base) = 0.634771, max_decile_cal_error = 0.137152. Per-season Base
+numbers: 2022 0.634384, 2023 0.635659, 2024 0.63427 — Base wins comfortably in all three folds;
+the interaction column made the ensemble strictly worse everywhere it was tried.
+
+**Verdict: DROP.** Δ = −0.0033 is ~16x the single-bagged-run noise floor (σ≈0.0002), a clean
+regression with no ambiguity — no second-seed confirmation needed (DROP verdicts are unambiguous
+per `docs/experiment-protocol.md`; second-seed confirmation is reserved for gate-bound KEEP
+claims). Consistent with the established pattern in this log: `+TM_SquadValue` alone (DROP),
+`+TM_Top15` (DROP), `+TM_Age` alone (marginal) — MLS's within-season z-scored TM value signal is
+already thin, and multiplying it by a centered age term appears to have amplified noise rather
+than isolated the hypothesized "reputation discount," the same anti-stacking failure mode seen
+in the `+TZ_Pythag` interaction probe (2026-05-31: two marginal singles combined into a DROP).
+Code reverted per protocol §4 (`git checkout scripts/eval_baseline.py`) — no `+TM_ValueAge`
+AB set remains registered, `_FEAT_BASE` unchanged, no production files touched
+(`features/`, `models/`, `config/` untouched throughout).
+**experiment_id:** feat-tm-valueage-20260714T112651 (`experiments/feat-tm-valueage-20260714T112651.json`)
+**Recommendation:** do not port to production. If the age/contract angle is revisited, the real
+lever per the user's own framing is contract-years-remaining, not an age transform on existing
+value — and that requires a data-ingestion change (contract-expiry scraping in the R bridge +
+persisting per-player rows) before any harness experiment can test it honestly.
+
 ## 2026-07-11 — Draw-Brier campaign Phase 0: per-match draw decomposition — NO-GO (campaign closed; settles M2 definitively)
 
 **Hypothesis:** with the full per-match component dump (calibrated DC/XGB/hurdle vectors, blend,
