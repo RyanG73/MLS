@@ -1,5 +1,33 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-13 — Postgame win expectancy model (new, additive research capability)**
+> User feedback: the webapp only shows PRE-match win probabilities; there was no
+> "how deserved was this result" number for completed matches (Bill-Connelly-style
+> postgame WE — a 1-0 win on one shot should read as low deserved-ness, not a flat
+> 100%). Built `scripts/postgame_win_expectancy.py`, a standalone model separate
+> from the pre-match Dixon-Coles/XGBoost pipeline — does not touch
+> `models/research_model.py`, `features/`, `config/`, or `scripts/eval_baseline.py`.
+> Binary logistic regression `P(team wins | final xg_for, xg_against)`, fit
+> symmetrically (2 rows/match: home + away perspective), quadratic feature set
+> `[xg_for, xg_against, xg_for², xg_against², xg_for·xg_against]`, grouped 5-fold
+> CV (grouped by match_id, no leakage), validated at 2 seeds per CLAUDE.md's
+> protocol. Trained on 30,647 completed matches (61,294 team-match rows) across 8
+> leagues with actual per-match xG on file (Understat Big-5 + ASA MLS/NWSL/USLC),
+> 2013-2026, 2020 excluded. Key finding: a single universal model pooled across
+> all 8 leagues looked calibrated in aggregate (0.014 decile error) but hid a real
+> per-league problem — MLS/NWSL/USLC (ASA xG) came out 0.06-0.09 vs Big-5's
+> 0.02-0.045, because Understat and ASA compute xG on different scales. Fitting
+> one model per source family (mirroring the existing MLS/NWSL/USL/big-5
+> "League-Family Champions" governance in `docs/CURRENT_STATE.md`) fixed most of
+> the gap. Final pooled calibration: max decile error 0.0146 (seed 42) / 0.0157
+> (seed 7), Brier 0.1747 — both well under the 0.05 target. USLC (0.059), playoffs
+> (0.095, n=792), and the 2026 in-progress season (0.097, n=1010) sit above target
+> as small-sample/known caveats; NWSL is the noisiest league overall (734 matches).
+> Full methodology, decile tables, and per-slice numbers in
+> `docs/postgame-win-expectancy.md`; raw report in
+> `experiments/postgame_we_report.json`. Not yet wired into the webapp — additive
+> only, ready to ship for Recent Results with the caveats above disclosed.
+
 > **2026-07-11 — NYT redesign feedback round: search, world map, MLS finish plot, season status, headline rewrite**
 > User feedback batch on the redesign shipped earlier the same day (16 items). Registry
 > gained `country`+`tier` metadata on every league (NWSL moved to the Women group);

@@ -49,6 +49,12 @@ experiments/*.json
 !experiments/league_offsets.json
 # Track the tier-2 → tier-1 ELO offsets (small, deterministic output of tier_bridge.py)
 !experiments/tier2_offsets.json
+# Track the postgame win-expectancy fitted coefficients — build_league_data.py /
+# build_dashboard_data.py read this at build time via compute_we() to populate
+# every completed game's we_h/we_a fields (small, deterministic output of
+# scripts/postgame_win_expectancy.py; without it the production build silently
+# skips postgame WE for everyone).
+!experiments/postgame_we_report.json
 # Track B4's trust-slice source: same champion config as challenger-bag5.report.json,
 # regenerated with current model_report.py so A1's slices + A3's promoted_team_brier
 # are populated (the pinned challenger-bag5.report.json predates both). Regenerate via

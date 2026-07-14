@@ -1,0 +1,25 @@
+{
+  "name": "Entenser — Football Probabilities",
+  "short_name": "Entenser",
+  "description": "Market-blind football win probabilities, standings projections, and model movement across 40+ leagues.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0e12",
+  "theme_color": "#0b0e12",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "assets/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

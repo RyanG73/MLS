@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"league-two","generated":"2026-07-10 11:10 UTC","items":[]};
+window.NEWS_DATA = {"league":"league-two","generated":"2026-07-14 02:29 UTC","items":[{"title":"Can This Be The Year Barrow AFC Break Into A Playoff Spot - EFL League Two 2024/25","link":"https://totalfootballanalysis.substack.com/p/can-this-be-the-year-barrow-afc-break","desc":"Venkatanarayanan - Total Football Analyst","published":"2024-12-23T13:02:52+00:00","source":"Total Football Analysis","is_analysis":false}]};

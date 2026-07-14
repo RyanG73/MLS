@@ -25,6 +25,7 @@ import pandas as pd
 from data_pipeline.http import espn_get  # noqa: E402
 from scripts.payload_utils import write_js_payload, health_feature_stats, outcome_skill_block  # noqa: E402
 from scripts.eval.upcoming_features import latest_team_features  # noqa: E402
+from scripts.postgame_win_expectancy import compute_we  # noqa: E402
 
 _ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1"
 
@@ -620,6 +621,10 @@ def main():
           f"teams with trophies: {len(_trophies)}")
 
     # ── Game cards: played (ensemble) + upcoming (DC) ────────────────────────
+    # Postgame win expectancy (2026-07-14 feedback) — MLS is ASA-sourced xG,
+    # same family the model was fit+validated on; see build_league_data.py's
+    # identical wiring for the fuller rationale.
+    _we_available = Path("experiments/postgame_we_report.json").exists()
     games = []
     for i, r in played.iterrows():
         h, a = r["home_team"], r["away_team"]
@@ -627,6 +632,10 @@ def main():
             continue
         res = "H" if r["home_goals"] > r["away_goals"] else "D" if r["home_goals"] == r["away_goals"] else "A"
         _lam, _mu = dc_lam_mu(h, a)
+        _hxg, _axg = r.get("home_xg"), r.get("away_xg")
+        _has_row_xg = _we_available and pd.notna(_hxg) and pd.notna(_axg)
+        _we_h = compute_we(float(_hxg), float(_axg), "asa") if _has_row_xg else None
+        _we_a = compute_we(float(_axg), float(_hxg), "asa") if _has_row_xg else None
         games.append({"date": r["date"].strftime("%Y-%m-%d"), "home": id2name.get(h), "away": id2name.get(a),
                       "pH": round(float(pe[i, 0]), 3), "pD": round(float(pe[i, 1]), 3),
                       "pA": round(float(pe[i, 2]), 3),
@@ -634,7 +643,10 @@ def main():
                       "hg": int(r["home_goals"]),
                       "ag": int(r["away_goals"]), "result": res,
                       "hlogo": meta(h).get("logo"), "alogo": meta(a).get("logo"),
-                      "hcolor": meta(h).get("color"), "acolor": meta(a).get("color")})
+                      "hcolor": meta(h).get("color"), "acolor": meta(a).get("color"),
+                      "hxg": round(float(_hxg), 2) if pd.notna(_hxg) else None,
+                      "axg": round(float(_axg), 2) if pd.notna(_axg) else None,
+                      "we_h": _we_h, "we_a": _we_a})
     games += upcoming_cards
     games.sort(key=lambda g: g["date"])
 

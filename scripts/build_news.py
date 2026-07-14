@@ -37,7 +37,12 @@ _HDR = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
 OUT_DIR = Path("webapp/data/news")
 
 # English-language, analysis-leaning sources: four global/England outlets plus
-# one per big European country (2026-07-09 feedback round).
+# one per big European country (2026-07-09 feedback round). Total Football
+# Analysis added 2026-07-14 (feedback: "source more articles ... intelligent
+# analysis") — a tactics-specific outlet, verified live and English before
+# adding (several other tactical sites checked — StatsBomb's blog is defunct
+# post-Hudl acquisition, Spielverlagerung's feed is majority Dutch, These
+# Football Times is history/culture not tactics — none were a good fit).
 FEEDS = [
     {"name": "The Athletic",   "url": "https://www.nytimes.com/athletic/rss/football/"},
     {"name": "The Guardian",   "url": "https://www.theguardian.com/football/rss"},
@@ -47,12 +52,22 @@ FEEDS = [
     {"name": "Get French Football News", "url": "https://www.getfootballnewsfrance.com/feed/"},
     {"name": "DW Sports", "url": "https://rss.dw.com/xml/rss-en-sports"},
     {"name": "Football España", "url": "https://www.football-espana.net/feed/"},
+    {"name": "Total Football Analysis", "url": "https://totalfootballanalysis.substack.com/feed"},
 ]
 
 # Not gossip-bait: drop items that are transfer-rumour churn rather than news.
 GOSSIP = re.compile(
     r"rumou?rs?|gossip|linked with|transfer news live|transfer talk|paper talk"
     r"|reportedly (?:eyeing|keen|interested|targeting)|here we go|done deal",
+    re.I)
+
+# Tactical/analysis signal (2026-07-14): tags items — from ANY feed, not just
+# Total Football Analysis — as analysis-leaning so a future "Tactical Reads"
+# rail can filter on it without needing a source allowlist.
+ANALYSIS_SIGNAL = re.compile(
+    r"\btactic|\bformation|press(?:ing)?|build[- ]up play|shape\b|xG\b|"
+    r"expected goals|set[- ]piece|man[- ]marking|zonal|counter[- ]press|"
+    r"low block|overload|half[- ]space",
     re.I)
 
 # League-name aliases (lowercase substring match). Club names are added from
@@ -195,6 +210,7 @@ def main() -> int:
             if is_gossip(it["title"], it["desc"]):
                 continue
             it["published"] = _iso(it["published"])
+            it["is_analysis"] = bool(ANALYSIS_SIGNAL.search(f'{it["title"]} {it["desc"]}'))
             for lid in route_item(it["title"], it["desc"], keywords):
                 per_league[lid].append(it)
                 routed += 1

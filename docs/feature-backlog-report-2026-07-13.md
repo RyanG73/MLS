@@ -9,6 +9,30 @@ starts.
 
 ---
 
+## Decisions (2026-07-13, second pass)
+
+| # | Item | Decision |
+|---|------|----------|
+| 1 | Tactical-breakdown RSS | Extend `build_news.py` — build now |
+| 2 | Podcast/YouTube RSS | Long-term — revisit later, no build yet |
+| 3 | Social-media RSS | Pass — X/Twitter has no free RSS path, Bluesky/Mastodon value judged too narrow to prioritize |
+| 4 | Ad space | Reserve placements, no ad network integration yet |
+| 5 | Subscription model | Long-term — revisit later, no build yet |
+| 6 | Mobile app | Wrap as a PWA — build now |
+| 7 | More projection-only leagues | Build: Chile/Colombia/Uruguay/Peru Primera, K League 1, Thai League, Eerste Divisie |
+| 8 | Brier-score presentation | Agreed — build the relative-scale framing |
+| 9 | Momentum charts | Build the capability (needs new shot-level data ingestion first) |
+| 10 | Postgame win-expectancy model | Build + validate calibration before shipping |
+| 11 | Transfer value (contract+age) | Test via the eval harness, not shipped straight to production |
+| 12 | Transfer spend/earnings | Build the data pull + feature, same harness test |
+| 13 | UEFA comprehensive phases | Build in full — lives in the UCL/Europa/Conference tabs |
+
+Items 9, 10, 12, and 13 are multi-session projects (new data pipelines, a new
+model, real combinatorial complexity respectively) — each gets its own
+progress note below rather than a single "done" checkbox.
+
+---
+
 ## 1. RSS-in tactical-breakdown articles ("intelligent analysis")
 
 **Current state:** `scripts/build_news.py` already does exactly this pattern —

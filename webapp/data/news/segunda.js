@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"segunda","generated":"2026-07-10 11:10 UTC","items":[]};
+window.NEWS_DATA = {"league":"segunda","generated":"2026-07-14 02:29 UTC","items":[]};

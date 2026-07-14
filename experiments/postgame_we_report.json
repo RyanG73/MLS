@@ -1,0 +1,384 @@
+{
+  "n_matches": 30647,
+  "n_rows": 61294,
+  "leagues": [
+    "bundesliga",
+    "epl",
+    "la-liga",
+    "ligue-1",
+    "mls",
+    "nwsl",
+    "serie-a",
+    "uslc"
+  ],
+  "season_range": [
+    2013,
+    2026
+  ],
+  "excluded_season": 2020,
+  "feature_sets": {
+    "linear_diff_total": {
+      "seed": 42,
+      "brier": 0.175173,
+      "log_loss": 0.522591,
+      "max_decile_cal_error": 0.024
+    },
+    "quadratic_for_against": {
+      "seed": 42,
+      "brier": 0.174683,
+      "log_loss": 0.520782,
+      "max_decile_cal_error": 0.0146
+    },
+    "linear_diff_total_homeflag": {
+      "seed": 42,
+      "brier": 0.174688,
+      "log_loss": 0.521419,
+      "max_decile_cal_error": 0.0236
+    }
+  },
+  "pooled_vs_family_ablation": {
+    "by_league": {
+      "bundesliga": {
+        "pooled_cal_err": 0.0446,
+        "per_family_cal_err": 0.0236
+      },
+      "epl": {
+        "pooled_cal_err": 0.0219,
+        "per_family_cal_err": 0.0171
+      },
+      "la-liga": {
+        "pooled_cal_err": 0.0358,
+        "per_family_cal_err": 0.0446
+      },
+      "ligue-1": {
+        "pooled_cal_err": 0.0411,
+        "per_family_cal_err": 0.0252
+      },
+      "mls": {
+        "pooled_cal_err": 0.0923,
+        "per_family_cal_err": 0.0533
+      },
+      "nwsl": {
+        "pooled_cal_err": 0.0612,
+        "per_family_cal_err": 0.0629
+      },
+      "serie-a": {
+        "pooled_cal_err": 0.0452,
+        "per_family_cal_err": 0.0549
+      },
+      "uslc": {
+        "pooled_cal_err": 0.0634,
+        "per_family_cal_err": 0.025
+      }
+    },
+    "pooled_overall_cal_err": 0.0142,
+    "family_overall_cal_err": 0.024
+  },
+  "chosen_feature_set": "quadratic_for_against",
+  "seed_validation": {
+    "42": {
+      "brier": 0.174683,
+      "log_loss": 0.520782,
+      "max_decile_cal_error": 0.0146,
+      "decile_table": [
+        {
+          "decile": "0.0-0.1",
+          "n": 8230,
+          "mean_pred": 0.0552,
+          "actual_win_rate": 0.0469,
+          "abs_error": 0.0083
+        },
+        {
+          "decile": "0.1-0.2",
+          "n": 10183,
+          "mean_pred": 0.1499,
+          "actual_win_rate": 0.1548,
+          "abs_error": 0.0049
+        },
+        {
+          "decile": "0.2-0.3",
+          "n": 9384,
+          "mean_pred": 0.2492,
+          "actual_win_rate": 0.2509,
+          "abs_error": 0.0017
+        },
+        {
+          "decile": "0.3-0.4",
+          "n": 8017,
+          "mean_pred": 0.3486,
+          "actual_win_rate": 0.3632,
+          "abs_error": 0.0146
+        },
+        {
+          "decile": "0.4-0.5",
+          "n": 6816,
+          "mean_pred": 0.4486,
+          "actual_win_rate": 0.4459,
+          "abs_error": 0.0027
+        },
+        {
+          "decile": "0.5-0.6",
+          "n": 5833,
+          "mean_pred": 0.5482,
+          "actual_win_rate": 0.5416,
+          "abs_error": 0.0067
+        },
+        {
+          "decile": "0.6-0.7",
+          "n": 4792,
+          "mean_pred": 0.6485,
+          "actual_win_rate": 0.6346,
+          "abs_error": 0.0139
+        },
+        {
+          "decile": "0.7-0.8",
+          "n": 3920,
+          "mean_pred": 0.7483,
+          "actual_win_rate": 0.7416,
+          "abs_error": 0.0068
+        },
+        {
+          "decile": "0.8-0.9",
+          "n": 2947,
+          "mean_pred": 0.8457,
+          "actual_win_rate": 0.8565,
+          "abs_error": 0.0107
+        },
+        {
+          "decile": "0.9-1.0",
+          "n": 1172,
+          "mean_pred": 0.9288,
+          "actual_win_rate": 0.9317,
+          "abs_error": 0.0029
+        }
+      ]
+    },
+    "7": {
+      "brier": 0.174679,
+      "log_loss": 0.520788,
+      "max_decile_cal_error": 0.0157,
+      "decile_table": [
+        {
+          "decile": "0.0-0.1",
+          "n": 8258,
+          "mean_pred": 0.0553,
+          "actual_win_rate": 0.0471,
+          "abs_error": 0.0082
+        },
+        {
+          "decile": "0.1-0.2",
+          "n": 10146,
+          "mean_pred": 0.1499,
+          "actual_win_rate": 0.1554,
+          "abs_error": 0.0055
+        },
+        {
+          "decile": "0.2-0.3",
+          "n": 9412,
+          "mean_pred": 0.2492,
+          "actual_win_rate": 0.2511,
+          "abs_error": 0.0018
+        },
+        {
+          "decile": "0.3-0.4",
+          "n": 8008,
+          "mean_pred": 0.3487,
+          "actual_win_rate": 0.363,
+          "abs_error": 0.0143
+        },
+        {
+          "decile": "0.4-0.5",
+          "n": 6794,
+          "mean_pred": 0.4485,
+          "actual_win_rate": 0.4458,
+          "abs_error": 0.0027
+        },
+        {
+          "decile": "0.5-0.6",
+          "n": 5854,
+          "mean_pred": 0.5483,
+          "actual_win_rate": 0.5412,
+          "abs_error": 0.0071
+        },
+        {
+          "decile": "0.6-0.7",
+          "n": 4797,
+          "mean_pred": 0.6486,
+          "actual_win_rate": 0.6329,
+          "abs_error": 0.0157
+        },
+        {
+          "decile": "0.7-0.8",
+          "n": 3917,
+          "mean_pred": 0.7487,
+          "actual_win_rate": 0.7429,
+          "abs_error": 0.0058
+        },
+        {
+          "decile": "0.8-0.9",
+          "n": 2924,
+          "mean_pred": 0.8457,
+          "actual_win_rate": 0.8577,
+          "abs_error": 0.0121
+        },
+        {
+          "decile": "0.9-1.0",
+          "n": 1184,
+          "mean_pred": 0.9286,
+          "actual_win_rate": 0.9316,
+          "abs_error": 0.003
+        }
+      ]
+    }
+  },
+  "cal_err_seed_spread": 0.0011,
+  "slices": {
+    "league_bundesliga": {
+      "n": 6732,
+      "brier": 0.159723,
+      "max_decile_cal_error": 0.0341
+    },
+    "league_epl": {
+      "n": 8360,
+      "brier": 0.162462,
+      "max_decile_cal_error": 0.0217
+    },
+    "league_la-liga": {
+      "n": 8360,
+      "brier": 0.163547,
+      "max_decile_cal_error": 0.0369
+    },
+    "league_ligue-1": {
+      "n": 7712,
+      "brier": 0.1661,
+      "max_decile_cal_error": 0.0295
+    },
+    "league_mls": {
+      "n": 10744,
+      "brier": 0.195762,
+      "max_decile_cal_error": 0.0317
+    },
+    "league_nwsl": {
+      "n": 2868,
+      "brier": 0.197139,
+      "max_decile_cal_error": 0.0397
+    },
+    "league_serie-a": {
+      "n": 8360,
+      "brier": 0.163425,
+      "max_decile_cal_error": 0.0441
+    },
+    "league_uslc": {
+      "n": 8158,
+      "brier": 0.194957,
+      "max_decile_cal_error": 0.0589
+    },
+    "season_2013": {
+      "n": 676,
+      "brier": 0.202576,
+      "max_decile_cal_error": 0.1094
+    },
+    "season_2014": {
+      "n": 4328,
+      "brier": 0.165389,
+      "max_decile_cal_error": 0.0443
+    },
+    "season_2015": {
+      "n": 4366,
+      "brier": 0.166221,
+      "max_decile_cal_error": 0.045
+    },
+    "season_2016": {
+      "n": 4572,
+      "brier": 0.165733,
+      "max_decile_cal_error": 0.0732
+    },
+    "season_2017": {
+      "n": 5668,
+      "brier": 0.171677,
+      "max_decile_cal_error": 0.0593
+    },
+    "season_2018": {
+      "n": 5842,
+      "brier": 0.176128,
+      "max_decile_cal_error": 0.0292
+    },
+    "season_2019": {
+      "n": 5776,
+      "brier": 0.176354,
+      "max_decile_cal_error": 0.0536
+    },
+    "season_2021": {
+      "n": 5902,
+      "brier": 0.171961,
+      "max_decile_cal_error": 0.0376
+    },
+    "season_2022": {
+      "n": 5924,
+      "brier": 0.174455,
+      "max_decile_cal_error": 0.0242
+    },
+    "season_2023": {
+      "n": 5744,
+      "brier": 0.179027,
+      "max_decile_cal_error": 0.0417
+    },
+    "season_2024": {
+      "n": 5774,
+      "brier": 0.17629,
+      "max_decile_cal_error": 0.0353
+    },
+    "season_2025": {
+      "n": 5712,
+      "brier": 0.183643,
+      "max_decile_cal_error": 0.0546
+    },
+    "season_2026": {
+      "n": 1010,
+      "brier": 0.204548,
+      "max_decile_cal_error": 0.0973
+    },
+    "playoffs": {
+      "n": 792,
+      "brier": 0.196859,
+      "max_decile_cal_error": 0.0952
+    }
+  },
+  "final_model": {
+    "feature_set": "quadratic_for_against",
+    "design": "one LogisticRegression per source family (understat / asa)",
+    "families": {
+      "understat": {
+        "coef": [
+          [
+            1.8016984116400918,
+            -1.3341744296268607,
+            -0.1665857440838705,
+            0.06868048062459262,
+            0.01567971489833189
+          ]
+        ],
+        "intercept": [
+          -1.1711226403224584
+        ],
+        "n_rows": 39524
+      },
+      "asa": {
+        "coef": [
+          [
+            1.5755138861351043,
+            -1.000485228362523,
+            -0.16131477374381775,
+            0.08823064426205589,
+            -0.06049398011505593
+          ]
+        ],
+        "intercept": [
+          -1.1098340804495879
+        ],
+        "n_rows": 21770
+      }
+    },
+    "note": "Each family fit on ALL of its rows (no held-out split) for deployment; calibration numbers above come exclusively from out-of-fold CV predictions, never from this in-sample fit."
+  }
+}

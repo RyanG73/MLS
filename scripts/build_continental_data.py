@@ -38,23 +38,60 @@ _ESPN_ROUND = {
 
 # Comp metadata for the payload header.
 META = {
+    # `rules` (2026-07-14 feedback: "cover all of these phases comprehensively"):
+    # qualifying rounds and the pot/draw mechanics aren't modeled — ESPN's
+    # continental feed only carries league-phase-onward fixtures (earliest date
+    # in `data/espn_continental` for ucl is a September league-phase kickoff,
+    # confirmed by direct inspection; no qualifying-round data exists in any
+    # source this repo already has), and a real Swiss-model draw needs UEFA's
+    # actual club coefficients for pot seeding, which this repo doesn't carry
+    # either. Rather than silently omit those phases, `rules` explains the full
+    # structure in plain language so a reader understands where the modeled
+    # league-phase/knockout section sits within the real competition, even
+    # though only that section carries live probabilities. Verified against
+    # UEFA.com and the 2025-26 qualifying Wikipedia pages, 2026-07-14.
     "ucl": {
         "name": "UEFA Champions League",
         "confederation": "UEFA",
         "format_label": "League phase (36) → knockout",
         "phases": ["league", "knockout"],
+        "rules": "Champions Path (domestic champions from lower-ranked leagues) and League Path "
+                 "(non-champions from the top leagues) run separate qualifying rounds each summer; "
+                 "Champions League qualifying losers drop into Europa League qualifying, whose losers "
+                 "in turn drop into Conference League qualifying · qualifying winners plus the "
+                 "highest-coefficient automatic entrants form the 36-team league phase modeled below: "
+                 "a single seeded table where each club is drawn into 4 pots of 9 and plays 8 opponents "
+                 "(2 from each pot, split home/away) · top 8 advance straight to the Round of 16, "
+                 "9th-24th enter a two-legged knockout play-off for the remaining 8 spots, bottom 12 are "
+                 "eliminated · Round of 16 onward is single-elimination, two legs until a one-off final.",
     },
     "europa": {
         "name": "UEFA Europa League",
         "confederation": "UEFA",
         "format_label": "League phase (36) → knockout",
         "phases": ["league", "knockout"],
+        "rules": "Champions Path (teams eliminated from Champions League qualifying, plus domestic "
+                 "champions from lower-ranked leagues) and Main Path (domestic non-champions and cup "
+                 "winners, plus Champions League qualifying losers) run separate qualifying rounds; "
+                 "Europa League qualifying losers drop into Conference League qualifying · qualifying "
+                 "winners plus automatic entrants form the 36-team league phase modeled below — the "
+                 "same seeded single-table format as the Champions League (4 pots of 9, 8 games each) "
+                 "· top 8 advance to the Round of 16, 9th-24th enter a knockout play-off, bottom 12 are "
+                 "out · single-elimination two-legged knockout from there to a one-off final.",
     },
     "conference": {
         "name": "UEFA Conference League",
         "confederation": "UEFA",
         "format_label": "League phase (36) → knockout",
         "phases": ["league", "knockout"],
+        "rules": "Champions Path (teams eliminated from Champions League and Europa League qualifying, "
+                 "plus domestic champions from lower-ranked leagues) and Main Path (domestic cup winners "
+                 "and lower-ranked-league entrants, plus Europa League qualifying losers) run separate "
+                 "qualifying rounds into a play-off round · winners form the 36-team league phase "
+                 "modeled below — the same seeded single-table format as the other two competitions "
+                 "(4 pots of 9, 8 games each) · top 8 advance to the Round of 16, 9th-24th enter a "
+                 "knockout play-off, bottom 12 are out · single-elimination two-legged knockout from "
+                 "there to a one-off final.",
     },
     "concacaf-champions": {
         "name": "Concacaf Champions Cup",
@@ -490,6 +527,7 @@ def build(comp_id: str, season: int | None, sims: int):
                 "mode": "knockout",
                 "confederation": META[comp_id]["confederation"],
                 "format_label": META[comp_id]["format_label"],
+                "rules": META[comp_id].get("rules"),
                 "phases": META[comp_id]["phases"],
                 "rounds": [r["round"] for r in bs.FORMATS[comp_id]["ko"]],
                 "concluded": True, "champion": res["champion"], "season_label": label,

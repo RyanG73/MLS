@@ -54,6 +54,7 @@ from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
 from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON, CONCLUDED
 from scripts.eval.sim_variance import preseason_sigma_for_source, perturb_probs
 from scripts.eval.season_format import FORMATS, format_classification, regular_phase_mask
+from scripts.postgame_win_expectancy import compute_we
 from scripts.eval.upcoming_features import latest_team_features
 from scripts.payload_utils import write_js_payload, health_feature_stats, outcome_skill_block
 from data_pipeline import coefficients as co
@@ -1661,6 +1662,16 @@ def main():
             print(f"[{lid}] game market lookup failed: {_e}")
 
     # ── Game cards: played (ensemble if available, else DC) + upcoming ────────
+    # Postgame win expectancy (2026-07-14 feedback: "how deserved was this
+    # result" — Bill-Connelly-style, from scripts/postgame_win_expectancy.py).
+    # Closed-form logistic model fit+validated per xG source family; only
+    # Understat (big-5) and ASA (MLS/NWSL/USLC) sources were ever fit or
+    # calibration-tested, so every other league's games simply carry no
+    # postgame_we fields rather than misapplying a coefficient set calibrated
+    # for a different xG scale.
+    _we_family = {"understat": "understat", "asa": "asa"}.get(cfg["source"])
+    _we_available = _we_family is not None and Path("experiments/postgame_we_report.json").exists()
+
     games = []
     for i, r in played.iterrows():
         h, a = r["home_team"], r["away_team"]
@@ -1671,6 +1682,10 @@ def main():
         else:
             pH, pD, pA = dc_probs(h, a)
         _mg = _game_mkt.get((h, a), {})
+        _hxg, _axg = r.get("home_xg"), r.get("away_xg")
+        _has_row_xg = _we_available and pd.notna(_hxg) and pd.notna(_axg)
+        _we_h = compute_we(float(_hxg), float(_axg), _we_family) if _has_row_xg else None
+        _we_a = compute_we(float(_axg), float(_hxg), _we_family) if _has_row_xg else None
         games.append({"date": r["date"].strftime("%Y-%m-%d"), "home": tname(h), "away": tname(a),
                       "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
                       "lam": round(_lam, 2), "mu": round(_mu, 2),
@@ -1682,7 +1697,10 @@ def main():
                       "mkt_away": round(_mg["mkt_away"], 3) if "mkt_away" in _mg else None,
                       "edge_home": round((pH - _mg["mkt_home"]) * 100, 1) if "mkt_home" in _mg else None,
                       "edge_draw": round((pD - _mg["mkt_draw"]) * 100, 1) if "mkt_draw" in _mg else None,
-                      "edge_away": round((pA - _mg["mkt_away"]) * 100, 1) if "mkt_away" in _mg else None})
+                      "edge_away": round((pA - _mg["mkt_away"]) * 100, 1) if "mkt_away" in _mg else None,
+                      "hxg": round(float(_hxg), 2) if pd.notna(_hxg) else None,
+                      "axg": round(float(_axg), 2) if pd.notna(_axg) else None,
+                      "we_h": _we_h, "we_a": _we_a})
     games += upcoming_cards
     games.sort(key=lambda g: g["date"])
 

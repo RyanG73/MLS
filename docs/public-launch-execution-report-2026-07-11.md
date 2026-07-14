@@ -19,8 +19,8 @@ Date: 2026-07-11
    - 16+: seeded 0.6276, league 0.6277, decay8 0.6277.
 3. Historical Draw Calibration by Goal Total — Completed for played rows carrying `lam`/`mu`; surfaced by family in `model-slices.js`.
    - low total: draw 30.1% predicted vs 35.5% observed, played_n=245.
-   - middle total: draw 26.4% predicted vs 30.1% observed, played_n=256.
-   - high total: draw 22.0% predicted vs 18.3% observed, played_n=115.
+   - middle total: draw 26.3% predicted vs 30.1% observed, played_n=256.
+   - high total: draw 21.9% predicted vs 18.3% observed, played_n=115.
 4. Trust UI: Market Disagreement Card — Completed as a conditional evidence tape. It appears only when row-level market buckets exist.
 5. Trust UI: Promoted/Relegated Caution Card — Completed for the Europe tiers family using early-window replay results.
 6. Draw-Side Policy Gate — Completed as policy: draw recommendations remain suppressed; draw rows are diagnostics only until a future gate explicitly promotes them.

@@ -35,6 +35,19 @@ if(_analyticsOn){
 </script>
 <link rel="icon" type="image/png" href="assets/branding/favicon.png" />
 <title>Entenser — Football probabilities, explained and audited</title>
+<!-- PWA (2026-07-14): installable app shell — manifest + icons + a narrowly-scoped
+     service worker that only caches the shell, never webapp/data/*.js payloads
+     (see sw.js's own comment for why). -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0b0e12" />
+<link rel="apple-touch-icon" href="assets/pwa/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<script>
+if('serviceWorker' in navigator && location.hostname!=='localhost' && location.protocol==='https:'){
+  window.addEventListener('load', ()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=Spline+Sans+Mono:wght@500;600;700&display=swap" rel="stylesheet">
@@ -325,6 +338,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .ko-done{background:rgba(61,220,132,.08);border:1px solid rgba(61,220,132,.30);color:var(--txt-1);border-radius:var(--r-md);padding:11px 14px;margin-bottom:14px;font-size:14px}
 .ko-done b{color:var(--qualify);font-family:"Archivo"}
 .ko-donesub{color:var(--txt-3);font-size:12px}
+.ko-rules{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-md);padding:13px 15px;margin-bottom:14px}
+.ko-rules b{font-family:var(--serif);font-size:14px}
+.ko-rules p{font-size:12.5px;line-height:1.6;color:var(--txt-2);margin:7px 0 0}
+.ko-rules-note{font-size:10.5px;color:var(--txt-3);margin-top:8px;padding-top:8px;border-top:1px solid var(--line-3)}
 .ko-twocol{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:760px){.ko-twocol{grid-template-columns:1fr}}
 /* ── knockout bracket (round-column layout) ── */
@@ -429,6 +446,12 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .hrow2:last-child{border-bottom:none}
 .hrow2 .fam{font-weight:600;font-size:12.5px} .hrow2 .nc{font-size:11px;color:var(--txt-3);text-align:center}
 .hnote{font-size:11px;color:var(--txt-3);padding-top:10px}
+/* ── Brier relative scale (2026-07-13): random/naive -> model -> market ── */
+.brier-scale-head{font-family:var(--serif);font-size:16px;font-weight:700;margin-bottom:10px}
+.brier-scale-track{position:relative;height:8px;border-radius:4px;background:rgba(150,180,220,.14);margin:6px 0}
+.brier-scale-fill{position:absolute;inset:0;width:0;border-radius:4px;background:linear-gradient(90deg,var(--drop),var(--qualify))}
+.brier-scale-dot{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:var(--txt-1);border:2px solid var(--ink-0);transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--qualify)}
+.brier-scale-ends{display:flex;justify-content:space-between;font-size:10.5px;color:var(--txt-3);font-family:var(--mono);margin-top:4px}
 /* H1: input-family rows — name + definition | complete bar | % | active note */
 .hrow3{display:grid;grid-template-columns:minmax(170px,1.3fr) 1fr 50px 90px;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
 .hrow3:last-child{border-bottom:none}
@@ -561,6 +584,17 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .cbar>span{display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;font-family:var(--mono);overflow:hidden;min-width:0}
 .gr-end{text-align:right;font-size:11px}
 .gr-scores{grid-column:1/-1;font-size:10.5px;color:var(--txt-3);text-align:center;padding:2px var(--s3) 5px;font-family:var(--mono);letter-spacing:.02em}
+.gr-momentum{grid-column:1/-1;padding:6px var(--s3) 8px}
+.gr-momentum .mo-chart{width:100%;height:48px;display:block}
+.gr-momentum .mo-lab{display:flex;justify-content:space-between;font-size:9px;color:var(--txt-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+.gr-we{grid-column:1/-1;padding:6px var(--s3) 2px}
+.gr-we-lab{font-size:9px;color:var(--txt-3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.gr-we-rows{display:flex;flex-direction:column;gap:4px}
+.gr-we-row{display:grid;grid-template-columns:minmax(80px,1fr) 1fr 32px;align-items:center;gap:8px;font-size:11.5px}
+.gr-we-row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gr-we-track{height:6px;border-radius:3px;background:rgba(150,180,220,.12);overflow:hidden}
+.gr-we-fill{display:block;height:100%;border-radius:3px}
+.gr-we-row .v{font-family:var(--mono);font-weight:700;text-align:right}
 .grow{cursor:pointer}
 .gr-why{grid-column:1/-1;display:none;flex-wrap:wrap;gap:14px;padding:8px var(--s3) 6px;border-top:1px solid var(--line);margin-top:4px}
 .grow.open .gr-why{display:flex}
@@ -828,6 +862,13 @@ if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isF
 // stays undefined; the card renders its insufficient-history state).
 if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isFavs)
   document.write('<scr'+'ipt src="data/drift-traj/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
+// Momentum charts for completed matches (scripts/build_momentum.py) — Big-5
+// only, Understat's coverage limit (2026-07-14 feedback). Missing file 404s
+// harmlessly; window.MOMENTUM_DATA stays undefined and renderGames() just
+// doesn't show a chart for that league's completed rows.
+const _MOMENTUM_LEAGUES=new Set(['epl','la-liga','serie-a','bundesliga','ligue-1']);
+if(_MOMENTUM_LEAGUES.has(LID))
+  document.write('<scr'+'ipt src="data/momentum/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Real European country borders for the homepage's country-shaped explorer
 // (scripts/build_europe_map.py). Static asset, no cache-bust needed — it only
 // changes when the league roster itself changes, unlike per-league payloads.
@@ -1778,6 +1819,17 @@ function renderKnockout(){
     :`<span class="heat" style="${heat(p*100,rgb,100)}">${oddsFmt(p*100)}</span>`;
   const tcell=(team,logo,mark)=>`<span class="tcell">${crest(team,logo)}<span class="tcol"><span class="tname">${team}${mark||''}</span></span></span>`;
   let h='';
+  // Full-competition explainer (2026-07-14 feedback: "cover all of these
+  // phases comprehensively"). Qualifying rounds and the pot/draw mechanics
+  // aren't modeled — no data source this repo has covers them (see the long
+  // comment on build_continental_data.META) — but readers should still see
+  // where the modeled league-phase/knockout section below sits within the
+  // real competition, rather than the model silently starting mid-story.
+  if(D.outlook.rules){
+    h+='<div class="ko-rules"><b>How the '+(D.league&&D.league.name?D.league.name:'')+' actually works</b>'+
+       '<p>'+D.outlook.rules+'</p>'+
+       '<div class="ko-rules-note">Qualifying rounds and the pot draw aren\'t modeled here (no data source covers them) — everything below starts at the league phase.</div></div>';
+  }
   // Concluded edition: a result banner, not a live projection.
   if(D.outlook.concluded){
     h+='<div class="ko-done">🏆 <b>'+(D.outlook.champion||'—')+'</b> won the '+
@@ -2050,6 +2102,29 @@ function renderHealth(){
   ];
   const statRow=`<div class="h-stats">`+stats.map(([k,v,s,c])=>
     `<div class="h-stat"><div class="h-k">${k}</div><div class="h-big">${v}</div><div class="h-sub" style="color:${c}">${s}</div></div>`).join('')+`</div>`;
+  // "How good is it, really?" relative scale (2026-07-13 feedback: raw Brier
+  // decimals mean nothing on first glance; beating sharp closing markets on
+  // aggregate is genuinely hard, and burying that context in a callout below
+  // a bare number table undersold it). Anchors on the two numbers that
+  // actually mean something to a reader — a naive baseline and the market —
+  // and places the champion model between them. Only renders when this
+  // league actually has market odds matched (m.market not null); otherwise
+  // falls back to silence rather than a misleading naive-only bar.
+  const brierScale=(m.naive!=null&&m.market!=null&&m.best_brier!=null&&m.naive!==m.market)?(()=>{
+    const capture=(m.naive-m.best_brier)/(m.naive-m.market)*100;
+    const pos=Math.max(0,Math.min(100,capture));
+    const verdict=capture>=100?`beats the market by ${(capture-100).toFixed(0)}%`
+      :capture<0?`trails the naive baseline — a real, disclosed weak spot`
+      :`captures ${capture.toFixed(0)}% of the gap to the market`;
+    return `<div class="hcard2"><h3>How good is it, really?</h3>
+      <div class="brier-scale">
+        <div class="brier-scale-head"><b>${verdict}</b></div>
+        <div class="brier-scale-track"><span class="brier-scale-fill" style="width:${pos.toFixed(1)}%"></span>
+          <span class="brier-scale-dot" style="left:${pos.toFixed(1)}%" title="Champion model · ${m.best_brier.toFixed(4)}"></span></div>
+        <div class="brier-scale-ends"><span>Naive baseline · ${m.naive.toFixed(4)}</span><span>Sharp market · ${m.market.toFixed(4)}</span></div>
+      </div>
+      <div class="hnote">Beating a naive guess is easy; beating sharp closing-line markets on aggregate is genuinely hard — bookmakers price in a vig and have more information than this market-blind model ever sees. This scale is honest about both: the raw Brier scores (lower = better) sit at each end, and the champion model's score is plotted between them.</div></div>`;
+  })():'';
   // pipeline + config
   const pipe=(mc.arch||[]).map(a=>`<span class="pill">${a}</span>`).join('<span class="parrow">→</span>');
   const cfg=Object.entries(mc.config||{}).map(([k,v])=>`<span class="cfg-chip"><i>${k}</i> ${v}</span>`).join('');
@@ -2199,7 +2274,7 @@ function renderHealth(){
       :'';
     return `<div class="hcard2"><h3>Projection stability</h3>${churnHTML}${markerHTML}${trajHTML}</div>${funnelHTML}`;
   })();
-  $('#healthBody').innerHTML=statRow+`<div class="hgrid2">${modelSliceCard()}${modelCard}</div>`+
+  $('#healthBody').innerHTML=statRow+brierScale+`<div class="hgrid2">${modelSliceCard()}${modelCard}</div>`+
     (pcCard?`<div class="hgrid2">${pcCard}</div>`:'')+
     feat+btCard+trustBlock+oskBlock+`<div class="hgrid2">${driftBlock}</div>`+fresh;
 }
@@ -2312,6 +2387,44 @@ function renderMarketPanel(){
     <div style="padding:12px 16px;display:flex;flex-wrap:wrap;gap:20px"><div style="flex:1;min-width:260px">${scatter}</div><div style="flex:1;min-width:240px">${buckets}</div></div>
     <div style="padding:8px 16px;border-top:1px solid var(--line);font-size:10px;color:var(--txt-3)">${BET_DISCLAIMER}</div></div>`;
 }
+// ── Momentum chart (2026-07-14): completed-match "who was on top" chart, from
+// scripts/build_momentum.py's exponential-decay+Gaussian-smoothed shot-xG
+// series (github.com/JakeBonnici22/match-momentum's approach, ported to
+// this site's own data). Home team's threat shades above the zero line in
+// its own crest color, away team's below — no numbers, just shape, since the
+// magnitude only means something within one match, never across matches. ──
+function momentumChartSVG(series,hcolor,acolor){
+  const W=520,H=64,pad=2,zero=H/2;
+  const maxT=series[series.length-1].minute||90;
+  const maxAbs=Math.max(0.05,...series.map(p=>Math.abs(p.value)));
+  const x=m=>pad+(m/maxT)*(W-2*pad);
+  const y=v=>zero-(v/maxAbs)*(zero-pad);
+  const upper=series.map(p=>({x:x(p.minute),y:y(Math.max(0,p.value))}));
+  const lower=series.map(p=>({x:x(p.minute),y:y(Math.min(0,p.value))}));
+  const area=pts=>`M${pts[0].x.toFixed(1)},${zero} `+pts.map(p=>`L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')+` L${pts[pts.length-1].x.toFixed(1)},${zero} Z`;
+  const line=series.map((p,i)=>`${i===0?'M':'L'}${x(p.minute).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ');
+  return `<svg class="mo-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="momentum chart">
+    <path d="${area(upper)}" fill="${hcolor||'#3ddc84'}" fill-opacity="0.30"/>
+    <path d="${area(lower)}" fill="${acolor||'#e25f4f'}" fill-opacity="0.30"/>
+    <line x1="${pad}" y1="${zero}" x2="${W-pad}" y2="${zero}" stroke="var(--line-2)" stroke-width="1"/>
+    <path d="${line}" fill="none" stroke="var(--txt-2)" stroke-width="1.3"/>
+  </svg><div class="mo-lab"><span>${'◀'} on top</span><span>90'</span></div>`;
+}
+// ── Postgame win expectancy (2026-07-14): "how deserved was this result" —
+// scripts/postgame_win_expectancy.py's calibration-validated logistic model
+// on each side's final xG. Deliberately NOT the pre-match pH/pD/pA (a
+// forecast) — this is graded against what actually happened on the pitch,
+// which is why we_h+we_a don't sum to 100% (two independent "would this
+// side usually win this process" reads, not a 3-way partition). A big gap
+// from the actual scoreline (e.g. the xG loser still won) is the whole
+// point — that's the "one lucky shot" case the feedback called out. ──
+function postgameWeHTML(g){
+  const row=(nm,logo,we,color)=>`<div class="gr-we-row"><span class="nm">${crest(nm,logo)}${nm}</span>
+    <span class="gr-we-track"><span class="gr-we-fill" style="width:${(we*100).toFixed(0)}%;background:${color}"></span></span>
+    <span class="v">${(we*100).toFixed(0)}%</span></div>`;
+  return `<div class="gr-we-lab">Postgame win expectancy · how deserved, based on final xG (${g.hxg}–${g.axg}) — not a forecast</div>
+    <div class="gr-we-rows">${row(g.home,g.hlogo,g.we_h,g.hcolor||'var(--qualify)')}${row(g.away,g.alogo,g.we_a,g.acolor||'var(--drop)')}</div>`;
+}
 function renderGames(){
   let gs=D.games.filter(g=>{if(fTeam!=='All teams'&&g.home!==fTeam&&g.away!==fTeam)return false;
     if(fRes==='played'&&g.result==null)return false; if(fRes==='upcoming'&&g.result!=null)return false;
@@ -2374,6 +2487,17 @@ function renderGames(){
         const chip=el('div','gr-scores');
         chip.innerHTML=`Toss-up (${(Math.min(g.pH,g.pA)*100).toFixed(0)}–${(Math.max(g.pH,g.pA)*100).toFixed(0)}%) between close-table sides <span style="color:var(--txt-3)">(${rH?.pts??'—'} vs ${rA?.pts??'—'} pts)</span>`;
         row.appendChild(chip);
+      }
+    }
+    if(played){
+      if(g.we_h!=null&&g.we_a!=null){
+        const we=el('div','gr-we',postgameWeHTML(g));
+        row.appendChild(we);
+      }
+      const series=(window.MOMENTUM_DATA||{})[`${g.home}|${g.away}|${g.date}`];
+      if(series&&series.length>1){
+        const chart=el('div','gr-momentum',momentumChartSVG(series,g.hcolor,g.acolor));
+        row.appendChild(chart);
       }
     }});
   if(!gs.length)list.innerHTML='<div style="color:var(--txt-3);padding:32px;text-align:center">No matches.</div>';

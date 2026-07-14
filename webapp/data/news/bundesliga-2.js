@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"bundesliga-2","generated":"2026-07-10 11:10 UTC","items":[]};
+window.NEWS_DATA = {"league":"bundesliga-2","generated":"2026-07-14 02:29 UTC","items":[{"title":"Christian Titz Tactics At Hannover 96 2025/2026","link":"https://totalfootballanalysis.substack.com/p/christian-titz-tactics-at-hannover","desc":"Christian Titz Tactics At Hannover 96 2025/2026: Possession With Purpose In 2. Bundesliga &#8211; Tactical Analysis","published":"2025-08-01T11:02:35+00:00","source":"Total Football Analysis","is_analysis":true}]};
