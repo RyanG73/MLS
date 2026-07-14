@@ -35,6 +35,8 @@ import bisect
 import json
 import logging
 import math
+import re
+import unicodedata
 from pathlib import Path
 from typing import NamedTuple
 
@@ -59,7 +61,20 @@ _REGRESS = _ELO_REGRESS  # 0.40
 _INIT    = _ELO_INIT    # 1500.0
 
 # ── confederations and their anchor/free leagues ──────────────────────────────
-_UEFA_LEAGUES = ["epl", "la-liga", "serie-a", "bundesliga", "ligue-1"]
+# Extended 2026-07-13 (user feedback: "the dutch league has the same problem as
+# the portuguese league. all european leagues should have calibrated elo") from
+# the original big-5-only fit to every live UEFA-confederation table league this
+# site models. Leagues with little/no continental history (e.g. Russia, banned
+# from UEFA competitions since 2022) simply contribute ~0 to the NLL term and the
+# ridge penalty holds them at their prior — safe to include even when thin.
+_UEFA_LEAGUES = [
+    "epl", "la-liga", "serie-a", "bundesliga", "ligue-1",
+    "eredivisie", "primeira", "belgian-pro", "super-lig", "scottish-prem",
+    "greek-super", "austria-bundesliga", "swiss-super-league",
+    "romania-liga1", "ireland-premier", "russia-premier",
+    "poland-ekstraklasa", "norway-eliteserien", "denmark-superliga",
+    "sweden-allsvenskan", "finland-veikkausliiga",
+]
 _UEFA_ANCHOR = "epl"
 _CONCACAF_LEAGUES = ["mls", "liga-mx"]
 _CONCACAF_ANCHOR = "mls"
@@ -91,14 +106,32 @@ def _build_elo_history(league_id: str) -> dict[str, tuple[list, list]]:
         return _ELO_HISTORY_CACHE[league_id]
 
     # Load the domestic frame for this league (mirrors _league_elos routing).
+    # Every non-Concacaf league is routed through build_league_data.OUTLOOK's own
+    # source registry (understat / footballdata / footballdata_intl / espn / asa)
+    # via its _load_frame() — the same dispatch the production league builds use
+    # — rather than assuming Understat, which only covers the big-5 (2026-07-13:
+    # extending the bridge fit past the big-5 needs each league's REAL source).
     if league_id == "mls":
         df = _load_mls_frame()
     elif league_id == "liga-mx":
         from data_pipeline.espn_soccer import liga_mx_frame
         df = liga_mx_frame().dropna(subset=["home_goals", "away_goals"])
     else:
-        from data_pipeline.understat import canonical_frame
-        df = canonical_frame(league_id).dropna(subset=["home_goals", "away_goals"])
+        from scripts.build_league_data import OUTLOOK, _load_frame
+        cfg = OUTLOOK.get(league_id, {})
+        source = cfg.get("source", "understat")
+        if source == "understat":
+            # refresh_latest=False: use the existing same-day parquet cache
+            # rather than forcing a live Understat re-fetch (this is an offline
+            # calibration script, not the production build; the optional
+            # `understatapi` dependency isn't assumed to be installed here).
+            from data_pipeline.understat import canonical_frame
+            frame = canonical_frame(league_id, refresh_latest=False)
+        else:
+            frame = _load_frame(league_id, source, cfg.get("asa_key"))
+        if "is_result" in frame.columns:
+            frame = frame[frame["is_result"]]
+        df = frame.dropna(subset=["home_goals", "away_goals"])
 
     df = df.sort_values("date").reset_index(drop=True)
 
@@ -206,6 +239,69 @@ def _collect_matches(confederation: str) -> list[_Match]:
     return matches
 
 
+# ── auto-resolution for leagues outside the hand-curated big-5 map ────────────
+# build_continental_data._ESPN_TO_MODELED is hand-verified but only covers the
+# original big-5 (it also feeds the live bracket simulator, so it's left alone
+# rather than bulk-edited). Every other _UEFA_LEAGUES entry (2026-07-13
+# extension) is resolved by normalized name match against that league's own
+# domestic frame instead — safe because an unresolved team is simply dropped
+# (fewer matches, same as before), never mismatched to the wrong team.
+_EXTENDED_UEFA = [lid for lid in _UEFA_LEAGUES
+                  if lid not in {"epl", "la-liga", "serie-a", "bundesliga", "ligue-1"}]
+_TEAM_NAME_INDEX_CACHE: dict[str, dict[str, str]] = {}
+
+
+def _norm_team(name: str) -> str:
+    s = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode()
+    s = re.sub(r"\b(fc|cf|sk|afc|ac|sc|1\.)\b", "", s, flags=re.I)
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def _team_name_index(league_id: str) -> dict[str, str]:
+    if league_id not in _TEAM_NAME_INDEX_CACHE:
+        hist = _build_elo_history(league_id)
+        _TEAM_NAME_INDEX_CACHE[league_id] = {_norm_team(t): t for t in hist}
+    return _TEAM_NAME_INDEX_CACHE[league_id]
+
+
+def _resolve_uefa_team(espn_name: str) -> tuple[str, str] | None:
+    """(league_id, frame_key) for an ESPN continental team name, or None.
+
+    Three tiers, cheapest/safest first: (1) the hand-curated big-5 map, (2)
+    exact normalized-name match against each extended league's own domestic
+    frame, (3) a close-but-not-exact fallback (difflib) for name variants the
+    normalizer alone doesn't catch — e.g. ESPN's "Ajax Amsterdam" vs the
+    domestic frame's "Ajax", or "Olympiacos" vs "Olympiakos" spelling drift.
+    Tier 3 requires a high similarity cutoff so it can't cross-match two
+    different clubs; worst case on a miss is just one dropped match, not a
+    wrong one.
+    """
+    hit = _ESPN_TO_MODELED.get(espn_name)
+    if hit:
+        return hit
+    key = _norm_team(espn_name)
+    if not key:
+        return None
+    for lid in _EXTENDED_UEFA:
+        idx = _team_name_index(lid)
+        if key in idx:
+            return (lid, idx[key])
+    # substring tier — city-suffix variants ("Ajax Amsterdam" ⊇ "Ajax")
+    for lid in _EXTENDED_UEFA:
+        idx = _team_name_index(lid)
+        for nk, actual in idx.items():
+            if len(nk) >= 4 and (nk in key or key in nk):
+                return (lid, actual)
+    # fuzzy tier — spelling drift (e.g. Olympiacos/Olympiakos)
+    import difflib
+    for lid in _EXTENDED_UEFA:
+        idx = _team_name_index(lid)
+        close = difflib.get_close_matches(key, idx.keys(), n=1, cutoff=0.85)
+        if close:
+            return (lid, idx[close[0]])
+    return None
+
+
 def _collect_uefa(df, comp: str) -> list[_Match]:
     """Extract cross-modeled-league matches from a UEFA competition frame.
 
@@ -214,8 +310,8 @@ def _collect_uefa(df, comp: str) -> list[_Match]:
     out: list[_Match] = []
     for _, row in df.iterrows():
         ht, at = row["home_team"], row["away_team"]
-        h_info = _ESPN_TO_MODELED.get(ht)
-        a_info = _ESPN_TO_MODELED.get(at)
+        h_info = _resolve_uefa_team(ht)
+        a_info = _resolve_uefa_team(at)
         if not h_info or not a_info:
             continue  # at least one team is unmodeled
         h_lid, h_key = h_info
@@ -307,8 +403,20 @@ def _nll_with_ridge(
     free_leagues: list[str],
     priors: dict[str, float],
     lam: float,
+    league_counts: dict[str, int] | None = None,
 ) -> float:
-    """Objective = NLL + ridge toward priors (vectorized across matches)."""
+    """Objective = NLL + ridge toward priors (vectorized across matches).
+
+    The ridge weight for each league is scaled by THAT league's own match
+    count, not the global total (2026-07-13 fix — discovered extending the
+    fit past 2 free leagues to 20: with a single global `n`, every league's
+    ridge penalty scales with the WHOLE dataset's size regardless of how much
+    evidence exists for that specific league, so adding more leagues crushes
+    everyone's movement toward ~0 regardless of signal. A league with 3
+    continental matches should stay close to its prior; a league with 60
+    shouldn't be held by the same absolute penalty as a league with 3 just
+    because the total dataset happens to be large.
+    """
     offsets = {anchor_league: 0.0}
     for i, lid in enumerate(free_leagues):
         offsets[lid] = float(free_offsets[i])
@@ -326,10 +434,13 @@ def _nll_with_ridge(
         p = max(probs[m.outcome], 1e-12)
         nll -= math.log(p)
 
-    # Ridge: penalise deviation from priors for ALL free leagues
+    # Ridge: penalise deviation from priors, weighted by each league's OWN
+    # match count (falls back to the global total if counts weren't supplied,
+    # matching the old behaviour for any other caller).
     n = len(matches) if matches else 1
     for i, lid in enumerate(free_leagues):
-        nll += lam * n * (free_offsets[i] - priors[lid]) ** 2
+        weight = league_counts.get(lid, n) if league_counts else n
+        nll += lam * max(weight, 1) * (free_offsets[i] - priors[lid]) ** 2
 
     return nll
 
@@ -390,10 +501,17 @@ def _fit_group(
     # Initial point = priors
     x0 = np.array([priors[lid] for lid in free_leagues], dtype=float)
 
+    # Per-league ridge weight = how many of the TRAIN matches that league
+    # actually appears in (home or away) — see _nll_with_ridge's docstring.
+    league_counts: dict[str, int] = {}
+    for m in train:
+        league_counts[m.home_league] = league_counts.get(m.home_league, 0) + 1
+        league_counts[m.away_league] = league_counts.get(m.away_league, 0) + 1
+
     result = minimize(
         _nll_with_ridge,
         x0,
-        args=(train, anchor, free_leagues, priors, lam),
+        args=(train, anchor, free_leagues, priors, lam, league_counts),
         method="L-BFGS-B",
         options={"maxiter": 1000, "ftol": 1e-10},
     )
@@ -411,7 +529,7 @@ def _fit_group(
 
 # ── main entry point ──────────────────────────────────────────────────────────
 
-def fit_offsets(lam: float = 0.01, seed: int = 42) -> dict[str, float]:
+def fit_offsets(lam: float = 0.00002, seed: int = 42) -> dict[str, float]:
     """Fit cross-league ELO offsets from continental results (Approach C, as-of-date ELO).
 
     Runs two independent fits (UEFA and Concacaf) with validation.  Each team's
@@ -532,8 +650,12 @@ def fit_offsets(lam: float = 0.01, seed: int = 42) -> dict[str, float]:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--lambda", dest="lam", type=float, default=0.01,
-                    help="Ridge penalty weight (default: 0.01)")
+    ap.add_argument("--lambda", dest="lam", type=float, default=0.00002,
+                    help="Ridge penalty weight (default: 0.00002 — see the "
+                         "per-league weighting note on _nll_with_ridge; 0.01 "
+                         "was calibrated for the original 2-free-league fit "
+                         "and over-regularizes now that the ridge is properly "
+                         "scaled per-league across 20 free leagues)")
     ap.add_argument("--seed", type=int, default=42, help="RNG seed for train/test split")
     a = ap.parse_args()
     fit_offsets(lam=a.lam, seed=a.seed)

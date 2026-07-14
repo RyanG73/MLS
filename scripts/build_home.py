@@ -152,6 +152,7 @@ def build_releg_battles(files: list[tuple[str, dict]]) -> list[dict]:
 
 
 def build_movers() -> list[dict]:
+    """Top-8 combined slice, used by the home page's narrative "story" cards."""
     d = _load(DATA / "movers.js")
     if not d:
         return []
@@ -164,6 +165,57 @@ def build_movers() -> list[dict]:
             "delta": m["delta"], "now": m["now"],
         })
     return out
+
+
+def build_movers_board(files: list[tuple[str, dict]]) -> dict:
+    """Full region-tagged mover list + window label, for the homepage's literal
+    up/down "biggest movers" widget (2026-07-13 feedback) — distinct from
+    build_movers()'s narrative-story slice above; this one needs every region
+    represented so the widget's Overall/Europe/North America/... filter always
+    has something to show, not just the globally-biggest handful."""
+    d = _load(DATA / "movers.js")
+    if not d or not d.get("movers"):
+        return {"window_label": None, "movers": []}
+    labels = d.get("metric_labels", {})
+    crest = {(lid, s.get("team")): s.get("logo")
+             for lid, ld in files for s in ld.get("standings", [])}
+    return {
+        "window_label": d.get("window_label"),
+        "movers": [{
+            "league": m["league"], "region": m.get("region", "Other"),
+            "team": m["team"], "logo": crest.get((m["league"], m["team"])),
+            "metric_label": labels.get(m["metric"], m["metric"]),
+            "delta": m["delta"], "now": m["now"],
+        } for m in d["movers"]],
+    }
+
+
+def build_recent_results(files: list[tuple[str, dict]], limit: int = 60,
+                         days: int = 7) -> list[dict]:
+    """Completed matches from the last `days` days across live leagues, most
+    recent first — a plain results feed with no model/projection framing
+    (2026-07-13 feedback: "nothing to do with model - just results"). The
+    client groups these by day then league."""
+    from datetime import date, timedelta
+    horizon = (date.today() - timedelta(days=days)).isoformat()
+    out = []
+    for lid, d in files:
+        name = (d.get("league") or {}).get("name", lid)
+        for g in d.get("games", []):
+            if g.get("result") is None:
+                continue
+            gd = g.get("date") or ""
+            if gd < horizon:
+                continue
+            out.append({
+                "league": lid, "name": name, "date": gd,
+                "home": g.get("home"), "away": g.get("away"),
+                "hg": g.get("hg"), "ag": g.get("ag"),
+                "hlogo": g.get("hlogo"), "alogo": g.get("alogo"),
+            })
+    out.sort(key=lambda g: _prom_key(g["league"]))       # tiebreak: big leagues first
+    out.sort(key=lambda g: g["date"], reverse=True)       # primary: most recent day first (stable)
+    return out[:limit]
 
 
 def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
@@ -255,6 +307,8 @@ def main() -> None:
         "tight_races": build_tight_races(files),
         "releg_battles": build_releg_battles(files),
         "movers": build_movers(),
+        "movers_board": build_movers_board(files),
+        "recent_results": build_recent_results(files),
         "fixtures": build_fixtures(files),
         "news": build_news(),
     }
@@ -267,6 +321,7 @@ def main() -> None:
     print(f"wrote webapp/data/home.js · {len(files)} leagues · "
           f"{len(leaders)} leaders · {len(payload['tight_races'])} tight races · "
           f"{len(payload['releg_battles'])} releg battles · {len(payload['movers'])} movers · "
+          f"{len(payload['recent_results'])} recent results · "
           f"{len(payload['fixtures'])} fixtures · {len(payload['news'])} news")
 
 

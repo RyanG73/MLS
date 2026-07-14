@@ -812,7 +812,7 @@ const _isFavs=_rawLeague==='favorites';       // pinned leagues + teams
 const LID=(_rawLeague&&_rawLeague!=='command')?_rawLeague:'mls';
 // Static info / trust / legal routes render self-contained content — there is no
 // per-league data/news/drift file to fetch, so skip those document.writes.
-const _INFO_PAGES=['about','data-sources','responsible-gambling','privacy'];
+const _INFO_PAGES=['about','data-sources','responsible-gambling','privacy','contact'];
 const _infoPage=_INFO_PAGES.includes(_rawLeague)?_rawLeague:null;
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
@@ -833,6 +833,10 @@ if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isF
 // changes when the league roster itself changes, unlike per-league payloads.
 if(_isHome)
   document.write('<scr'+'ipt src="data/europe-map.js"></scr'+'ipt>');
+// Cross-league match calendar (scripts/build_calendar.py) — the Matches tab's
+// day-by-day browser. Separate from edge-board.js's narrow 48h betting window.
+if(_isEdgeBoard)
+  document.write('<scr'+'ipt src="data/calendar.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
 const _isPower = new URLSearchParams(location.search).get('league')==='power';
@@ -847,6 +851,10 @@ const D = (_isPower || _isEdgeBoard || _isHome || _infoPage || _isLeagues || _is
      health:null, model_card:{}, in_season_brier:{}, season:2026}
   : window.LEAGUE_DATA;
 const $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+// Small outline glyph for the "South America" region tab — a flag emoji can only name
+// one country, and that group holds both Brazil and Argentina (2026-07-13 feedback).
+// currentColor stroke so it inherits the tab's hover/active text color for free.
+const SOUTH_AMERICA_ICON=`<svg viewBox="0 0 24 24" width="13" height="13" style="flex:none;vertical-align:-2px" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M8.5,2.2 C11.5,1.3 14.5,1.8 16.5,3.4 C19,4.8 19.6,7.2 18.6,9.4 C17.8,11.6 16,13.2 15.2,15.4 C14.4,17.6 13.4,19.6 11.6,21.6 C11,22.2 10.2,22.2 9.6,21.4 C8.4,19.6 8,17.4 7.2,15.2 C6.4,13 5.2,11 5,8.6 C4.8,6.2 5.6,3.6 8.5,2.2 Z"/></svg>`;
 // Outlook mode: 'table' = single-table league (European promotion/relegation);
 // otherwise the MLS conference + playoff + cup view. Set by the build's outlook block.
 const isTable = (D.outlook||{}).mode === 'table';
@@ -872,9 +880,10 @@ const FavStore=(()=>{
   const mast=$('#mast'); if(!mast) return;
   // Ribbon order per 2026-07-11 feedback. [group-key, icon, label]
   const MAST_GROUPS=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}','England'],
+    ['MLS','\u{1F1FA}\u{1F1F8}\u{1F1E8}\u{1F1E6}','MLS'],
     ['Germany','\u{1F1E9}\u{1F1EA}','Germany'],['France','\u{1F1EB}\u{1F1F7}','France'],
     ['Italy','\u{1F1EE}\u{1F1F9}','Italy'],['Spain','\u{1F1EA}\u{1F1F8}','Spain'],
-    ['Americas','\u{1F30E}','North America'],['South America','\u{1F1E7}\u{1F1F7}','South America'],
+    ['Americas','\u{1F30E}','North America'],['South America',SOUTH_AMERICA_ICON,'South America'],
     ['Other Europe','\u{1F1EA}\u{1F1FA}','Europe'],['Asia','\u{1F30F}','Asia'],
     ['Cups','\u{1F3C6}','Cups']];
   // Multi-country groups: show each league's own country flag instead of its
@@ -1076,7 +1085,8 @@ const FOOT_ATTR='Data: <a href="https://www.americansocceranalysis.com" target="
 const FOOT_LEGAL='<div class="foot-legal"><a href="?league=about">About the model</a> · '+
   '<a href="?league=data-sources">Data sources</a> · '+
   '<a href="?league=responsible-gambling">Responsible gambling</a> · '+
-  '<a href="?league=privacy">Privacy</a></div>';
+  '<a href="?league=privacy">Privacy</a> · '+
+  '<a href="?league=contact">Contact</a></div>';
 const FOOT_HTML=FOOT_ATTR+FOOT_LEGAL;
 // B11/B12: live paper-ledger strip (cross-league; window.LEDGER_DATA from data/ledger.js).
 function ledgerStripHTML(){
@@ -1504,6 +1514,19 @@ function runSimTable(N=10000){
     cols.forEach(c=>e[c.key]=+(a[c.key]/N*100).toFixed(1));out[t]=e;}
   return out;
 }
+// Splits a league's plain-language outlook.rules ("Top 4 qualify for the
+// Champions League · bottom 3 relegated") into the green-zone clause(s) and
+// the relegation clause, so the in-table divider lines can name the actual
+// destination instead of a generic "Qualify (top N)" (2026-07-13 feedback:
+// promotion playoffs and continental berths were reading identically).
+function zoneNote(rules,fallbackGreen,fallbackRed){
+  if(!rules) return {green:fallbackGreen,red:fallbackRed};
+  const parts=rules.split(' · ').map(p=>p.trim());
+  const ri=parts.findIndex(p=>/^(bottom\b|no relegation)/i.test(p));
+  const green=(ri===-1?parts:parts.slice(0,ri)).join(' · ')||fallbackGreen;
+  const red=ri===-1?fallbackRed:parts.slice(ri).join(' · ');
+  return {green,red};
+}
 function tableLadder(){
   ensureFinish();  // B2: back the standings-cell tooltip with the same base sim as the finish plot
   const ol=D.outlook, cols=ol.columns, hasUp=NF>0;
@@ -1539,9 +1562,9 @@ function tableLadder(){
       (hasUp?whatifCell(t.team):'');
     box.appendChild(r);
     if(ol.green_line&&rank===ol.green_line)
-      box.appendChild(el('div','ucl-line',`Qualify (top ${ol.green_line})`));
+      box.appendChild(el('div','ucl-line',zoneNote(ol.rules,`Qualify (top ${ol.green_line})`,null).green));
     if(ol.red_line&&rank===teams.length-ol.red_line)
-      box.appendChild(el('div','rz-line',`Relegation zone (bottom ${ol.red_line})`));
+      box.appendChild(el('div','rz-line',zoneNote(ol.rules,null,`Relegation zone (bottom ${ol.red_line})`).red));
   });
   return box;
 }
@@ -2896,12 +2919,45 @@ if (_isPower && window.POWER_DATA) {
 @media(max-width:900px){.fv-card .sub{padding-left:0}}
 /* NYT editorial homepage (2026-07-11 redesign) */
 .ed-wrap{padding-top:var(--s4);display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);column-gap:24px;
-  grid-template-areas:"lead lead" "stories models" "map map" "news news"}
+  grid-template-areas:"lead lead" "stories models" "movers movers" "results results" "map map" "news news"}
 .ga-lead{grid-area:lead}
 .ga-stories{grid-area:stories}
 .ga-models{grid-area:models;border-left:1px solid var(--line-2);padding-left:24px}
+.ga-movers{grid-area:movers}
+.ga-results{grid-area:results}
 .ga-map{grid-area:map}
 .ga-news{grid-area:news}
+/* ── Recent Results (2026-07-13): plain completed-match feed, day → league,
+   deliberately carries no model/probability framing. ── */
+.rr-days{display:grid;gap:18px;margin-top:10px}
+.rr-day-h{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-2);border-bottom:1px solid var(--line-2);padding-bottom:6px}
+.rr-leagues{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:10px}
+.rr-lg-h{font-size:11.5px;font-weight:700;color:var(--txt-3);margin-bottom:6px}
+.rr-row{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--line-3)}
+.rr-row .t{flex:1;display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rr-row .t img{width:15px;height:15px;object-fit:contain;flex:none}
+.rr-row .sc{font-family:var(--mono);font-weight:700;color:var(--txt-1);flex:none}
+/* ── Biggest Movers board (2026-07-13): literal stock-style up/down, with a
+   region filter — distinct from the "More movement" narrative story cards. ── */
+.mv-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.mv-pills{display:flex;gap:6px;flex-wrap:wrap}
+.mv-pill{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.03em;padding:4px 10px;border-radius:99px;border:1px solid var(--line-2);color:var(--txt-3);cursor:pointer;background:none}
+.mv-pill:hover{color:var(--txt-1)}
+.mv-pill.on{background:var(--txt-1);color:var(--ink-0);border-color:var(--txt-1)}
+.mv-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.mv-col-h{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.mv-col-h.up{color:var(--qualify)}
+.mv-col-h.down{color:#e25f4f}
+.mv-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-3)}
+.mv-row img{width:20px;height:20px;object-fit:contain;flex:none}
+.mv-row .nm{flex:1;min-width:0}
+.mv-row .nm b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-row .nm span{display:block;font-size:10.5px;color:var(--txt-3)}
+.mv-row .d{font-family:var(--mono);font-weight:700;font-size:13px;flex:none}
+.mv-row .d.up{color:var(--qualify)}
+.mv-row .d.down{color:#e25f4f}
+.mv-empty{font-size:12px;color:var(--txt-3);padding:8px 0}
+@media(max-width:900px){.mv-cols{grid-template-columns:1fr}.rr-leagues{grid-template-columns:1fr}}
 .ed-kicker{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-3);margin-bottom:6px}
 .ed-lead h1{font-family:var(--serif);font-size:38px;line-height:1.12;font-weight:700;letter-spacing:0;margin:0 0 10px}
 .ed-lead .deck{font-family:var(--serif);font-size:16px;line-height:1.45;color:var(--txt-2);max-width:640px;margin-bottom:8px}
@@ -2961,7 +3017,7 @@ if (_isPower && window.POWER_DATA) {
   .ed-lead h1{font-size:28px}
   /* Mobile leads with the models, not the AI-written headlines (2026-07-11
      feedback) — reorder via grid-template-areas, markup order unchanged. */
-  .ed-wrap{grid-template-columns:1fr;column-gap:0;grid-template-areas:"models" "lead" "stories" "map" "news"}
+  .ed-wrap{grid-template-columns:1fr;column-gap:0;grid-template-areas:"models" "lead" "stories" "movers" "results" "map" "news"}
   .ga-models{border-left:none;padding-left:0}
   .ed-cols,.ed-newsband{grid-template-columns:1fr}
 }
@@ -3015,6 +3071,29 @@ if (_isPower && window.POWER_DATA) {
 .eb-row.open .eb-expand{display:block}
 .eb-empty{padding:28px 16px;text-align:center;color:var(--txt-3);font-size:13px;line-height:1.7}
 .eb-warn{color:#e2b04f;font-size:10px}
+/* ── Matches-tab day calendar (2026-07-13): a scrollable strip of day boxes on
+   mobile, wide enough to read as an actual calendar row on desktop — clicking
+   a box filters the match list below to that day. ── */
+.cal-strip{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;scrollbar-width:thin}
+.cal-box{flex:none;width:58px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border:1px solid var(--line-2);border-radius:var(--r-md);cursor:pointer;background:var(--ink-1);position:relative}
+.cal-box:hover{border-color:var(--line-3)}
+.cal-box.today{border-color:var(--hfa)}
+.cal-box.active{background:var(--txt-1);border-color:var(--txt-1)}
+.cal-box.active .cal-dow,.cal-box.active .cal-num,.cal-box.active .cal-mon{color:var(--ink-0)}
+.cal-dow{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-3)}
+.cal-num{font-family:var(--mono);font-size:17px;font-weight:700;line-height:1.1}
+.cal-mon{font-size:9px;color:var(--txt-3)}
+.cal-count{font-size:9px;font-family:var(--mono);color:var(--qualify)}
+.cal-box.active .cal-count{color:var(--ink-0)}
+.cal-box.empty .cal-count{visibility:hidden}
+.cal-day-h{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-2);padding:10px 14px 4px}
+.cal-row{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line)}
+.cal-row:last-child{border-bottom:none}
+.cal-row .lg{font-size:10px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;width:80px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-row .t{flex:1;display:flex;align-items:center;gap:6px;font-size:12.5px;min-width:0}
+.cal-row .t img{width:15px;height:15px;object-fit:contain;flex:none}
+.cal-row .sc{font-family:var(--mono);font-weight:700;font-size:12.5px;flex:none;width:36px;text-align:center}
+@media(min-width:901px){.cal-box{width:74px;padding:10px 6px}.cal-num{font-size:20px}}
 </style>
 <script>
 // ── B12: cross-league edge board (pinned sidebar item, the no-?league= landing view).
@@ -3134,6 +3213,44 @@ function commandMatchHTML(EB, allMatches){
   return `<div class="eb-empty" style="text-align:left">No matches in the 48-hour edge window. Next scheduled kickoffs:<br>`+
     next.slice(0,8).map(k=>`${commandEsc(k.league_name)}: <b>${commandEsc(k.home)}</b> v <b>${commandEsc(k.away)}</b> (${commandEsc(k.date)})`).join('<br>')+`</div>`;
 }
+// ── Matches-tab day calendar (2026-07-13 feedback: "a calendar for matches,
+//    so you can scroll across the top by day or on desktop ... select a day
+//    on an actual calendar box"). Backed by window.CALENDAR_DATA
+//    (scripts/build_calendar.py) — uncapped, ~3 days back to 21 days forward,
+//    unlike the edge board's narrow 48h betting window above. ──
+let calDay=null;
+function calRow(g){
+  const done=g.result!=null;
+  return `<div class="cal-row"><span class="lg">${g.name}</span>
+    <span class="t">${crest(g.home,g.hlogo)}${g.home}</span>
+    <span class="sc">${done?`${g.hg}–${g.ag}`:'v'}</span>
+    <span class="t">${crest(g.away,g.alogo)}${g.away}</span></div>`;
+}
+function calStripHTML(){
+  const CD=window.CALENDAR_DATA;
+  if(!CD||!CD.dates||!CD.dates.length) return '';
+  if(!calDay) calDay=CD.dates.includes(CD.today)?CD.today:CD.dates[0];
+  const boxes=CD.dates.map(d=>{
+    const n=(CD.days[d]||[]).length;
+    const dt=new Date(d+'T12:00');
+    return `<div class="cal-box${d===CD.today?' today':''}${d===calDay?' active':''}${n?'':' empty'}" data-date="${d}">
+      <span class="cal-dow">${dt.toLocaleDateString('en-US',{weekday:'short'})}</span>
+      <span class="cal-num">${dt.getDate()}</span>
+      <span class="cal-mon">${dt.toLocaleDateString('en-US',{month:'short'})}</span>
+      <span class="cal-count">${n||''}</span>
+    </div>`;
+  }).join('');
+  return `<div class="cal-strip">${boxes}</div>`;
+}
+function calDayListHTML(){
+  const CD=window.CALENDAR_DATA;
+  if(!CD||!calDay) return '';
+  const rows=CD.days[calDay]||[];
+  if(!rows.length) return '<div class="eb-empty">No matches this day across active leagues.</div>';
+  const dt=new Date(calDay+'T12:00');
+  const lbl=dt.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  return `<div class="cal-day-h">${lbl}</div>${rows.map(calRow).join('')}`;
+}
 if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   const seg=$('#seg'); if(seg) seg.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
@@ -3166,6 +3283,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
       </div>
     </div>
     ${ledgerStripHTML()}
+    <div class="eb-panel"><div class="eb-h">Browse by day</div>${calStripHTML()}<div id="calList">${calDayListHTML()}</div></div>
     <div class="cc-grid">
       <div>
         <div class="eb-panel"><div class="eb-h">Today / edge window</div>${commandMatchHTML(EB, allMatches)}</div>
@@ -3177,6 +3295,17 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
       </div>
     </div>`;
     bindCommandSignup();
+    const calStripEl=$('.cal-strip');
+    if(calStripEl){
+      calStripEl.addEventListener('click',e=>{
+        const box=e.target.closest('.cal-box'); if(!box) return;
+        calDay=box.dataset.date;
+        calStripEl.querySelectorAll('.cal-box').forEach(b=>b.classList.toggle('active',b===box));
+        const list=$('#calList'); if(list) list.innerHTML=calDayListHTML();
+      });
+      const activeBox=calStripEl.querySelector('.cal-box.active');
+      if(activeBox) activeBox.scrollIntoView({inline:'center',block:'nearest'});
+    }
   }
 }
 
@@ -3243,6 +3372,46 @@ if(_isHome && window.HOME_DATA){
   const news=(H.news||[]).filter(n=>!_usedNews.has(n)).slice(0,9).map(n=>`<a class="ed-news" href="${n.link}" target="_blank" rel="noopener noreferrer">
     <h4>${commandEsc(n.title||'')}</h4><div class="m">${nm(n.league)} · ${commandEsc(n.source||'')}${n.published?' · '+ago(n.published):''}</div></a>`).join('');
 
+  // ── Recent Results (2026-07-13 feedback: "nothing to do with model - just
+  //    results broken out by day and league"). Plain completed-match feed. ──
+  const recentResultsHTML=()=>{
+    const rows=H.recent_results||[];
+    if(!rows.length) return '<div class="news-empty">No results in the last week.</div>';
+    const byDate=new Map();
+    rows.forEach(g=>{ (byDate.get(g.date)||byDate.set(g.date,[]).get(g.date)).push(g); });
+    const dLbl=iso=>new Date(iso+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    return [...byDate.entries()].map(([date,games])=>{
+      const byLg=new Map();
+      games.forEach(g=>{ (byLg.get(g.name)||byLg.set(g.name,[]).get(g.name)).push(g); });
+      const lgBlocks=[...byLg.entries()].map(([lname,gs])=>
+        `<div><div class="rr-lg-h">${lname}</div>${gs.map(g=>
+          `<div class="rr-row"><span class="t">${crest(g.home,g.hlogo)}${g.home}</span><span class="sc">${g.hg}–${g.ag}</span><span class="t">${crest(g.away,g.alogo)}${g.away}</span></div>`).join('')}</div>`).join('');
+      return `<div><div class="rr-day-h">${dLbl(date)}</div><div class="rr-leagues">${lgBlocks}</div></div>`;
+    }).join('');
+  };
+
+  // ── Biggest Movers board (2026-07-13 feedback: "stock up/down of the three
+  //    biggest movers in each direction ... a subtle filter"). Literal
+  //    riser/faller ticker, distinct from the "More movement" story cards —
+  //    those are prose headlines, this is a scannable table. ──
+  const MVB=H.movers_board||{movers:[]};
+  const MV_REGIONS=['Overall','Europe','North America','South America','Asia'];
+  let mvRegion='Overall';
+  const moversRow=m=>`<div class="mv-row">${crest(m.team,m.logo)}<span class="nm"><b>${m.team}</b><span>${nm(m.league)} · ${m.metric_label}</span></span><span class="d ${m.delta>=0?'up':'down'}">${m.delta>=0?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</span></div>`;
+  const moversBoardBody=()=>{
+    const pool=(mvRegion==='Overall'?MVB.movers:(MVB.movers||[]).filter(m=>m.region===mvRegion))||[];
+    const up=[...pool].filter(m=>m.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,3);
+    const down=[...pool].filter(m=>m.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,3);
+    const col=(label,cls,list)=>`<div><div class="mv-col-h ${cls}">${label}</div>${list.length?list.map(moversRow).join(''):'<div class="mv-empty">No significant movement.</div>'}</div>`;
+    return `<div class="mv-cols">${col('Risers','up',up)}${col('Fallers','down',down)}</div>`;
+  };
+  const moversBoardHTML=()=>{
+    if(!(MVB.movers||[]).length) return '';
+    const pills=MV_REGIONS.map(r=>`<button class="mv-pill${r===mvRegion?' on':''}" data-region="${r}" type="button">${r}</button>`).join('');
+    return `<div class="mv-head"><span style="font-size:11px;color:var(--txt-3)">${MVB.window_label?`Model odds · ${MVB.window_label}`:''}</span><div class="mv-pills">${pills}</div></div>
+      <div id="mvBody">${moversBoardBody()}</div>`;
+  };
+
   // ── Europe explorer: real country shapes from window.EUROPE_MAP
   // (scripts/build_europe_map.py, Natural Earth 110m). Clicking a country
   // IS the click target — no floating pin — countries with a live league
@@ -3264,6 +3433,7 @@ if(_isHome && window.HOME_DATA){
     return `<svg viewBox="${M.viewBox}" xmlns="http://www.w3.org/2000/svg">${paths}</svg><div class="eu-portal" id="euPortal"></div>`;
   };
 
+  const moversBody=moversBoardHTML();
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap">
     <div class="ga-lead">${lead?`<div class="ed-lead"><a href="?league=${lead.league}"><div class="ed-kicker">${lead.kicker} · updated ${H.generated}</div><h1>${lead.h}</h1><div class="deck">${lead.deck}</div></a></div>`:''}</div>
@@ -3272,12 +3442,22 @@ if(_isHome && window.HOME_DATA){
       <div class="ed-sec">The Models</div>${models}
       <div class="ed-sec">Upcoming Matches</div>${fixtures}
     </div>
+    <div class="ga-movers">${moversBody?`<div class="ed-sec">Biggest Movers</div>${moversBody}`:''}</div>
+    <div class="ga-results"><div class="ed-sec">Recent Results</div><div class="rr-days">${recentResultsHTML()}</div></div>
     <div class="ga-map">
       <div class="ed-sec">Explore Europe's Leagues</div>
       <div class="eu-wrap">${euMapHTML()}</div>
     </div>
     <div class="ga-news"><div class="ed-sec">Around the Leagues</div><div class="ed-newsband">${news||'<div class="news-empty">No more headlines right now.</div>'}</div></div>
   </div>`;
+    // region-pill filter for the movers board (re-renders just #mvBody, no reload)
+    const mvPillsEl=$('.mv-pills');
+    if(mvPillsEl){ mvPillsEl.addEventListener('click',e=>{
+      const btn=e.target.closest('.mv-pill'); if(!btn) return;
+      mvRegion=btn.dataset.region;
+      mvPillsEl.querySelectorAll('.mv-pill').forEach(p=>p.classList.toggle('on',p===btn));
+      const body=$('#mvBody'); if(body) body.innerHTML=moversBoardBody();
+    }); }
     // country click → popover listing that country's leagues, positioned at
     // the click point (position:fixed portal, see CSS note on .eu-portal)
     const portal=$('#euPortal');
@@ -3306,8 +3486,8 @@ if(_isLeagues){
   const hd=document.querySelector('header'); if(hd) hd.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   document.title="Leagues · Entenser";
-  const GROUP_ORDER=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}'],['Spain','\u{1F1EA}\u{1F1F8}'],['Italy','\u{1F1EE}\u{1F1F9}'],['Germany','\u{1F1E9}\u{1F1EA}'],['France','\u{1F1EB}\u{1F1F7}'],
-    ['Americas','\u{1F30E}'],['South America','\u{1F1E7}\u{1F1F7}'],['Other Europe','\u{1F1EA}\u{1F1FA}'],['Asia','\u{1F30F}'],['Cups','\u{1F3C6}']];
+  const GROUP_ORDER=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}'],['MLS','\u{1F1FA}\u{1F1F8}\u{1F1E8}\u{1F1E6}'],['Spain','\u{1F1EA}\u{1F1F8}'],['Italy','\u{1F1EE}\u{1F1F9}'],['Germany','\u{1F1E9}\u{1F1EA}'],['France','\u{1F1EB}\u{1F1F7}'],
+    ['Americas','\u{1F30E}'],['South America',SOUTH_AMERICA_ICON],['Other Europe','\u{1F1EA}\u{1F1FA}'],['Asia','\u{1F30F}'],['Cups','\u{1F3C6}']];
   const groups={};
   (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
   const render=()=>{
@@ -3388,8 +3568,8 @@ if(_isFavs){
 if(_infoPage){
   const seg=$('#seg'); if(seg) seg.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
-  const NAV=[['about','About the model'],['data-sources','Data sources'],['responsible-gambling','Responsible gambling'],['privacy','Privacy']];
-  const TITLES={'about':'About the model','data-sources':'Data & attribution','responsible-gambling':'Responsible gambling','privacy':'Privacy'};
+  const NAV=[['about','About the model'],['data-sources','Data sources'],['responsible-gambling','Responsible gambling'],['privacy','Privacy'],['contact','Contact']];
+  const TITLES={'about':'About the model','data-sources':'Data & attribution','responsible-gambling':'Responsible gambling','privacy':'Privacy','contact':'Contact'};
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent=TITLES[_infoPage]||'Info';
   document.title=(TITLES[_infoPage]||'Info')+' · Entenser';
   const subEl=$('#sub'); if(subEl) subEl.textContent='Entenser · market-blind football probabilities, explained and audited';
@@ -3441,7 +3621,7 @@ if(_infoPage){
       <li>Club crests and fixture data are used for identification with attribution to their sources.</li>
       <li>Odds-derived figures appear only as aggregate model-evaluation metrics, not as redistributed raw data.</li>
     </ul>
-    <p class="fine">If you represent a data source and have a question about usage or attribution, please get in touch and we will resolve it promptly.</p>`;
+    <p class="fine">If you represent a data source and have a question about usage or attribution, please <a href="?league=contact">get in touch</a> and we will resolve it promptly.</p>`;
   DOCS['responsible-gambling']=`
     <h2>Responsible gambling</h2>
     <p class="lead">Entenser is an informational analytics product. It is <b>not betting advice</b> and does not guarantee any outcome or return.</p>
@@ -3469,7 +3649,12 @@ if(_infoPage){
     </ul>
     <h3>Third parties</h3>
     <p>Pages link out to data sources and problem-gambling resources; those sites have their own privacy policies. We do not sell or share any information you provide.</p>
-    <p class="fine">Questions about privacy? Reach out via the contact channel published at launch.</p>`;
+    <p class="fine">Questions about privacy? <a href="?league=contact">Get in touch</a>.</p>`;
+  DOCS['contact']=`
+    <h2>Contact</h2>
+    <p class="lead">Questions, feedback, data-source concerns, or business inquiries — reach out directly.</p>
+    <div class="callout"><b>Email:</b> <a href="mailto:entenser@gmail.com">entenser@gmail.com</a></div>
+    <p class="fine">This is a static site with no submission backend, so email is the fastest way to reach us. We read everything, though response time varies.</p>`;
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="info-wrap">${nav}<div class="info-doc">${DOCS[_infoPage]||''}</div></div>`; }
   const _fi=$('#foot'); if(_fi) _fi.innerHTML=FOOT_HTML;

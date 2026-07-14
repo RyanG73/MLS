@@ -75,6 +75,21 @@ _CONCACAF_OFFSET: dict[str, float] = {
     "liga-mx": 30.0,
 }
 
+# Hand-calibrated overrides for leagues not yet covered by the automated bridge fit
+# (experiments/league_offsets.json), anchored to _CLUB_STRENGTH's cross-league
+# estimates for that league's actual UCL-regular clubs. 2026-07-13 power-rankings
+# bug: the generic _K_COEFF static fallback below gave Primeira only a -102 offset,
+# which under-penalizes its inflated domestic ELO — Benfica/Porto/Sporting CP were
+# outranking Real Madrid/Bayern Munich. _CLUB_STRENGTH already has a better answer
+# for these exact clubs (Benfica 1635, Porto 1620, Sporting CP 1615); this offset is
+# the mean gap between those anchors and the clubs' current webapp/data/primeira.js
+# domestic ELO (1822/1811/1821) — i.e. reuses calibration the codebase already
+# trusted elsewhere instead of inventing a new number. Superseded automatically if
+# this league ever gets a real bridge-regression fit into league_offsets.json.
+_MANUAL_LEAGUE_OFFSET: dict[str, float] = {
+    "primeira": -195.0,
+}
+
 # Cross-league strength (ELO points) for clubs, on the SAME scale as the modeled
 # domestic-ELO+offset ratings (which span ~1388-1711 for the UCL field). The big-5
 # elite entries are used only by the coefficient-only validator (the dashboard build
@@ -142,6 +157,8 @@ def league_offset(league_id: str) -> float:
     # Prior fallback
     if league_id in _CONCACAF_OFFSET:
         return _CONCACAF_OFFSET[league_id]
+    if league_id in _MANUAL_LEAGUE_OFFSET:
+        return _MANUAL_LEAGUE_OFFSET[league_id]
     if league_id not in _LEAGUE_COEFF:
         return 0.0
     return _K_COEFF * (_LEAGUE_COEFF[league_id] - _LEAGUE_COEFF[_REF_LEAGUE])

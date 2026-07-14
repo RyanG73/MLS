@@ -18,6 +18,11 @@ data/espn_fixtures/
 data/asa_cache/
 data/fbref_cache/
 data/source_health.parquet
+# Round-4 league expansion + venue-weather sources (same regenerable-cache
+# treatment as football_data/ and the other source dirs above)
+data/football_data_intl/
+data/api_football/
+data/venue_geo.json
 logs/
 
 # Multi-agent experiment runner

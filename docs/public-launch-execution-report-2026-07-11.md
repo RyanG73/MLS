@@ -6,8 +6,8 @@ Date: 2026-07-11
 
 - Refreshed MLS champion report Brier: 0.6331. Previous checkpoint was 0.632977, so this is flat/slightly worse by +0.000106 and not a model improvement.
 - MLS significant underdogs: 24.2% predicted vs 24.8% observed, n=1358.
-- Edge-board 7-day slate: 42 matches across 6 leagues.
-- Current risk flags: away_model_underdog=4, draw_heavy=10, home_model_underdog=1, low_total_draw_setup=4, no_line=23.
+- Edge-board 7-day slate: 37 matches across 6 leagues.
+- Current risk flags: away_model_underdog=4, draw_heavy=9, home_model_underdog=1, low_total_draw_setup=3, no_line=18.
 - Tier-family row-level market buckets: 6 buckets; market status ok.
 
 ## 18-Step Execution Status
@@ -18,7 +18,7 @@ Date: 2026-07-11
    - 6-15: seeded 0.6414, league 0.6408, decay8 0.6409.
    - 16+: seeded 0.6276, league 0.6277, decay8 0.6277.
 3. Historical Draw Calibration by Goal Total — Completed for played rows carrying `lam`/`mu`; surfaced by family in `model-slices.js`.
-   - low total: draw 30.0% predicted vs 35.5% observed, played_n=245.
+   - low total: draw 30.1% predicted vs 35.5% observed, played_n=245.
    - middle total: draw 26.4% predicted vs 30.1% observed, played_n=256.
    - high total: draw 22.0% predicted vs 18.3% observed, played_n=115.
 4. Trust UI: Market Disagreement Card — Completed as a conditional evidence tape. It appears only when row-level market buckets exist.
