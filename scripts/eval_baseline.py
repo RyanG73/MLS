@@ -1476,6 +1476,114 @@ else:
     elif not _HAS_TM:
         print("\n[6c/9] Roster-delta skipped (TM base data not loaded in 6b).")
 
+# ─── 6d. Transfer-window spend/earnings (net transfer fees, actual EUR) ──────
+# User request (2026-07-14): "in addition to a team's player value, we should
+# look at incoming and outgoing transfer spend/earnings over the last one or
+# plural transfer windows (summer and winter)." Distinct from 6c's
+# roster-delta (which infers "transfer activity" from squad-snapshot market
+# value diffing, and was NOT KEPT — feature-hunt-log 2026-06-26, Delta -0.0027):
+# this uses ACTUAL Transfermarkt transfer fees (scraped directly from each
+# team's combined-season "transfers" page — see
+# models/r_bridge/transfermarkt_transfer_spend.R's header comment for why:
+# worldfootballR's own tm_team_transfer_balances() and tm_team_transfers()
+# were both verified broken against the live site 2026-07-14), not
+# squad-value deltas.
+#
+# Requires: python scripts/import_transfermarkt_transfers.py --seasons 2017-2025
+#           (needs R + worldfootballR; --skip-fetch to re-map existing raw CSVs)
+#
+# Season-lagged lookup (same posture as 6b/6c): a team-season's TM transfers
+# page aggregates the winter window before the season plus the summer window
+# during it, i.e. "the last 1-2 transfer windows" as of that season — fetched
+# and z-scored exactly like squad_value_eur, with a 1-season-lag fallback.
+#
+# Features (all season-lagged, z-scored within season):
+#   arrivals_spend_z    — gross transfer fees paid for incoming players
+#   departures_income_z — gross transfer fees received for outgoing players
+#   net_spend_z         — arrivals_spend - departures_income (net spend; >0 = buying)
+
+_HAS_TRANSFER_SPEND = False
+if FETCH_TRANSFERMARKT:
+    print("\n[6d/9] Loading Transfermarkt transfer-window spend/income CSVs...")
+
+    _ts_csvs = sorted(_glob.glob(os.path.join(
+        os.path.dirname(__file__), "..", "data",
+        "transfermarkt_transfers_*_mapped.csv")))
+
+    # (short_code, season) → raw EUR fields
+    _ts_raw: dict[tuple, dict] = {}
+    _ts_unmapped: set = set()
+    for _csv in _ts_csvs:
+        try:
+            _ts_df = pd.read_csv(_csv)
+        except Exception:
+            continue
+        for _, _row in _ts_df.iterrows():
+            asa_id = _row.get("asa_team_id", None)
+            if (not isinstance(asa_id, str)) or not asa_id:
+                tm_name = _row.get("tm_team_name", "")
+                if isinstance(tm_name, str) and tm_name:
+                    _ts_unmapped.add(tm_name)
+                continue
+            try:
+                _season = int(_row["season"])
+            except Exception:
+                continue
+            _ts_raw[(asa_id, _season)] = {
+                "arrivals_spend":    float(_row.get("arrivals_spend_eur")    or 0.0),
+                "departures_income": float(_row.get("departures_income_eur") or 0.0),
+                "net_spend":         float(_row.get("net_spend_eur")         or 0.0),
+            }
+    if _ts_unmapped:
+        print(f"    Unmapped TM teams (skipped): {sorted(_ts_unmapped)[:8]}"
+              f"{' ...' if len(_ts_unmapped) > 8 else ''}")
+
+    # Z-score each field within season (scale-free differentials, same guard as 6b/6c)
+    _TS_FIELDS = ["arrivals_spend", "departures_income", "net_spend"]
+    _ts_z: dict[tuple, dict] = {}
+    for _s in sorted({ss for (_, ss) in _ts_raw}):
+        for _field in _TS_FIELDS:
+            _fvals = [d[_field] for (t, ss), d in _ts_raw.items() if ss == _s]
+            if len(_fvals) < 3:
+                continue
+            _fmu = float(np.mean(_fvals))
+            _fsd = max(float(np.std(_fvals)), 0.1)
+            for (t, ss), d in _ts_raw.items():
+                if ss == _s:
+                    if (t, ss) not in _ts_z:
+                        _ts_z[(t, ss)] = {}
+                    _ts_z[(t, ss)][_field + "_z"] = (d[_field] - _fmu) / _fsd
+
+    def _tsz(team_id: str, season, field_z: str) -> float | None:
+        short = _hex_to_short.get(team_id, team_id)
+        s = int(season)
+        for lag in (0, 1):
+            entry = _ts_z.get((short, s - lag))
+            if entry and field_z in entry:
+                return entry[field_z]
+        return None
+
+    if _ts_z:
+        for _hcol, _acol, _fz in [
+            ("home_arrivals_spend_z",    "away_arrivals_spend_z",    "arrivals_spend_z"),
+            ("home_departures_income_z", "away_departures_income_z", "departures_income_z"),
+            ("home_net_spend_z",         "away_net_spend_z",         "net_spend_z"),
+        ]:
+            df[_hcol] = [_tsz(r.home_team, r.season, _fz) for _, r in df.iterrows()]
+            df[_acol] = [_tsz(r.away_team, r.season, _fz) for _, r in df.iterrows()]
+            _base = _fz.replace("_z", "")
+            df[f"{_base}_diff_z"] = df[_hcol].fillna(0) - df[_acol].fillna(0)
+
+        _HAS_TRANSFER_SPEND = True
+        _ts_cov = df["home_net_spend_z"].notna().mean()
+        print(f"    Transfer-spend loaded: {len(_ts_z)} team-seasons  coverage={_ts_cov:.0%}")
+        print(f"    Mean home net_spend_z={df['home_net_spend_z'].mean():.3f}")
+    else:
+        print("    Transfer-spend: no usable rows found "
+              "(run scripts/import_transfermarkt_transfers.py first).")
+else:
+    print("\n[6d/9] Transfer-spend skipped (FETCH_TRANSFERMARKT=False).")
+
 # ─── TZ shift feature ─────────────────────────────────────────────────────────
 # _tz_band, _away_tz_shift_abs, _away_tz_shift_signed imported from feature_registry
 
@@ -2429,6 +2537,15 @@ if _TM_DEPARTED:
     AB_SETS["+Departures"]  = _FEAT_BASE + _TM_DEPARTED
 if _TM_ROSTER_FULL:
     AB_SETS["+RosterFull"]  = _FEAT_BASE + _TM_ROSTER_FULL
+
+# Transfer-window spend/earnings (6d) — actual TM transfer fees, distinct from
+# the market-value-diffing RosterDelta family above.
+_TM_TRANSFER_SPEND = (["home_arrivals_spend_z",    "away_arrivals_spend_z",    "arrivals_spend_diff_z",
+                        "home_departures_income_z", "away_departures_income_z", "departures_income_diff_z",
+                        "home_net_spend_z",         "away_net_spend_z",         "net_spend_diff_z"]
+                       if "home_net_spend_z" in df.columns else [])
+if _TM_TRANSFER_SPEND:
+    AB_SETS["+TransferSpend"] = _FEAT_BASE + _TM_TRANSFER_SPEND
 
 AB_SETS["+TZShift"]    = _FEAT_BASE + _FEAT_TZ
 AB_SETS["+PythagLuck"] = _FEAT_BASE + _FEAT_PYTHAG

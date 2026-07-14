@@ -1,5 +1,78 @@
 # MLS Feature Hunt Log
 
+## 2026-07-14 — Transfer-window spend/earnings (actual TM fees) — **DROP**
+
+**User request (2026-07-14):** "in addition to a team's player value, we should look at incoming and
+outgoing transfer spend/earnings over the last one or plural transfer windows (summer and winter)."
+Distinct from the existing squad-value-diffing `+RosterDelta` family (2026-06-26, also DROP): this
+uses ACTUAL Transfermarkt transfer fees per player (arrivals paid, departures received), not
+market-value deltas inferred from squad-snapshot roster changes.
+
+**Data source investigation:** both of worldfootballR's own transfer-history functions are broken
+against the live site (verified 2026-07-14):
+- `tm_team_transfer_balances()` errors outright — `Column 'expenditure_euros' not found in .data`
+  (the site restructured the balances page's "Expenditure:" cell the package's regex expects).
+- `tm_team_transfers()` runs without erroring but silently returns **zero Departures rows** for
+  every team tested — its internal per-window sub-page loop has a `.box`-vs-`h2` positional
+  misalignment bug (the same bug class already documented in this repo's own
+  `transfermarkt_squad_values.R` header comment for the kader/market-value scrape, just recurring in
+  a different worldfootballR function).
+
+Fix: `models/r_bridge/transfermarkt_transfer_spend.R` scrapes each team's single combined-season
+"transfers" page directly (`/transfers/verein/<id>/saison_id/<season>`, one request per team,
+`Sys.sleep(3)` between teams — same ToS-conscious posture and browser-header GET pattern as the
+existing kader scrape), matching `.box` elements by their own `h2` node (not a separately-queried
+flat h2 vector) to avoid repeating worldfootballR's bug. Verified against Inter Miami CF 2023: 26
+arrivals (Messi/Busquets/Alba/Suárez correctly zero-valued as free transfers; Redondo €7.45m, Avilés
+€6.30m, Farías €5.00m, Gómez €2.70m) and 23 departures (Gregore €2.50m to Botafogo, previously
+silently dropped to 0 by the package function). Both windows (winter pre-season + summer mid-season)
+are combined into one season-level figure — a true per-window split would require the same buggy
+sub-pages, so it's out of scope for this pass, but a season's combined page already covers exactly
+"the last 1-2 transfer windows" as of that season, satisfying the request.
+
+`scripts/import_transfermarkt_transfers.py` fetches + maps team names to `asa_team_id` via the
+existing `config/team_name_to_asa_id.yaml` `transfermarkt:` table (same names as the kader scrape —
+no new alias table needed). Fetched 2017–2025 (9 seasons, 244 team-season rows, **100% name-mapping
+coverage**, no unmapped teams).
+
+**Feature (`eval_baseline.py` §6d):** season-lagged (1-season fallback), z-scored within season,
+same pattern as §6b/6c:
+- `arrivals_spend_z` — gross transfer fees paid for incoming players
+- `departures_income_z` — gross transfer fees received for outgoing players
+- `net_spend_z` — arrivals − departures (net spend; positive = net buyer)
+- home/away/diff variants of each → `AB_SETS["+TransferSpend"]`
+
+**Result (single bagged run, `--xgb-bag 5 --seed 42 --cache`, 3-fold avg 2022–2024):**
+
+| AB set | XGB Brier | Δ vs Base | Keep? |
+|--------|-----------|-----------|-------|
+| Base | 0.635213 | — | — |
+| +TransferSpend | 0.637255 | −0.0020 | **NO** |
+
+**experiment_id:** `feat-transfer-spend-s42-20260714T203043`
+**Verdict: DROP.** Δ=−0.0020 is a clear regression, ~10× the harness's σ≈0.0002 seed-noise floor —
+not a borderline/gate-bound result, so per the verification protocol a second-seed confirmation run
+was not needed (that check is for KEEP claims heading toward promotion, not unambiguous drops).
+
+**Notes:**
+- Same failure mode as `+RosterDelta`: XGBoost already orders squad strength via
+  `squad_value_diff_z` and ELO; a second, noisier decomposition of "how much money moved" doesn't
+  add resolution the ensemble can use, and season-static (not dated) transfer-fee totals can't
+  distinguish a March starter signing from a September afterthought.
+- Unlike RosterDelta, this uses real transaction fees rather than inferred squad-value deltas, so it
+  rules out "the market-value proxy was just noisy" as RosterDelta's failure explanation — actual
+  spend data regresses too, reinforcing that the season-static/undated framing (not the value source)
+  is the limiting factor for any transfer-market feature in this harness.
+- Code is left registered (`AB_SETS["+TransferSpend"]`, not promoted to `_FEAT_BASE`) rather than
+  reverted, matching the `+RosterDelta` precedent — the working scraper + feature stay available for
+  re-testing if/when dated (Layer C, weekly-snapshot) Transfermarkt data lands, which would let a
+  "did this signing already play" leakage-safe version be tested instead of the season-static one.
+- **Two real bugs found and worked around in worldfootballR** (`tm_team_transfer_balances()` broken
+  column, `tm_team_transfers()` silently dropping all Departures) — worth flagging upstream to the
+  package maintainer separately; not blocking here since the direct-scrape fallback works.
+
+**Validation:** `PYTHONPATH=. python3 scripts/experiment.py run --name feat-transfer-spend-s42 --notes "..." -- --ab-only "Base,+TransferSpend" --cache --xgb-bag 5 --seed 42`
+
 ## 2026-07-11 — Draw-Brier campaign Phase 0: per-match draw decomposition — NO-GO (campaign closed; settles M2 definitively)
 
 **Hypothesis:** with the full per-match component dump (calibrated DC/XGB/hurdle vectors, blend,
