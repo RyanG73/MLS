@@ -1,5 +1,25 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-14 — League expansion round 5: South America + more Asia + Eerste Divisie, all 7 fully shipped**
+> User decision: add Chile/Colombia/Uruguay/Peru Primera División, K League 1 (South Korea),
+> Thai League 1, and Eerste Divisie (Netherlands tier 2) as projection-only leagues. All 7
+> shipped — none needed a `"soon"` placeholder. 6 route through ESPN goals-only
+> (`data_pipeline/espn_fixtures.py`, `source="espn"`, the Saudi/A-League/WSL family); South
+> America is calendar-year, Thailand/Eerste Divisie are Aug–May straddles (verified via
+> monthly event-count probes, not just a date-span check — Thailand's raw window spans
+> Jan–Dec but has a May–Jul gap). K League 1 has no ESPN slug under any guess and ships
+> results-only off `data_pipeline/api_football.py`'s free-plan 2022-2024 seasons (`canadian-pl`
+> family); its raw feed mixes in a K1-vs-K2 relegation-playoff crossover match and one
+> inconsistent team name, both filtered/renamed generically (`ROUND_EXCLUDE`, `TEAM_RENAME`).
+> Bug found + fixed in the same pass: `liga_mx_label()` was mis-applied to every
+> `source="espn"` league's `perf_by_year` (not just `liga-mx`), producing nonsense labels like
+> `"Ap.3028"` for Saudi/A-League/WSL since round 4 — now gated on `lid == "liga-mx"`, all 4
+> affected leagues rebuilt. Also fixed in passing (pre-existing, unrelated to this round):
+> `calendar.js` was missing from the canonical `_NON_PAYLOAD` exclusion set, failing payload
+> validation and the REGISTRY-vs-disk test. `webapp/leagues.js` now 56 leagues. Full details +
+> two more pre-existing bugs flagged for follow-up (stale `build_logo_map.py` exclusion list,
+> `test_build_movers.py` tuple-unpacking mismatch) in `docs/league-expansion-report.md`.
+
 > **2026-07-11 — NYT redesign feedback round: search, world map, MLS finish plot, season status, headline rewrite**
 > User feedback batch on the redesign shipped earlier the same day (16 items). Registry
 > gained `country`+`tier` metadata on every league (NWSL moved to the Women group);
