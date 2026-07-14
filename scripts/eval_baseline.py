@@ -1540,19 +1540,47 @@ if FETCH_TRANSFERMARKT:
 
     # Z-score each field within season (scale-free differentials, same guard as 6b/6c)
     _TS_FIELDS = ["arrivals_spend", "departures_income", "net_spend"]
-    _ts_z: dict[tuple, dict] = {}
-    for _s in sorted({ss for (_, ss) in _ts_raw}):
-        for _field in _TS_FIELDS:
-            _fvals = [d[_field] for (t, ss), d in _ts_raw.items() if ss == _s]
-            if len(_fvals) < 3:
-                continue
-            _fmu = float(np.mean(_fvals))
-            _fsd = max(float(np.std(_fvals)), 0.1)
-            for (t, ss), d in _ts_raw.items():
-                if ss == _s:
-                    if (t, ss) not in _ts_z:
-                        _ts_z[(t, ss)] = {}
-                    _ts_z[(t, ss)][_field + "_z"] = (d[_field] - _fmu) / _fsd
+    _ts_seasons = sorted({ss for (_, ss) in _ts_raw})
+
+    def _zscore_within_season(raw: dict[tuple, dict]) -> dict[tuple, dict]:
+        """{(team, season): {field: eur}} → {(team, season): {field_z: z}}, z-scored
+        across teams within each season (same guard/floor as 6b/6c)."""
+        out: dict[tuple, dict] = {}
+        for _s in _ts_seasons:
+            for _field in _TS_FIELDS:
+                _fvals = [d[_field] for (t, ss), d in raw.items() if ss == _s]
+                if len(_fvals) < 3:
+                    continue
+                _fmu = float(np.mean(_fvals))
+                _fsd = max(float(np.std(_fvals)), 0.1)
+                for (t, ss), d in raw.items():
+                    if ss == _s:
+                        out.setdefault((t, ss), {})[_field + "_z"] = (d[_field] - _fmu) / _fsd
+        return out
+
+    _ts_z = _zscore_within_season(_ts_raw)
+
+    # Cumulative trailing-window variants (2026-07-14: "why not cumulatively look
+    # at spend over last 1,2,3 seasons?"). For each window N, sum each raw field
+    # over the trailing N seasons present (a team-season with gaps just sums
+    # what exists), THEN z-score within season. N=1 is the single-season feature
+    # above; N=2/3 capture roster investment built up across multiple windows,
+    # smoothing single-season noise. Hypothesis under test: the accumulated
+    # signal is cleaner than one noisy window — though it also moves closer to
+    # re-measuring squad_value_diff_z (itself the accumulated result of spending),
+    # so redundancy with an existing feature is the a-priori risk.
+    _ts_cum_z: dict[int, dict[tuple, dict]] = {}
+    for _N in (2, 3):
+        _cum_raw: dict[tuple, dict] = {}
+        for (_t, _s) in _ts_raw:
+            _acc = {f: 0.0 for f in _TS_FIELDS}
+            for _back in range(_N):
+                _e = _ts_raw.get((_t, _s - _back))
+                if _e:
+                    for f in _TS_FIELDS:
+                        _acc[f] += _e[f]
+            _cum_raw[(_t, _s)] = _acc
+        _ts_cum_z[_N] = _zscore_within_season(_cum_raw)
 
     def _tsz(team_id: str, season, field_z: str) -> float | None:
         short = _hex_to_short.get(team_id, team_id)
@@ -1574,10 +1602,35 @@ if FETCH_TRANSFERMARKT:
             _base = _fz.replace("_z", "")
             df[f"{_base}_diff_z"] = df[_hcol].fillna(0) - df[_acol].fillna(0)
 
+        # Cumulative trailing-window feature columns (2yr / 3yr), same
+        # season-lagged lookup posture as the single-season block above.
+        def _tscz(team_id: str, season, field_z: str, N: int) -> float | None:
+            short = _hex_to_short.get(team_id, team_id)
+            s = int(season)
+            for lag in (0, 1):
+                entry = _ts_cum_z.get(N, {}).get((short, s - lag))
+                if entry and field_z in entry:
+                    return entry[field_z]
+            return None
+
+        for _N in (2, 3):
+            for _stem, _fz in [
+                ("arrivals_spend",    "arrivals_spend_z"),
+                ("departures_income", "departures_income_z"),
+                ("net_spend",         "net_spend_z"),
+            ]:
+                _hcol = f"home_{_stem}_{_N}yr_z"
+                _acol = f"away_{_stem}_{_N}yr_z"
+                df[_hcol] = [_tscz(r.home_team, r.season, _fz, _N) for _, r in df.iterrows()]
+                df[_acol] = [_tscz(r.away_team, r.season, _fz, _N) for _, r in df.iterrows()]
+                df[f"{_stem}_{_N}yr_diff_z"] = df[_hcol].fillna(0) - df[_acol].fillna(0)
+
         _HAS_TRANSFER_SPEND = True
         _ts_cov = df["home_net_spend_z"].notna().mean()
         print(f"    Transfer-spend loaded: {len(_ts_z)} team-seasons  coverage={_ts_cov:.0%}")
         print(f"    Mean home net_spend_z={df['home_net_spend_z'].mean():.3f}")
+        print(f"    Cumulative windows built: 2yr coverage={df['home_net_spend_2yr_z'].notna().mean():.0%}, "
+              f"3yr coverage={df['home_net_spend_3yr_z'].notna().mean():.0%}")
     else:
         print("    Transfer-spend: no usable rows found "
               "(run scripts/import_transfermarkt_transfers.py first).")
@@ -2546,6 +2599,20 @@ _TM_TRANSFER_SPEND = (["home_arrivals_spend_z",    "away_arrivals_spend_z",    "
                        if "home_net_spend_z" in df.columns else [])
 if _TM_TRANSFER_SPEND:
     AB_SETS["+TransferSpend"] = _FEAT_BASE + _TM_TRANSFER_SPEND
+
+# Cumulative trailing-window variants of the above (2026-07-14 follow-up):
+# spend summed over the last 2 / 3 seasons instead of a single season.
+def _tm_transfer_spend_window(N: int) -> list:
+    cols = [f"home_arrivals_spend_{N}yr_z",    f"away_arrivals_spend_{N}yr_z",    f"arrivals_spend_{N}yr_diff_z",
+            f"home_departures_income_{N}yr_z", f"away_departures_income_{N}yr_z", f"departures_income_{N}yr_diff_z",
+            f"home_net_spend_{N}yr_z",         f"away_net_spend_{N}yr_z",         f"net_spend_{N}yr_diff_z"]
+    return cols if f"home_net_spend_{N}yr_z" in df.columns else []
+_TM_TRANSFER_SPEND_2YR = _tm_transfer_spend_window(2)
+_TM_TRANSFER_SPEND_3YR = _tm_transfer_spend_window(3)
+if _TM_TRANSFER_SPEND_2YR:
+    AB_SETS["+TransferSpend2yr"] = _FEAT_BASE + _TM_TRANSFER_SPEND_2YR
+if _TM_TRANSFER_SPEND_3YR:
+    AB_SETS["+TransferSpend3yr"] = _FEAT_BASE + _TM_TRANSFER_SPEND_3YR
 
 AB_SETS["+TZShift"]    = _FEAT_BASE + _FEAT_TZ
 AB_SETS["+PythagLuck"] = _FEAT_BASE + _FEAT_PYTHAG

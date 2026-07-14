@@ -134,6 +134,35 @@ was not needed (that check is for KEEP claims heading toward promotion, not unam
 
 **Validation:** `PYTHONPATH=. python3 scripts/experiment.py run --name feat-transfer-spend-s42 --notes "..." -- --ab-only "Base,+TransferSpend" --cache --xgb-bag 5 --seed 42`
 
+### Follow-up: cumulative trailing-window variants (2yr / 3yr) — also **DROP**
+
+**User question (2026-07-14):** "why not cumulatively look at spend over last 1,2,3 seasons?" — the
+single-season version's noise (one quiet window ≠ weak roster) might smooth out if summed over
+multiple seasons. Tested exactly that: for each window N∈{2,3}, sum arrivals/departures/net spend
+over the trailing N seasons (whatever's present), z-score within season, same season-lagged lookup.
+`AB_SETS["+TransferSpend2yr"]`, `["+TransferSpend3yr"]`.
+
+| AB set | XGB Brier | Δ vs Base | Keep? |
+|--------|-----------|-----------|-------|
+| Base | 0.6345 | — | — |
+| +TransferSpend (1yr) | 0.6346 | −0.0001 | **NO** |
+| +TransferSpend2yr | 0.6349 | −0.0005 | **NO** |
+| +TransferSpend3yr | 0.6352 | −0.0008 | **NO** |
+
+**experiment_id:** `feat-transfer-spend-cumulative-s42-20260714T212448`
+**Verdict: DROP, monotonically worse with a longer window.** This is the redundancy hypothesis
+confirmed the hard way — extending the accumulation window moves the feature *toward* re-measuring
+`squad_value_diff_z` (squad value IS accumulated spending), so the more seasons you sum, the more
+collinear-and-noisy it gets. There is no better window further back; the trend runs the wrong
+direction. Settles the transfer-market-feature thread for this harness: neither single-season nor
+cumulative fees beat the champion, because season-static spend is a lossy re-encoding of squad value
+the model already carries. The only untested angle with a real chance is a **dated, leakage-safe**
+version (net spend on players who had actually appeared before match date), which needs per-transfer
+dates the current scrape doesn't capture — a data-ingestion project, not a feature tweak.
+Code left registered (opt-in `AB_SETS`, not promoted to `_FEAT_BASE`), matching the precedent above.
+
+**Validation:** `PYTHONPATH=. python3 scripts/experiment.py run --name feat-transfer-spend-cumulative-s42 --notes "..." -- --ab-only "Base,+TransferSpend,+TransferSpend2yr,+TransferSpend3yr" --cache --xgb-bag 5 --seed 42`
+
 ## 2026-07-11 — Draw-Brier campaign Phase 0: per-match draw decomposition — NO-GO (campaign closed; settles M2 definitively)
 
 **Hypothesis:** with the full per-match component dump (calibrated DC/XGB/hurdle vectors, blend,
