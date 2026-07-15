@@ -44,8 +44,15 @@ _MATCH_OUT = REPO_ROOT / "data" / "match_prob_history.parquet"
 _CHAMPION = REPO_ROOT / "experiments" / "champion.json"
 
 # Same exclusion as validate_payloads / test_payload_contract.
+# Cross-league / index data files that live in webapp/data/ but are NOT
+# per-league projection payloads. Kept in sync as new such files ship, but the
+# isinstance(dict) guard in main() is the real safety net — this class of bug
+# (a new non-payload file crashing a webapp/data/*.js iterator) has recurred
+# three times: calendar.js in validate_payloads, and search-index.js in both
+# build_logo_map and here. search-index.js in particular is a JSON *array*.
 _NON_PAYLOAD = {"logos.js", "ledger.js", "edge-board.js", "movers.js",
-                "coefficients.js"}
+                "coefficients.js", "search-index.js", "calendar.js",
+                "home.js", "power.js", "drift.js", "europe-map.js"}
 
 # promoted/promo/conf/liguilla/playoffs added 2026-07-09 (round-3 promotion
 # playoffs + drift-tracking step 1a — history not captured never exists).
@@ -211,6 +218,12 @@ def main() -> int:
             payload = _load_payload(p)
         except Exception as e:
             print(f"[archive] skip {p.name}: {e}", file=sys.stderr)
+            continue
+        # Safety net beyond _NON_PAYLOAD: any webapp/data/*.js that isn't a
+        # league-payload dict (e.g. search-index.js is a JSON array) is not
+        # something to archive odds from — skip rather than crash the whole
+        # nightly refresh on it.
+        if not isinstance(payload, dict):
             continue
         if payload.get("status") == "placeholder":
             continue

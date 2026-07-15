@@ -100,6 +100,11 @@ def main():
             d = load(path)
         except Exception:
             continue
+        # Skip non-league-payload data files (e.g. search-index.js is a JSON
+        # array, not a payload dict) — same recurring guard as
+        # archive_odds_snapshot.py / validate_payloads.py.
+        if not isinstance(d, dict):
+            continue
         rows = (d.get("standings") or []) + (d.get("field") or [])
         for s in rows:
             name, logo = s.get("team"), s.get("logo")
