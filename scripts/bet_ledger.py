@@ -159,6 +159,11 @@ def main() -> int:
         except Exception as e:
             print(f"[ledger] skip {p.name}: {e}", file=sys.stderr)
             continue
+        # Skip non-league-payload data files (e.g. search-index.js is a JSON
+        # array) — durable guard beyond _NON_PAYLOAD, shared across every
+        # webapp/data/*.js consumer.
+        if not isinstance(payload, dict):
+            continue
         if payload.get("status") == "placeholder":
             continue
         n_logged += log_bets(candidate_bets(p.stem, payload))

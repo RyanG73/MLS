@@ -35,8 +35,12 @@ from scripts.bet_ledger import _load_payload, _quarter_kelly_units  # noqa: E402
 from scripts.payload_utils import write_js_payload  # noqa: E402
 
 
-def _is_eligible(payload: dict) -> bool:
-    """Live table/conference leagues only — no continental knockouts, no power."""
+def _is_eligible(payload) -> bool:
+    """Live table/conference leagues only — no continental knockouts, no power.
+    Non-dict payloads (e.g. search-index.js is a JSON array) are never eligible
+    — durable guard shared across every webapp/data/*.js consumer."""
+    if not isinstance(payload, dict):
+        return False
     if payload.get("status") != "live":
         return False
     return (payload.get("outlook") or {}).get("mode") != "knockout"

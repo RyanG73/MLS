@@ -44,6 +44,11 @@ jobs:
                   d = json.loads(m.group(1))
               except Exception:
                   continue
+              # Durable guard: any data file that isn't a payload dict (e.g.
+              # search-index.js is a JSON array) is not a league — skip rather
+              # than crash on .get(). Belt-and-braces with the name list above.
+              if not isinstance(d, dict):
+                  continue
               if d.get("status") == "live":
                   live.append(p.stem)
           print(json.dumps(live))
