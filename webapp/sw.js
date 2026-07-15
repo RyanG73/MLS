@@ -5,7 +5,13 @@
 // already cache-busted per-request with a `?t=timestamp` query string by the
 // app itself (see index.html's document.write calls), and a service worker
 // caching them would fight that and serve stale odds/standings.
-const CACHE = "entenser-shell-v1";
+// Bump this version string on any shell/feature change to force every
+// returning browser to purge its old cached shell and re-fetch the fresh
+// one (the activate handler deletes all caches != CACHE). v2 (2026-07-15):
+// flush shells cached before the momentum/postgame-WE/results features
+// shipped, since some returning visitors reported seeing the pre-feature
+// page from cache.
+const CACHE = "entenser-shell-v2";
 const SHELL = [
   "/",
   "/index.html",
