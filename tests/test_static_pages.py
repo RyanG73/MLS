@@ -92,11 +92,12 @@ def test_sitemap_wellformed_and_complete(built):
     locs = [u.find(f"{ns}loc").text for u in root]
     assert locs[0] == f"{SITE}/"
     assert locs[1] == f"{SITE}/leagues/"
-    # Every league page is present; the weekly recap + open-data pages are
-    # included when their inputs exist (they do in the committed tree).
+    # Every league page is present; the weekly recap, open-data, and World Cup
+    # on-ramp pages are included when their inputs exist (they do here).
     league_locs = {f"{SITE}/leagues/{lid}/" for lid in _pages(built)}
     assert league_locs <= set(locs[2:])
-    assert set(locs[2:]) - league_locs <= {f"{SITE}/weekly/", f"{SITE}/open-data/"}
+    assert set(locs[2:]) - league_locs <= {
+        f"{SITE}/weekly/", f"{SITE}/open-data/", f"{SITE}/after-the-world-cup/"}
     for u in root:
         lm = u.find(f"{ns}lastmod")
         assert lm is not None and re.fullmatch(r"\d{4}-\d{2}-\d{2}", lm.text)
