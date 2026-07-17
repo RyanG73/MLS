@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="description" content="Market-blind football probabilities, explained and audited across league races, match projections, model trust, and market-line status." />
-<meta property="og:title" content="Entenser — Football probabilities, explained and audited" />
-<meta property="og:description" content="Track football league races, model movement, market disagreement, and model trust signals from one static command center." />
+<meta name="description" content="Title, qualification and relegation forecasts across world football. No bookmaker odds in the model — every forecast graded in public." />
+<meta property="og:title" content="Entenser — football forecasts, graded in public" />
+<meta property="og:description" content="Who wins the league, who qualifies, who goes down — across 50+ competitions. The model never sees betting odds, and we show every hit and miss." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://entenser.com/" />
 <meta property="og:image" content="https://entenser.com/assets/og/og-image.png" />
@@ -45,7 +45,7 @@ if(_analyticsOn){
 }
 </script>
 <link rel="icon" type="image/png" href="assets/branding/favicon.png" />
-<title>Entenser — Football probabilities, explained and audited</title>
+<title>Entenser — football forecasts, graded in public</title>
 <!-- PWA (2026-07-14): installable app shell — manifest + icons + a narrowly-scoped
      service worker that only caches the shell, never webapp/data/*.js payloads
      (see sw.js's own comment for why). -->
@@ -3171,6 +3171,10 @@ if (_isPower && window.POWER_DATA) {
 .cc-cont{display:flex;gap:6px;flex-wrap:wrap}
 .cc-pill{font-size:10.5px;color:var(--txt-2);background:var(--ink-0);border:1px solid var(--line);border-radius:5px;padding:3px 6px}
 .cc-panel-note{padding:0 14px 12px;color:var(--txt-3);font-size:11px}
+.trust-plain{padding:12px 14px 4px}
+.trust-plain p{margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--txt-2)}
+.trust-plain b{color:var(--txt-1)}
+.trust-plain-fine{font-size:12px;color:var(--txt-3)}
 .cc-trust{display:grid;gap:10px;padding:10px}
 .cc-family{border:1px solid var(--line);border-radius:var(--r-md);background:var(--ink-2);padding:10px}
 .cc-family-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
@@ -3309,6 +3313,10 @@ if (_isPower && window.POWER_DATA) {
   .ed-cols,.ed-newsband{grid-template-columns:1fr}
 }
 /* ── Home landing ─────────────────────────────────────────────── */
+/* First-screen promise band (launch plan D1): fan outcome first, method second. */
+.home-promise{padding:var(--s4) 2px var(--s3);border-bottom:1px solid var(--line-2);margin-bottom:var(--s4)}
+.home-promise h1{font-size:clamp(22px,3.4vw,32px);line-height:1.2;font-weight:800;letter-spacing:-.01em;margin:0 0 8px;max-width:20ch}
+.home-promise p{color:var(--txt-2);font-size:14.5px;line-height:1.55;margin:0;max-width:70ch}
 .hm-sec{margin-bottom:var(--s4)}
 .hm-h{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-2);margin:0 2px 10px}
 .hm-leadgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:10px}
@@ -3453,7 +3461,13 @@ function bindCommandSignup(){
 function commandTrustHTML(){
   const MS=window.MODEL_SLICES;
   if(!MS||MS.status!=='ok')return '<div class="cc-panel-note">Model-slice report is not available yet.</div>';
-  return `<div class="cc-trust">`+(MS.families||[]).slice(0,5).map(f=>{
+  // Plain-English on-ramp (launch plan D2): translate the numbers before the
+  // expert reads them, and keep the honest "we show our work" framing up front.
+  const intro=`<div class="trust-plain">
+    <p><b>What "graded in public" means.</b> When the model says a team has a 70% chance, that outcome should happen about 70% of the time. Below is the receipt: each family's score against real results, and where the model is honestly weak. Lower is better — the "vs naive" figure is how much it beats a no-information guess.</p>
+    <p class="trust-plain-fine">We don't claim to beat the betting market; sharp bookmakers usually edge us by a couple of percent. We claim to show our work — every hit and miss, in the open.</p>
+  </div>`;
+  return intro+`<div class="cc-trust">`+(MS.families||[]).slice(0,5).map(f=>{
     const b=f.model_brier!=null?f.model_brier.toFixed(4):'—';
     const imp=f.improvement_pct!=null?`+${f.improvement_pct}% vs naive`:'diagnostics pending';
     const limit=(f.limits||[])[0]||f.policy||'No public limitation note yet.';
@@ -3544,7 +3558,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   const EB=window.EDGE_BOARD_DATA;
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Command Center";
   document.title="Entenser — Command Center";
-  const sub=$('#sub'); if(sub) sub.textContent=`Market-blind probabilities, movement, and trust · built ${EB.generated}`;
+  const sub=$('#sub'); if(sub) sub.textContent=`Market-blind probabilities (the model never sees betting odds), movement, and trust · built ${EB.generated}`;
   const allMatches=[...(EB.priced||[]), ...(EB.no_line||[])];
   const seven=EB.upcoming_7d||{};
   const priced=(EB.priced||[]).length, edges=(EB.priced||[]).filter(r=>r.bet).length;
@@ -3555,7 +3569,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
     target.classList.remove('hidden');
     target.innerHTML=`<div class="cc-hero">
       <div class="cc-promise">
-        <div><div class="cc-eyebrow">Market-blind football probabilities</div>
+        <div><div class="cc-eyebrow">Market-blind football probabilities · the model never sees betting odds</div>
         <h2>What changed, what is priced, and where the model needs caution.</h2>
         <div class="cc-copy">Use the board as a probability terminal: scan upcoming matches, fragile season races, projection movement, and model weak spots before drilling into a league. ${BET_DISCLAIMER}</div></div>
         <div class="cc-actions"><a class="cc-link" href="?league=epl">Premier League</a><a class="cc-link" href="?league=power">Power Rankings</a><a class="cc-link" href="?league=mls">MLS</a></div>
@@ -3722,7 +3736,12 @@ if(_isHome && window.HOME_DATA){
 
   const moversBody=moversBoardHTML();
   const target=$('#view-outlook')||$('main.wrap');
-  if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap">
+  if(target){ target.classList.remove('hidden'); target.innerHTML=`
+    <div class="home-promise">
+      <h1>Title, qualification and relegation forecasts across world football.</h1>
+      <p>No bookmaker odds in the model — the forecasts are built from results, expected goals and team strength, never betting lines. Every forecast is graded in public, hits and misses alike.</p>
+    </div>
+    <div class="ed-wrap">
     <div class="ga-lead">${lead?`<div class="ed-lead"><a href="?league=${lead.league}"><div class="ed-kicker">${lead.kicker} · updated ${H.generated}</div><h1>${lead.h}</h1><div class="deck">${lead.deck}</div></a></div>`:''}</div>
     <div class="ga-stories"><div class="ed-sec">More movement</div><div class="ed-cols">${stories.slice(0,8).map(story).join('')}</div></div>
     <div class="ga-models">
@@ -3863,12 +3882,12 @@ if(_infoPage){
   const TITLES={'about':'About the model','data-sources':'Data & attribution','responsible-gambling':'Responsible gambling','privacy':'Privacy','contact':'Contact'};
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent=TITLES[_infoPage]||'Info';
   document.title=(TITLES[_infoPage]||'Info')+' · Entenser';
-  const subEl=$('#sub'); if(subEl) subEl.textContent='Entenser · market-blind football probabilities, explained and audited';
+  const subEl=$('#sub'); if(subEl) subEl.textContent='Entenser · the only football model that grades itself in public';
   const nav='<div class="info-nav">'+NAV.map(([id,label])=>`<a href="?league=${id}"${id===_infoPage?' class="active"':''}>${label}</a>`).join('')+'</div>';
   const DOCS={};
   DOCS['about']=`
     <h2>About the model</h2>
-    <p class="lead">Entenser is a <b>market-blind</b> football prediction system. It estimates win / draw / loss probabilities from team strength and form — and is never trained on betting odds, so when the model disagrees with the market, that disagreement is genuinely independent.</p>
+    <p class="lead">Entenser is a <b>market-blind</b> football prediction system — the model never sees betting odds. It estimates win / draw / loss probabilities from team strength and form, so when it disagrees with the market, that disagreement is genuinely independent. And it is, as far as we know, <b>the only football model that grades itself in public</b>: every forecast is scored against what actually happened, hits and misses on the same page.</p>
     <h3>How a prediction is built</h3>
     <ul>
       <li><b>ELO ratings</b> track each team's strength over time (home advantage and between-season regression baked in).</li>

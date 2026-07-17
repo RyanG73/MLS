@@ -2,6 +2,22 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-17: **D1–D3 shipped and browser-verified** (ran early on user request).
+>   D1: first-screen promise band on the Home landing ("Title, qualification and
+>   relegation forecasts across world football" / "No bookmaker odds in the model
+>   … every forecast graded in public"); head meta/OG/title rewritten to lead with
+>   the fan outcome; Command Center eyebrow + subtitle gained the plain-English
+>   "the model never sees betting odds" clause. D2: plain-English trust on-ramp
+>   above the Command Center trust panel (translates Brier — "when we say 70% it
+>   happens about 70% of the time — here's the receipt" — keeps raw family Brier
+>   below; "we don't claim to beat the market, we show our work" preserved). The
+>   per-league Model Health tab already had fan-friendly framing, left intact.
+>   D3: About route now leads with "the only football model that grades itself in
+>   public"; static-page `_METHOD_NOTE` was already consistent. sw.js → v4.
+>   Verified: Home/command/about/trust render new copy, zero console errors, 10
+>   static-page tests pass, 57/57 payloads valid, method note present on
+>   /leagues/epl/.
+>
 > - 2026-07-16 (3): **C1–C9 shipped and live-verified** (d1c38c0). 56 standalone
 >   `/leagues/<id>/` pages + hub + sitemap generated at deploy time by stdlib-only
 >   `scripts/build_static_pages.py` (8–16 KB/page, unique titles, self-canonicals,

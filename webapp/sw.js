@@ -15,7 +15,9 @@
 // NOTE: the static /leagues/<id>/ pages are deliberately NOT cached here —
 // the fetch handler's SHELL allowlist below never matches them, so they
 // always load fresh from the network (they carry daily-refreshed odds).
-const CACHE = "entenser-shell-v3";
+// v4 (2026-07-17): first-screen promise + plain-English trust copy (launch
+// plan D) — flush shells cached with the old "explained and audited" head.
+const CACHE = "entenser-shell-v4";
 const SHELL = [
   "/",
   "/index.html",

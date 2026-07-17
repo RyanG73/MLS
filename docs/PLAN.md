@@ -1,5 +1,15 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-17 — Launch workstream D shipped: messaging + plain-English trust on-ramp**
+> Home landing now leads with the fan-outcome promise ("Title, qualification and relegation
+> forecasts across world football" / "No bookmaker odds in the model — every forecast graded in
+> public"); head meta/OG/title rewritten to match. Command Center eyebrow/subtitle and the About
+> lead gained a plain-English "the model never sees betting odds" clause at first mention;
+> About now leads with "the only football model that grades itself in public". Command Center
+> trust panel gained a plain-English Brier translation above the expert numbers, keeping the
+> honest "we don't claim to beat the market, we show our work" framing. Copy-only; sw.js→v4.
+> Verified in browser (zero console errors), 10 static-page tests + 57/57 payloads green.
+
 > **2026-07-16 (2) — Launch workstreams B + C shipped: data-status honesty + crawlable SEO surfaces**
 > B (08acb8c): `data_status` contract (full_forecast/results_only/historical + format_approximate)
 > flows from builders → `fetch_league_teams.DATA_STATUS` → `webapp/leagues.js` → UI badges/copy;
