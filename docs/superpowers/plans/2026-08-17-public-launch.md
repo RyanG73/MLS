@@ -2,6 +2,20 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-17 (5): **I1 — first pre-launch QA pass on production, no blocking
+>   issues** (`docs/qa-pass-2026-07-17.md`). Swept every route type (home, league
+>   SPA, command, power, results-only, team deep-link, support, all static pages)
+>   desktop + mobile: zero console errors, zero 404s on real routes, no horizontal
+>   overflow, static tables scroll in-container. Verified live: odds toggle
+>   (switches + persists), canonical swap on SPA routes, OG/meta/title, PWA
+>   (manifest valid, SW v9 active), robots + sitemap (61 URLs) + 404, valid JSON-LD
+>   on all static pages (7–19 KB), 3 consecutive green refresh+deploy runs. Minor/
+>   expected only: analytics no-op until Plausible exists (A1); results-only
+>   leagues show an older "updated" date (honest but could reframe later); watch
+>   the first CI weekly-recap run on 2026-07-18. More QA passes planned before
+>   launch. **I2/I3/I4 remain** (analytics+email e2e once accounts exist; content
+>   freeze Aug 14; user posts Aug 17).
+>
 > - 2026-07-17 (4): **H1–H4 shipped and browser-verified** (H5 is a USER task).
 >   H1: `scripts/build_weekly_recap.py` → `webapp/data/weekly.js` + crawlable
 >   `/weekly/` page (movers, closest races, model-vs-market when priced, and a
