@@ -18,6 +18,7 @@ import json
 import subprocess
 import unicodedata
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -156,6 +157,18 @@ _WEST = {"austin fc", "colorado rapids", "fc dallas", "houston dynamo fc", "la g
 _PLAYOFF_SLOTS, _HFA_SLOTS = 9, 4
 _SUFFIX = {"fc", "sc", "cf"}
 _ALIAS = {"lafc": "los angeles fc", "red bull new york": "new york red bulls"}
+_MLS_TEAM_TZ = {
+    "ATL": "America/New_York", "ATX": "America/Chicago", "CLT": "America/New_York",
+    "CHI": "America/Chicago", "CIN": "America/New_York", "COL": "America/Denver",
+    "CLB": "America/New_York", "DC": "America/New_York", "DAL": "America/Chicago",
+    "HOU": "America/Chicago", "MIA": "America/New_York", "LAG": "America/Los_Angeles",
+    "LAFC": "America/Los_Angeles", "MIN": "America/Chicago", "MTL": "America/Toronto",
+    "NSH": "America/Chicago", "NE": "America/New_York", "NYC": "America/New_York",
+    "NYRB": "America/New_York", "ORL": "America/New_York", "PHI": "America/New_York",
+    "POR": "America/Los_Angeles", "RSL": "America/Denver", "SJ": "America/Los_Angeles",
+    "SEA": "America/Los_Angeles", "SKC": "America/Chicago", "STL": "America/Chicago",
+    "TOR": "America/Toronto", "VAN": "America/Vancouver", "SD": "America/Los_Angeles",
+}
 
 
 def _norm(n):
@@ -169,6 +182,20 @@ def _conf(nn):
 
 def _toks(nn):
     return tuple(t for t in nn.split() if t not in _SUFFIX)
+
+
+def mls_local_date(ko_utc: str | None, team_abbr: str | None,
+                   fallback: str | None = None) -> str | None:
+    """Venue-local fixture date for MLS cards; preserves ko_utc separately."""
+    if not ko_utc or not team_abbr:
+        return fallback
+    tz = _MLS_TEAM_TZ.get(team_abbr)
+    if not tz:
+        return fallback
+    dt = pd.to_datetime(ko_utc, utc=True, errors="coerce")
+    if pd.isna(dt):
+        return fallback
+    return dt.tz_convert(ZoneInfo(tz)).strftime("%Y-%m-%d")
 
 
 def espn_schedule(season):
@@ -226,6 +253,7 @@ def main():
     import models.research_model as rm
     teams = get_teams("mls")
     id2name = {r.team_id: r.team_name for r in teams.itertuples()}
+    id2abbr = {r.team_id: r.team_abbreviation for r in teams.itertuples()}
     # ESPN-normalized-name -> ASA team_id (suffix-tolerant + alias)
     tok2id = {_toks(_norm(r.team_name)): r.team_id for r in teams.itertuples()}
 
@@ -383,17 +411,18 @@ def main():
                 _conf(_norm(id2name.get(atid, ""))) is None):
             continue
         if state != "post":
+            local_date = mls_local_date(ko_utc, id2abbr.get(htid), date)
             pH, pD, pA = dc_probs(htid, atid)
             lam, mu = dc_lam_mu(htid, atid)
             # F1/F2 (2026-07-09): kickoff/venue on every card; weather only
             # inside the 7-day forecast window (open-meteo, failure → None)
             wx = kickoff_weather(venue_city, ko_utc) \
-                if (ko_utc and venue_city and date <= _wx_horizon) else None
+                if (ko_utc and venue_city and local_date <= _wx_horizon) else None
             # CONTRACT: "id" = index into the remaining/RP sim arrays (assignment
             # order here), NOT display order — games are re-sorted by date below.
             # The client what-if sim must key fixtures by id, never by position.
             upcoming_cards.append({"id": len(remaining),
-                                   "date": date, "home": id2name.get(htid), "away": id2name.get(atid),
+                                   "date": local_date, "home": id2name.get(htid), "away": id2name.get(atid),
                                    "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
                                    "lam": round(lam, 2), "mu": round(mu, 2),
                                    "hg": None, "ag": None, "result": None,
@@ -576,7 +605,7 @@ def main():
 
     # B9 squad-value panel (MLS only this pass — A9 Phase 1 for other leagues
     # is queued). Keyed by ASA-mapped team name to match _team_inputs_full.
-    _abbr2id = {r.team_abbreviation: r.team_id for r in teams.itertuples()}
+    _abbr2id = {abbr: tid for tid, abbr in id2abbr.items()}
     _squad_value = build_squad_value_mls(tids, id2name, _abbr2id, ts)
     print(f"Squad value: {'available' if _squad_value else 'unavailable'} for {ts}"
           + (f" ({len(_squad_value)} teams)" if _squad_value else ""))
@@ -761,6 +790,7 @@ def main():
                  max(1, len(games)) * 100)
 
     data = {"status": "live",  # route state (see docs/CURRENT_STATE.md § Route State Taxonomy)
+            "data_status": "full_forecast",  # launch-plan B1 data contract
             "league": {"id": "mls", "name": "MLS", "logo": _lg_logo,
                        "confederation": "Concacaf", "status": "live",
                        "pct_complete": _pct},
