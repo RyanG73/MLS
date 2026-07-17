@@ -1263,6 +1263,7 @@ const FOOT_ATTR='Data: <a href="https://www.americansocceranalysis.com" target="
 const FOOT_LEGAL='<div class="foot-legal"><a href="?league=about">About the model</a> · '+
   '<a href="/leagues/">All leagues</a> · '+
   '<a href="/weekly/">This week</a> · '+
+  '<a href="/after-the-world-cup/">After the World Cup</a> · '+
   '<a href="/open-data/">Open data</a> · '+
   '<a href="?league=support">Support</a> · '+
   '<a href="?league=data-sources">Data sources</a> · '+
@@ -3376,6 +3377,8 @@ if (_isPower && window.POWER_DATA) {
 /* ── Home landing ─────────────────────────────────────────────── */
 /* First-screen promise band (launch plan D1): fan outcome first, method second. */
 .home-promise{padding:var(--s4) 2px var(--s3);border-bottom:1px solid var(--line-2);margin-bottom:var(--s4)}
+.home-promise-kicker{display:inline-block;margin-bottom:10px;font-size:12px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--qualify,#3ddc84);text-decoration:none;border:1px solid var(--line-2);border-radius:999px;padding:4px 12px}
+.home-promise-kicker:hover{border-color:var(--qualify,#3ddc84)}
 .home-promise h1{font-size:clamp(22px,3.4vw,32px);line-height:1.2;font-weight:800;letter-spacing:-.01em;margin:0 0 8px;max-width:20ch}
 .home-promise p{color:var(--txt-2);font-size:14.5px;line-height:1.55;margin:0;max-width:70ch}
 .home-promise-cta{display:inline-block;margin-top:12px;font-size:13.5px;font-weight:600;color:var(--qualify,#3ddc84);text-decoration:none}
@@ -3851,6 +3854,7 @@ if(_isHome && window.HOME_DATA){
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`
     <div class="home-promise">
+      <a class="home-promise-kicker" href="/after-the-world-cup/">New to club soccer after the World Cup? Start here →</a>
       <h1>Title, qualification and relegation forecasts across world football.</h1>
       <p>No bookmaker odds in the model — the forecasts are built from results, expected goals and team strength, never betting lines. Every forecast is graded in public, hits and misses alike.</p>
       <a class="home-promise-cta" href="/weekly/">This week's recap — biggest movers, closest races, and how our calls did →</a>

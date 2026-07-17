@@ -539,6 +539,63 @@ def weekly_page(w: dict, site: str) -> str:
     return "".join(parts)
 
 
+# ── World Cup → domestic on-ramp (launch plan H2) ──────────────────────────────
+
+# US-fan leagues the post-tournament cohort is most likely to pick up next.
+_WC_ONRAMP = [("mls", "the league most new US fans follow first"),
+              ("nwsl", "the top US women's league"),
+              ("liga-mx", "Mexico's top flight — the most-watched league on US TV"),
+              ("leagues-cup", "MLS vs Liga MX, head to head"),
+              ("usl-championship", "US second division"),
+              ("canadian-pl", "Canada's top flight")]
+
+
+def _lead_line(d: dict) -> str | None:
+    """Best current headline for a league: its top title/playoff contender."""
+    cols = _columns(d)
+    rows = d.get("standings") or []
+    if not cols or not rows:
+        return None
+    key, label = cols[0]
+    top = max(rows, key=lambda r: (r.get(key) or 0))
+    if not top.get(key):
+        return None
+    return f"{top['team']} lead the {label.lower()} race at {pct(top.get(key))}"
+
+
+def world_cup_page(payloads: dict, names: dict, site: str) -> str:
+    canonical = f"{site}/after-the-world-cup/"
+    title = "What to Watch After the World Cup — MLS, NWSL & Liga MX Forecasts — Entenser"
+    desc = ("Just finished the World Cup and want more? Live title, playoff "
+            "and relegation forecasts for MLS, NWSL, Liga MX and more — "
+            "market-blind, graded in public.")
+    jsonld = {"@context": "https://schema.org", "@type": "WebPage",
+              "name": title, "url": canonical}
+    parts = [_head(title, desc, canonical, f"{site}/assets/og/og-image.png",
+                   jsonld)]
+    parts.append("<h1>Just finished the World Cup? Here's what to follow next.</h1>")
+    parts.append('<div class="sub">The tournament is over, but the club '
+                 'season is always running. These are the races we forecast '
+                 'that a new US fan is most likely to pick up — updated daily, '
+                 'no betting odds in the model.</div>')
+    parts.append('<div class="fx">')
+    for lid, blurb in _WC_ONRAMP:
+        d = payloads.get(lid)
+        if not d:
+            continue
+        lead = _lead_line(d) or "season in progress"
+        parts.append(
+            f'<div class="fxrow"><span class="t">'
+            f'<a href="/leagues/{E(lid)}/">{E(names.get(lid, lid))}</a> '
+            f'<span class="sub">{E(blurb)}</span></span>'
+            f'<span class="p">{E(lead)}</span></div>')
+    parts.append('</div>')
+    parts.append('<a class="cta" href="/leagues/">See all leagues →</a>')
+    parts.append(f'<h2>How these forecasts work</h2><p class="sub">{E(_METHOD_NOTE)}</p>')
+    parts.append(_footer(_today()))
+    return "".join(parts)
+
+
 # ── open data: per-league CSV + /data/ index (launch plan H3) ──────────────────
 
 def league_csv(d: dict, cols: list[tuple[str, str]]) -> str:
@@ -623,6 +680,7 @@ def main(argv: list[str] | None = None) -> int:
     if not registry:
         print(f"FATAL: cannot read {out / 'leagues.js'}", file=sys.stderr)
         return 1
+    names = {lg["id"]: lg["name"] for lg in registry}
 
     pages: list[tuple[str, str]] = []   # (loc, lastmod)
     payloads: dict[str, dict] = {}
@@ -684,6 +742,13 @@ def main(argv: list[str] | None = None) -> int:
         extra.append((f"{site}/weekly/", (w.get("generated") or "")[:10]))
     if exported:
         extra.append((f"{site}/open-data/", max_lastmod))
+
+    # World Cup → domestic on-ramp (launch plan H2) — needs the US leagues.
+    if any(lid in payloads for lid, _ in _WC_ONRAMP):
+        (out / "after-the-world-cup").mkdir(parents=True, exist_ok=True)
+        (out / "after-the-world-cup" / "index.html").write_text(
+            world_cup_page(payloads, names, site), encoding="utf-8")
+        extra.append((f"{site}/after-the-world-cup/", max_lastmod))
 
     entries = ([(f"{site}/", max_lastmod),
                 (f"{site}/leagues/", max_lastmod)]
