@@ -1,5 +1,18 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-16 — Public-launch campaign opened: target Monday 2026-08-17**
+> User commissioned two independent competitive-intelligence reports; both converge on the
+> same verdict — the product (56-league market-blind projections with public calibration
+> auditing) is the best-positioned heir to the vacant FiveThirtyEight/SPI role, but it is
+> invisible: one query-param SPA URL, no sitemap/robots/canonicals, unconfirmed Plausible
+> account, no-op email capture, four results-only leagues sharing the "live" label, en-US-only
+> formatting. Reports merged into `docs/competitive-intelligence-2026-07-combined.md`
+> (originals committed then removed). Execution plan with 9 workstreams (measurement, data-
+> status honesty, crawlable `/leagues/<id>/` static pages + SEO, messaging, Resend email
+> capture, locale basics, supporter-tier waitlist test, distribution content, QA/launch) at
+> `docs/superpowers/plans/2026-08-17-public-launch.md`. Scope decisions: full public launch,
+> waitlist-only monetization test, locale basics only, Resend backend. No model changes.
+
 > **2026-07-14 — League expansion round 5: South America + more Asia + Eerste Divisie, all 7 fully shipped**
 > User decision: add Chile/Colombia/Uruguay/Peru Primera División, K League 1 (South Korea),
 > Thai League 1, and Eerste Divisie (Netherlands tier 2) as projection-only leagues. All 7
