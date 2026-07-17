@@ -92,11 +92,11 @@ def test_sitemap_wellformed_and_complete(built):
     locs = [u.find(f"{ns}loc").text for u in root]
     assert locs[0] == f"{SITE}/"
     assert locs[1] == f"{SITE}/leagues/"
-    # Every league page is present; the weekly recap page is included when
-    # webapp/data/weekly.js exists (it does in the committed tree).
+    # Every league page is present; the weekly recap + open-data pages are
+    # included when their inputs exist (they do in the committed tree).
     league_locs = {f"{SITE}/leagues/{lid}/" for lid in _pages(built)}
     assert league_locs <= set(locs[2:])
-    assert set(locs[2:]) - league_locs <= {f"{SITE}/weekly/"}
+    assert set(locs[2:]) - league_locs <= {f"{SITE}/weekly/", f"{SITE}/open-data/"}
     for u in root:
         lm = u.find(f"{ns}lastmod")
         assert lm is not None and re.fullmatch(r"\d{4}-\d{2}-\d{2}", lm.text)
@@ -130,3 +130,26 @@ def test_no_spa_scripts_leak_into_static_pages(built):
     for lid, html_txt in _pages(built).items():
         assert "document.write" not in html_txt
         assert "LEAGUE_DATA" not in html_txt
+
+
+def test_open_data_page_and_csv_exports(built):
+    idx = built / "open-data" / "index.html"
+    assert idx.exists()
+    txt = idx.read_text()
+    assert "Please credit" in txt            # attribution terms present
+    assert "DataCatalog" in txt              # JSON-LD
+    csvs = list((built / "exports").glob("*.csv"))
+    assert csvs, "expected per-league CSV exports"
+    # every download link resolves to a generated file
+    hrefs = re.findall(r'href="(/exports/[^"]+\.csv)"', txt)
+    assert hrefs
+    for h in hrefs:
+        assert (built / h.lstrip("/")).exists(), f"missing export: {h}"
+    header = csvs[0].read_text().splitlines()[0]
+    assert header.startswith("rank,team,played,points,proj_points")
+
+
+def test_data_dir_payloads_untouched_by_generator(built):
+    # The generator must never write into webapp/data/ (the SPA payloads);
+    # the open-data index lives at /open-data/, not /data/.
+    assert not (built / "data" / "index.html").exists()

@@ -111,3 +111,5 @@ data/roster_profiles/
 webapp/leagues/
 webapp/weekly/
 webapp/sitemap.xml
+webapp/open-data/
+webapp/exports/

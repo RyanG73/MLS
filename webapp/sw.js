@@ -20,7 +20,8 @@
 // v5 (2026-07-17): locale-aware dates + odds-format toggle (launch plan F).
 // v6 (2026-07-17): supporter-tier waitlist route + footer link (launch plan G).
 // v7 (2026-07-17): weekly-recap links in the home promise band + footer (plan H1).
-const CACHE = "entenser-shell-v7";
+// v8 (2026-07-17): open-data footer link (launch plan H3).
+const CACHE = "entenser-shell-v8";
 const SHELL = [
   "/",
   "/index.html",

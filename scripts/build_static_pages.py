@@ -23,7 +23,9 @@ Run:  python3 scripts/build_static_pages.py [--out webapp] [--site https://enten
 from __future__ import annotations
 
 import argparse
+import csv
 import html
+import io
 import json
 import sys
 from datetime import datetime, timezone
@@ -537,6 +539,64 @@ def weekly_page(w: dict, site: str) -> str:
     return "".join(parts)
 
 
+# ── open data: per-league CSV + /data/ index (launch plan H3) ──────────────────
+
+def league_csv(d: dict, cols: list[tuple[str, str]]) -> str:
+    """Projected table as CSV: one row per team, probabilities as columns."""
+    rows = d.get("standings") or []
+    buf = io.StringIO()
+    fields = ["rank", "team", "played", "points", "proj_points"] + [k for k, _ in cols]
+    w = csv.writer(buf)
+    w.writerow(fields)
+    srt = sorted(rows, key=lambda r: (r.get("proj_rank") or 99,
+                                      -(r.get("proj_pts") or 0)))
+    for i, r in enumerate(srt, 1):
+        w.writerow([i, r.get("team", ""), r.get("gp", ""), r.get("pts", ""),
+                    r.get("proj_pts", "")] + [r.get(k, "") for k, _ in cols])
+    return buf.getvalue()
+
+
+def data_page(exported: list[dict], site: str) -> str:
+    """The /open-data/ index — attribution terms + one download link per league.
+
+    Deliberately NOT /data/ — webapp/data/ holds the SPA's *.js payloads, and
+    an index.html there would both shadow the directory listing and (in tests,
+    where data/ is symlinked) write back into the real repo.
+    """
+    canonical = f"{site}/open-data/"
+    title = "Open Data — Football Projection Downloads (CSV) — Entenser"
+    desc = ("Download Entenser's title, qualification and relegation "
+            "projections as CSV, free with attribution. Market-blind model, "
+            f"{len(exported)} competitions, refreshed daily.")
+    jsonld = {"@context": "https://schema.org", "@type": "DataCatalog",
+              "name": "Entenser football projections", "url": canonical,
+              "dataset": [{"@type": "Dataset", "name": e["name"],
+                           "distribution": {"@type": "DataDownload",
+                                            "encodingFormat": "text/csv",
+                                            "contentUrl": e["url"]}}
+                          for e in exported]}
+    parts = [_head(title, desc, canonical, f"{site}/assets/og/og-image.png",
+                   jsonld)]
+    parts.append("<h1>Open data</h1>")
+    parts.append('<div class="sub">Our projections, free to use with '
+                 'attribution. Refreshed daily.</div>')
+    parts.append('<div class="note">Please credit <b>Entenser '
+                 '(entenser.com)</b> and link back when you use these files. '
+                 'The model is market-blind — no bookmaker odds are used as '
+                 'inputs — so the numbers are independent of the betting '
+                 'market. Columns: projected rank, club, played, points, '
+                 'projected points, then one probability column per outcome '
+                 '(percentages).</div>')
+    parts.append('<h2>Per-league downloads</h2><ul class="lgs">')
+    for e in exported:
+        parts.append(f'<li><a href="{E(e["path"])}">{E(e["name"])} '
+                     f'<span class="c">CSV</span></a></li>')
+    parts.append("</ul>")
+    parts.append('<a class="cta" href="/leagues/">Browse the forecasts →</a>')
+    parts.append(_footer(_today()))
+    return "".join(parts)
+
+
 # ── sitemap ───────────────────────────────────────────────────────────────────
 
 def sitemap(entries: list[tuple[str, str]]) -> str:
@@ -584,6 +644,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     max_lastmod = ""
+    exported: list[dict] = []
+    (out / "exports").mkdir(parents=True, exist_ok=True)
     for lg in registry:
         if not lg.get("_has_page"):
             continue
@@ -595,10 +657,22 @@ def main(argv: list[str] | None = None) -> int:
         lastmod = (d.get("generated") or "")[:10]
         max_lastmod = max(max_lastmod, lastmod)
         pages.append((f"{site}/leagues/{lg['id']}/", lastmod))
+        # Open-data CSV (launch plan H3) — table leagues with a projected table.
+        cols = _columns(d)
+        if (d.get("standings") and cols
+                and (d.get("outlook") or {}).get("mode") != "knockout"):
+            (out / "exports" / f"{lg['id']}.csv").write_text(
+                league_csv(d, cols), encoding="utf-8")
+            exported.append({"name": lg["name"],
+                             "path": f"/exports/{lg['id']}.csv",
+                             "url": f"{site}/exports/{lg['id']}.csv"})
 
     (out / "leagues").mkdir(parents=True, exist_ok=True)
     (out / "leagues" / "index.html").write_text(hub_page(registry, site),
                                                 encoding="utf-8")
+    (out / "open-data").mkdir(parents=True, exist_ok=True)
+    (out / "open-data" / "index.html").write_text(data_page(exported, site),
+                                                  encoding="utf-8")
 
     # Weekly recap page (launch plan H1) — optional: only when weekly.js exists.
     extra: list[tuple[str, str]] = []
@@ -608,13 +682,16 @@ def main(argv: list[str] | None = None) -> int:
         (out / "weekly" / "index.html").write_text(weekly_page(w, site),
                                                    encoding="utf-8")
         extra.append((f"{site}/weekly/", (w.get("generated") or "")[:10]))
+    if exported:
+        extra.append((f"{site}/open-data/", max_lastmod))
 
     entries = ([(f"{site}/", max_lastmod),
                 (f"{site}/leagues/", max_lastmod)]
                + extra + sorted(pages))
     (out / "sitemap.xml").write_text(sitemap(entries), encoding="utf-8")
     print(f"wrote {len(pages)} league pages + hub"
-          f"{' + weekly' if extra else ''} + sitemap "
+          f"{' + weekly' if w and w.get('status') == 'ok' else ''}"
+          f" + {len(exported)} CSV exports + open-data + sitemap "
           f"({len(entries)} URLs, lastmod {max_lastmod})")
     return 0
 
