@@ -116,6 +116,34 @@ forecast users measurable in Plausible, email list growing, waitlist conversion 
 **Primary early metric:** weekly returning forecast users (Plausible).
 **Secondary:** email signups, league-page search impressions, waitlist joins by country.
 
+## Status at a glance (updated 2026-07-17)
+
+**9 of 11 workstreams shipped and live on entenser.com.** The two that aren't done
+are blocked on ~15 minutes of user account setup, not on engineering.
+
+- ✅ **Done & live:** combined report · B (data honesty) · C1–C9 (crawlable SEO) ·
+  D (messaging) · F (locale) · G (waitlist) · H1–H4 (distribution) · I1 (QA pass)
+- ⛔ **Blocked on USER (accounts):** A1 Plausible · A2 GSC · C10 sitemap submission ·
+  E1 Resend domain+key. Engineering for E2–E4 is ready to build the moment the key exists.
+- 🗓 **Launch-week / USER:** H5 post announcements · I2 analytics+email e2e (needs
+  accounts) · I3 content freeze Aug 14 · I4 user posts Aug 17.
+
+| WS | What | Status |
+|----|------|--------|
+| — | Combined competitive-intel report | ✅ Done |
+| A | Measurement (Plausible / GSC / events) | ⏳ New events + metrics done in code; **A1/A2 blocked on USER** |
+| B | Data-status honesty contract | ✅ Done & live |
+| C | Crawlable pages + SEO | ✅ C1–C9 done & live · ⛔ C10 needs USER (GSC) · ⬜ C11 optional |
+| D | Messaging + trust on-ramp | ✅ Done & live |
+| E | Email capture (Resend) | ⛔ Blocked on USER (E1); E2–E4 ready to build |
+| F | Locale basics | ✅ Done & live |
+| G | Supporter-tier waitlist | ✅ Done & live |
+| H | Distribution content | ✅ H1–H4 done & live · 🗓 H5 is USER (post) |
+| I | QA + launch | ⏳ I1 done, no blockers found · I2 needs accounts · I3 Aug 14 · I4 USER Aug 17 |
+
+**The single highest-leverage next action:** the ~15-min account setup (Plausible,
+GSC, Resend — runbook below). It unblocks A, C10, E, and the measurement half of I.
+
 ## Architecture decision (Workstream C, settled 2026-07-16)
 
 Static standalone landing pages at `entenser.com/leagues/<id>/` (~15–25 KB each, NOT
@@ -134,130 +162,115 @@ Owner is Claude unless marked **(USER)**. `[ ]` → `[x]` with a verdict-log ent
 
 ### A — Measurement truth (Week 1: Jul 16–22) — P0
 
-- [ ] **A1 (USER)** Create Plausible account for `entenser.com` (paid plausible.io or
-      self-hosted). No code change needed — `webapp/index.html:25` is pre-configured.
-- [ ] **A2 (USER)** Google Search Console: add property `entenser.com`, verify via DNS
-      TXT record at the domain registrar. (Instructions in launch-runbook below.)
-- [ ] **A3** After A1: verify events flow end-to-end (`pageview_route`, `league_nav`,
-      `email_signup`, `edge_row_expand`); add `waitlist_click` and `odds_format_change`.
-- [ ] **A4** Metrics defined (see Goal). Done at plan creation.
+- [ ] **A1 (USER) — ⛔ BLOCKED** Create Plausible account for `entenser.com` (paid
+      plausible.io or self-hosted). No code change needed — `webapp/index.html:25`
+      is pre-configured.
+- [ ] **A2 (USER) — ⛔ BLOCKED** Google Search Console: add property `entenser.com`,
+      verify via DNS TXT record at the domain registrar. (Instructions in runbook.)
+- [~] **A3 — PARTIAL** `waitlist_click` (G2) and `odds_format_change` (F2) events
+      added and live. Remaining: verify events flow end-to-end — **needs A1**.
+- [x] **A4** Metrics defined (see Goal). Done at plan creation.
 
 ### B — Data-status honesty contract (Week 1) — P0
 
-- [ ] **B1** Add `data_status` field to league payloads + registry:
-      `full_forecast` / `preseason` / `results_only` / `historical`, plus a
-      `format_approximate` boolean derived from `outlook.rules`. Reclassify:
-      `canadian-pl` (2024 data), `k-league-1` (2022–24), `finland-veikkausliiga`,
-      `poland-ekstraklasa` (results-only, no forward fixtures).
-- [ ] **B2** Surface in UI: per-league badge + "last updated" in league header and the
-      leagues hub; honest global copy ("56 competitions tracked · N with live
-      forecasts") everywhere a count appears.
-- [ ] **B3** `scripts/validate_payloads.py`: fail if registry and payload status disagree.
+- [x] **B1** `data_status` field on payloads + registry (`full_forecast` /
+      `results_only` / `historical` + `format_approximate`); canadian-pl + k-league-1
+      → historical, poland + finland → results_only. Reads from the registry so
+      payload/registry can't disagree.
+- [x] **B2** UI badges in nav + Leagues hub; per-league subtitle note + "updated
+      <date>" stamp; honest count line ("56 tracked · 52 with full live forecasts").
+- [x] **B3** `validate_payloads.py` fails on registry/payload `data_status` disagreement.
 
 ### C — Crawlable pages + SEO (Weeks 1–3: Jul 20–Aug 7) — P0, critical path
 
-- [ ] **C1** `scripts/payload_utils.py`: add `read_js_payload()` (inverse of
-      `write_js_payload`); refactor `build_share_cards._load_payload` onto it.
-- [ ] **C2** `scripts/build_static_pages.py` (new, stdlib-only): per-league pages +
-      `/leagues/` hub + `sitemap.xml`. Content: projected table w/ title/releg %,
-      top-odds callouts, next ~8 fixtures with W/D/L probs, rules blurb, last-updated,
-      method note (reuses D3 copy), CTA into `/?league=<id>`, sibling-league links.
-      Status-variant copy for live/preseason/completed; skip placeholders; escape all
-      payload strings.
-- [ ] **C3** `webapp/robots.txt` (committed): allow all + `Sitemap:` line.
-- [ ] **C4** `tests/test_static_pages.py`: unique titles, JSON-LD parses, canonical
-      matches directory, well-formed sitemap, escaping of team names.
-- [ ] **C5** `webapp/index.html`: static canonical + JS canonical swap in head router
-      (~line 841); "league overview" link at league header (~line 1039); `/leagues/`
-      link in `FOOT_LEGAL` (line 1126); homepage WebSite/Organization JSON-LD.
-- [ ] **C6** `webapp/sw.js`: bump cache to `entenser-shell-v3`; document that
-      `/leagues/` static pages are never cached.
-- [ ] **C7** `.github/workflows/deploy.yml`: run generator between checkout and
-      `upload-pages-artifact`, fail deploy on error. `.gitignore` `webapp/leagues/`
-      + `webapp/sitemap.xml`. Non-fatal hookup in `scripts/build_all.sh`.
-- [ ] **C8** `webapp/404.html` branded (optional).
-- [ ] **C9** Deploy via `workflow_dispatch`; verify live: `/leagues/epl/` 200,
-      slash-less 301, sitemap + robots 200, bogus league 404; after next nightly
-      refresh confirm pages regenerated and sitemap `lastmod` advanced.
-- [ ] **C10 (USER assists)** GSC: submit sitemap; request indexing on `/leagues/` +
-      flagship pages (epl, mls, la-liga, liga-mx, nwsl) + the mis-indexed `?league=` URL.
-- [ ] **C11 (optional)** `build_share_cards.py --league-cards`: evergreen per-league
-      OG PNGs → `webapp/assets/og/leagues/`, generated locally once, committed.
+- [x] **C1** `payload_utils.read_js_payload()` added; `build_share_cards` refactored onto it.
+- [x] **C2** `scripts/build_static_pages.py`: 56 per-league pages + `/leagues/` hub +
+      `sitemap.xml` (+ later `/weekly/`, `/open-data/`, `/after-the-world-cup/`).
+- [x] **C3** `webapp/robots.txt` committed (allow all + Sitemap; `?league=` not blocked).
+- [x] **C4** `tests/test_static_pages.py` (12 tests: titles, JSON-LD, canonical, sitemap, escaping).
+- [x] **C5** `index.html`: static canonical + JS canonical swap; league-overview link;
+      `/leagues/` footer link; homepage WebSite/Organization JSON-LD.
+- [x] **C6** `sw.js` cache bumped (now at v9); `/leagues/` deliberately never cached.
+- [x] **C7** `deploy.yml` runs the generator (fails deploy on error); `.gitignore` +
+      `build_all.sh` hookup.
+- [x] **C8** `webapp/404.html` branded.
+- [x] **C9** Deployed & live-verified: 200/301/404, sitemap (61 URLs) + robots, nightly lastmod.
+- [ ] **C10 (USER assists) — ⛔ BLOCKED (needs A2/GSC)** submit sitemap; request indexing
+      on `/leagues/` + flagship pages + the mis-indexed `?league=` URL.
+- [ ] **C11 (optional) — ⬜ NOT DONE** per-league evergreen OG PNGs.
 
 ### D — Messaging + trust on-ramp (Week 2: Jul 23–29) — P0
 
-- [ ] **D1** First-screen promise: "Title, qualification and relegation forecasts
-      across world football." / "No bookmaker odds in the model. Every forecast graded
-      in public." One-clause market-blind explanation at every first mention.
-- [ ] **D2** Plain-English trust layer: translate Brier ("when we say 70%, it happens
-      about 70% of the time — here's the receipt"); keep expert metrics one click
-      deeper; keep the "we do not claim to beat the market" framing intact.
-- [ ] **D3** About/landing positioning: "the only football model that grades itself in
-      public"; method-note copy shared with static pages (C2).
+- [x] **D1** First-screen promise band on Home + head meta/OG/title; plain-English
+      "the model never sees betting odds" at first mention (Command Center too).
+- [x] **D2** Plain-English trust on-ramp above the Command Center trust panel; raw
+      Brier kept below; "we don't claim to beat the market" framing preserved.
+- [x] **D3** About leads with "the only football model that grades itself in public";
+      static-page method note consistent.
 
 ### E — Email capture via Resend (Weeks 2–3) — P1
 
-- [ ] **E1 (USER)** Verify `entenser.com` in Resend; create API key; confirm proxy
-      host (recommended: single Vercel serverless function; alternative: Cloudflare
-      Worker).
-- [ ] **E2** Build endpoint: POST `{email, tags}` → Resend Contacts audience; CORS
-      locked to `https://entenser.com`; basic rate limiting; no key in client code.
-- [ ] **E3** Rewire `bindCommandSignup()` (`webapp/index.html:3277`) to POST;
-      localStorage kept as offline fallback; success/error states.
-- [ ] **E4** Standing rule: capture only — **no email sends without explicit owner
-      sign-off**.
+- [ ] **E1 (USER) — ⛔ BLOCKED** Verify `entenser.com` in Resend; create API key;
+      confirm proxy host (recommended: single Vercel serverless function).
+- [ ] **E2 — ready to build (needs E1)** Endpoint: POST `{email, tags}` → Resend
+      Contacts audience; CORS locked to `https://entenser.com`; rate limiting; no key in client.
+- [ ] **E3 — ready to build (needs E1)** Rewire `bindCommandSignup()` + `bindWaitlist()`
+      to POST; localStorage fallback kept. (Both handlers already built E-ready in D/G.)
+- [ ] **E4** Standing rule: capture only — **no email sends without explicit owner sign-off**.
 
 ### F — Locale basics (Week 3: Jul 30–Aug 5) — P1
 
-- [ ] **F1** Replace hardcoded `'en-US'` locale at all 8 date call sites with browser
-      default; kickoff times in the viewer's time zone (verify `ko` is ISO with TZ).
-- [ ] **F2** Odds-format toggle: American / decimal / fractional; localStorage
-      preference; single formatter replacing `american()` (`index.html:1112`);
-      default American for `en-US` browsers, decimal otherwise; fire
-      `odds_format_change`.
+- [x] **F1** All 11 `toLocaleDateString('en-US')` sites now use the browser locale;
+      kickoff times already viewer-timezone via `toLocaleTimeString([])`.
+- [x] **F2** `oddsStr`/`oddsHTML` (American/decimal/fractional) + masthead US/Dec/Frac
+      toggle, re-renders in place, localStorage preference, `odds_format_change` event.
 
 ### G — Supporter-tier waitlist (Week 3) — P1
 
-- [ ] **G1** "Support Entenser" card: £4.99/€5.99/$5.99 monthly framing; feature list
-      (alerts, saved teams, forecast-change history, downloads, ad-free, weekly
-      briefing); "join the waitlist" → email capture tagged `supporter-waitlist`.
-- [ ] **G2** Track `waitlist_click`; segment by country in Plausible.
-      **Decision gate:** build the paid tier only if ≥2% of returning users join.
+- [x] **G1** `?league=support` "Support Entenser" card: locale-aware price, feature
+      list, waitlist form tagged `supporter-waitlist`; footer + info-nav links.
+- [x] **G2** `waitlist_click` fires (Plausible attributes country server-side once A1
+      is live). **Decision gate:** build the paid tier only if ≥2% of returning users join.
 
 ### H — Distribution + launch content (Weeks 3–4: Aug 3–14)
 
-- [ ] **H1** `scripts/build_weekly_recap.py`: weekly "biggest model-vs-market
-      disagreements · race movement · model misses" from existing movers/drift/edge
-      payloads → stable-URL page + share card. The Opta quotable-number playbook.
-- [ ] **H2** "Just finished the World Cup?" on-ramp routing new US fans to
-      MLS/NWSL/Liga MX race pages.
-- [ ] **H3** Open-data page: per-league projection CSVs generated from payloads +
-      attribution terms. (Check source data-licensing constraints first.)
-- [ ] **H4** Announcement drafts: Reddit (r/MLS, r/soccer, r/NWSL — participate,
-      don't spam), Show HN, X/Bluesky. Drafts only.
-- [ ] **H5 (USER)** Post announcements; optional outreach to ASA / analytics
-      newsletter writers offering the data feed.
+- [x] **H1** `build_weekly_recap.py` → `webapp/data/weekly.js` + crawlable `/weekly/`
+      page (movers, closest races, model-vs-market, high-confidence hits/misses receipt);
+      wired into refresh-daily.yml. (Share card deferred — reuses existing movers.png.)
+- [x] **H2** Crawlable `/after-the-world-cup/` on-ramp with live US-league leaders;
+      home kicker + footer link.
+- [x] **H3** Per-league CSV exports (`/exports/<lid>.csv`, 51 leagues) + `/open-data/`
+      page with attribution + DataCatalog JSON-LD.
+- [x] **H4** Announcement drafts (Reddit r/MLS/r/NWSL/r/soccer, Show HN, X/Bluesky) +
+      competitor-diff answer + sequencing in `docs/launch-announcements.md`.
+- [ ] **H5 (USER) — 🗓 launch week** Post announcements; optional outreach to ASA /
+      analytics newsletter writers offering the data feed.
 
 ### I — QA + launch (Week of Aug 10–17)
 
-- [ ] **I1** Full production QA: mobile, PWA install/offline, dark mode, every route
-      type; Lighthouse on static pages (target ~100).
-- [ ] **I2** Analytics + email capture verified end-to-end on production.
-- [ ] **I3** Content freeze Fri Aug 14; nightly refresh + deploy chain green.
-- [ ] **I4 (USER)** Mon Aug 17: post announcements; monitor Plausible/GSC.
+- [x] **I1** First production QA pass (2026-07-17, `docs/qa-pass-2026-07-17.md`): every
+      route type desktop + mobile, PWA, canonical swap, robots/sitemap/404, static
+      JSON-LD — **no blocking issues**. (More passes planned before launch.)
+- [ ] **I2 — ⛔ needs accounts** Analytics + email capture verified end-to-end on production.
+- [ ] **I3 — 🗓 Aug 14** Content freeze; nightly refresh + deploy chain green.
+- [ ] **I4 (USER) — 🗓 Aug 17** Post announcements; monitor Plausible/GSC.
 
 ## Timeline
 
-| Week | Focus |
-|---|---|
-| Jul 16–22 | Combined report ✅ · A (measurement) · B (status contract) · C1–C4 |
-| Jul 23–29 | C5–C7 · D (messaging) · E (Resend endpoint) |
-| Jul 30–Aug 5 | C9–C10 (deploy + GSC) · F (locale) · G (waitlist) |
-| Aug 6–12 | H1–H4 (content + drafts) · QA starts |
-| Aug 13–17 | I (freeze, final QA) · **Mon Aug 17 launch** |
+**Actual progress vs plan:** engineering is ~3 weeks ahead — all of B, C, D, F, G,
+H and the first QA pass landed in the Jul 16–17 window (originally scheduled through
+mid-August). What's left is user account setup + launch-week execution, not build work.
 
-**Critical path:** C. Start immediately after B so status labels render on the new pages.
-**User-blocking this week:** A1 (Plausible), A2 (GSC DNS), E1 (Resend + proxy host).
+| Week (original plan) | Focus | Actual |
+|---|---|---|
+| Jul 16–22 | report · A · B · C1–C4 | ✅ report, B, **all of C**, D, F, G, H, I1 done |
+| Jul 23–29 | C5–C7 · D · E endpoint | ✅ done early · E blocked on E1 |
+| Jul 30–Aug 5 | C9–C10 · F · G | ✅ done early · C10 blocked on GSC |
+| Aug 6–12 | H1–H4 · QA starts | ✅ done early |
+| Aug 13–17 | I freeze + final QA · **launch** | 🗓 remaining: I2–I4, more QA passes |
+
+**Now user-blocking (the only thing between here and a measured launch):**
+A1 (Plausible), A2 (GSC DNS), E1 (Resend + proxy host) — runbook below.
 
 ## Launch runbook — user setup instructions
 
