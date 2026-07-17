@@ -1,5 +1,16 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-16 (2) — Launch workstreams B + C shipped: data-status honesty + crawlable SEO surfaces**
+> B (08acb8c): `data_status` contract (full_forecast/results_only/historical + format_approximate)
+> flows from builders → `fetch_league_teams.DATA_STATUS` → `webapp/leagues.js` → UI badges/copy;
+> canadian-pl + k-league-1 labeled "archive", poland/finland "results only";
+> `validate_payloads.py` enforces registry/payload agreement. C (d1c38c0): 56 crawlable
+> `/leagues/<id>/` standalone pages + hub + sitemap.xml generated at deploy time by stdlib-only
+> `scripts/build_static_pages.py` (deploy.yml gates on it; output gitignored); robots.txt,
+> 404.html, per-route canonical swap in the SPA, homepage JSON-LD, sw.js→v3. All verified live
+> on entenser.com (200/301/404, canonicals, sitemap lastmod). Site is now indexable for the
+> first time. Remaining: GSC submission (user), optional per-league OG cards.
+
 > **2026-07-16 — Public-launch campaign opened: target Monday 2026-08-17**
 > User commissioned two independent competitive-intelligence reports; both converge on the
 > same verdict — the product (56-league market-blind projections with public calibration

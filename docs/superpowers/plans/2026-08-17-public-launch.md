@@ -2,6 +2,20 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-16 (3): **C1–C9 shipped and live-verified** (d1c38c0). 56 standalone
+>   `/leagues/<id>/` pages + hub + sitemap generated at deploy time by stdlib-only
+>   `scripts/build_static_pages.py` (8–16 KB/page, unique titles, self-canonicals,
+>   BreadcrumbList/SportsEvent/Dataset JSON-LD, data-status notes, method note,
+>   sibling links, CTA into the SPA). `payload_utils.read_js_payload()` is the
+>   payload-parse primitive; robots.txt + branded 404.html committed; SPA gained
+>   canonical swap to the static pages + homepage WebSite/Organization JSON-LD +
+>   crawl links; sw.js → v3. Live checks green: /leagues/epl/ 200 w/ correct
+>   canonical, slash-less 301, sitemap (58 URLs) + robots 200, bogus league 404,
+>   archive note on canadian-pl. 10 new contract tests pass (1018 total; 3
+>   pre-existing test_build_movers failures are documented follow-up, chip filed).
+>   **Remaining in C: C10 (GSC submission — blocked on user A2) and C11 (optional
+>   per-league OG cards).**
+>
 > - 2026-07-16 (2): **B1–B3 implemented and browser-verified.** `data_status`
 >   taxonomy (full_forecast / results_only / historical + format_approximate)
 >   derived in `build_league_data.py`, stamped in `fetch_league_teams.DATA_STATUS`
