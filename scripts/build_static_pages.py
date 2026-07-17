@@ -452,6 +452,91 @@ def hub_page(registry: list[dict], site: str) -> str:
     return "".join(parts)
 
 
+# ── weekly recap page ─────────────────────────────────────────────────────────
+
+def weekly_page(w: dict, site: str) -> str:
+    """Crawlable /weekly/ recap from webapp/data/weekly.js (launch plan H1)."""
+    canonical = f"{site}/weekly/"
+    generated = w.get("generated") or ""
+    week = w.get("week_label") or "This week"
+    headline = w.get("headline") or "This week across world football"
+    title = f"{week}: Football Model Recap — Movers, Races & Misses — Entenser"
+    desc = (f"{headline}. Biggest title/relegation odds swings, the closest "
+            "races, and this week's high-confidence model misses — from a "
+            "market-blind model graded in public.")[:300]
+    jsonld = {"@context": "https://schema.org", "@type": "Article",
+              "headline": headline, "url": canonical,
+              "datePublished": generated[:10], "dateModified": generated[:10],
+              "author": {"@type": "Organization", "name": "Entenser"},
+              "publisher": {"@type": "Organization", "name": "Entenser"}}
+    parts = [_head(title, desc, canonical, f"{site}/assets/og/movers.png", jsonld)]
+    parts.append(f'<h1>{E(week)}</h1>')
+    parts.append(f'<div class="sub">{E(headline)} · updated {E(generated[:10])}</div>')
+
+    mv = w.get("movers") or {}
+    risers, fallers = mv.get("risers") or [], mv.get("fallers") or []
+    if risers or fallers:
+        parts.append('<h2>Biggest race movement this week</h2>')
+
+        def mv_rows(rows, arrow):
+            return "".join(
+                f'<div class="fxrow"><span class="t">{E(r["team"])} '
+                f'<span class="sub">{E(r["league_name"])} · {E(r["metric"])}</span></span>'
+                f'<span class="p">{r["prev"]:.0f}% {arrow} {r["now"]:.0f}% '
+                f'({"+" if r["delta"] >= 0 else ""}{r["delta"]:.1f})</span></div>'
+                for r in rows)
+        parts.append('<div class="fx">' + mv_rows(risers, "→") + mv_rows(fallers, "→")
+                     + '</div>')
+
+    fragile = w.get("fragile_races") or []
+    if fragile:
+        parts.append('<h2>Closest races right now</h2><div class="fx">')
+        for r in fragile:
+            cont = ", ".join(r.get("contenders") or [])
+            parts.append(
+                f'<div class="fxrow"><span class="t">{E(r["league_name"])} '
+                f'{E(r["label"])}</span><span class="p">{E(r["leader"])} '
+                f'{r["leader_prob"]:.0f}%{f" · chased by {E(cont)}" if cont else ""}'
+                '</span></div>')
+        parts.append('</div>')
+
+    dis = w.get("disagreements") or []
+    if dis:
+        parts.append('<h2>Where the model disagrees with the market</h2><div class="fx">')
+        for r in dis:
+            parts.append(
+                f'<div class="fxrow"><span class="t">{E(r["home"])} vs {E(r["away"])} '
+                f'<span class="sub">{E(r["league_name"])}</span></span>'
+                f'<span class="p">model {r.get("model_pct")}% vs market '
+                f'{r.get("market_pct")}% · {r["edge_pct"]:+.1f}pp</span></div>')
+        parts.append('</div>')
+
+    rc = w.get("receipt") or {}
+    misses = rc.get("misses") or []
+    if rc.get("n_calls"):
+        parts.append('<h2>The receipt — how our high-confidence calls did</h2>')
+        parts.append(f'<p class="sub">Of {rc["n_calls"]} calls where the model '
+                     f'was at least 60% on an outcome this week, {rc["n_hits"]} '
+                     f'hit ({rc.get("hit_rate")}%). We publish the misses too:</p>')
+        if misses:
+            parts.append('<div class="fx">')
+            for m in misses:
+                parts.append(
+                    f'<div class="fxrow"><span class="t">{E(m["home"])} '
+                    f'{E(m["score"])} {E(m["away"])} '
+                    f'<span class="sub">{E(m["league_name"])} · {E(m["date"])}</span>'
+                    f'</span><span class="p">had {E(m["fav"] or "favorite")} at '
+                    f'{m["fav_pct"]:.0f}% · {E(m["outcome"])}</span></div>')
+            parts.append('</div>')
+
+    parts.append(f'<h2>How this works</h2><p class="sub">{E(_METHOD_NOTE)}</p>')
+    parts.append('<a class="cta" href="/">Open the interactive dashboard →</a>')
+    parts.append('<div class="sibs"><a href="/leagues/">All leagues</a>'
+                 '<a href="/?league=about">About the model</a></div>')
+    parts.append(_footer(generated))
+    return "".join(parts)
+
+
 # ── sitemap ───────────────────────────────────────────────────────────────────
 
 def sitemap(entries: list[tuple[str, str]]) -> str:
@@ -514,11 +599,22 @@ def main(argv: list[str] | None = None) -> int:
     (out / "leagues").mkdir(parents=True, exist_ok=True)
     (out / "leagues" / "index.html").write_text(hub_page(registry, site),
                                                 encoding="utf-8")
+
+    # Weekly recap page (launch plan H1) — optional: only when weekly.js exists.
+    extra: list[tuple[str, str]] = []
+    w = read_js_payload(out / "data" / "weekly.js")
+    if w and w.get("status") == "ok":
+        (out / "weekly").mkdir(parents=True, exist_ok=True)
+        (out / "weekly" / "index.html").write_text(weekly_page(w, site),
+                                                   encoding="utf-8")
+        extra.append((f"{site}/weekly/", (w.get("generated") or "")[:10]))
+
     entries = ([(f"{site}/", max_lastmod),
                 (f"{site}/leagues/", max_lastmod)]
-               + sorted(pages))
+               + extra + sorted(pages))
     (out / "sitemap.xml").write_text(sitemap(entries), encoding="utf-8")
-    print(f"wrote {len(pages)} league pages + hub + sitemap "
+    print(f"wrote {len(pages)} league pages + hub"
+          f"{' + weekly' if extra else ''} + sitemap "
           f"({len(entries)} URLs, lastmod {max_lastmod})")
     return 0
 

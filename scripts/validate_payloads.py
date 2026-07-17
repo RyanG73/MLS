@@ -46,6 +46,9 @@ _NON_PAYLOAD = {
     "drift.js",
     "model-slices.js",
     "race-deltas.js",
+    # Weekly recap (window.WEEKLY_DATA, launch plan H1) — cross-league snapshot,
+    # not a per-league LEAGUE_DATA payload.
+    "weekly.js",
     # Added 2026-07-14 while shipping round-5 leagues: "calendar.js" (matches
     # calendar, window.CALENDAR_DATA) landed in 3279e2a without being added
     # here, so it failed contract validation and the REGISTRY-vs-disk test as
