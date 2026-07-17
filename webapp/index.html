@@ -101,6 +101,12 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mast-moose{width:34px;height:34px;object-fit:contain}
 .mast-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .mast-stat{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:right}
+/* Odds-format toggle (launch plan F2) */
+.odds-toggle{display:inline-flex;border:1px solid var(--line-2);border-radius:var(--r-sm);overflow:hidden}
+.odds-toggle button{font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--txt-3);background:var(--ink-2);border:0;border-left:1px solid var(--line-2);padding:3px 7px;cursor:pointer}
+.odds-toggle button:first-child{border-left:0}
+.odds-toggle button:hover{color:var(--txt-1);background:var(--ink-3)}
+.odds-toggle button.on{color:var(--txt-1);background:var(--ink-3)}
 .mast-search{position:relative;width:210px}
 .mast-search input{width:100%;background:var(--ink-1);border:1px solid var(--line-3);border-radius:999px;color:var(--txt-1);font-size:12px;padding:6px 12px;outline:none}
 .mast-search input:focus{border-color:var(--txt-3)}
@@ -840,7 +846,7 @@ footer a:hover{color:var(--txt-2)}
   </section>
 
   <section id="view-matches" class="hidden">
-    <div class="sec-h"><h2>Game-by-game predictions</h2><span class="note">Model win / draw / loss probability per match, with fair American odds</span></div>
+    <div class="sec-h"><h2>Game-by-game predictions</h2><span class="note">Model win / draw / loss probability per match, with fair no-vig odds</span></div>
     <div class="match-dates" id="matchDateRail"></div>
     <div class="controls">
       <div class="dd" id="teamDD">
@@ -908,6 +914,12 @@ if(_rawLeague&&(window.LEAGUES||[]).some(l=>l.id===_rawLeague)){
   const c=document.getElementById('canonicalLink');
   if(c)c.href='https://entenser.com/leagues/'+_rawLeague+'/';
 }
+// Odds-format preference (launch plan F2): American for US browsers, decimal
+// for everyone else; overridable via the masthead toggle and persisted in
+// localStorage. Set before any odds render so the first paint is already right.
+window.ODDS_FMT=(()=>{ try{const s=localStorage.getItem('entenser_odds_fmt');
+  if(s==='american'||s==='decimal'||s==='fractional')return s;}catch(e){}
+  return (navigator.language||'en').toLowerCase()==='en-us'?'american':'decimal'; })();
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
 if(!_infoPage)
@@ -1024,7 +1036,7 @@ const FavStore=(()=>{
   const activeGroup=(!_isHome&&!_isEdgeBoard&&!_isLeagues&&!_isFavs&&!_infoPage&&LID!=='power')
     ? ((window.LEAGUES||[]).find(l=>l.id===LID)||{}).group : null;
   const H=window.HOME_DATA;
-  const dstr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  const dstr=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   // Dropdown HTML is kept OUT of the ribbon's DOM subtree (menuHTML map, not an
   // in-place child) — iOS Safari treats -webkit-overflow-scrolling:touch as a new
   // containing block for position:fixed descendants, trapping them inside the
@@ -1046,9 +1058,15 @@ const FavStore=(()=>{
       <a class="mast-wordmark" href="${location.pathname}"><img class="mast-moose" src="assets/branding/entenser-icon-light.png" alt="">Entenser</a>
       <div class="mast-right">
         <div class="mast-search"><input id="msq" type="search" placeholder="Search leagues & teams…" autocomplete="off" spellcheck="false"><div class="ms-results" id="msr"></div></div>
+        <div class="odds-toggle" title="Odds display format">${
+          [['american','US'],['decimal','Dec'],['fractional','Frac']].map(([f,lbl])=>
+            `<button type="button" data-oddsfmt="${f}" class="${window.ODDS_FMT===f?'on':''}">${lbl}</button>`).join('')}</div>
         <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
       </div>
     </div><nav class="mast-bar">${bar}</nav>${live}<div class="mb-portal" id="mbPortal"></div>`;
+  // Odds-format toggle (launch plan F2): switches every quoted price in place.
+  mast.querySelectorAll('[data-oddsfmt]').forEach(b=>
+    b.addEventListener('click',()=>setOddsFmt(b.dataset.oddsfmt)));
   // dropdowns: click toggles (all devices), hover also works via CSS on pointer devices
   const portal=$('#mbPortal');
   const openMenu=item=>{
@@ -1187,8 +1205,35 @@ const topScorelines=(lam,mu,n=3)=>{
   scores.sort((x,y)=>y[2]-x[2]);
   return scores.slice(0,n).map(([h,a,p])=>`${h}–${a} ${(p*100).toFixed(0)}%`).join(' · ');
 };
-/* fair (no-vig) American odds from a probability */
-const american=p=>{if(p==null||p<=0)return'—';const v=p>=0.5?-100*p/(1-p):100*(1-p)/p;const r=Math.round(v);return r>0?`+${r}`:`${r}`;};
+/* Fair (no-vig) odds from a probability, in the viewer's chosen format
+   (launch plan F2). oddsStr = plain text; oddsHTML wraps it in a re-render
+   hook so a live format switch updates every quoted price without a reload. */
+function _fracOdds(x){ // decimal-minus-one → tidy fractional string
+  if(!isFinite(x)||x<=0)return'0/1';
+  const denoms=[1,2,3,4,5,6,8,10,12,16,20];let best='',err=1e9;
+  for(const d of denoms){const n=Math.round(x*d);if(n<1)continue;
+    const e=Math.abs(n/d-x);if(e<err){err=e;best=`${n}/${d}`;}}
+  return best||`${Math.round(x)}/1`;
+}
+function oddsStr(p){
+  if(p==null||p<=0)return'—';
+  const f=window.ODDS_FMT||'american';
+  if(f==='decimal')return (1/p).toFixed(2);
+  if(f==='fractional')return _fracOdds((1-p)/p);
+  const v=p>=0.5?-100*p/(1-p):100*(1-p)/p;const r=Math.round(v);return r>0?`+${r}`:`${r}`;
+}
+const american=oddsStr;  // legacy alias — existing call sites keep working
+function oddsHTML(p){return `<span class="odds-val" data-p="${p!=null?p:''}">${oddsStr(p)}</span>`;}
+/* Re-render every quoted price in place after a format switch. */
+function applyOddsFmt(){document.querySelectorAll('.odds-val').forEach(s=>{
+  const p=parseFloat(s.dataset.p);s.textContent=oddsStr(isNaN(p)?null:p);});}
+/* Persist + apply a new odds format, and tell analytics. */
+function setOddsFmt(f){
+  window.ODDS_FMT=f; try{localStorage.setItem('entenser_odds_fmt',f);}catch(e){}
+  applyOddsFmt();
+  document.querySelectorAll('[data-oddsfmt]').forEach(b=>b.classList.toggle('on',b.dataset.oddsfmt===f));
+  track('odds_format_change',{format:f});
+}
 /* ── B5/B12: shared bet-facing copy + ledger strip. Declared here (outside the
    per-league render branch below) so both renderMarketPanel() and the B12 edge
    board — which SKIPS that branch entirely — can call them. ── */
@@ -1253,7 +1298,7 @@ const _pct=(D.league||{}).pct_complete;
 // rendering an ambiguous "season projection" that read as if it were live).
 const _gDates=(D.games||[]).map(g=>g.date).filter(Boolean).sort();
 const _seasonStart=_gDates[0], _seasonEnd=_gDates[_gDates.length-1];
-const _fmtD=iso=>iso?new Date(iso+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):null;
+const _fmtD=iso=>iso?new Date(iso+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'}):null;
 const _seasonLbl=(D.outlook||{}).season_label || D.season;
 const _dateRange=(_seasonStart&&_seasonEnd)?` · ${_fmtD(_seasonStart)} – ${_fmtD(_seasonEnd)}`:'';
 const _seasonComplete=!isKnockout&&!(D.outlook||{}).preseason&&!D.in_season&&(D.played>0)&&!D.upcoming;
@@ -2396,9 +2441,9 @@ function matchTime(g){
   if(g.ko){const d=new Date(g.ko);if(!isNaN(d))return d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}
   return g.result==null?'TBD':'FT';
 }
-function shortDate(ymd){return new Date(ymd+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});}
-function longDate(ymd){return new Date(ymd+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}
-function monthLabel(ym){return new Date(ym+'-01T12:00').toLocaleDateString('en-US',{month:'long',year:'numeric'});}
+function shortDate(ymd){return new Date(ymd+'T12:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});}
+function longDate(ymd){return new Date(ymd+'T12:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});}
+function monthLabel(ym){return new Date(ym+'-01T12:00').toLocaleDateString(undefined,{month:'long',year:'numeric'});}
 function baseMatchRows(){
   return D.games.filter(g=>{if(fTeam!=='All teams'&&g.home!==fTeam&&g.away!==fTeam)return false;
     if(fRes==='played'&&g.result==null)return false; if(fRes==='upcoming'&&g.result!=null)return false;
@@ -2615,7 +2660,7 @@ function renderGames(){
   });
   $('#gcount').textContent=`${gs.length} match${gs.length!==1?'es':''}`;
   const list=$('#gameList');list.innerHTML='';let cur=null,grp=null;
-  const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
   gs.forEach(g=>{const dkey=matchDate(g);if(dkey!==cur){cur=dkey;grp=el('div','daygrp');grp.appendChild(el('div','dayhead',fmtDay(dkey)));list.appendChild(grp);}
     const played=g.result!=null;
     const hVal=played&&g.hg!=null?g.hg:(g.lam!=null?g.lam.toFixed(1):'--');
@@ -2624,11 +2669,11 @@ function renderGames(){
     const row=el('div','grow'+(played?' done':''));
     row.innerHTML=
       `<span class="gr-time">${matchTime(g)}<span class="sub">${played?'Result':'Kickoff'}</span></span>`+
-      `<span class="gr-team home"><span class="tn">${g.home}</span><span class="gr-odds">${american(g.pH)}</span>${crest(g.home,g.hlogo)}</span>`+
+      `<span class="gr-team home"><span class="tn">${g.home}</span><span class="gr-odds">${oddsHTML(g.pH)}</span>${crest(g.home,g.hlogo)}</span>`+
       `<span class="gr-xg">${hVal}<span class="sub">${scoreSub}</span></span>`+
       `<span class="gr-bar">${cbar(g)}</span>`+
       `<span class="gr-xg">${aVal}<span class="sub">${scoreSub}</span></span>`+
-      `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${american(g.pA)}</span><span class="tn">${g.away}</span></span>`;
+      `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${oddsHTML(g.pA)}</span><span class="tn">${g.away}</span></span>`;
     row.onclick=()=>{row.classList.toggle('open');track('match_expand',{league:LID});};  // B3: expand for the why-strip
     // F1/F2 (2026-07-09): venue/weather stay in expansion; kickoff is now in the scan row.
     const meta=[];
@@ -3011,9 +3056,9 @@ function renderMatchupExplorer(){
       </div>
       ${cbar(fakeG)}
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;margin-top:var(--s2);font-family:var(--mono);font-size:13px">
-        <span style="color:var(--qualify)">${american(pH)}</span>
-        <span style="color:var(--txt-2)">${american(pD)}</span>
-        <span style="color:#e25f4f">${american(pA)}</span>
+        <span style="color:var(--qualify)">${oddsHTML(pH)}</span>
+        <span style="color:var(--txt-2)">${oddsHTML(pD)}</span>
+        <span style="color:#e25f4f">${oddsHTML(pA)}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;font-size:11px;color:var(--txt-3);margin-top:4px">
         <span>${(pH*100).toFixed(1)}%</span>
@@ -3503,7 +3548,7 @@ function commandMatchHTML(EB, allMatches){
   if(allMatches.length){
     const byDate={};
     allMatches.forEach(r=>{(byDate[r.date]=byDate[r.date]||[]).push(r);});
-    const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
     return Object.keys(byDate).sort().map(date=>{
       const rows=byDate[date].slice(0,8).map(ebRow).join('');
       return `<div class="daygrp"><div class="dayhead">${fmtDay(date)}</div>${rows}</div>`;
@@ -3535,9 +3580,9 @@ function calStripHTML(){
     const n=(CD.days[d]||[]).length;
     const dt=new Date(d+'T12:00');
     return `<div class="cal-box${d===CD.today?' today':''}${d===calDay?' active':''}${n?'':' empty'}" data-date="${d}">
-      <span class="cal-dow">${dt.toLocaleDateString('en-US',{weekday:'short'})}</span>
+      <span class="cal-dow">${dt.toLocaleDateString(undefined,{weekday:'short'})}</span>
       <span class="cal-num">${dt.getDate()}</span>
-      <span class="cal-mon">${dt.toLocaleDateString('en-US',{month:'short'})}</span>
+      <span class="cal-mon">${dt.toLocaleDateString(undefined,{month:'short'})}</span>
       <span class="cal-count">${n||''}</span>
     </div>`;
   }).join('');
@@ -3549,7 +3594,7 @@ function calDayListHTML(){
   const rows=CD.days[calDay]||[];
   if(!rows.length) return '<div class="eb-empty">No matches this day across active leagues.</div>';
   const dt=new Date(calDay+'T12:00');
-  const lbl=dt.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const lbl=dt.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
   return `<div class="cal-day-h">${lbl}</div>${rows.map(calRow).join('')}`;
 }
 if(_isEdgeBoard && window.EDGE_BOARD_DATA){
@@ -3665,7 +3710,7 @@ if(_isHome && window.HOME_DATA){
   const fix=f=>{const sc=(f.lam!=null&&f.mu!=null)?topScorelines(f.lam,f.mu,1):null;
     return `<a class="ed-fix" href="?league=${f.league}"><div class="t">${crest(f.home,f.hlogo)}${f.home}<span class="vs">v</span>${crest(f.away,f.alogo)}${f.away}</div>
     ${cbar(f)}
-    <div class="ed-fix-odds"><span>${american(f.pH)}</span><span>${american(f.pD)}</span><span>${american(f.pA)}</span></div>
+    <div class="ed-fix-odds"><span>${oddsHTML(f.pH)}</span><span>${oddsHTML(f.pD)}</span><span>${oddsHTML(f.pA)}</span></div>
     <div class="m">${f.date} · ${f.name}${sc?` · proj. ${sc.split(' ')[0]}`:''}</div>
     ${f.hinp&&f.ainp?modelInputsTable(f.home,f.away,f.hinp,f.ainp):''}</a>`;};
   const fixtures=(H.fixtures||[]).slice(0,8).map(fix).join('')||'<div class="news-empty">No fixtures modeled in the next 10 days.</div>';
@@ -3680,7 +3725,7 @@ if(_isHome && window.HOME_DATA){
     if(!rows.length) return '<div class="news-empty">No results in the last week.</div>';
     const byDate=new Map();
     rows.forEach(g=>{ (byDate.get(g.date)||byDate.set(g.date,[]).get(g.date)).push(g); });
-    const dLbl=iso=>new Date(iso+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    const dLbl=iso=>new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
     return [...byDate.entries()].map(([date,games])=>{
       const byLg=new Map();
       games.forEach(g=>{ (byLg.get(g.name)||byLg.set(g.name,[]).get(g.name)).push(g); });

@@ -1960,11 +1960,12 @@ def main():
     #   full_forecast — forward-fixture feed + current-season data
     #   results_only  — current results but no fixture feed (no upcoming cards)
     #   historical    — newest available season is in the past (stale source)
-    # Must agree with fetch_league_teams.DATA_STATUS (checked by validate_payloads).
-    _data_status = ("historical" if ts < pd.Timestamp.now().year - 1 else
-                    "results_only" if (cfg["source"] == "api_football"
-                                       or lid in fdi_no_espn)
-                    else "full_forecast")
+    # The registry (fetch_league_teams.DATA_STATUS) is the single source of truth —
+    # read from it rather than re-deriving with a heuristic, so the payload and the
+    # registry can never disagree (validate_payloads enforces the match). A naive
+    # year check misfires on torneo-index (liga-mx) and calendar-year leagues.
+    from scripts.fetch_league_teams import DATA_STATUS as _REG_DATA_STATUS
+    _data_status = _REG_DATA_STATUS.get(lid, "full_forecast")
     _rules_txt = cfg.get("rules") or ""
     _format_approx = "approximate" in _rules_txt or "not modeled" in _rules_txt
     data = {

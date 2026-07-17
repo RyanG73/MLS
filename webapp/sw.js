@@ -17,7 +17,8 @@
 // always load fresh from the network (they carry daily-refreshed odds).
 // v4 (2026-07-17): first-screen promise + plain-English trust copy (launch
 // plan D) — flush shells cached with the old "explained and audited" head.
-const CACHE = "entenser-shell-v4";
+// v5 (2026-07-17): locale-aware dates + odds-format toggle (launch plan F).
+const CACHE = "entenser-shell-v5";
 const SHELL = [
   "/",
   "/index.html",

@@ -2,6 +2,21 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-17 (2): **F1–F2 shipped and browser-verified.** F1: all 11
+>   `toLocaleDateString('en-US')` sites now use the viewer's browser locale
+>   (`undefined`); kickoff times already used `toLocaleTimeString([])`. F2:
+>   `american()` replaced by a format-aware `oddsStr`/`oddsHTML` pair + a masthead
+>   US/Dec/Frac toggle that re-renders every quoted price in place (no reload) and
+>   fires `odds_format_change`; preference persisted in localStorage, default
+>   American for `en-US` browsers and decimal otherwise (verified: en-US→american,
+>   en-GB/de-DE/es-ES/en→decimal, stored preference wins). Odds math spot-checked
+>   (p=0.706 → −240 / 1.42 / 5⁄12; p=0.085 → +1076 / 11.76 / 43⁄4). sw.js → v5.
+>   **Also fixed a B1 latent bug found here:** the payload-side `data_status`
+>   heuristic (`ts < year-1`) misfired on Liga MX (torneo-index season) →
+>   `build_league_data.py` now reads `data_status` straight from
+>   `fetch_league_teams.DATA_STATUS` so payload and registry can never disagree.
+>   57/57 payloads valid, 562 tests pass, zero console errors.
+>
 > - 2026-07-17: **D1–D3 shipped and browser-verified** (ran early on user request).
 >   D1: first-screen promise band on the Home landing ("Title, qualification and
 >   relegation forecasts across world football" / "No bookmaker odds in the model

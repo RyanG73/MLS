@@ -1,5 +1,15 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-17 (2) — Launch workstream F shipped: locale basics (browser-locale dates + odds toggle)**
+> All 11 hardcoded `en-US` date formats now follow the viewer's browser locale; kickoff times were
+> already timezone-aware. The single `american()` odds formatter became a format-aware
+> `oddsStr`/`oddsHTML` pair driven by a masthead US/Dec/Frac toggle that re-renders every quoted
+> price in place (localStorage preference, `odds_format_change` event; default American for en-US
+> browsers, decimal elsewhere). Fixed a latent B1 bug in passing: the payload-side `data_status`
+> heuristic misfired on Liga MX's torneo-index season, so `build_league_data.py` now reads
+> `data_status` from the registry (`fetch_league_teams.DATA_STATUS`) — payload and registry can no
+> longer disagree. Copy/format-only; sw.js→v5. 562 tests + 57/57 payloads green.
+
 > **2026-07-17 — Launch workstream D shipped: messaging + plain-English trust on-ramp**
 > Home landing now leads with the fan-outcome promise ("Title, qualification and relegation
 > forecasts across world football" / "No bookmaker odds in the model — every forecast graded in
