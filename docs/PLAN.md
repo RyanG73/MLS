@@ -1,5 +1,16 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-17 (4) — Launch workstream H shipped: distribution content (weekly recap, WC on-ramp, open data, drafts)**
+> New crawlable surfaces generated at deploy time from payloads: `/weekly/` recap (biggest movers,
+> closest races, model-vs-market, and a high-confidence hits/misses receipt — `build_weekly_recap.py`
+> → `webapp/data/weekly.js`, wired into refresh-daily.yml); `/after-the-world-cup/` on-ramp routing
+> the post-tournament US cohort to MLS/NWSL/Liga MX/Leagues Cup/USL/Canadian PL with live leaders;
+> `/open-data/` with per-league CSV exports + attribution + DataCatalog JSON-LD (backlink strategy).
+> All three in the sitemap + footer; home page gains a weekly-recap CTA and a World Cup kicker.
+> Announcement drafts (Reddit/HN/X/Bluesky) in docs/launch-announcements.md for the owner to post.
+> sw.js→v9. 563 tests + 57/57 payloads green. Remaining: E (Resend, user-blocked), A/C10 measurement
+> (Plausible+GSC, user-blocked), I (QA week).
+
 > **2026-07-17 (3) — Launch workstream G shipped: supporter-tier waitlist (demand test, no paywall)**
 > New `?league=support` route with a "Support Entenser" card: locale-aware price (£4.99/€5.99/
 > $5.99), feature list (saved teams + threshold alerts, forecast-change history, weekly briefing,

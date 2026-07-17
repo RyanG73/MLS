@@ -2,6 +2,21 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-17 (4): **H1–H4 shipped and browser-verified** (H5 is a USER task).
+>   H1: `scripts/build_weekly_recap.py` → `webapp/data/weekly.js` + crawlable
+>   `/weekly/` page (movers, closest races, model-vs-market when priced, and a
+>   high-confidence hits/misses "receipt"); wired into refresh-daily.yml +
+>   build_all.sh; home + footer links. H2: crawlable `/after-the-world-cup/`
+>   on-ramp listing MLS/NWSL/Liga MX/Leagues Cup/USL/Canadian PL with live leaders
+>   pulled from payloads; home kicker + footer link. H3: per-league CSV exports
+>   (`/exports/<lid>.csv`, 51 table leagues) + `/open-data/` page with attribution
+>   + DataCatalog JSON-LD (ClubElo backlink strategy); footer link. All three added
+>   to the sitemap and generated at deploy time (gitignored). H4: announcement
+>   drafts for Reddit (r/MLS, r/NWSL, r/soccer), Show HN, X/Bluesky + a
+>   competitor-diff answer and sequencing plan in `docs/launch-announcements.md`
+>   (USER posts them). sw.js → v9. 563 tests + 57/57 payloads green; every new
+>   page verified live in-browser with zero console errors.
+>
 > - 2026-07-17 (3): **G1–G2 shipped and browser-verified.** New `?league=support`
 >   info route with a "Support Entenser" card — locale-aware price (£4.99/€5.99/
 >   $5.99, en-US→$5.99 verified), feature list (saved teams + alerts, forecast-
