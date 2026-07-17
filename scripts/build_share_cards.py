@@ -45,17 +45,8 @@ W, H = 1200, 630
 
 # ── data loading ──────────────────────────────────────────────────────────────
 def _load_payload(name: str) -> dict | None:
-    p = WEBAPP / "data" / name
-    if not p.exists():
-        return None
-    raw = p.read_text(encoding="utf-8")
-    m = re.match(r"^window\.\w+ = (.*?);?\s*$", raw, re.DOTALL)
-    if not m:
-        return None
-    try:
-        return json.loads(m.group(1))
-    except json.JSONDecodeError:
-        return None
+    from scripts.payload_utils import read_js_payload
+    return read_js_payload(WEBAPP / "data" / name)
 
 
 def _b64_asset(rel: str) -> str:

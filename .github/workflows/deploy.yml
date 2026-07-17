@@ -29,6 +29,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # Crawlable per-league pages + hub + sitemap (launch plan C2/C7).
+      # Generated at deploy time — never committed — so every data-refresh
+      # deploy regenerates them for free. stdlib-only: no pip install needed.
+      # A failure here MUST fail the deploy: shipping the site without its
+      # canonical league pages would orphan every indexed /leagues/ URL.
+      - name: Build static league pages + sitemap
+        run: python3 scripts/build_static_pages.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

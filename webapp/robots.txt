@@ -1,0 +1,7 @@
+# entenser.com — crawl policy (launch plan C3)
+# NOTE: do NOT disallow /?league= — Google must render those SPA routes to see
+# the JS-swapped canonical pointing at the static /leagues/<id>/ pages.
+User-agent: *
+Allow: /
+
+Sitemap: https://entenser.com/sitemap.xml

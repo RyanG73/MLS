@@ -21,9 +21,37 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
+# pandas is only needed by health_feature_stats; keeping the import lazy lets
+# stdlib-only consumers (build_static_pages.py in the deploy workflow, which
+# runs on bare python3 with no pip install) import this module.
+if TYPE_CHECKING:
+    import pandas as pd
+
+
+def read_js_payload(path: Path | str) -> dict | list | None:
+    """Parse a ``window.<VAR> = <json>;`` data file back into Python.
+
+    The inverse of :func:`write_js_payload`, and the single source of truth
+    for reading payload JS from Python (build_share_cards, build_static_pages,
+    validate_payloads all consume this shape). Returns None when the file is
+    missing, has no assignment wrapper, or the body isn't strict JSON — the
+    callers all treat "unreadable" and "absent" the same way.
+    """
+    p = Path(path)
+    if not p.exists():
+        return None
+    m = re.match(r"window\.\w+\s*=\s*(.*?);?\s*$",
+                 p.read_text(encoding="utf-8"), re.DOTALL)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return None
 
 
 def write_js_payload(path: Path, var_name: str, data: dict) -> None:

@@ -14,6 +14,17 @@
 <meta property="og:image:alt" content="Entenser — market-blind football probabilities, explained and audited" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:image" content="https://entenser.com/assets/og/og-image.png" />
+<!-- Canonical (launch plan C5): the head router below swaps this to the static
+     /leagues/<id>/ page when ?league= names a registry league, consolidating
+     search signals onto the crawlable documents. -->
+<link rel="canonical" href="https://entenser.com/" id="canonicalLink" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"WebSite","name":"Entenser","url":"https://entenser.com/",
+  "description":"Market-blind football forecasts — title, qualification and relegation probabilities across world football, every forecast graded in public."},
+ {"@type":"Organization","name":"Entenser","url":"https://entenser.com/",
+  "logo":"https://entenser.com/assets/pwa/icon-512.png"}]}
+</script>
 <script>
 /* Privacy-preserving analytics (Plausible — no cookies, GDPR-friendly, matches the
    Privacy page copy). Active ONLY on the live domain, never on localhost/file
@@ -888,6 +899,15 @@ const LID=(_rawLeague&&_rawLeague!=='command')?_rawLeague:'mls';
 // per-league data/news/drift file to fetch, so skip those document.writes.
 const _INFO_PAGES=['about','data-sources','responsible-gambling','privacy','contact'];
 const _infoPage=_INFO_PAGES.includes(_rawLeague)?_rawLeague:null;
+// Canonical swap (launch plan C5): registry league routes canonicalise to their
+// static /leagues/<id>/ page (the crawlable document); every special route
+// (home/command/power/info/leagues/favorites) stays canonical to "/". Google
+// honors JS-updated canonicals once the page renders — the only mechanism
+// available for query-param routes on GitHub Pages (no server redirects).
+if(_rawLeague&&(window.LEAGUES||[]).some(l=>l.id===_rawLeague)){
+  const c=document.getElementById('canonicalLink');
+  if(c)c.href='https://entenser.com/leagues/'+_rawLeague+'/';
+}
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
 if(!_infoPage)
@@ -1093,6 +1113,12 @@ const FavStore=(()=>{
   $('#leagueTitle').textContent=lg.name;
   if(lg.logo){const b=$('#leagueLogo');b.style.background='none';b.style.boxShadow='none';
     b.innerHTML=`<img src="${lg.logo}" alt="" style="width:100%;height:100%;object-fit:contain" onerror="this.remove()">`;}
+  // Crawl path into the canonical static page (launch plan C5) — rendered-DOM
+  // internal links are how Google discovers /leagues/<id>/ from the SPA.
+  if(!_isPower&&!_isEdgeBoard&&!_isHome&&!_infoPage&&!_isLeagues&&!_isFavs
+     &&(window.LEAGUES||[]).some(l=>l.id===LID))
+    $('#leagueTitle').insertAdjacentHTML('afterend',
+      `<a href="/leagues/${LID}/" style="font-size:11.5px;color:var(--txt-3);text-decoration:none">league overview page ↗</a>`);
 })();
 const monogram=n=>{const w=n.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean);return ((w[0]?.[0]||'')+(w[1]?.[0]||'')).toUpperCase();};
 const fmt=v=>`${v.toFixed(1)}%`;                         // percentages with one decimal + sign
@@ -1177,6 +1203,7 @@ const FOOT_ATTR='Data: <a href="https://www.americansocceranalysis.com" target="
   ' · squad values <a href="https://www.transfermarkt.com" target="_blank" rel="noopener">Transfermarkt.com</a>';
 // Trust/legal nav — shown in the footer on every route (P0 launch requirement).
 const FOOT_LEGAL='<div class="foot-legal"><a href="?league=about">About the model</a> · '+
+  '<a href="/leagues/">All leagues</a> · '+
   '<a href="?league=data-sources">Data sources</a> · '+
   '<a href="?league=responsible-gambling">Responsible gambling</a> · '+
   '<a href="?league=privacy">Privacy</a> · '+

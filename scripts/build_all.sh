@@ -159,3 +159,6 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/build_public_launch_report.py \
 echo "--- social share / OG cards ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_share_cards.py \
   || echo "  [WARN] build_share_cards failed (non-fatal)"
+echo "--- static league pages + sitemap (crawlable SEO surfaces) ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_static_pages.py \
+  || echo "  [WARN] build_static_pages failed (non-fatal locally; deploy.yml gates the real build)"

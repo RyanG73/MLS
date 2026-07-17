@@ -10,8 +10,12 @@
 // one (the activate handler deletes all caches != CACHE). v2 (2026-07-15):
 // flush shells cached before the momentum/postgame-WE/results features
 // shipped, since some returning visitors reported seeing the pre-feature
-// page from cache.
-const CACHE = "entenser-shell-v2";
+// page from cache. v3 (2026-07-16): shell head changed — canonical link +
+// JSON-LD + data-status badges (launch plan B2/C5/C6).
+// NOTE: the static /leagues/<id>/ pages are deliberately NOT cached here —
+// the fetch handler's SHELL allowlist below never matches them, so they
+// always load fresh from the network (they carry daily-refreshed odds).
+const CACHE = "entenser-shell-v3";
 const SHELL = [
   "/",
   "/index.html",

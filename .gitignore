@@ -105,3 +105,8 @@ data/*.meta.json
 data/roster_profiles/
 
 .superpowers/
+
+# Static league pages + sitemap — generated at deploy time by
+# scripts/build_static_pages.py (launch plan C7); never committed
+webapp/leagues/
+webapp/sitemap.xml
