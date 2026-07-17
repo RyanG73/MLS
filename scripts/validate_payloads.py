@@ -98,7 +98,16 @@ def _required_fields(data: dict) -> set[str]:
     return _REQUIRED_LIVE
 
 
-def validate_file(path: Path) -> list[str]:
+def _registry_data_status() -> dict[str, str]:
+    """id → data_status from webapp/leagues.js (empty dict if unreadable)."""
+    try:
+        registry = _load_payload(Path("webapp/leagues.js"))
+        return {e["id"]: e.get("data_status", "full_forecast") for e in registry}
+    except Exception:
+        return {}
+
+
+def validate_file(path: Path, registry_ds: dict[str, str] | None = None) -> list[str]:
     """Return a list of error strings; empty means the payload is valid."""
     errors: list[str] = []
     try:
@@ -119,6 +128,21 @@ def validate_file(path: Path) -> list[str]:
     if missing:
         errors.append(f"Missing required fields: {sorted(missing)}")
 
+    # Data-status contract (launch plan 2026-08-17 B3): a payload's data_status
+    # must agree with the registry's. Absent field == "full_forecast" on both
+    # sides, so full-forecast leagues built before the field existed still pass;
+    # a stale/results-only league whose payload claims otherwise fails.
+    if registry_ds and data.get("status") != "placeholder":
+        lid = data.get("league", {}).get("id")
+        if lid and lid in registry_ds:
+            payload_ds = data.get("data_status", "full_forecast")
+            if payload_ds != registry_ds[lid]:
+                errors.append(
+                    f"data_status mismatch: payload says {payload_ds!r}, "
+                    f"registry (webapp/leagues.js) says {registry_ds[lid]!r} — "
+                    "update fetch_league_teams.DATA_STATUS or the "
+                    "build_league_data derivation")
+
     return errors
 
 
@@ -135,13 +159,14 @@ def main(argv: list[str] | None = None) -> int:
         print("No payload files found.", file=sys.stderr)
         return 1
 
+    registry_ds = _registry_data_status()
     failures: list[tuple[str, list[str]]] = []
     for path in paths:
         if not path.exists():
             failures.append((path.name, [f"File not found: {path}"]))
             print(f"  MISS {path.name}")
             continue
-        errs = validate_file(path)
+        errs = validate_file(path, registry_ds)
         if errs:
             failures.append((path.name, errs))
             for e in errs:

@@ -521,6 +521,7 @@ def build(comp_id: str, season: int | None, sims: int):
             # Top-level route state (see docs/CURRENT_STATE.md § Route State Taxonomy).
             # "completed" = final results, render with result framing, no projection affordances.
             "status": "completed",
+            "data_status": "full_forecast",  # launch-plan B1 data contract
             "league": {"name": META[comp_id]["name"],
                        "confederation": META[comp_id]["confederation"]},
             "outlook": {
@@ -610,6 +611,7 @@ def build(comp_id: str, season: int | None, sims: int):
         # Top-level route state (see docs/CURRENT_STATE.md § Route State Taxonomy).
         # "knockout_live" = bracket/league phase active, render projection + current path.
         "status": "knockout_live",
+        "data_status": "full_forecast",  # launch-plan B1 data contract
         "league": {"name": META[comp_id]["name"],
                    "confederation": META[comp_id]["confederation"]},
         "outlook": {

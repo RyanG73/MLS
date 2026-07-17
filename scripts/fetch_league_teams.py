@@ -147,6 +147,21 @@ REGISTRY = [
 ]
 
 
+# Data-status contract (launch plan 2026-08-17 B1): what each league's data can
+# honestly support. Everything defaults to "full_forecast"; list only the
+# exceptions. Keep in sync with the payload-side derivation in
+# build_league_data.py — validate_payloads.py fails when a payload and this
+# registry disagree.
+#   results_only — current-season results but no forward-fixture feed
+#   historical   — newest available season is in the past (stale source)
+DATA_STATUS = {
+    "canadian-pl": "historical",             # API-Football free plan: newest season 2024
+    "k-league-1": "historical",              # API-Football free plan: 2022–2024 only
+    "poland-ekstraklasa": "results_only",    # no ESPN slug — no forward fixtures
+    "finland-veikkausliiga": "results_only",  # no ESPN slug — no forward fixtures
+}
+
+
 def _get(url):
     return requests.get(url, headers=_HDR, verify=False, timeout=25).json()
 
@@ -183,7 +198,8 @@ def main():
         country, tier = LEAGUE_INFO.get(lid, (None, None))
         registry.append({"id": lid, "name": name, "confederation": conf, "group": group,
                          "status": status, "logo": logo, "espn_code": code,
-                         "country": country, "tier": tier})
+                         "country": country, "tier": tier,
+                         "data_status": DATA_STATUS.get(lid, "full_forecast")})
         if status == "live":
             print(f"  {lid:18s} live   · logo {'ok' if logo else 'none'} (data built separately: MLS→build_dashboard_data, others→build_league_data)")
             continue

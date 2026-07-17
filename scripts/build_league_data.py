@@ -1955,8 +1955,22 @@ def main():
     # webapp can branch on one canonical field instead of inferring from outlook.*.
     _route_status = {PRESEASON: "preseason", IN_PROGRESS: "live",
                      CONCLUDED: "completed"}.get(_sstate, "live")
+    # Data-status contract (launch plan 2026-08-17 B1): what the underlying data can
+    # honestly support, independent of the season-phase route `status` above.
+    #   full_forecast — forward-fixture feed + current-season data
+    #   results_only  — current results but no fixture feed (no upcoming cards)
+    #   historical    — newest available season is in the past (stale source)
+    # Must agree with fetch_league_teams.DATA_STATUS (checked by validate_payloads).
+    _data_status = ("historical" if ts < pd.Timestamp.now().year - 1 else
+                    "results_only" if (cfg["source"] == "api_football"
+                                       or lid in fdi_no_espn)
+                    else "full_forecast")
+    _rules_txt = cfg.get("rules") or ""
+    _format_approx = "approximate" in _rules_txt or "not modeled" in _rules_txt
     data = {
         "status": _route_status,
+        "data_status": _data_status,
+        "format_approximate": _format_approx,
         "league": {"id": lid, "name": cfg["name"], "logo": _stub_league_logo(lid),
                    "confederation": cfg.get("confederation", "UEFA"),
                    "status": "live", "pct_complete": pct},

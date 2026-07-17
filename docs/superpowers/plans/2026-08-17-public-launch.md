@@ -2,6 +2,18 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-16 (2): **B1–B3 implemented and browser-verified.** `data_status`
+>   taxonomy (full_forecast / results_only / historical + format_approximate)
+>   derived in `build_league_data.py`, stamped in `fetch_league_teams.DATA_STATUS`
+>   + `webapp/leagues.js` + the 4 exception payloads (canadian-pl, k-league-1 →
+>   historical; poland-ekstraklasa, finland-veikkausliiga → results_only);
+>   registry/payload agreement check added to `validate_payloads.py` (57/57 pass);
+>   UI badges in nav + Leagues hub, honest count line ("56 tracked · 52 with full
+>   live forecasts"), per-league subtitle note + "updated <date>" stamp. UI edits
+>   were committed inside a concurrent session's `fix(webapp)` commit; script/
+>   registry changes staged, final commit pending resolution of that session's
+>   autostash conflicts (73 UU generated files).
+>
 > - 2026-07-16: Plan created from the combined competitive-intelligence report
 >   (`docs/competitive-intelligence-2026-07-combined.md`). Scope decisions by user:
 >   full public launch · supporter-tier **waitlist** only (no checkout) · **locale
