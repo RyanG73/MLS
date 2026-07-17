@@ -728,6 +728,19 @@ footer a:hover{color:var(--txt-2)}
 .info-doc .metric .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3)}
 .info-doc .metric .v{font-size:17px;font-weight:600;color:var(--txt-1)}
 .info-doc .fine{font-size:11.5px;color:var(--txt-3);margin-top:var(--s5)}
+/* Supporter-tier waitlist card (launch plan G) */
+.sup-price{display:flex;align-items:baseline;gap:8px;margin:var(--s4) 0 4px}
+.sup-price b{font-size:30px;font-weight:800;color:var(--txt-1);letter-spacing:-.01em}
+.sup-price span{font-size:13px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.04em}
+.sup-feats{list-style:none;margin:6px 0 var(--s4)!important;padding:0}
+.sup-feats li{position:relative;padding:7px 0 7px 22px;border-bottom:1px solid var(--line)}
+.sup-feats li:last-child{border-bottom:0}
+.sup-feats li:before{content:"✓";position:absolute;left:0;color:var(--qualify,#3ddc84);font-weight:800}
+.sup-form{display:flex;gap:8px;margin:var(--s4) 0 6px;flex-wrap:wrap}
+.sup-form input{flex:1;min-width:200px;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:10px 12px;font-size:14px}
+.sup-form input:disabled{opacity:.6}
+.sup-form button{background:var(--qualify,#3ddc84);color:#06121d;font-weight:700;border:0;border-radius:var(--r-sm);padding:10px 18px;cursor:pointer;font-size:14px;white-space:nowrap}
+.sup-form button:hover{filter:brightness(1.07)}
 .hidden{display:none!important}
 
 @media(max-width:1280px){
@@ -903,7 +916,7 @@ const _isFavs=_rawLeague==='favorites';       // pinned leagues + teams
 const LID=(_rawLeague&&_rawLeague!=='command')?_rawLeague:'mls';
 // Static info / trust / legal routes render self-contained content — there is no
 // per-league data/news/drift file to fetch, so skip those document.writes.
-const _INFO_PAGES=['about','data-sources','responsible-gambling','privacy','contact'];
+const _INFO_PAGES=['about','support','data-sources','responsible-gambling','privacy','contact'];
 const _infoPage=_INFO_PAGES.includes(_rawLeague)?_rawLeague:null;
 // Canonical swap (launch plan C5): registry league routes canonicalise to their
 // static /leagues/<id>/ page (the crawlable document); every special route
@@ -1249,6 +1262,7 @@ const FOOT_ATTR='Data: <a href="https://www.americansocceranalysis.com" target="
 // Trust/legal nav — shown in the footer on every route (P0 launch requirement).
 const FOOT_LEGAL='<div class="foot-legal"><a href="?league=about">About the model</a> · '+
   '<a href="/leagues/">All leagues</a> · '+
+  '<a href="?league=support">Support</a> · '+
   '<a href="?league=data-sources">Data sources</a> · '+
   '<a href="?league=responsible-gambling">Responsible gambling</a> · '+
   '<a href="?league=privacy">Privacy</a> · '+
@@ -3503,6 +3517,56 @@ function bindCommandSignup(){
     if(btn)btn.textContent='Saved';
   });
 }
+// ── Supporter-tier waitlist (launch plan G) — a demand test, NOT a paywall.
+//    The public forecasts stay free; this measures willingness to pay before
+//    any checkout is built (decision gate: build the tier only if >=2% of
+//    returning users join). E will later POST the email to the Resend proxy
+//    tagged supporter-waitlist; for now it captures locally + fires the event. ──
+function _supporterPrice(){
+  const l=(navigator.language||'').toLowerCase();
+  if(l==='en-gb'||l.endsWith('-gb'))return '£4.99';
+  if(/^(de|fr|es|it|nl|pt|fi|el|ga|et|lv|lt|sk|sl|mt)\b/.test(l)||l.endsWith('-eu'))return '€5.99';
+  return '$5.99';
+}
+function supportCardHTML(){
+  const joined=localStorage.getItem('entenser_supporter_waitlist');
+  const price=_supporterPrice();
+  return `
+    <h2>Support Entenser</h2>
+    <p class="lead">The forecasts stay free — every league race, every match probability, every public grade. This is a supporter tier for readers who want more control, and who want to keep an independent, market-blind model running.</p>
+    <div class="sup-price"><b>${price}</b><span>/ month · planned</span></div>
+    <p class="fine">Nothing is for sale yet. We're gauging interest before building it — join the waitlist and you'll be first in, at the launch price, with no obligation.</p>
+    <h3>What the supporter tier would add</h3>
+    <ul class="sup-feats">
+      <li><b>Saved teams &amp; leagues</b> with email alerts when a title, playoff or relegation chance moves past a threshold you set.</li>
+      <li><b>Forecast-change history</b> — see how a club's odds shifted week by week, not just where they stand today.</li>
+      <li><b>Weekly "model changed its mind" briefing</b> — the biggest movers and model-vs-market disagreements, in your inbox.</li>
+      <li><b>Data downloads</b> — projections and probabilities as CSV for your own analysis.</li>
+      <li><b>Ad-free, always</b> — the site stays fast and free of gambling creative.</li>
+    </ul>
+    <form class="sup-form" id="waitlistForm">
+      <input type="email" name="email" placeholder="Email address" aria-label="Email for the supporter waitlist" value="${commandEsc(joined||'')}" ${joined?'disabled':''}>
+      <button type="submit">${joined?"You're on the list ✓":'Join the waitlist'}</button>
+    </form>
+    <p class="fine">We'll only email you about the supporter tier. No spam, unsubscribe any time. The public site never gets paywalled.</p>`;
+}
+function bindWaitlist(){
+  const form=document.getElementById('waitlistForm');
+  if(!form)return;
+  form.addEventListener('submit',ev=>{
+    ev.preventDefault();
+    const input=form.querySelector('input[name="email"]');
+    const email=(input&&input.value||'').trim();
+    if(!email||!/.+@.+\..+/.test(email))return;
+    // E will swap this local capture for a POST to the Resend proxy (tag:
+    // supporter-waitlist). Plausible attributes country to the event server-side.
+    try{localStorage.setItem('entenser_supporter_waitlist',email);}catch(e){}
+    track('waitlist_click',{tier:'supporter'});
+    const btn=form.querySelector('button');
+    if(btn)btn.textContent="You're on the list ✓";
+    if(input)input.disabled=true;
+  });
+}
 function commandTrustHTML(){
   const MS=window.MODEL_SLICES;
   if(!MS||MS.status!=='ok')return '<div class="cc-panel-note">Model-slice report is not available yet.</div>';
@@ -3923,8 +3987,8 @@ if(_isFavs){
 if(_infoPage){
   const seg=$('#seg'); if(seg) seg.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
-  const NAV=[['about','About the model'],['data-sources','Data sources'],['responsible-gambling','Responsible gambling'],['privacy','Privacy'],['contact','Contact']];
-  const TITLES={'about':'About the model','data-sources':'Data & attribution','responsible-gambling':'Responsible gambling','privacy':'Privacy','contact':'Contact'};
+  const NAV=[['about','About the model'],['support','Support Entenser'],['data-sources','Data sources'],['responsible-gambling','Responsible gambling'],['privacy','Privacy'],['contact','Contact']];
+  const TITLES={'about':'About the model','support':'Support Entenser','data-sources':'Data & attribution','responsible-gambling':'Responsible gambling','privacy':'Privacy','contact':'Contact'};
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent=TITLES[_infoPage]||'Info';
   document.title=(TITLES[_infoPage]||'Info')+' · Entenser';
   const subEl=$('#sub'); if(subEl) subEl.textContent='Entenser · the only football model that grades itself in public';
@@ -4010,8 +4074,10 @@ if(_infoPage){
     <p class="lead">Questions, feedback, data-source concerns, or business inquiries — reach out directly.</p>
     <div class="callout"><b>Email:</b> <a href="mailto:entenser@gmail.com">entenser@gmail.com</a></div>
     <p class="fine">This is a static site with no submission backend, so email is the fastest way to reach us. We read everything, though response time varies.</p>`;
+  DOCS['support']=supportCardHTML();
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="info-wrap">${nav}<div class="info-doc">${DOCS[_infoPage]||''}</div></div>`; }
+  if(_infoPage==='support') bindWaitlist();
   const _fi=$('#foot'); if(_fi) _fi.innerHTML=FOOT_HTML;
 }
 

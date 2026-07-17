@@ -18,7 +18,8 @@
 // v4 (2026-07-17): first-screen promise + plain-English trust copy (launch
 // plan D) — flush shells cached with the old "explained and audited" head.
 // v5 (2026-07-17): locale-aware dates + odds-format toggle (launch plan F).
-const CACHE = "entenser-shell-v5";
+// v6 (2026-07-17): supporter-tier waitlist route + footer link (launch plan G).
+const CACHE = "entenser-shell-v6";
 const SHELL = [
   "/",
   "/index.html",

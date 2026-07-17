@@ -1,5 +1,14 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-17 (3) — Launch workstream G shipped: supporter-tier waitlist (demand test, no paywall)**
+> New `?league=support` route with a "Support Entenser" card: locale-aware price (£4.99/€5.99/
+> $5.99), feature list (saved teams + threshold alerts, forecast-change history, weekly briefing,
+> CSV downloads, ad-free), and a waitlist form that captures the email locally and fires
+> `waitlist_click` (Plausible attributes country). Reachable from the info-nav and a site-wide
+> footer "Support" link; the card states plainly the public site never gets paywalled. Handler is
+> E-ready (one-line swap to POST the Resend proxy tagged supporter-waitlist). Copy/UI-only; sw.js→v6.
+> Decision gate: build the tier only if ≥2% of returning users join. 560 tests + 57/57 payloads green.
+
 > **2026-07-17 (2) — Launch workstream F shipped: locale basics (browser-locale dates + odds toggle)**
 > All 11 hardcoded `en-US` date formats now follow the viewer's browser locale; kickoff times were
 > already timezone-aware. The single `american()` odds formatter became a format-aware

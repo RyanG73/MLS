@@ -2,6 +2,19 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-17 (3): **G1–G2 shipped and browser-verified.** New `?league=support`
+>   info route with a "Support Entenser" card — locale-aware price (£4.99/€5.99/
+>   $5.99, en-US→$5.99 verified), feature list (saved teams + alerts, forecast-
+>   change history, weekly briefing, CSV downloads, ad-free), and a waitlist form
+>   that stores to `entenser_supporter_waitlist` and fires `waitlist_click`
+>   (`{tier:'supporter'}`; Plausible attributes country server-side). "The public
+>   site never gets paywalled" stated explicitly to protect the trust position.
+>   Added to the info-nav + a site-wide footer "Support" link. Invalid emails
+>   rejected (no store, no event). Handler is E-ready: a one-line swap will POST to
+>   the Resend proxy tagged supporter-waitlist. sw.js → v6. 560 tests + 57/57
+>   payloads green, zero console errors. **Decision gate (Report 2): build the paid
+>   tier only if ≥2% of returning users join.**
+>
 > - 2026-07-17 (2): **F1–F2 shipped and browser-verified.** F1: all 11
 >   `toLocaleDateString('en-US')` sites now use the viewer's browser locale
 >   (`undefined`); kickoff times already used `toLocaleTimeString([])`. F2:
