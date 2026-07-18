@@ -219,9 +219,11 @@ def build_recent_results(files: list[tuple[str, dict]], limit: int = 60,
 
 
 def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
-                   days: int = 10) -> list[dict]:
+                   days: int = 10, per_league: int | None = None) -> list[dict]:
     """Upcoming fixtures (next `days` days) across live leagues, biggest
-    leagues first, for the homepage right-rail. Chronological within a league."""
+    leagues first, for the homepage right-rail. Chronological within a league.
+    `per_league` caps each league's share so the home carousel (2026-07-17
+    redesign: one league per slide) gets many leagues, not 40 rows of MLS."""
     from datetime import date, timedelta
     today = date.today().isoformat()
     horizon = (date.today() + timedelta(days=days)).isoformat()
@@ -254,7 +256,55 @@ def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
                 "ainp": team_inputs.get(g.get("away")),
             })
     fx.sort(key=lambda f: (_prom_key(f["league"]), f["date"]))
+    if per_league:
+        kept, seen = [], {}
+        for f in fx:
+            n = seen.get(f["league"], 0)
+            if n < per_league:
+                kept.append(f)
+                seen[f["league"]] = n + 1
+        fx = kept
     return fx[:limit]
+
+
+# The 8 leagues the redesigned home rotates through (C: table snapshot, E: title
+# odds board, 2026-07-17 redesign): top-5 Europe + Liga MX + MLS + Brasileirão.
+_FEATURED = ["epl", "la-liga", "serie-a", "bundesliga", "ligue-1",
+             "liga-mx", "mls", "brazil-serie-a"]
+
+
+def build_tables(files: list[tuple[str, dict]], top_n: int = 6) -> list[dict]:
+    """Standings slice per featured league for the home page's rotating table.
+    Rows ordered by actual points (projected headline metric as tiebreak, which
+    also covers preseason when everyone is on 0)."""
+    fmap = dict(files)
+    out = []
+    for lid in _FEATURED:
+        d = fmap.get(lid)
+        if not d:
+            continue
+        cards = (d.get("outlook") or {}).get("cards") or []
+        if not cards:
+            continue
+        metric = _METRIC_OVERRIDE.get(lid, cards[0]["key"])
+        card = next((c for c in cards if c["key"] == metric), cards[0])
+        metric = card["key"]
+        ranked = sorted(d["standings"],
+                        key=lambda t: (-float(t.get("pts", 0) or 0),
+                                       -float(t.get(metric, 0) or 0)))
+        out.append({
+            "league": lid,
+            "name": (d.get("league") or {}).get("name", lid),
+            "metric_label": card.get("label", metric.title()),
+            "preseason": bool((d.get("outlook") or {}).get("preseason")),
+            "season_label": (d.get("outlook") or {}).get("season_label", ""),
+            "rows": [{"team": t.get("team"), "logo": t.get("logo"),
+                      "color": t.get("color"), "pts": t.get("pts"),
+                      "gp": t.get("gp"),
+                      "pct": round(float(t.get(metric, 0) or 0), 1)}
+                     for t in ranked[:top_n]],
+        })
+    return out
 
 
 def build_search_index(files: list[tuple[str, dict]]) -> list[dict]:
@@ -269,7 +319,7 @@ def build_search_index(files: list[tuple[str, dict]]) -> list[dict]:
     return idx
 
 
-def build_news(limit: int = 12) -> list[dict]:
+def build_news(limit: int = 24) -> list[dict]:
     items = []
     for f in glob.glob(str(DATA / "news" / "*.js")):
         d = _load(Path(f))
@@ -309,7 +359,8 @@ def main() -> None:
         "movers": build_movers(),
         "movers_board": build_movers_board(files),
         "recent_results": build_recent_results(files),
-        "fixtures": build_fixtures(files),
+        "tables": build_tables(files),
+        "fixtures": build_fixtures(files, limit=96, per_league=8),
         "news": build_news(),
     }
     (DATA / "home.js").write_text(

@@ -67,6 +67,12 @@ def build_calendar(files: list[tuple[str, dict]]) -> dict:
                 "hlogo": g.get("hlogo"), "alogo": g.get("alogo"),
                 "hg": g.get("hg"), "ag": g.get("ag"), "result": g.get("result"),
                 "pH": g.get("pH"), "pD": g.get("pD"), "pA": g.get("pA"),
+                # PL-style fixture rows on the redesigned Matches page
+                # (2026-07-17): kickoff time as the center axis, team-colored
+                # probability bar, likely-scoreline expansion.
+                "ko": g.get("ko"),
+                "hcolor": g.get("hcolor"), "acolor": g.get("acolor"),
+                "lam": g.get("lam"), "mu": g.get("mu"),
             })
     for rows in by_date.values():
         rows.sort(key=lambda g: (g["name"], g["home"]))

@@ -1,5 +1,20 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-18 — Home + Matches redesign (desktop & mobile), News + Subscribe routes**
+> User-directed redesign built from five iterated wireframe templates. Home now leads with a
+> compact promise + Bundesliga-style recent-results strip, a rotating featured-league table
+> (top-5 Europe + Liga MX + MLS + Brasileirão) synced to a clickable title-odds board, a
+> personalized RSS section (desktop; lives behind the new News tab on mobile), and a full-width
+> one-league-at-a-time fixtures carousel — the AI headline ladder, "The Models" rail, and the
+> Europe map are gone (league discovery moved to a 3-column masthead Europe dropdown; big-five
+> countries stay as standalone nav items). Matches is now a day-strip calendar whose selected
+> day renders Premier-League-style fixture rows (kickoff-time axis, team-colored probability
+> bar, fair odds, favorites-first → popularity sort, expandable scorelines), plus a slim email
+> capture, a rotating model-mover ticker, and the ledger strip. New ?league=news and
+> ?league=subscribe routes (subscribe = email + FavStore favorites picker + supporter waitlist);
+> mobile bottom nav is Home·Matches·Leagues·News·Subscribe. build_home.py ships `tables`,
+> per-league-capped fixtures and 24 news items; build_calendar.py ships ko/colors/λμ. sw.js→v10.
+
 > **2026-07-17 (4) — Launch workstream H shipped: distribution content (weekly recap, WC on-ramp, open data, drafts)**
 > New crawlable surfaces generated at deploy time from payloads: `/weekly/` recap (biggest movers,
 > closest races, model-vs-market, and a high-confidence hits/misses receipt — `build_weekly_recap.py`

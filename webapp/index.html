@@ -95,8 +95,9 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 /* ── NYT-style masthead (site-wide chrome) ── */
 #mast{background:var(--ink-0);border-bottom:2px solid var(--line-3)}
 .mast-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:12px var(--s4) 8px;gap:var(--s3)}
-.mast-date{font-size:11px;color:var(--txt-2)}
-.mast-date span{display:block;color:var(--txt-3)}
+.mast-date{font-size:14.5px;font-weight:600;color:var(--txt-1)}
+.mast-date span{display:block;font-size:11px;font-weight:400;color:var(--txt-3)}
+.odds-lbl{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);margin-right:6px}
 .mast-wordmark{font-family:var(--serif);font-weight:700;font-size:30px;letter-spacing:.01em;color:var(--txt-1);text-decoration:none;text-align:center;display:flex;align-items:center;gap:10px;justify-content:center}
 .mast-moose{width:34px;height:34px;object-fit:contain}
 .mast-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
@@ -136,6 +137,10 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
    the quirk entirely: there is no scrolling ancestor between it and the viewport. */
 .mb-portal{display:none;position:fixed;z-index:60;min-width:210px;max-width:min(90vw,260px);background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:6px 0;max-height:60vh;overflow-y:auto}
 .mb-portal.open{display:block}
+/* Long menus (Europe/Americas) stack their leagues into columns (2026-07-17) */
+.mb-portal.open.cols2,.mb-portal.open.cols3{display:grid;column-gap:4px;max-width:min(94vw,760px);padding:6px 4px}
+.mb-portal.open.cols2{grid-template-columns:repeat(2,minmax(200px,1fr))}
+.mb-portal.open.cols3{grid-template-columns:repeat(3,minmax(200px,1fr))}
 .mb-portal a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
 .mb-portal a:hover{background:var(--ink-2);color:var(--txt-1)}
 .mb-portal a .mb-flag{min-width:16px;flex:none;text-align:center;font-size:15px;line-height:1}
@@ -148,13 +153,17 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .bnav{display:none}
 @media(max-width:900px){
   body{padding-bottom:84px}
-  .bnav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:70;
+  .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:70;
     background:rgba(10,13,11,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line-3);padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
   .bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--txt-3);text-decoration:none}
   .bnav a .ico{font-size:19px;line-height:1}
   .bnav a.active{color:var(--txt-1)}
+  /* Subscribe is the one action-tab among navigation-tabs (2026-07-17): filled pill */
+  .bnav a.bn-sub{align-self:center;justify-self:center;background:var(--qualify);color:#06120b;border-radius:999px;
+    padding:7px 14px;font-weight:800;font-size:11px}
+  .bnav a.bn-sub.active{outline:2px solid var(--txt-1);outline-offset:2px;color:#06120b}
   .mast-top{grid-template-columns:1fr;justify-items:center;padding:10px var(--s4) 6px;gap:8px}
-  .mast-date,.mast-stat{display:none}
+  .mast-date,.mast-stat,.odds-lbl,.odds-toggle{display:none}
   .mast-wordmark{font-size:24px}
   .mast-moose{width:26px;height:26px}
   .mast-right{width:100%;align-items:stretch}
@@ -913,6 +922,10 @@ const _isHome=!_rawLeague;                    // no param → the Home landing (
 const _isEdgeBoard=_rawLeague==='command';    // edge board moved to ?league=command ("Matches")
 const _isLeagues=_rawLeague==='leagues';      // full league index (replaces the old sidebar)
 const _isFavs=_rawLeague==='favorites';       // pinned leagues + teams
+const _isNews=_rawLeague==='news';            // global + personalized news (2026-07-17 redesign)
+const _isSubscribe=_rawLeague==='subscribe';  // email + favorites picker + supporter waitlist
+// Special routes that piggyback on the HOME payload rather than a per-league file.
+const _homeDataRoute=_isHome||_isLeagues||_isFavs||_isNews||_isSubscribe;
 const LID=(_rawLeague&&_rawLeague!=='command')?_rawLeague:'mls';
 // Static info / trust / legal routes render self-contained content — there is no
 // per-league data/news/drift file to fetch, so skip those document.writes.
@@ -936,16 +949,16 @@ window.ODDS_FMT=(()=>{ try{const s=localStorage.getItem('entenser_odds_fmt');
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
 if(!_infoPage)
-  document.write('<scr'+'ipt src="data/'+((_isHome||_isLeagues||_isFavs)?'home':_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
+  document.write('<scr'+'ipt src="data/'+(_homeDataRoute?'home':_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Baked multi-source news (scripts/build_news.py). Missing file (new league,
 // build not yet run) 404s harmlessly — window.NEWS_DATA just stays undefined.
-if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isFavs)
+if(!_homeDataRoute&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
   document.write('<scr'+'ipt src="data/news/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Per-league projection-drift trajectories (scripts/build_drift_report.py) —
 // lazy like news: only this league's file, only for the Model Health tab's
 // "Projection stability" card. Missing file 404s harmlessly (window.DRIFT_TRAJ
 // stays undefined; the card renders its insufficient-history state).
-if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isFavs)
+if(!_homeDataRoute&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
   document.write('<scr'+'ipt src="data/drift-traj/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
 // Momentum charts for completed matches (scripts/build_momentum.py) — Big-5
 // only, Understat's coverage limit (2026-07-14 feedback). Missing file 404s
@@ -954,11 +967,8 @@ if(!_isHome&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage&&!_isLeagues&&!_isF
 const _MOMENTUM_LEAGUES=new Set(['epl','la-liga','serie-a','bundesliga','ligue-1']);
 if(_MOMENTUM_LEAGUES.has(LID))
   document.write('<scr'+'ipt src="data/momentum/'+LID+'.js?t='+Date.now()+'"></scr'+'ipt>');
-// Real European country borders for the homepage's country-shaped explorer
-// (scripts/build_europe_map.py). Static asset, no cache-bust needed — it only
-// changes when the league roster itself changes, unlike per-league payloads.
-if(_isHome)
-  document.write('<scr'+'ipt src="data/europe-map.js"></scr'+'ipt>');
+// (Europe-map explorer removed 2026-07-17 — league discovery moved to the
+// masthead's multi-column Europe dropdown; data/europe-map.js no longer loads.)
 // Cross-league match calendar (scripts/build_calendar.py) — the Matches tab's
 // day-by-day browser. Separate from edge-board.js's narrow 48h betting window.
 if(_isEdgeBoard)
@@ -970,9 +980,9 @@ const _isPower = new URLSearchParams(location.search).get('league')==='power';
 // (not a single league's LEAGUE_DATA). Use a benign empty stub so the league render code
 // below no-ops; renderPower()/renderEdgeBoard() (appended at the end of the page) then
 // hide the league UI and draw the real view.
-const D = (_isPower || _isEdgeBoard || _isHome || _infoPage || _isLeagues || _isFavs)
-  ? {league:{name:_isHome?"Home":_isEdgeBoard?"Command Center":_infoPage?'Info':_isLeagues?'Leagues':_isFavs?'Favorites':'Cross-League Power Rankings'},
-     outlook:{mode:_isHome?'home':_isEdgeBoard?'edge-board':_isLeagues?'leagues':_isFavs?'favorites':'power'}, standings:[], games:[],
+const D = (_isPower || _isEdgeBoard || _infoPage || _homeDataRoute)
+  ? {league:{name:_isHome?"Home":_isEdgeBoard?"Command Center":_infoPage?'Info':_isLeagues?'Leagues':_isFavs?'Favorites':_isNews?'News':_isSubscribe?'Subscribe':'Cross-League Power Rankings'},
+     outlook:{mode:_isHome?'home':_isEdgeBoard?'edge-board':_isLeagues?'leagues':_isFavs?'favorites':_isNews?'news':_isSubscribe?'subscribe':'power'}, standings:[], games:[],
      sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], team_inputs:{}, elo_history:{},
      health:null, model_card:{}, in_season_brier:{}, season:2026}
   : window.LEAGUE_DATA;
@@ -1012,14 +1022,11 @@ const FavStore=(()=>{
 //    league dropdowns (click or hover to open; rows show country · division) + LIVE strip ──
 (()=>{
   const mast=$('#mast'); if(!mast) return;
-  // Ribbon order per 2026-07-11 feedback. [group-key, icon, label]
-  const MAST_GROUPS=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}','England'],
-    ['MLS','\u{1F1FA}\u{1F1F8}\u{1F1E8}\u{1F1E6}','MLS'],
-    ['Germany','\u{1F1E9}\u{1F1EA}','Germany'],['France','\u{1F1EB}\u{1F1F7}','France'],
-    ['Italy','\u{1F1EE}\u{1F1F9}','Italy'],['Spain','\u{1F1EA}\u{1F1F8}','Spain'],
-    ['Americas',NORTH_AMERICA_ICON,'North America'],['South America',SOUTH_AMERICA_ICON,'South America'],
-    ['Other Europe',EUROPE_ICON,'Europe'],['Asia',ASIA_ICON,'Asia'],
-    ['Cups','\u{1F3C6}','Cups']];
+  // Ribbon regroup (2026-07-17 redesign): the big five stand alone in the bar;
+  // everything else in Europe collapses into a single multi-column "Europe"
+  // dropdown, and the Americas item absorbs MLS + South America + CONCACAF
+  // cups. European cups (UCL/UEL/UECL) ride in the Europe menu.
+  const _EURO_CUPS=new Set(['ucl','europa','conference']);
   // Every menu row shows the league's primary country/region flag instead of
   // the league logo, so the dropdown consistently answers "where is this?"
   // before asking users to recognize a competition crest.
@@ -1042,12 +1049,32 @@ const FavStore=(()=>{
   };
   const groups={};
   (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
+  const _euroCups=(groups['Cups']||[]).filter(l=>_EURO_CUPS.has(l.id));
+  const _amCups=(groups['Cups']||[]).filter(l=>!_EURO_CUPS.has(l.id));
+  // [nav-key, icon, label, leagues[]] — nav-key doubles as the portal lookup.
+  const MAST_GROUPS=[
+    ['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}','England',groups['England']||[]],
+    ['Spain','\u{1F1EA}\u{1F1F8}','Spain',groups['Spain']||[]],
+    ['Italy','\u{1F1EE}\u{1F1F9}','Italy',groups['Italy']||[]],
+    ['Germany','\u{1F1E9}\u{1F1EA}','Germany',groups['Germany']||[]],
+    ['France','\u{1F1EB}\u{1F1F7}','France',groups['France']||[]],
+    ['Americas',NORTH_AMERICA_ICON,'Americas',
+      [...(groups['MLS']||[]),...(groups['Americas']||[]),...(groups['South America']||[]),..._amCups]],
+    ['Europe',EUROPE_ICON,'Europe',[...(groups['Other Europe']||[]),..._euroCups]],
+    ['Asia',ASIA_ICON,'Asia',groups['Asia']||[]],
+  ];
+  // Which nav item highlights for the current league page.
+  const _NAV_OF_GROUP={'England':'England','Spain':'Spain','Italy':'Italy','Germany':'Germany',
+    'France':'France','MLS':'Americas','Americas':'Americas','South America':'Americas',
+    'Other Europe':'Europe','Asia':'Asia'};
+  const navKeyFor=l=>l.group==='Cups'?(_EURO_CUPS.has(l.id)?'Europe':'Americas'):(_NAV_OF_GROUP[l.group]||'Europe');
   const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
   const menuLink=l=>{const flag=COUNTRY_FLAG[l.country]||'';
     const icon=flag?`<span class="mb-flag">${flag}</span>`:'';
     return `<a href="?league=${l.id}">${icon}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':dsTag(l)}</a>`;};
-  const activeGroup=(!_isHome&&!_isEdgeBoard&&!_isLeagues&&!_isFavs&&!_infoPage&&LID!=='power')
-    ? ((window.LEAGUES||[]).find(l=>l.id===LID)||{}).group : null;
+  const _curLeague=(!_homeDataRoute&&!_isEdgeBoard&&!_infoPage&&LID!=='power')
+    ? (window.LEAGUES||[]).find(l=>l.id===LID) : null;
+  const activeGroup=_curLeague?navKeyFor(_curLeague):null;
   const H=window.HOME_DATA;
   const dstr=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   // Dropdown HTML is kept OUT of the ribbon's DOM subtree (menuHTML map, not an
@@ -1057,13 +1084,16 @@ const FavStore=(()=>{
   // Chrome-based preview browser used during dev doesn't hit this WebKit quirk).
   // A single shared #mbPortal, a sibling of .mast-bar rather than its descendant,
   // sidesteps the quirk entirely regardless of engine.
-  const menuHTML={};
+  const menuHTML={}, menuCols={};
   let bar=`<div class="mb-item"><a href="${location.pathname}" class="${_isHome?'active':''}">\u{1F3E0} Home</a></div>`
          +`<div class="mb-item"><a href="?league=command" class="${_isEdgeBoard?'active':''}">⚽ Matches</a></div>`;
-  MAST_GROUPS.forEach(([g,flag,label])=>{ if(!groups[g]||!groups[g].length) return;
-    menuHTML[g]=groups[g].map(menuLink).join('');
-    bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${groups[g][0].id}" class="${activeGroup===g?'active':''}">${flag} ${label}</a></div>`;});
-  bar+=`<div class="mb-item"><a href="?league=power" class="${!_isEdgeBoard&&!_isHome&&!_isLeagues&&!_isFavs&&!_infoPage&&LID==='power'?'active':''}">\u{1F30D} Rankings</a></div>`;
+  MAST_GROUPS.forEach(([g,flag,label,ls])=>{ if(!ls.length) return;
+    menuHTML[g]=ls.map(menuLink).join('');
+    // Long menus (Europe, Americas) stack into columns instead of one endless
+    // list (2026-07-17 feedback: "so many leagues that it should stack").
+    menuCols[g]=ls.length>=14?3:ls.length>=7?2:1;
+    bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${ls[0].id}" class="${activeGroup===g?'active':''}">${flag} ${label}</a></div>`;});
+  bar+=`<div class="mb-item"><a href="?league=power" class="${!_isEdgeBoard&&!_homeDataRoute&&!_infoPage&&LID==='power'?'active':''}">\u{1F30D} Rankings</a></div>`;
   const live=(H&&H.fixtures&&H.fixtures.length)
     ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">${H.fixtures.length} fixtures modeled in the next 10 days</a><span>· across ${H.stats.leagues} leagues</span></div>`:'';
   mast.innerHTML=`<div class="mast-top">
@@ -1071,7 +1101,7 @@ const FavStore=(()=>{
       <a class="mast-wordmark" href="${location.pathname}"><img class="mast-moose" src="assets/branding/entenser-icon-light.png" alt="">Entenser</a>
       <div class="mast-right">
         <div class="mast-search"><input id="msq" type="search" placeholder="Search leagues & teams…" autocomplete="off" spellcheck="false"><div class="ms-results" id="msr"></div></div>
-        <div class="odds-toggle" title="Odds display format">${
+        <span class="odds-lbl">Odds Format</span><div class="odds-toggle" title="Odds display format">${
           [['american','US'],['decimal','Dec'],['fractional','Frac']].map(([f,lbl])=>
             `<button type="button" data-oddsfmt="${f}" class="${window.ODDS_FMT===f?'on':''}">${lbl}</button>`).join('')}</div>
         <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
@@ -1086,8 +1116,12 @@ const FavStore=(()=>{
     const g=item.dataset.group, a=item.querySelector('a');
     if(!g||!menuHTML[g]) return;
     portal.innerHTML=menuHTML[g];
-    const r=a.getBoundingClientRect(), mw=260;
-    const left=Math.max(8,Math.min(r.left,innerWidth-8-mw));
+    const vw=document.documentElement.clientWidth||innerWidth||1280;
+    const cols=Math.min(menuCols[g]||1,vw<640?1:vw<900?2:3);
+    portal.classList.toggle('cols2',cols===2);
+    portal.classList.toggle('cols3',cols===3);
+    const r=a.getBoundingClientRect(), mw=cols>1?cols*230:260;
+    const left=Math.max(8,Math.min(r.left,vw-8-mw));
     portal.style.left=left+'px';
     portal.style.top=(r.bottom+2)+'px';
     portal.classList.add('open');
@@ -1130,12 +1164,14 @@ const FavStore=(()=>{
       if(e.key==='Escape'){ msr.classList.remove('open'); msq.blur(); }});
     document.addEventListener('click',e=>{ if(!e.target.closest('.mast-search')) msr.classList.remove('open'); });
   }
-  // bottom tab bar (⚽ Matches + standings-style Leagues icon per mobile feedback)
+  // bottom tab bar (2026-07-17 redesign: Favorites out, News in, Subscribe as
+  // the filled action pill — favorites live on via the Subscribe page picker)
   const bn=$('#bnav'); if(bn) bn.innerHTML=
     `<a href="${location.pathname}" class="${_isHome?'active':''}"><span class="ico">\u{1F3E0}</span>Home</a>
      <a href="?league=command" class="${_isEdgeBoard?'active':''}"><span class="ico">⚽</span>Matches</a>
      <a href="?league=leagues" class="${_isLeagues?'active':''}"><span class="ico">\u{1F4CA}</span>Leagues</a>
-     <a href="?league=favorites" class="${_isFavs?'active':''}"><span class="ico">★</span>Favorites</a>`;
+     <a href="?league=news" class="${_isNews?'active':''}"><span class="ico">\u{1F4F0}</span>News</a>
+     <a href="?league=subscribe" class="bn-sub${_isSubscribe?' active':''}">Subscribe</a>`;
 })();
 // ── League header (title + logo + % complete) ──
 (()=>{
@@ -1146,7 +1182,7 @@ const FavStore=(()=>{
     b.innerHTML=`<img src="${lg.logo}" alt="" style="width:100%;height:100%;object-fit:contain" onerror="this.remove()">`;}
   // Crawl path into the canonical static page (launch plan C5) — rendered-DOM
   // internal links are how Google discovers /leagues/<id>/ from the SPA.
-  if(!_isPower&&!_isEdgeBoard&&!_isHome&&!_infoPage&&!_isLeagues&&!_isFavs
+  if(!_isPower&&!_isEdgeBoard&&!_homeDataRoute&&!_infoPage
      &&(window.LEAGUES||[]).some(l=>l.id===LID))
     $('#leagueTitle').insertAdjacentHTML('afterend',
       `<a href="/leagues/${LID}/" style="font-size:11.5px;color:var(--txt-3);text-decoration:none">league overview page ↗</a>`);
@@ -3149,7 +3185,7 @@ function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfil
 // ── ?team= deep link (from masthead search / Favorites): open the team profile
 //    on load, same path as clicking a team in the standings. Runs after the
 //    #seg click handler below is attached, so the tab switch actually fires. ──
-if(!_isHome&&!_isEdgeBoard&&!_isLeagues&&!_isFavs&&!_isPower&&!_infoPage){
+if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
   const _teamParam=new URLSearchParams(location.search).get('team');
   if(_teamParam && (D.standings||[]).some(s=>s.team===_teamParam)) openTeam(_teamParam);
 }
@@ -3245,8 +3281,72 @@ if (_isPower && window.POWER_DATA) {
 .mv-chip{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;margin:3px;border:1px solid var(--line-2);border-radius:8px;font-size:12px;text-decoration:none;color:var(--txt-2)}
 @media(max-width:900px){.cc-hero,.cc-grid{grid-template-columns:1fr}.cc-promise h2{font-size:23px}.cc-kpis{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.cc-kpis{grid-template-columns:1fr}.cc-races{grid-template-columns:1fr}.cc-promise{padding:var(--s4)}}
-.eb-strip{padding:8px 16px;border-bottom:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px}
+.eb-strip{padding:8px 16px;display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px}
 .eb-panel{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px}
+/* ── 2026-07-17 Matches redesign: PL-style fixture rows under the day strip,
+   email + mover-ticker half row, ledger strip. ── */
+.fx-panel{padding:2px 14px 10px}
+.fxp-day{font-size:17px;font-weight:800;letter-spacing:-.01em;margin:10px 0 2px;padding:0 4px}
+.fx-row{padding:12px 4px;border-bottom:1px solid var(--line)}
+.fx-row:last-child{border-bottom:none}
+.fx-row[data-exp="1"]{cursor:pointer}
+.fx-row[data-exp="1"]:hover{background:var(--ink-2)}
+.fx-line{display:grid;grid-template-columns:1fr 26px 72px 26px 1fr;align-items:center;gap:10px;max-width:640px;margin:0 auto}
+.fx-line .hm{text-align:right;font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fx-line .aw{text-align:left;font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fx-line .tm{font-family:var(--mono);font-size:14.5px;font-weight:700;text-align:center;white-space:nowrap}
+.fx-line img{width:24px;height:24px;object-fit:contain;justify-self:center}
+.fx-mid{max-width:640px;margin:8px auto 0}
+.fx-odds{display:flex;justify-content:space-between;margin-top:3px;font-family:var(--mono);font-size:10px;color:var(--txt-3)}
+.fx-cap{font-family:var(--mono);font-size:9.5px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.05em;text-align:center;margin-top:6px}
+.fx-cap .edge{color:var(--win);font-weight:700}
+.fx-expand{display:none;text-align:center;font-size:11.5px;color:var(--txt-2);padding-top:6px}
+.fx-row.open .fx-expand{display:block}
+.mxp-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.mxp-card{border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--ink-1);padding:14px 16px}
+.mxt{display:flex;align-items:center;gap:12px;padding:4px 0;min-height:56px;text-decoration:none;color:inherit}
+.mxt img{width:30px;height:30px;object-fit:contain;flex:none}
+.mxt .who{min-width:0}
+.mxt .who b{display:block;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mxt .who span{font-size:11px;color:var(--txt-3)}
+.mxt .odds{margin-left:auto;text-align:right;flex:none}
+.mxt .was{font-family:var(--mono);font-size:12px;color:var(--txt-3);text-decoration:line-through}
+.mxt .now{font-family:var(--mono);font-size:19px;font-weight:800;color:var(--qualify)}
+.mxt .now.dn{color:#e25f4f}
+.mxt .d{font-size:10px;font-weight:700}
+#mxTicker{transition:opacity .25s}
+/* ── Subscribe page (2026-07-17): pitch → email + favorites picker → sample
+   weekly → supporter waitlist ── */
+.sub-hero{padding:var(--s4) 2px var(--s4)}
+.sub-hero h1{font-size:clamp(22px,3.2vw,30px);line-height:1.22;font-weight:800;letter-spacing:-.01em;margin:0 0 8px}
+.sub-hero p{color:var(--txt-2);font-size:13.5px;line-height:1.55;margin:0 0 8px;max-width:60ch}
+.sp-step{display:flex;flex-direction:column;gap:1px;margin-bottom:8px}
+.sp-step b{font-size:13px}
+.sp-step span{font-size:11px;color:var(--txt-3)}
+.sp-search{width:100%;background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:9px 11px;font-size:12.5px;margin:6px 0 4px;outline:none}
+.sp-search:focus{border-color:var(--txt-3)}
+.sp-h{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);margin:10px 0 6px}
+.sp-row{display:flex;gap:6px;flex-wrap:wrap}
+.sp-pill{font-size:11.5px;color:var(--txt-2);background:var(--ink-2);border:1px solid var(--line-2);border-radius:99px;padding:5px 11px;cursor:pointer}
+.sp-pill em{font-style:normal;color:var(--txt-3);font-size:10px}
+.sp-pill:hover{border-color:var(--line-3);color:var(--txt-1)}
+.sp-pill.on{background:rgba(61,220,132,.12);border-color:var(--qualify);color:var(--txt-1)}
+.sub-mail{border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;margin:8px 0 16px;background:var(--ink-1)}
+.sub-mail-h{background:var(--ink-2);padding:9px 14px;border-bottom:1px solid var(--line-2)}
+.sub-mail-h b{display:block;font-size:12.5px}
+.sub-mail-h span{font-size:10.5px;color:var(--txt-3)}
+.sub-mail-b{padding:12px 14px;font-size:12.5px;line-height:2}
+.sub-body h2{font-size:20px}
+@media(max-width:640px){
+  .mxp-two{grid-template-columns:1fr}
+  .fx-line{grid-template-columns:1fr 22px 52px 22px 1fr;gap:7px}
+  .fx-line .hm,.fx-line .aw{font-size:12.5px}
+  .fx-line .tm{font-size:12.5px}
+  .fx-line img{width:20px;height:20px}
+  /* ledger strip becomes stat tiles on mobile (2026-07-17 mobile template) */
+  .eb-strip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .eb-strip span{border:1px solid var(--line-2);border-radius:var(--r-md);padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+}
 .eb-h{padding:9px 14px;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--line-2);background:var(--ink-2)}
 /* ── Leagues index page (sidebar's successor) ── */
 .lx-grp{font-family:var(--serif);font-size:17px;font-weight:700;border-bottom:1px solid var(--line-3);padding:var(--s4) 0 6px;margin-bottom:2px}
@@ -3270,26 +3370,10 @@ if (_isPower && window.POWER_DATA) {
 .prof-hd .fav-team-star{margin-left:auto;font-size:22px;color:var(--txt-3);cursor:pointer;align-self:center}
 .prof-hd .fav-team-star.on{color:#e2b04f}
 @media(max-width:900px){.fv-card .sub{padding-left:0}}
-/* NYT editorial homepage (2026-07-11 redesign) */
-.ed-wrap{padding-top:var(--s4);display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);column-gap:24px;
-  grid-template-areas:"lead lead" "stories models" "movers movers" "results results" "map map" "news news"}
-.ga-lead{grid-area:lead}
-.ga-stories{grid-area:stories}
-.ga-models{grid-area:models;border-left:1px solid var(--line-2);padding-left:24px}
-.ga-movers{grid-area:movers}
-.ga-results{grid-area:results}
-.ga-map{grid-area:map}
-.ga-news{grid-area:news}
-/* ── Recent Results (2026-07-13): plain completed-match feed, day → league,
-   deliberately carries no model/probability framing. ── */
-.rr-days{display:grid;gap:18px;margin-top:10px}
-.rr-day-h{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-2);border-bottom:1px solid var(--line-2);padding-bottom:6px}
-.rr-leagues{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:10px}
-.rr-lg-h{font-size:11.5px;font-weight:700;color:var(--txt-3);margin-bottom:6px}
-.rr-row{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--line-3)}
-.rr-row .t{flex:1;display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rr-row .t img{width:15px;height:15px;object-fit:contain;flex:none}
-.rr-row .sc{font-family:var(--mono);font-weight:700;color:var(--txt-1);flex:none}
+/* Cross-league container: leagues/favorites indexes still use .ed-wrap as a
+   simple padded block (the 2026-07-11 editorial grid is gone — the 2026-07-17
+   redesign's home grid is .hx-wrap below). */
+.ed-wrap{padding-top:var(--s4)}
 /* ── Biggest Movers board (2026-07-13): literal stock-style up/down, with a
    region filter — distinct from the "More movement" narrative story cards. ── */
 .mv-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}
@@ -3311,114 +3395,94 @@ if (_isPower && window.POWER_DATA) {
 .mv-row .d.down{color:#e25f4f}
 .mv-empty{font-size:12px;color:var(--txt-3);padding:8px 0}
 @media(max-width:900px){.mv-cols{grid-template-columns:1fr}.rr-leagues{grid-template-columns:1fr}}
-.ed-kicker{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-3);margin-bottom:6px}
-.ed-lead h1{font-family:var(--serif);font-size:38px;line-height:1.12;font-weight:700;letter-spacing:0;margin:0 0 10px}
-.ed-lead .deck{font-family:var(--serif);font-size:16px;line-height:1.45;color:var(--txt-2);max-width:640px;margin-bottom:8px}
-.ed-lead a{color:inherit;text-decoration:none}
-.ed-lead a:hover h1{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
-.ed-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}
-.ed-story{display:block;padding:14px 0;border-top:1px solid var(--line-2);text-decoration:none;color:inherit}
-.ed-story h3{font-family:var(--serif);font-size:19px;line-height:1.25;font-weight:700;letter-spacing:0;margin:0 0 5px}
-.ed-story:hover h3{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
-.ed-story .deck{font-size:13px;line-height:1.45;color:var(--txt-2)}
 .ed-sec{font-family:var(--serif);font-size:15px;font-weight:700;border-bottom:1px solid var(--line-3);padding-bottom:6px;margin:var(--s4) 0 2px}
-.ed-model{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid var(--line-2);text-decoration:none;color:inherit;font-size:13px}
-.ed-model:hover{background:var(--ink-1)}
-.ed-model img{width:18px;height:18px;object-fit:contain}
-.ed-model .lg{color:var(--txt-3);font-size:11px;width:92px;flex:none;text-transform:uppercase;letter-spacing:.03em}
-.ed-model b{font-family:var(--mono);margin-left:auto;font-size:14px}
-.ed-model .lab{color:var(--txt-3);font-size:10px}
-.ed-fix{display:block;padding:9px 0;border-top:1px solid var(--line-2);text-decoration:none;color:inherit}
-.ed-fix .t{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;flex-wrap:wrap}
-.ed-fix .t img{width:15px;height:15px;object-fit:contain}
-.ed-fix .t .vs{color:var(--txt-3);font-weight:400;font-size:11px}
-.ed-fix .m{font-size:10.5px;color:var(--txt-3);margin-top:5px;font-family:var(--mono)}
-.ed-fix .why-tbl{max-width:none;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--line)}
-.ed-fix .cbar{margin-top:6px}
-.ed-fix-odds{display:flex;justify-content:space-between;margin-top:4px;font-family:var(--mono);font-size:10.5px;color:var(--txt-3)}
-.ed-fix-odds span{width:33%;text-align:center}
-.ed-fix-odds span:first-child{text-align:left}
-.ed-fix-odds span:last-child{text-align:right}
-.ed-news{display:block;padding:10px 0;border-top:1px solid var(--line-2);text-decoration:none;color:inherit}
-.ed-news h4{font-family:var(--serif);font-size:14.5px;font-weight:700;line-height:1.3;margin:0 0 3px}
-.ed-news:hover h4{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
-.ed-news .m{font-size:10.5px;color:var(--txt-3)}
-.ed-newsband{display:grid;grid-template-columns:repeat(3,1fr);gap:0 24px;margin-top:2px}
-/* ── Europe explorer: real country borders (Natural Earth 110m, via
-   scripts/build_europe_map.py -> webapp/data/europe-map.js), not stylized
-   blobs — clicking IS the country shape, not a pin floating over it
-   (2026-07-12 feedback: "the map should be much more defined and exploring
-   the leagues should be a function of clicking the actual country"). ── */
-.eu-wrap{position:relative;width:100%;aspect-ratio:1000/760;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;margin-top:2px}
-.eu-wrap svg{position:absolute;inset:0;width:100%;height:100%}
-.eu-country{fill:var(--ink-3);stroke:var(--ink-0);stroke-width:1;transition:fill .12s}
-.eu-country.has-league{fill:rgba(61,220,132,.28);stroke:rgba(61,220,132,.6);cursor:pointer}
-.eu-country.has-league:hover,.eu-country.has-league.open{fill:rgba(61,220,132,.5)}
-/* shared popover portal — a true DOM sibling of the map, not a descendant,
-   so it can never be clipped by an ancestor's overflow (same fix applied to
-   the masthead dropdown, 2026-07-12: -webkit-overflow-scrolling:touch and
-   plain overflow:hidden both create clipping contexts fixed-position
-   descendants can get trapped inside). Position is JS-computed on open. ── */
-.eu-portal{display:none;position:fixed;z-index:60;min-width:190px;max-width:min(90vw,240px);background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);padding:6px 0;max-height:60vh;overflow-y:auto;box-shadow:0 12px 30px rgba(0,0,0,.55)}
-.eu-portal.open{display:block}
-.eu-portal-h{padding:4px 12px 6px;font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);border-bottom:1px solid var(--line-2);margin-bottom:2px}
-.eu-portal a{display:flex;align-items:center;gap:7px;padding:5px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
-.eu-portal a:hover{background:var(--ink-2);color:var(--txt-1)}
-.eu-portal a img{width:15px;height:15px;object-fit:contain;flex:none}
-.eu-portal a .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
+/* ── 2026-07-17 home redesign grid: B (promise+results) → C|E (rotating table +
+   synced odds board) → D (personalized stories, desktop only) → F (league
+   fixtures carousel) → G (movers) → J (news band). Mobile reorders to
+   E → C → B → F → G → J via grid-template-areas; D drops to the News tab. ── */
+.hx-wrap{padding-top:var(--s4);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:24px;row-gap:6px;
+  grid-template-areas:"b b" "table odds" "stories stories" "fix fix" "movers movers" "news news"}
+.hx-b{grid-area:b}.hx-table{grid-area:table}.hx-odds{grid-area:odds}
+.hx-stories{grid-area:stories}.hx-fix{grid-area:fix}.hx-movers{grid-area:movers}.hx-news{grid-area:news}
+/* B: compact promise + results strip */
+.hx-promise{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:2px 2px 4px}
+.hx-promise h1{font-size:clamp(19px,2.6vw,26px);line-height:1.22;font-weight:800;letter-spacing:-.01em;margin:0;max-width:26ch}
+.hx-promise p{color:var(--txt-2);font-size:12.5px;line-height:1.5;margin:4px 0 0;max-width:64ch}
+.hx-promise .cta{font-size:12.5px;font-weight:600;color:var(--qualify);text-decoration:none;white-space:nowrap}
+.hx-promise .cta:hover{text-decoration:underline}
+.hx-strip{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 8px;margin-top:10px}
+.hx-strip-scroll{display:flex;gap:14px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
+.hx-day{flex:none}
+.hx-dh{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);border-bottom:1px solid var(--line-3);padding-bottom:5px;margin-bottom:8px;white-space:nowrap}
+.hx-cards{display:flex;gap:8px}
+.hx-scard{flex:none;width:128px;background:var(--ink-2);border-radius:var(--r-md);padding:9px 8px 7px;text-align:center;text-decoration:none;color:inherit}
+.hx-scard:hover{background:var(--ink-3)}
+.hx-scard .t{display:flex;align-items:center;justify-content:center;gap:6px}
+.hx-scard .t img{width:18px;height:18px;object-fit:contain}
+.hx-scard .ft{font-size:8px;font-weight:800;color:var(--txt-3);background:var(--ink-0);border-radius:3px;padding:2px 4px}
+.hx-scard .sc{font-family:var(--mono);font-weight:700;font-size:13.5px;margin-top:6px}
+.hx-scard .lg{font-size:8.5px;color:var(--txt-3);margin-top:3px;text-transform:uppercase;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-strip-foot{text-align:right;margin-top:6px}
+.hx-strip-foot a{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--qualify);text-decoration:none}
+/* C: rotating league table · E: synced title-odds board */
+.hx-card{border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--ink-1);padding:12px 14px;margin-top:8px}
+.hx-th{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.hx-th b{font-size:14.5px}
+.hx-th span{font-size:10.5px;color:var(--txt-3)}
+.hx-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.hx-tbl th{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);text-align:left;padding:3px 6px;border-bottom:1px solid var(--line-2)}
+.hx-tbl th.r,.hx-tbl td.r{text-align:right}
+.hx-tbl td{padding:5px 6px;border-bottom:1px solid var(--line)}
+.hx-tbl tr:last-child td{border-bottom:none}
+.hx-tbl td.tm{display:flex;align-items:center;gap:7px;font-weight:600}
+.hx-tbl td.tm img{width:17px;height:17px;object-fit:contain}
+.hx-tbl td.r{font-family:var(--mono)}
+.hx-tbl td.pct b{color:var(--qualify)}
+.hx-dots{display:flex;gap:5px;align-items:center;justify-content:center;margin-top:10px}
+.hx-dots i{width:6px;height:6px;border-radius:50%;background:var(--ink-3);cursor:pointer;transition:all .15s}
+.hx-dots i.on{background:var(--txt-1);width:16px;border-radius:3px}
+.hx-erow{display:flex;align-items:center;gap:9px;padding:8px 8px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;border-radius:var(--r-sm);cursor:pointer}
+.hx-erow:last-child{border-bottom:none}
+.hx-erow:hover{background:var(--ink-2)}
+.hx-erow.on{background:var(--ink-2);box-shadow:inset 2px 0 0 var(--qualify)}
+.hx-erow .lg{font-family:var(--mono);font-size:9.5px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;width:92px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-erow img{width:18px;height:18px;object-fit:contain}
+.hx-erow .nm{flex:1;font-size:12.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-erow b{font-family:var(--mono);font-size:13.5px}
+.hx-erow .lab{font-size:9px;color:var(--txt-3)}
+/* D: personalized stories + on-ramp */
+.hx-onramp{display:flex;align-items:center;gap:10px;border:1px solid var(--qualify);background:rgba(61,220,132,.07);border-radius:var(--r-md);padding:9px 13px;margin:8px 0 4px;font-size:12.5px;line-height:1.45}
+.hx-onramp a{color:var(--qualify);font-weight:700}
+.hx-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}
+.hx-colh{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-2);margin-top:10px;border-bottom:1px solid var(--line-3);padding-bottom:4px}
+.hx-news-item{display:block;padding:9px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.hx-news-item:last-child{border-bottom:none}
+.hx-news-item h4{font-family:var(--serif);font-size:14px;font-weight:700;line-height:1.3;margin:0 0 3px}
+.hx-news-item:hover h4{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.hx-news-item .m{font-size:10.5px;color:var(--txt-3)}
+/* F: one-league-at-a-time fixtures carousel */
+.hx-caro-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:8px 0 8px}
+.hx-caro-head b{font-size:14.5px}
+.hx-caro-head span{font-size:10.5px;color:var(--txt-3)}
+.hx-caro{display:flex;gap:12px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
+.hx-fixcard{flex:none;width:216px;border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--ink-1);padding:10px 11px;text-decoration:none;color:inherit}
+.hx-fixcard:hover{border-color:var(--line-3)}
+.hx-fixcard .t{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;flex-wrap:wrap}
+.hx-fixcard .t img{width:16px;height:16px;object-fit:contain}
+.hx-fixcard .t .vs{color:var(--txt-3);font-weight:400;font-size:10.5px}
+.hx-fixcard .cbar{margin-top:7px}
+.hx-fix-odds{display:flex;justify-content:space-between;margin-top:4px;font-family:var(--mono);font-size:10px;color:var(--txt-3)}
+.hx-fixcard .m{font-size:10px;color:var(--txt-3);margin-top:5px;font-family:var(--mono)}
+/* J: broad news band */
+.hx-newsband{display:grid;grid-template-columns:repeat(3,1fr);gap:0 24px;margin-top:2px}
 @media(max-width:900px){
-  .ed-lead h1{font-size:28px}
-  /* Mobile leads with the models, not the AI-written headlines (2026-07-11
-     feedback) — reorder via grid-template-areas, markup order unchanged. */
-  .ed-wrap{grid-template-columns:1fr;column-gap:0;grid-template-areas:"models" "lead" "stories" "movers" "results" "map" "news"}
-  .ga-models{border-left:none;padding-left:0}
-  .ed-cols,.ed-newsband{grid-template-columns:1fr}
+  .hx-wrap{grid-template-columns:minmax(0,1fr);column-gap:0;
+    grid-template-areas:"odds" "table" "b" "fix" "movers" "news"}
+  .hx-stories{display:none}  /* D lives behind the News tab on mobile */
+  .hx-cols,.hx-newsband{grid-template-columns:1fr}
+  .hx-erow .lg{width:70px}
+  .hx-promise h1{font-size:18px}
 }
-/* ── Home landing ─────────────────────────────────────────────── */
-/* First-screen promise band (launch plan D1): fan outcome first, method second. */
-.home-promise{padding:var(--s4) 2px var(--s3);border-bottom:1px solid var(--line-2);margin-bottom:var(--s4)}
-.home-promise-kicker{display:inline-block;margin-bottom:10px;font-size:12px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--qualify,#3ddc84);text-decoration:none;border:1px solid var(--line-2);border-radius:999px;padding:4px 12px}
-.home-promise-kicker:hover{border-color:var(--qualify,#3ddc84)}
-.home-promise h1{font-size:clamp(22px,3.4vw,32px);line-height:1.2;font-weight:800;letter-spacing:-.01em;margin:0 0 8px;max-width:20ch}
-.home-promise p{color:var(--txt-2);font-size:14.5px;line-height:1.55;margin:0;max-width:70ch}
-.home-promise-cta{display:inline-block;margin-top:12px;font-size:13.5px;font-weight:600;color:var(--qualify,#3ddc84);text-decoration:none}
-.home-promise-cta:hover{text-decoration:underline}
-.hm-sec{margin-bottom:var(--s4)}
-.hm-h{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-2);margin:0 2px 10px}
-.hm-leadgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:10px}
-.hm-lead{display:block;border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--ink-1);padding:12px 13px;text-decoration:none;color:inherit;transition:border-color .12s,transform .12s}
-.hm-lead:hover{border-color:var(--line-3);transform:translateY(-1px)}
-.hm-lead-lg{font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hm-lead-team{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;margin-bottom:9px}
-.hm-lead-team img{width:20px;height:20px;object-fit:contain;flex:none}
-.hm-lead-pct{display:flex;align-items:baseline;gap:7px}
-.hm-lead-pct b{font-family:var(--mono);font-size:19px;line-height:1}
-.hm-lead-pct span{font-size:11px;color:var(--txt-3)}
-.hm-lead-pct.hm-hot b{color:var(--qualify)}.hm-lead-pct.hm-warm b{color:var(--win)}.hm-lead-pct.hm-cool b{color:var(--txt-2)}
-.hm-race{display:block;padding:11px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
-.hm-race:hover{background:var(--ink-2)}.hm-race:last-child{border-bottom:none}
-.hm-race-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
-.hm-race-lg{font-weight:600;font-size:13px}
-.hm-race-gap{font-family:var(--mono);font-size:11px;color:var(--win)}
-.hm-race-gap.hm-drop{color:var(--drop)}
-.hm-race-teams{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--txt-2)}
-.hm-race-t{display:inline-flex;align-items:center;gap:5px}
-.hm-race-t img{width:15px;height:15px;object-fit:contain}
-.hm-race-t b{font-family:var(--mono);color:var(--txt-1)}
-.hm-race-t.lead b{color:var(--win)}
-.hm-vs{color:var(--txt-3);font-size:10px}
-.hm-dropdot{width:7px;height:7px;border-radius:50%;background:var(--drop);opacity:.7;display:inline-block}
-.hm-mover{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
-.hm-mover:hover{background:var(--ink-2)}.hm-mover:last-child{border-bottom:none}
-.hm-mv-arrow{font-size:11px}.hm-mv-arrow.up{color:var(--qualify)}.hm-mv-arrow.down{color:var(--drop)}
-.hm-mv-team{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden}
-.hm-mv-team em{display:block;font-style:normal;font-weight:400;font-size:11px;color:var(--txt-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hm-mv-delta{font-family:var(--mono);font-size:13px}.hm-mv-delta.up{color:var(--qualify)}.hm-mv-delta.down{color:var(--drop)}
-.hm-mv-now{font-family:var(--mono);font-size:12px;color:var(--txt-2);width:42px;text-align:right}
-.hm-news{display:block;padding:10px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
-.hm-news:hover{background:var(--ink-2)}.hm-news:last-child{border-bottom:none}
-.hm-news-t{font-size:13px;line-height:1.35;margin-bottom:3px}
-.hm-news-m{font-size:11px;color:var(--txt-3)}
 .eb-row{padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer}
 .eb-row:hover{background:var(--ink-2)}
 .eb-row:last-child{border-bottom:none}
@@ -3460,50 +3524,7 @@ if (_isPower && window.POWER_DATA) {
 // ── B12: cross-league edge board (pinned sidebar item, the no-?league= landing view).
 // Renders window.EDGE_BOARD_DATA. Row expansion currently shows scorelines only;
 // B2's bag-spread and B3's why-attribution extend ebRow()'s .eb-expand block once shipped.
-function ageHours(builtAt){
-  if(!builtAt)return null;
-  const t=new Date(builtAt.replace(' ','T').replace(' UTC','Z'));
-  return isNaN(t)?null:(Date.now()-t.getTime())/3.6e6;
-}
-// Kickoff-proximity staleness only has day granularity — payloads carry a date, not a
-// kickoff time (see scripts/build_edge_board.py). "Today" is the closest available proxy
-// for "<2h away" and is deliberately conservative (greys out the whole matchday).
-function isNearKickoff(dateStr){ return dateStr===new Date().toISOString().slice(0,10); }
-function ebRow(r){
-  const age=ageHours(r.built_at), agedOut=age!=null&&age>24, near=isNearKickoff(r.date);
-  const stale=agedOut||near;
-  const staleNote=stale?`<span class="eb-warn">⚠ ${agedOut?`priced ${Math.round(age)}h ago — `:''}${near?'kickoff today — ':''}reprice before betting</span>`:'';
-  const bet=r.bet;
-  const betChip=bet
-    ?`<span class="eb-edge">▲ ${bet.edge_pct.toFixed(1)}% edge ${bet.side==='H'?'Home':'Away'}</span> · quarter-Kelly ${bet.units}u`
-    :(r.has_market?'<span class="eb-meta">priced · no qualifying edge</span>':'<span class="eb-meta">no line yet</span>');
-  const risk=(r.risk_flags||[]).slice(0,4).map(x=>`<span class="cc-pill">${commandEsc(x.replaceAll('_',' '))}</span>`).join('');
-  return `<div class="eb-row${stale?' stale':''}" onclick="this.classList.toggle('open');track('edge_row_expand')">
-    <div class="eb-top">
-      <a class="eb-lg" href="?league=${r.league}" onclick="event.stopPropagation()" style="text-decoration:none">${r.league_name}</a>
-      <span class="eb-teams">${crest(r.home,r.hlogo)} <b>${r.home}</b> v <b>${r.away}</b> ${crest(r.away,r.alogo)}</span>
-      <span class="eb-meta">${r.date}</span>
-    </div>
-    <div style="margin-top:6px">${cbar(r)}</div>
-    <div style="margin-top:6px;display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap">${betChip}${staleNote}${risk}</div>
-    <div class="eb-expand">${r.lam!=null&&r.mu!=null?('Likely scorelines: '+topScorelines(r.lam,r.mu,3)):''}</div>
-  </div>`;
-}
 function commandEsc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function commandRiskHTML(EB){
-  const labels={
-    no_line:'No line yet',
-    draw_heavy:'Draw-heavy',
-    low_total_draw_setup:'Low-total draw',
-    home_model_underdog:'Home underdog',
-    away_model_underdog:'Away underdog',
-    qualifying_market_edge:'Qualifying edge',
-  };
-  const counts=EB.risk_counts||{};
-  const rows=Object.keys(labels).filter(k=>counts[k]).map(k=>
-    `<span class="cc-pill">${commandEsc(labels[k])} · <b>${counts[k]}</b></span>`).join('');
-  return rows||'<span class="cc-pill">No current risk flags</span>';
-}
 function commandSignupHTML(){
   const saved=localStorage.getItem('entenser_email_interest');
   return `<form class="cc-email" id="ccEmailForm">
@@ -3574,74 +3595,39 @@ function bindWaitlist(){
     if(input)input.disabled=true;
   });
 }
-function commandTrustHTML(){
-  const MS=window.MODEL_SLICES;
-  if(!MS||MS.status!=='ok')return '<div class="cc-panel-note">Model-slice report is not available yet.</div>';
-  // Plain-English on-ramp (launch plan D2): translate the numbers before the
-  // expert reads them, and keep the honest "we show our work" framing up front.
-  const intro=`<div class="trust-plain">
-    <p><b>What "graded in public" means.</b> When the model says a team has a 70% chance, that outcome should happen about 70% of the time. Below is the receipt: each family's score against real results, and where the model is honestly weak. Lower is better — the "vs naive" figure is how much it beats a no-information guess.</p>
-    <p class="trust-plain-fine">We don't claim to beat the betting market; sharp bookmakers usually edge us by a couple of percent. We claim to show our work — every hit and miss, in the open.</p>
-  </div>`;
-  return intro+`<div class="cc-trust">`+(MS.families||[]).slice(0,5).map(f=>{
-    const b=f.model_brier!=null?f.model_brier.toFixed(4):'—';
-    const imp=f.improvement_pct!=null?`+${f.improvement_pct}% vs naive`:'diagnostics pending';
-    const limit=(f.limits||[])[0]||f.policy||'No public limitation note yet.';
-    const fs=f.forward_summary||{}, matches=fs.matches||{}, under=fs.underdogs||{};
-    const tape=`${matches.upcoming||0} upcoming · ${fs.draw_heavy_matches||0} draw-heavy · ${under.upcoming_count||0} underdogs`;
-    return `<div class="cc-family"><div class="cc-family-h"><b>${commandEsc(f.label)}</b><span>${b} · ${imp}</span></div><p>${commandEsc(limit)}</p><div class="hnote">${commandEsc(tape)} · ${fs.market_status==='ok'?'market lines present':'no market lines'}</div></div>`;
-  }).join('')+`</div>`;
-}
-function commandRaceHTML(races){
-  if(!races||!races.length)return '<div class="eb-empty">Season-race payload not built yet.</div>';
-  return `<div class="cc-races">`+races.map(r=>{
-    const cont=(r.contenders||[]).map(c=>`<span class="cc-pill">${commandEsc(c.team)} ${c.prob.toFixed(1)}%</span>`).join('');
-    return `<a class="cc-race" href="?league=${r.league}" style="text-decoration:none;color:inherit">
-      <div class="cc-race-h"><span>${commandEsc(r.label)}</span><span>${commandEsc(r.league_name)}</span></div>
-      <div class="cc-race-main">${crest(r.leader.team,r.leader.logo)}<b>${commandEsc(r.leader.team)}</b><span class="pct">${r.leader.prob.toFixed(1)}%</span></div>
-      <div class="cc-cont">${cont||'<span class="cc-pill">clear leader</span>'}</div>
-    </a>`;
-  }).join('')+`</div><div class="cc-panel-note">Sorted by uncertainty so fragile races surface before decided ones.</div>`;
-}
-function commandMoversHTML(){
-  const MV=window.MOVERS_DATA;
-  if(!(MV&&MV.status==='ok'&&MV.movers?.length))return '<div class="cc-panel-note">No model movers yet; this will populate as projection snapshots accrue.</div>';
-  const lname=id=>((window.LEAGUES||[]).find(l=>l.id===id)||{}).name||id;
-  return `<div style="padding:6px 8px">`+MV.movers.map(m=>{
-    const up=m.delta>0, col=up?'var(--qualify,#41d18c)':'#e25f4f';
-    return `<a class="mv-chip" href="?league=${m.league}" title="${lname(m.league)} · since ${m.from}">
-      <b>${commandEsc(m.team)}</b><span style="color:var(--txt-3)">${commandEsc((MV.metric_labels||{})[m.metric]||m.metric)}</span>
-      <span style="font-family:var(--mono)">${m.prev}%→${m.now}%</span>
-      <b style="color:${col}">${up?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</b></a>`;
-  }).join('')+`</div>`;
-}
-function commandMatchHTML(EB, allMatches){
-  if(allMatches.length){
-    const byDate={};
-    allMatches.forEach(r=>{(byDate[r.date]=byDate[r.date]||[]).push(r);});
-    const fmtDay=d=>new Date(d+'T12:00').toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
-    return Object.keys(byDate).sort().map(date=>{
-      const rows=byDate[date].slice(0,8).map(ebRow).join('');
-      return `<div class="daygrp"><div class="dayhead">${fmtDay(date)}</div>${rows}</div>`;
-    }).join('');
-  }
-  const next=(EB.upcoming_7d&&EB.upcoming_7d.next&&EB.upcoming_7d.next.length?EB.upcoming_7d.next:EB.next_kickoffs)||[];
-  if(!next.length)return `<div class="eb-empty">No upcoming matches found across active leagues.</div>`;
-  return `<div class="eb-empty" style="text-align:left">No matches in the 48-hour edge window. Next scheduled kickoffs:<br>`+
-    next.slice(0,8).map(k=>`${commandEsc(k.league_name)}: <b>${commandEsc(k.home)}</b> v <b>${commandEsc(k.away)}</b> (${commandEsc(k.date)})`).join('<br>')+`</div>`;
-}
 // ── Matches-tab day calendar (2026-07-13 feedback: "a calendar for matches,
 //    so you can scroll across the top by day or on desktop ... select a day
 //    on an actual calendar box"). Backed by window.CALENDAR_DATA
 //    (scripts/build_calendar.py) — uncapped, ~3 days back to 21 days forward,
 //    unlike the edge board's narrow 48h betting window above. ──
 let calDay=null;
-function calRow(g){
-  const done=g.result!=null;
-  return `<div class="cal-row"><span class="lg">${g.name}</span>
-    <span class="t">${crest(g.home,g.hlogo)}${g.home}</span>
-    <span class="sc">${done?`${g.hg}–${g.ag}`:'v'}</span>
-    <span class="t">${crest(g.away,g.alogo)}${g.away}</span></div>`;
+// ── PL-style fixture rows (2026-07-17 redesign): name · crest · kickoff · crest
+//    · name on a fixed center axis, team-colored probability bar + fair odds
+//    beneath, league caption, click-to-expand likely scorelines. Days with many
+//    leagues sort favorites first, then league popularity (2026-07-17 feedback). ──
+const _LEAGUE_POP=['epl','la-liga','serie-a','bundesliga','ligue-1','mls','liga-mx',
+  'championship','eredivisie','primeira','brazil-serie-a','argentina-primera',
+  'scottish-prem','belgian-pro','super-lig','japan-j1','saudi-pro'];
+const _popKey=lid=>{const i=_LEAGUE_POP.indexOf(lid);return i<0?_LEAGUE_POP.length:i;};
+function _koLbl(g){
+  if(g.result!=null) return `${g.hg}–${g.ag}`;
+  if(!g.ko) return 'v';
+  const d=new Date(g.ko);
+  return isNaN(d)?'v':d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).replace(' ','');
+}
+function fxRow(g){
+  const upcoming=g.result==null, hasP=g.pH!=null;
+  const edge=window._EDGE_LOOKUP&&window._EDGE_LOOKUP[`${g.league}|${g.home}|${g.away}`];
+  const cap=[g.name,
+    edge&&edge.bet?`<span class="edge">▲ ${edge.bet.edge_pct.toFixed(1)}% edge ${edge.bet.side==='H'?'Home':'Away'}</span>`:null,
+    upcoming&&g.lam!=null&&g.mu!=null?`proj. ${topScorelines(g.lam,g.mu,1).split(' ')[0]}`:null,
+  ].filter(Boolean).join(' · ');
+  return `<div class="fx-row" data-exp="${upcoming&&g.lam!=null?1:''}">
+    <div class="fx-line"><span class="hm">${g.home}</span>${crest(g.home,g.hlogo)}<span class="tm">${_koLbl(g)}</span>${crest(g.away,g.alogo)}<span class="aw">${g.away}</span></div>
+    ${upcoming&&hasP?`<div class="fx-mid">${cbar(g)}<div class="fx-odds"><span>${oddsHTML(g.pH)}</span><span>${oddsHTML(g.pD)}</span><span>${oddsHTML(g.pA)}</span></div></div>`:''}
+    <div class="fx-cap">${cap}</div>
+    ${upcoming&&g.lam!=null&&g.mu!=null?`<div class="fx-expand">Likely scorelines: ${topScorelines(g.lam,g.mu,3)}</div>`:''}
+  </div>`;
 }
 function calStripHTML(){
   const CD=window.CALENDAR_DATA;
@@ -3662,56 +3648,60 @@ function calStripHTML(){
 function calDayListHTML(){
   const CD=window.CALENDAR_DATA;
   if(!CD||!calDay) return '';
-  const rows=CD.days[calDay]||[];
+  const rows=[...(CD.days[calDay]||[])];
   if(!rows.length) return '<div class="eb-empty">No matches this day across active leagues.</div>';
+  // Favorites first (team pin beats league pin), then league popularity, then kickoff.
+  const favL=FavStore.leagues(), favT=FavStore.teams();
+  const favKey=g=>favT.some(t=>t.league===g.league&&(t.team===g.home||t.team===g.away))?0:favL.has(g.league)?1:2;
+  rows.sort((a,b)=>favKey(a)-favKey(b)||_popKey(a.league)-_popKey(b.league)||String(a.ko||'').localeCompare(String(b.ko||'')));
   const dt=new Date(calDay+'T12:00');
   const lbl=dt.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
-  return `<div class="cal-day-h">${lbl}</div>${rows.map(calRow).join('')}`;
+  return `<div class="fxp-day">${lbl}</div>${rows.map(fxRow).join('')}`;
 }
 if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   const seg=$('#seg'); if(seg) seg.style.display='none';
+  const hd=document.querySelector('header'); if(hd) hd.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   const EB=window.EDGE_BOARD_DATA;
-  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent="Command Center";
-  document.title="Entenser — Command Center";
-  const sub=$('#sub'); if(sub) sub.textContent=`Market-blind probabilities (the model never sees betting odds), movement, and trust · built ${EB.generated}`;
-  const allMatches=[...(EB.priced||[]), ...(EB.no_line||[])];
-  const seven=EB.upcoming_7d||{};
-  const priced=(EB.priced||[]).length, edges=(EB.priced||[]).filter(r=>r.bet).length;
-  const first=seven.first_kickoff;
-  const firstCopy=first?`${first.league_name}: ${first.home} v ${first.away} · ${first.date}`:'No kickoff in the next 7 days';
+  document.title="Entenser — Matches";
+  // Edge-board lookup so fixture captions can flag qualifying model edges
+  // (league|home|away key; the calendar and edge board share team spellings).
+  window._EDGE_LOOKUP={};
+  (EB.priced||[]).forEach(r=>{window._EDGE_LOOKUP[`${r.league}|${r.home}|${r.away}`]=r;});
+  // ── Q: one-mover-at-a-time ticker over MOVERS_DATA (team · what the odds
+  //    are for · old → new), quietly rotating (2026-07-17 redesign) ──
+  const MV=(window.MOVERS_DATA&&window.MOVERS_DATA.status==='ok'&&window.MOVERS_DATA.movers)||[];
+  const mvLabels=(window.MOVERS_DATA||{}).metric_labels||{};
+  const lname=id=>((window.LEAGUES||[]).find(l=>l.id===id)||{}).name||id;
+  let mvIdx=0;
+  const tickerHTML=()=>{
+    if(!MV.length) return '<div class="cc-panel-note">No model movers yet; this populates as projection snapshots accrue.</div>';
+    const m=MV[mvIdx%MV.length], up=m.delta>0;
+    return `<a class="mxt" href="?league=${m.league}">
+      ${crest(m.team,null)}
+      <span class="who"><b>${commandEsc(m.team)}</b><span>${commandEsc(lname(m.league))} · ${commandEsc(mvLabels[m.metric]||m.metric)}</span></span>
+      <span class="odds"><span class="was">${m.prev}%</span> → <span class="now${up?'':' dn'}">${m.now}%</span><br>
+        <span class="d" style="color:${up?'var(--qualify)':'#e25f4f'}">${up?'▲':'▼'} ${Math.abs(m.delta).toFixed(1)} this week</span></span></a>`;
+  };
   const target=$('#view-outlook')||$('main.wrap');
   if(target){
     target.classList.remove('hidden');
-    target.innerHTML=`<div class="cc-hero">
-      <div class="cc-promise">
-        <div><div class="cc-eyebrow">Market-blind football probabilities · the model never sees betting odds</div>
-        <h2>What changed, what is priced, and where the model needs caution.</h2>
-        <div class="cc-copy">Use the board as a probability terminal: scan upcoming matches, fragile season races, projection movement, and model weak spots before drilling into a league. ${BET_DISCLAIMER}</div></div>
-        <div class="cc-actions"><a class="cc-link" href="?league=epl">Premier League</a><a class="cc-link" href="?league=power">Power Rankings</a><a class="cc-link" href="?league=mls">MLS</a></div>
+    target.innerHTML=`
+    <div class="eb-panel" style="margin-top:var(--s4)"><div class="eb-h">Browse by day · built ${EB.generated}</div>${calStripHTML()}<div id="calList" class="fx-panel">${calDayListHTML()}</div></div>
+    <div class="mxp-two">
+      <div class="mxp-card">
+        <div class="eb-h" style="padding:0 0 8px">Weekly model movement, in your inbox</div>
         ${commandSignupHTML()}
-        <div class="cc-cont" style="margin-top:14px">${commandRiskHTML(EB)}</div>
+        <div class="cc-panel-note" style="padding:8px 0 0">One email a week — biggest movers, closest races, how our calls did. ${BET_DISCLAIMER}</div>
       </div>
-      <div class="cc-kpis">
-        <div class="cc-kpi"><div class="k">Next 7 days</div><div class="v">${seven.match_count??0}</div><div class="s">${seven.league_count??0} active leagues</div></div>
-        <div class="cc-kpi"><div class="k">First kickoff</div><div class="v">${first?first.date.slice(5):'—'}</div><div class="s">${commandEsc(firstCopy)}</div></div>
-        <div class="cc-kpi"><div class="k">Priced lines</div><div class="v">${priced}</div><div class="s">${edges} above ${EB.edge_threshold_pct}% model edge</div></div>
-        <div class="cc-kpi"><div class="k">Trust files</div><div class="v">${(window.MODEL_SLICES&&window.MODEL_SLICES.families||[]).length||0}</div><div class="s">family reports surfaced</div></div>
+      <div class="mxp-card">
+        <div class="eb-h" style="padding:0 0 8px">Model mover</div>
+        <div id="mxTicker">${tickerHTML()}</div>
       </div>
     </div>
-    ${ledgerStripHTML()}
-    <div class="eb-panel"><div class="eb-h">Browse by day</div>${calStripHTML()}<div id="calList">${calDayListHTML()}</div></div>
-    <div class="cc-grid">
-      <div>
-        <div class="eb-panel"><div class="eb-h">Today / edge window</div>${commandMatchHTML(EB, allMatches)}</div>
-        <div class="eb-panel"><div class="eb-h">Season races — most fragile first</div>${commandRaceHTML(EB.season_races||[])}</div>
-      </div>
-      <div>
-        <div class="eb-panel"><div class="eb-h">Model movers</div>${commandMoversHTML()}</div>
-        <div class="eb-panel"><div class="eb-h">Trust / known weak spots</div>${commandTrustHTML()}</div>
-      </div>
-    </div>`;
+    <div class="eb-panel">${ledgerStripHTML()}</div>`;
     bindCommandSignup();
+    // day strip: click filters the fixtures panel beneath
     const calStripEl=$('.cal-strip');
     if(calStripEl){
       calStripEl.addEventListener('click',e=>{
@@ -3720,9 +3710,23 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
         calStripEl.querySelectorAll('.cal-box').forEach(b=>b.classList.toggle('active',b===box));
         const list=$('#calList'); if(list) list.innerHTML=calDayListHTML();
       });
+      // center the active day box horizontally WITHOUT scrollIntoView — that
+      // also scrolls the page vertically, burying the masthead (2026-07-17)
       const activeBox=calStripEl.querySelector('.cal-box.active');
-      if(activeBox) activeBox.scrollIntoView({inline:'center',block:'nearest'});
+      if(activeBox) calStripEl.scrollLeft=activeBox.offsetLeft-calStripEl.clientWidth/2+activeBox.clientWidth/2;
     }
+    // fixture row click → expand likely scorelines
+    const listEl=$('#calList');
+    if(listEl) listEl.addEventListener('click',e=>{
+      const row=e.target.closest('.fx-row'); if(!row||!row.dataset.exp) return;
+      row.classList.toggle('open'); track('match_expand',{route:'matches'});
+    });
+    // ticker rotation — 5s, cross-fade via opacity
+    const tk=$('#mxTicker');
+    if(tk&&MV.length>1) setInterval(()=>{
+      tk.style.opacity=0;
+      setTimeout(()=>{ mvIdx=(mvIdx+1)%MV.length; tk.innerHTML=tickerHTML(); tk.style.opacity=1; },250);
+    },5000);
   }
 }
 
@@ -3737,74 +3741,79 @@ if(_isHome && window.HOME_DATA){
   const ago=iso=>{ if(!iso) return ''; const d=(Date.now()-new Date(iso))/36e5;
     return d<1?`${Math.max(1,Math.round(d*60))}m`:d<24?`${Math.round(d)}h`:`${Math.round(d/24)}d`; };
 
-  // ── deterministic headline writer: movers → tight races → relegation.
-  //    Headlines lead with the outcome number (a percentage), never with a
-  //    "points" delta — probability-point gaps read as league-table points
-  //    otherwise (2026-07-11 feedback: "you can lead a league by a half
-  //    point increment"). Deltas/gaps still appear, but only in the deck. ──
-  const stories=[];
-  // Preseason leagues' "movement" is a rollover to statistical priors, not games —
-  // exclude them (leaders[] carries the per-league preseason flag), plus a belt-and-
-  // braces cap: |delta|>50pp in one week is never game-driven.
-  const _pre=new Set((H.leaders||[]).filter(l=>l.preseason).map(l=>l.league));
-  (H.movers||[]).filter(m=>!_pre.has(m.league)&&Math.abs(m.delta)<=50).forEach(m=>{const up=m.delta>=0;stories.push({league:m.league,mag:Math.abs(m.delta),
-    kicker:`${nm(m.league)} · ${m.metric_label}`,
-    h:`${m.team}’s ${m.metric_label} Odds ${up?'Climb':'Slide'} to ${m.now}%`,
-    deck:`A ${Math.abs(m.delta).toFixed(1)}-point swing this week — the ${up?'biggest riser':'sharpest drop'} tracked in ${nm(m.league)}.`});});
-  (H.tight_races||[]).forEach(r=>{const [a,b]=r.teams;if(!a||!b)return;stories.push({league:r.league,mag:Math.max(0,20-r.gap),
-    kicker:`${r.name} · ${r.metric_label} race${_pre.has(r.league)?' · preseason projection':''}`,
-    h:`${a.team} Edges ${b.team} in a Tight ${r.name} Race`,
-    deck:`${a.team} (${a.pct}%) hold${a.team.endsWith('s')?'':'s'} off ${b.team} (${b.pct}%)${r.teams[2]?` with ${r.teams[2].team} (${r.teams[2].pct}%) lurking`:''} — a ${r.gap}-point gap.`});});
-  (H.releg_battles||[]).forEach(b=>{stories.push({league:b.league,mag:b.n_contested,
-    kicker:`${b.name} · relegation`,
-    h:`${b.n_contested} Clubs Locked in the ${b.name} Relegation Scrap`,
-    deck:`${b.teams.slice(0,3).map(t=>`${t.team} (${t.pct}%)`).join(', ')} are all live to go down.`});});
-  stories.sort((x,y)=>y.mag-x.mag);
-  const lead=stories.shift();
-  // ── interleave real reporting (RSS) into the ladder, NYT-style, so the AI
-  //    story ladder isn't the only voice on the page (2026-07-11 feedback) ──
-  const _usedNews=new Set();
-  const newsStory=n=>{_usedNews.add(n);return {league:n.league,external:n.link,
-    kicker:`${nm(n.league)} · ${commandEsc(n.source||'News')}`, h:commandEsc(n.title||''),
-    deck:n.published?`Reported ${ago(n.published)} ago.`:''};};
-  (H.news||[]).slice(0,3).forEach((n,i)=>stories.splice(1+i*2,0,newsStory(n)));
-  const story=s=>`<a class="ed-story" ${s.external?`href="${s.external}" target="_blank" rel="noopener noreferrer"`:`href="?league=${s.league}"`}><div class="ed-kicker">${s.kicker}</div><h3>${s.h}</h3><div class="deck">${s.deck}</div></a>`;
-
-  // ── right rail: the models (big-league leaders) + upcoming fixtures ──
-  const BIG=['epl','la-liga','serie-a','bundesliga','ligue-1','mls'];
-  const models=(H.leaders||[]).filter(l=>BIG.includes(l.league)).map(l=>
-    `<a class="ed-model" href="?league=${l.league}"><span class="lg">${nm(l.league)}</span>${crest(l.team,l.logo)}<span>${l.team}</span><b>${l.pct}%</b><span class="lab">${l.metric_label}${l.preseason?' · pre':''}</span></a>`).join('');
-  // Fixture card mirrors the Matches tab: team-colored win/draw/loss bar (cbar),
-  // fair American odds per outcome, both teams' ELO, and the single most likely
-  // scoreline (2026-07-11 feedback: "additional info about odds, underlying
-  // features, and team colors ... similar to the matches tab").
-  const fix=f=>{const sc=(f.lam!=null&&f.mu!=null)?topScorelines(f.lam,f.mu,1):null;
-    return `<a class="ed-fix" href="?league=${f.league}"><div class="t">${crest(f.home,f.hlogo)}${f.home}<span class="vs">v</span>${crest(f.away,f.alogo)}${f.away}</div>
-    ${cbar(f)}
-    <div class="ed-fix-odds"><span>${oddsHTML(f.pH)}</span><span>${oddsHTML(f.pD)}</span><span>${oddsHTML(f.pA)}</span></div>
-    <div class="m">${f.date} · ${f.name}${sc?` · proj. ${sc.split(' ')[0]}`:''}</div>
-    ${f.hinp&&f.ainp?modelInputsTable(f.home,f.away,f.hinp,f.ainp):''}</a>`;};
-  const fixtures=(H.fixtures||[]).slice(0,8).map(fix).join('')||'<div class="news-empty">No fixtures modeled in the next 10 days.</div>';
-
-  const news=(H.news||[]).filter(n=>!_usedNews.has(n)).slice(0,9).map(n=>`<a class="ed-news" href="${n.link}" target="_blank" rel="noopener noreferrer">
-    <h4>${commandEsc(n.title||'')}</h4><div class="m">${nm(n.league)} · ${commandEsc(n.source||'')}${n.published?' · '+ago(n.published):''}</div></a>`).join('');
-
-  // ── Recent Results (2026-07-13 feedback: "nothing to do with model - just
-  //    results broken out by day and league"). Plain completed-match feed. ──
-  const recentResultsHTML=()=>{
+  // ── B: recent-results strip — day → cards, newest day first, Bundesliga-style
+  //    (2026-07-17 redesign; date headers span exactly their day's cards) ──
+  const stripHTML=()=>{
     const rows=H.recent_results||[];
     if(!rows.length) return '<div class="news-empty">No results in the last week.</div>';
     const byDate=new Map();
     rows.forEach(g=>{ (byDate.get(g.date)||byDate.set(g.date,[]).get(g.date)).push(g); });
-    const dLbl=iso=>new Date(iso+'T00:00:00').toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
-    return [...byDate.entries()].map(([date,games])=>{
-      const byLg=new Map();
-      games.forEach(g=>{ (byLg.get(g.name)||byLg.set(g.name,[]).get(g.name)).push(g); });
-      const lgBlocks=[...byLg.entries()].map(([lname,gs])=>
-        `<div><div class="rr-lg-h">${lname}</div>${gs.map(g=>
-          `<div class="rr-row"><span class="t">${crest(g.home,g.hlogo)}${g.home}</span><span class="sc">${g.hg}–${g.ag}</span><span class="t">${crest(g.away,g.alogo)}${g.away}</span></div>`).join('')}</div>`).join('');
-      return `<div><div class="rr-day-h">${dLbl(date)}</div><div class="rr-leagues">${lgBlocks}</div></div>`;
-    }).join('');
+    const dLbl=iso=>new Date(iso+'T12:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
+    const days=[...byDate.entries()].map(([date,games])=>
+      `<div class="hx-day"><div class="hx-dh">${dLbl(date)}</div><div class="hx-cards">${
+        games.map(g=>`<a class="hx-scard" href="?league=${g.league}">
+          <div class="t">${crest(g.home,g.hlogo)}<span class="ft">FT</span>${crest(g.away,g.alogo)}</div>
+          <div class="sc">${g.hg}–${g.ag}</div><div class="lg">${g.name}</div></a>`).join('')}</div></div>`).join('');
+    return `<div class="hx-strip"><div class="hx-strip-scroll">${days}</div>
+      <div class="hx-strip-foot"><a href="?league=command">All results →</a></div></div>`;
+  };
+
+  // ── C|E: rotating featured-league table + synced title-odds board.
+  //    One shared state (tIdx) drives both renderers; E is effectively C's
+  //    index — clicking a board row (or a dot) jumps the rotation. ──
+  const T=H.tables||[];
+  let tIdx=0;
+  const tableHTML=t=>{
+    const rows=t.rows.map((r,i)=>`<tr><td class="r" style="color:var(--txt-3)">${i+1}</td>
+      <td class="tm">${crest(r.team,r.logo)}${r.team}</td>
+      <td class="r">${r.pts??'—'}</td>
+      <td class="r pct"><b>${r.pct}%</b></td></tr>`).join('');
+    return `<div class="hx-th"><b>${t.name}</b><span>${t.preseason?'preseason projection':(t.season_label||'auto-rotates')}</span></div>
+      <table class="hx-tbl"><tr><th class="r">#</th><th>Club</th><th class="r">Pts</th><th class="r">${t.metric_label} %</th></tr>${rows}</table>
+      <div class="hx-dots">${T.map((_,i)=>`<i class="${i===tIdx?'on':''}" data-i="${i}"></i>`).join('')}</div>`;
+  };
+  const boardHTML=()=>T.map((t,i)=>{
+    const lead=t.rows.reduce((a,b)=>(b.pct>a.pct?b:a),t.rows[0]||{});
+    return `<div class="hx-erow${i===tIdx?' on':''}" data-i="${i}" title="Show ${t.name} table">
+      <span class="lg">${t.name}</span>${crest(lead.team,lead.logo)}
+      <span class="nm">${lead.team}</span><b>${lead.pct}%</b><span class="lab">${t.metric_label}</span></div>`;
+  }).join('');
+
+  // ── D: personalized stories (FavStore pins) + World Cup on-ramp. No pins →
+  //    the on-ramp is the hero and the column falls back to top stories. ──
+  const favL=FavStore.leagues(), favT=FavStore.teams();
+  const hasFavs=favL.size>0||favT.length>0;
+  const newsItem=n=>`<a class="hx-news-item" href="${n.link}" target="_blank" rel="noopener noreferrer">
+    <h4>${commandEsc(n.title||'')}</h4><div class="m">${nm(n.league)} · ${commandEsc(n.source||'')}${n.published?' · '+ago(n.published):''}</div></a>`;
+  const isPers=n=>favL.has(n.league)||favT.some(ft=>ft.league===n.league||(n.title||'').includes(ft.team));
+  const pers=hasFavs?(H.news||[]).filter(isPers):[];
+  const persCol=(pers.length?pers:(H.news||[])).slice(0,4);
+  const globCol=(H.news||[]).filter(n=>!persCol.includes(n)).slice(0,4);
+  const onrampHTML=`<div class="hx-onramp"><span>🏆</span><span><b>New to club soccer after the World Cup?</b>
+    <a href="/after-the-world-cup/">Start here</a> — or <a href="?league=subscribe">pick a team to follow</a> and this section fills with their news.</span></div>`;
+  const storiesHTML=`${onrampHTML}<div class="hx-cols">
+    <div><div class="hx-colh">${hasFavs&&pers.length?'★ Your teams & leagues':'⭐ Top stories'}</div>${persCol.map(newsItem).join('')||'<div class="news-empty">No stories yet.</div>'}</div>
+    <div><div class="hx-colh">🌍 Around the world</div>${globCol.map(newsItem).join('')||'<div class="news-empty">No stories yet.</div>'}</div></div>`;
+
+  // ── F: full-width fixtures carousel — one league per slide, auto-advances
+  //    every few seconds, pauses on hover, dots jump leagues ──
+  const fxByLg=[];
+  (H.fixtures||[]).forEach(f=>{const g=fxByLg.find(x=>x.id===f.league);
+    g?g.fx.push(f):fxByLg.push({id:f.league,name:f.name,fx:[f]});});
+  let fIdx=0;
+  const fixCard=f=>{const sc=(f.lam!=null&&f.mu!=null)?topScorelines(f.lam,f.mu,1):null;
+    const d=new Date(f.date+'T12:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+    return `<a class="hx-fixcard" href="?league=${f.league}">
+      <div class="t">${crest(f.home,f.hlogo)}${f.home}<span class="vs">v</span>${crest(f.away,f.alogo)}${f.away}</div>
+      ${cbar(f)}
+      <div class="hx-fix-odds"><span>${oddsHTML(f.pH)}</span><span>${oddsHTML(f.pD)}</span><span>${oddsHTML(f.pA)}</span></div>
+      <div class="m">${d}${sc?` · proj. ${sc.split(' ')[0]}`:''}</div></a>`;};
+  const caroHTML=()=>{
+    if(!fxByLg.length) return '<div class="news-empty">No fixtures modeled in the next 10 days.</div>';
+    const cur=fxByLg[fIdx], nxt=fxByLg[(fIdx+1)%fxByLg.length];
+    return `<div class="hx-caro-head"><b>${cur.name} — upcoming</b>${fxByLg.length>1?`<span>next: ${nxt.name} →</span>`:''}</div>
+      <div class="hx-caro">${cur.fx.map(fixCard).join('')}</div>
+      <div class="hx-dots">${fxByLg.map((_,i)=>`<i class="${i===fIdx?'on':''}" data-i="${i}"></i>`).join('')}</div>`;
   };
 
   // ── Biggest Movers board (2026-07-13 feedback: "stock up/down of the three
@@ -3829,50 +3838,24 @@ if(_isHome && window.HOME_DATA){
       <div id="mvBody">${moversBoardBody()}</div>`;
   };
 
-  // ── Europe explorer: real country shapes from window.EUROPE_MAP
-  // (scripts/build_europe_map.py, Natural Earth 110m). Clicking a country
-  // IS the click target — no floating pin — countries with a live league
-  // highlight and open a popover listing them; others render as plain
-  // context geography (2026-07-12 feedback: "the map should be much more
-  // defined and exploring the leagues should be a function of clicking the
-  // actual country... countries with leagues... should be highlighted").
-  // England/Scotland leagues both attach to the single United Kingdom shape.
-  const EU_NAME_ALIAS={'England':'United Kingdom','Scotland':'United Kingdom'};
-  const euGroups={};
-  (window.LEAGUES||[]).forEach(l=>{const c=EU_NAME_ALIAS[l.country]||l.country; if(!c)return;
-    (euGroups[c]=euGroups[c]||[]).push(l);});
-  const euMapHTML=()=>{
-    const M=window.EUROPE_MAP; if(!M) return '<div class="news-empty">Map data unavailable.</div>';
-    const paths=Object.entries(M.paths).map(([name,d])=>{
-      const has=euGroups[name]&&euGroups[name].length;
-      return `<path class="eu-country${has?' has-league':''}" data-country="${name}" d="${d}"></path>`;
-    }).join('');
-    return `<svg viewBox="${M.viewBox}" xmlns="http://www.w3.org/2000/svg">${paths}</svg><div class="eu-portal" id="euPortal"></div>`;
-  };
-
   const moversBody=moversBoardHTML();
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`
-    <div class="home-promise">
-      <a class="home-promise-kicker" href="/after-the-world-cup/">New to club soccer after the World Cup? Start here →</a>
-      <h1>Title, qualification and relegation forecasts across world football.</h1>
-      <p>No bookmaker odds in the model — the forecasts are built from results, expected goals and team strength, never betting lines. Every forecast is graded in public, hits and misses alike.</p>
-      <a class="home-promise-cta" href="/weekly/">This week's recap — biggest movers, closest races, and how our calls did →</a>
+    <div class="hx-wrap">
+    <div class="hx-b">
+      <div class="hx-promise">
+        <div><h1>Title, qualification and relegation forecasts across world football.</h1>
+        <p>No bookmaker odds in the model — forecasts are built from results, expected goals and team strength. Every call is graded in public, hits and misses alike.</p></div>
+        <a class="cta" href="/weekly/">This week's recap →</a>
+      </div>
+      ${stripHTML()}
     </div>
-    <div class="ed-wrap">
-    <div class="ga-lead">${lead?`<div class="ed-lead"><a href="?league=${lead.league}"><div class="ed-kicker">${lead.kicker} · updated ${H.generated}</div><h1>${lead.h}</h1><div class="deck">${lead.deck}</div></a></div>`:''}</div>
-    <div class="ga-stories"><div class="ed-sec">More movement</div><div class="ed-cols">${stories.slice(0,8).map(story).join('')}</div></div>
-    <div class="ga-models">
-      <div class="ed-sec">The Models</div>${models}
-      <div class="ed-sec">Upcoming Matches</div>${fixtures}
-    </div>
-    <div class="ga-movers">${moversBody?`<div class="ed-sec">Biggest Movers</div>${moversBody}`:''}</div>
-    <div class="ga-results"><div class="ed-sec">Recent Results</div><div class="rr-days">${recentResultsHTML()}</div></div>
-    <div class="ga-map">
-      <div class="ed-sec">Explore Europe's Leagues</div>
-      <div class="eu-wrap">${euMapHTML()}</div>
-    </div>
-    <div class="ga-news"><div class="ed-sec">Around the Leagues</div><div class="ed-newsband">${news||'<div class="news-empty">No more headlines right now.</div>'}</div></div>
+    <div class="hx-table"><div class="ed-sec">League Tables</div><div class="hx-card" id="hxTable">${T.length?tableHTML(T[tIdx]):'<div class="news-empty">League tables arrive with the next data build.</div>'}</div></div>
+    <div class="hx-odds"><div class="ed-sec">Title Odds</div><div class="hx-card" id="hxBoard" style="padding:6px 8px">${T.length?boardHTML():'<div class="news-empty">Title odds arrive with the next data build.</div>'}</div></div>
+    <div class="hx-stories"><div class="ed-sec">Your Stories</div>${storiesHTML}</div>
+    <div class="hx-fix"><div class="ed-sec">Upcoming Matches</div><div id="hxCaro">${caroHTML()}</div></div>
+    <div class="hx-movers">${moversBody?`<div class="ed-sec">Biggest Movers</div>${moversBody}`:''}</div>
+    <div class="hx-news"><div class="ed-sec">Around the Leagues</div><div class="hx-newsband">${(H.news||[]).slice(0,9).map(newsItem).join('')||'<div class="news-empty">No headlines right now.</div>'}</div></div>
   </div>`;
     // region-pill filter for the movers board (re-renders just #mvBody, no reload)
     const mvPillsEl=$('.mv-pills');
@@ -3882,24 +3865,30 @@ if(_isHome && window.HOME_DATA){
       mvPillsEl.querySelectorAll('.mv-pill').forEach(p=>p.classList.toggle('on',p===btn));
       const body=$('#mvBody'); if(body) body.innerHTML=moversBoardBody();
     }); }
-    // country click → popover listing that country's leagues, positioned at
-    // the click point (position:fixed portal, see CSS note on .eu-portal)
-    const portal=$('#euPortal');
-    if(portal){
-      target.querySelectorAll('.eu-country.has-league').forEach(p=>p.addEventListener('click',e=>{
-        e.stopPropagation();
-        const name=p.dataset.country, was=p.classList.contains('open');
-        target.querySelectorAll('.eu-country.open').forEach(o=>o.classList.remove('open'));
-        if(was){ portal.classList.remove('open'); return; }
-        const rows=euGroups[name].map(l=>`<a href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span class="mb-nm">${l.name}${l.tier?`<em>tier ${l.tier}</em>`:''}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':''}</a>`).join('');
-        portal.innerHTML=`<div class="eu-portal-h">${name}</div>${rows}`;
-        const mw=Math.min(240,innerWidth*0.9);
-        portal.style.left=Math.max(8,Math.min(e.clientX,innerWidth-8-mw))+'px';
-        portal.style.top=Math.max(8,Math.min(e.clientY+10,innerHeight-8-40))+'px';
-        portal.classList.add('open');
-        p.classList.add('open');
-      }));
-      document.addEventListener('click',()=>{portal.classList.remove('open');target.querySelectorAll('.eu-country.open').forEach(o=>o.classList.remove('open'));});
+    // ── C|E rotation: 6s auto-advance, paused while hovering either panel;
+    //    clicking a board row or a dot jumps the rotation ──
+    const tblEl=$('#hxTable'), brdEl=$('#hxBoard');
+    let tPaused=false;
+    const renderCE=()=>{ if(tblEl) tblEl.innerHTML=tableHTML(T[tIdx]);
+      if(brdEl) brdEl.innerHTML=boardHTML(); };
+    const tGo=i=>{ tIdx=(i+T.length)%T.length; renderCE(); };
+    if(T.length){
+      [tblEl,brdEl].forEach(el=>{ if(!el) return;
+        el.addEventListener('mouseenter',()=>tPaused=true);
+        el.addEventListener('mouseleave',()=>tPaused=false);
+        el.addEventListener('click',e=>{ const d=e.target.closest('[data-i]'); if(!d) return;
+          tGo(+d.dataset.i); track('home_table_jump',{league:T[tIdx].league}); }); });
+      if(T.length>1) setInterval(()=>{ if(!tPaused) tGo(tIdx+1); },6000);
+    }
+    // ── F rotation: one league per slide, 7s auto-advance, hover pauses ──
+    const caroEl=$('#hxCaro');
+    let fPaused=false;
+    if(caroEl&&fxByLg.length){
+      caroEl.addEventListener('mouseenter',()=>fPaused=true);
+      caroEl.addEventListener('mouseleave',()=>fPaused=false);
+      caroEl.addEventListener('click',e=>{ const d=e.target.closest('.hx-dots [data-i]'); if(!d) return;
+        fIdx=+d.dataset.i; caroEl.innerHTML=caroHTML(); });
+      if(fxByLg.length>1) setInterval(()=>{ if(!fPaused){ fIdx=(fIdx+1)%fxByLg.length; caroEl.innerHTML=caroHTML(); } },7000);
     }
   }
 }
@@ -3990,6 +3979,122 @@ if(_isFavs){
   };
   render();
   const _ff=$('#foot'); if(_ff && !_ff.innerHTML.trim()) _ff.innerHTML=FOOT_HTML;
+}
+
+// ── News (?league=news, 2026-07-17 redesign): D's new home — WC on-ramp +
+//    favorites-personalized stories on top, the full global feed below.
+//    Rides the HOME payload (window.HOME_DATA.news). ──
+if(_isNews){
+  const seg=$('#seg'); if(seg) seg.style.display='none';
+  const hd=document.querySelector('header'); if(hd) hd.style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
+  document.title="News · Entenser";
+  const H=window.HOME_DATA||{};
+  const nmL=id=>{const l=(window.LEAGUES||[]).find(x=>x.id===id);return l?l.name:id;};
+  const agoN=iso=>{ if(!iso) return ''; const d=(Date.now()-new Date(iso))/36e5;
+    return d<1?`${Math.max(1,Math.round(d*60))}m`:d<24?`${Math.round(d)}h`:`${Math.round(d/24)}d`; };
+  const item=n=>`<a class="hx-news-item" href="${n.link}" target="_blank" rel="noopener noreferrer">
+    <h4>${commandEsc(n.title||'')}</h4><div class="m">${nmL(n.league)} · ${commandEsc(n.source||'')}${n.published?' · '+agoN(n.published):''}</div></a>`;
+  const favL=FavStore.leagues(), favT=FavStore.teams();
+  const hasFavs=favL.size>0||favT.length>0;
+  const isPers=n=>favL.has(n.league)||favT.some(ft=>ft.league===n.league||(n.title||'').includes(ft.team));
+  const pers=hasFavs?(H.news||[]).filter(isPers).slice(0,8):[];
+  const rest=(H.news||[]).filter(n=>!pers.includes(n));
+  const target=$('#view-outlook');
+  if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap">
+    <div class="hx-onramp"><span>🏆</span><span><b>New to club soccer after the World Cup?</b>
+      <a href="/after-the-world-cup/">Start here</a> — or <a href="?league=subscribe">pick a team to follow</a> and this page leads with their news.</span></div>
+    ${pers.length?`<div class="ed-sec">★ Your teams &amp; leagues</div><div class="hx-cols"><div>${pers.filter((_,i)=>i%2===0).map(item).join('')}</div><div>${pers.filter((_,i)=>i%2===1).map(item).join('')}</div></div>`:''}
+    <div class="ed-sec">🌍 Around the leagues</div>
+    <div class="hx-cols"><div>${rest.filter((_,i)=>i%2===0).map(item).join('')}</div><div>${rest.filter((_,i)=>i%2===1).map(item).join('')}</div></div>
+    ${rest.length?'':'<div class="news-empty">No headlines right now — check back after the next build.</div>'}
+  </div>`; }
+  const _fn=$('#foot'); if(_fn && !_fn.innerHTML.trim()) _fn.innerHTML=FOOT_HTML;
+}
+
+// ── Subscribe (?league=subscribe, 2026-07-17 redesign): one page unifying the
+//    weekly-email capture, the favorites picker (which personalizes home-D,
+//    News, and the Matches-page sort), and the supporter-tier waitlist. ──
+if(_isSubscribe){
+  const seg=$('#seg'); if(seg) seg.style.display='none';
+  const hd=document.querySelector('header'); if(hd) hd.style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
+  document.title="Subscribe · Entenser";
+  const H=window.HOME_DATA||{};
+  const nmL=id=>{const l=(window.LEAGUES||[]).find(x=>x.id===id);return l?l.name:id;};
+  // Suggestion pool: popular leagues + each featured league's top clubs.
+  const sugLeagues=_LEAGUE_POP.slice(0,8).map(id=>(window.LEAGUES||[]).find(l=>l.id===id)).filter(Boolean);
+  const sugTeams=(H.tables||[]).flatMap(t=>t.rows.slice(0,2).map(r=>({league:t.league,team:r.team})));
+  const favsHTML=()=>{
+    const favL=FavStore.leagues(), favT=FavStore.teams();
+    const pins=[...[...favL].map(id=>({kind:'league',id,label:nmL(id)})),
+                ...favT.map(t=>({kind:'team',id:t.league,team:t.team,label:t.team}))];
+    const pinPills=pins.map(p=>`<button type="button" class="sp-pill on" data-kind="${p.kind}" data-lg="${p.id}" ${p.team?`data-team="${commandEsc(p.team)}"`:''}>★ ${commandEsc(p.label)}</button>`).join('');
+    const sugPills=[...sugTeams.filter(t=>!FavStore.hasTeam(t.league,t.team)).slice(0,6).map(t=>
+        `<button type="button" class="sp-pill" data-kind="team" data-lg="${t.league}" data-team="${commandEsc(t.team)}">${commandEsc(t.team)}</button>`),
+      ...sugLeagues.filter(l=>!favL.has(l.id)).slice(0,6).map(l=>
+        `<button type="button" class="sp-pill" data-kind="league" data-lg="${l.id}">${commandEsc(l.name)}</button>`)].join('');
+    return `${pins.length?`<div class="sp-h">Your picks</div><div class="sp-row">${pinPills}</div>`:''}
+      <div class="sp-h">${pins.length?'Suggestions':'Popular clubs & leagues'}</div><div class="sp-row">${sugPills}</div>`;
+  };
+  const searchHTML=q=>{
+    q=(q||'').trim().toLowerCase();
+    if(q.length<2) return '';
+    const L=(window.LEAGUES||[]).filter(l=>l.name.toLowerCase().includes(q)).slice(0,4).map(l=>
+      `<button type="button" class="sp-pill${FavStore.leagues().has(l.id)?' on':''}" data-kind="league" data-lg="${l.id}">${FavStore.leagues().has(l.id)?'★ ':''}${commandEsc(l.name)}</button>`);
+    const T=(window.SEARCH_INDEX||[]).filter(e=>e.t.toLowerCase().includes(q)).slice(0,8).map(e=>
+      `<button type="button" class="sp-pill${FavStore.hasTeam(e.l,e.t)?' on':''}" data-kind="team" data-lg="${e.l}" data-team="${commandEsc(e.t)}">${FavStore.hasTeam(e.l,e.t)?'★ ':''}${commandEsc(e.t)}<em> · ${nmL(e.l)}</em></button>`);
+    const rows=[...L,...T].join('');
+    return rows?`<div class="sp-h">Matches</div><div class="sp-row">${rows}</div>`:`<div class="sp-h">${window.SEARCH_INDEX?'No matches.':'Loading team index…'}</div>`;
+  };
+  const target=$('#view-outlook');
+  if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap" style="max-width:720px;margin:0 auto">
+    <div class="sub-hero">
+      <h1>Your clubs. Your leagues.<br>One honest email a week.</h1>
+      <p>Biggest movers, closest races, and how our public calls did — graded hits <i>and</i> misses. Built from a market-blind model that never sees betting odds.</p>
+      <div class="hnote">free · one email a week · unsubscribe any time · the site never gets paywalled</div>
+    </div>
+    <div class="mxp-card" style="margin-bottom:16px">
+      <div class="sp-step"><b>1 · Your email</b><span>where the weekly goes</span></div>
+      ${commandSignupHTML()}
+      <div class="sp-step" style="margin-top:18px"><b>2 · Pick your teams &amp; leagues</b><span>personalizes your stories, sorts matchdays your way, and tailors the weekly — saved on this device even without an email</span></div>
+      <input id="spSearch" class="sp-search" type="search" placeholder="🔍 Search any club or league…" autocomplete="off" spellcheck="false">
+      <div id="spResults"></div>
+      <div id="spFavs">${favsHTML()}</div>
+    </div>
+    <div class="ed-sec">What the weekly looks like</div>
+    <div class="sub-mail">
+      <div class="sub-mail-h"><b>This week at Entenser</b><span>sections reorder around your picks — no picks yet gets the global edition</span></div>
+      <div class="sub-mail-b">🔥 <b>Your club's biggest odds move</b> — what changed and why<br>
+        📊 <b>The closest race you follow</b> — who's live, what the gap is<br>
+        🧾 <b>How our calls did</b> — every graded hit and miss, in the open</div>
+    </div>
+    <div class="ed-sec">Supporter tier</div>
+    <div class="sup-body">${supportCardHTML()}</div>
+  </div>`; }
+  // favorites picker: toggle pins in place (no reload), lazy-load the team index
+  const wirePicker=()=>{
+    const wrap=$('#view-outlook'); if(!wrap) return;
+    wrap.addEventListener('click',e=>{
+      const p=e.target.closest('.sp-pill'); if(!p) return;
+      if(p.dataset.kind==='league') FavStore.toggleLeague(p.dataset.lg);
+      else FavStore.toggleTeam(p.dataset.lg,p.dataset.team);
+      track('favorite_toggle',{kind:p.dataset.kind});
+      const fv=$('#spFavs'); if(fv) fv.innerHTML=favsHTML();
+      const sr=$('#spResults'), sq=$('#spSearch'); if(sr&&sq&&sq.value) sr.innerHTML=searchHTML(sq.value);
+    });
+    const sq=$('#spSearch'), sr=$('#spResults');
+    let loading=false;
+    const ensureIdx=()=>{ if(window.SEARCH_INDEX||loading) return; loading=true;
+      const s=document.createElement('script'); s.src='data/search-index.js?t='+Date.now();
+      s.onload=()=>{ if(sq.value) sr.innerHTML=searchHTML(sq.value); }; document.head.appendChild(s); };
+    if(sq) { sq.addEventListener('focus',ensureIdx);
+      sq.addEventListener('input',()=>{ ensureIdx(); sr.innerHTML=searchHTML(sq.value); }); }
+  };
+  wirePicker();
+  bindCommandSignup();
+  bindWaitlist();
+  const _fs=$('#foot'); if(_fs && !_fs.innerHTML.trim()) _fs.innerHTML=FOOT_HTML;
 }
 
 // ── Static info / trust / legal routes (?league=about|data-sources|responsible-gambling|privacy) ──
@@ -4100,6 +4205,7 @@ if(_infoPage){
 (()=>{
   const route = _isHome ? 'home'
     : _isEdgeBoard ? 'command-center'
+    : _isNews ? 'news' : _isSubscribe ? 'subscribe'
     : _infoPage ? ('info:'+_infoPage) : _isPower ? 'power' : LID;
   track('pageview_route', {route});
   document.addEventListener('click', ev=>{

@@ -2,6 +2,22 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-18: **Home + Matches redesign shipped (desktop + mobile), News & Subscribe
+>   routes added** — user-directed template iteration (5 wireframes) then full build.
+>   Home: compact promise + Bundesliga-style results strip, rotating 8-league table
+>   synced with a title-odds board, personalized RSS section (desktop; News tab on
+>   mobile), one-league-at-a-time fixtures carousel, movers + news band kept; AI
+>   headline ladder, "The Models" rail, and Europe map removed. Matches: day-strip
+>   calendar with PL-style fixture rows (kickoff axis, team-colored bars, fair odds,
+>   favorites-first sort), slim email + rotating mover ticker, ledger strip; hero/KPIs/
+>   races/trust panels removed. Masthead: big-five stay in the bar, rest-of-Europe in a
+>   3-column dropdown, "Odds Format" label, larger date. Bottom nav: Home·Matches·
+>   Leagues·News·Subscribe (pill). Subscribe unifies weekly-email capture + favorites
+>   picker (FavStore) + supporter waitlist. Data: home.js gains `tables` (8 featured
+>   leagues) + per-league-capped fixtures (96) + 24 news; calendar.js gains ko/colors/
+>   lam/mu. 1060 tests green (3 pre-existing date-rot failures in test_build_movers
+>   flagged separately); sw.js→v10.
+>
 > - 2026-07-17 (5): **I1 — first pre-launch QA pass on production, no blocking
 >   issues** (`docs/qa-pass-2026-07-17.md`). Swept every route type (home, league
 >   SPA, command, power, results-only, team deep-link, support, all static pages)

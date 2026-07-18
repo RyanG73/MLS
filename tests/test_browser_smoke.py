@@ -288,19 +288,20 @@ class TestSquadValuePanel:
 
 
 class TestMatchesGroupedByDateAndLeague:
-    """?league=command renders the Command Center (formerly the no-query landing,
-    which is the editorial Home since 2026-07-11), grouping fixtures by date, then league."""
+    """?league=command is the Matches page (2026-07-17 redesign): a day-strip
+    calendar whose selected day renders PL-style fixture rows beneath it."""
 
-    def test_matches_view_has_day_groups(self, page: Page, webapp_url: str):
+    def test_matches_view_has_day_strip_and_fixture_rows(self, page: Page, webapp_url: str):
         page.goto(f"{webapp_url}/index.html?league=command", wait_until="networkidle")
         page.wait_for_timeout(400)
-        title = page.locator("#leagueTitle").inner_text()
-        assert title == "Command Center", f"Expected page title 'Command Center', got {title!r}"
-        # daygrp is only rendered when there are upcoming matches — skip gracefully
-        # in a quiet data window rather than asserting on scraped external state.
+        title = page.title()
+        assert title == "Entenser — Matches", f"Expected title 'Entenser — Matches', got {title!r}"
+        assert page.locator(".cal-strip .cal-box").count() > 0, "Expected calendar day boxes"
+        # fixture rows only render when the selected day has matches — skip
+        # gracefully in a quiet data window rather than asserting on scraped state.
         if page.locator(".eb-empty").count() > 0:
-            pytest.skip("no upcoming matches in the current data window")
-        assert page.locator(".daygrp").count() > 0, "Expected at least one .daygrp day-group"
+            pytest.skip("no matches on the selected day in the current data window")
+        assert page.locator(".fx-row").count() > 0, "Expected at least one .fx-row fixture row"
 
 
 class TestUiFeedbackRound2:
