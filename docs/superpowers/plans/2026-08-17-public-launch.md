@@ -2,6 +2,48 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-18 (5): **Intel + Account shipped (user-directed): News → Intel tab
+>   with a paywalled Personal Intelligence Hub mockup; Subscribe → full Account
+>   hub; team pages gated behind Intel.** New routes `?league=intel` and
+>   `?league=account` (old `?league=subscribe` links land on Account via alias +
+>   `history.replaceState`; `?league=news` survives for old links and is linked
+>   from Intel's free-headlines section). Intel page: gold-branded hero, founding-
+>   member subscribe hook ($7.99/€7.99/£6.99 waitlist, own localStorage key
+>   `entenser_intel_waitlist` + `waitlist_click{tier:'intel'}` event), six greyed-
+>   out demo panels (deep dives, what-ifs, projection studio, team HQ — personalized
+>   to the user's first pinned club — threshold alerts, CSV downloads) with crisp
+>   gold 🔒 Intel chips over grayscaled bodies. Team profiles: header + favorite
+>   star stay free; the full dashboard renders greyed under a gate card with a
+>   fade-out mask, honoring `IntelStore` (`localStorage entenser.intel='unlocked'`
+>   restores everything — hook for the future checkout). Account page (desktop
+>   side-nav + scrollspy, mobile sticky pill rail): Profile (name/email →
+>   `entenser.acct`, email mirrored to `entenser_email_interest`), Favorites
+>   (picker moved from Subscribe), Subscriptions (Free vs Intel plan cards + hook +
+>   weekly email), Notifications (5 toggles, 2 Intel-gated, alert threshold),
+>   Preferences (odds format via `setOddsFmt`, tz note), Data & privacy (JSON
+>   export, clear-all). Masthead gains 📡 Intel (PRO tag) + 👤 Account; bottom nav
+>   is Home·Matches·Leagues·Intel·Account(pill). Verified in-browser desktop +
+>   mobile: all routes, zero console errors, no horizontal overflow, gate
+>   lock/unlock, waitlist + profile persistence, odds-pill ↔ masthead sync.
+>
+> - 2026-07-18 (4): **A1a shipped — GA4 analytics adapter in place.**
+>   `webapp/index.html` now uses GA4/`gtag.js` as the launch analytics provider
+>   behind the existing `track(event, props)` API, with all current revenue-relevant
+>   events flowing to `gtag('event', ...)`. Analytics remains hard-disabled unless
+>   the page is served from `https://entenser.com` and a valid `G-...` Measurement
+>   ID is configured. Plausible remains a deferred provider option behind the same
+>   adapter, without changing call sites. A1 still needs the user-created GA4 Web
+>   stream ID before production e2e verification (A3/I2).
+>
+> - 2026-07-18 (3): **Measurement strategy shifted to Google-first for startup
+>   capital discipline.** Plausible is no longer the launch-blocking analytics
+>   account. Default stack is GA4 Standard ($0) + Google Search Console ($0), with
+>   Plausible deferred until a simpler privacy-first dashboard is worth paying for.
+>   Added A1a as the required codebase change: replace the current Plausible-only
+>   loader with a provider adapter that supports GA4/gtag, keeps analytics disabled
+>   on localhost/file previews, and routes the existing revenue-relevant events into
+>   GA4. Primary metric remains weekly returning forecast users, now measured in GA4.
+>
 > - 2026-07-18 (2): **test_build_movers fixed — not date-rot** (test-only change,
 >   production untouched). Root cause: the home-overhaul commit (3279e2a) changed
 >   `compute_movers`' contract — return went `list` → `(list, span_days,
@@ -138,27 +180,29 @@
 Convert an invisible but differentiated product into a discoverable, honest, measurable
 one, and announce it Monday 2026-08-17. The binding constraint is distribution, not
 model quality. Success at launch+30d: league pages indexed in GSC, weekly returning
-forecast users measurable in Plausible, email list growing, waitlist conversion known.
+forecast users measurable in GA4, email list growing, waitlist conversion known.
 
-**Primary early metric:** weekly returning forecast users (Plausible).
+**Primary early metric:** weekly returning forecast users on forecast routes (GA4).
 **Secondary:** email signups, league-page search impressions, waitlist joins by country.
 
-## Status at a glance (updated 2026-07-17)
+## Status at a glance (updated 2026-07-18)
 
 **9 of 11 workstreams shipped and live on entenser.com.** The two that aren't done
-are blocked on ~15 minutes of user account setup, not on engineering.
+are mostly blocked on ~15 minutes of user account setup; the GA4 adapter code is now
+ready for the Measurement ID.
 
 - ✅ **Done & live:** combined report · B (data honesty) · C1–C9 (crawlable SEO) ·
-  D (messaging) · F (locale) · G (waitlist) · H1–H4 (distribution) · I1 (QA pass)
-- ⛔ **Blocked on USER (accounts):** A1 Plausible · A2 GSC · C10 sitemap submission ·
-  E1 Resend domain+key. Engineering for E2–E4 is ready to build the moment the key exists.
+  D (messaging) · F (locale) · G (waitlist) · H1–H4 (distribution) · I1 (QA pass) ·
+  A1a (GA4 adapter)
+- ⛔ **Blocked on USER (accounts):** A1 GA4 · A2 GSC · C10 sitemap submission ·
+  E1 Resend domain+key. E2–E4 are ready to build the moment the key exists.
 - 🗓 **Launch-week / USER:** H5 post announcements · I2 analytics+email e2e (needs
   accounts) · I3 content freeze Aug 14 · I4 user posts Aug 17.
 
 | WS | What | Status |
 |----|------|--------|
 | — | Combined competitive-intel report | ✅ Done |
-| A | Measurement (Plausible / GSC / events) | ⏳ New events + metrics done in code; **A1/A2 blocked on USER** |
+| A | Measurement (GA4 / GSC / events) | ⏳ A1a done; **A1/A2 blocked on USER** |
 | B | Data-status honesty contract | ✅ Done & live |
 | C | Crawlable pages + SEO | ✅ C1–C9 done & live · ⛔ C10 needs USER (GSC) · ⬜ C11 optional |
 | D | Messaging + trust on-ramp | ✅ Done & live |
@@ -168,8 +212,8 @@ are blocked on ~15 minutes of user account setup, not on engineering.
 | H | Distribution content | ✅ H1–H4 done & live · 🗓 H5 is USER (post) |
 | I | QA + launch | ⏳ I1 done, no blockers found · I2 needs accounts · I3 Aug 14 · I4 USER Aug 17 |
 
-**The single highest-leverage next action:** the ~15-min account setup (Plausible,
-GSC, Resend — runbook below). It unblocks A, C10, E, and the measurement half of I.
+**The single highest-leverage next action:** the ~15-min account setup (GA4, GSC,
+Resend — runbook below). It unblocks A, C10, E, and the measurement half of I.
 
 ## Architecture decision (Workstream C, settled 2026-07-16)
 
@@ -189,13 +233,20 @@ Owner is Claude unless marked **(USER)**. `[ ]` → `[x]` with a verdict-log ent
 
 ### A — Measurement truth (Week 1: Jul 16–22) — P0
 
-- [ ] **A1 (USER) — ⛔ BLOCKED** Create Plausible account for `entenser.com` (paid
-      plausible.io or self-hosted). No code change needed — `webapp/index.html:25`
-      is pre-configured.
+- [ ] **A1 (USER) — ⛔ BLOCKED** Create a free GA4 property + Web data stream for
+      `entenser.com`; copy the Measurement ID (`G-...`) into the setup handoff.
+- [x] **A1a** Modify the website analytics adapter in
+      `webapp/index.html` to support Google Analytics 4 (`gtag.js`) as the launch
+      provider, keep analytics disabled on localhost/file previews, and route the
+      existing revenue-relevant events (`pageview_route`, `league_nav`, `tab_click`,
+      `match_expand`, `team_open`, `favorite_toggle`, `email_signup`,
+      `waitlist_click`, `article_click`, `home_table_jump`, `odds_format_change`)
+      into GA4. Keep Plausible as an optional/deferred provider only if the adapter
+      can do so without adding complexity.
 - [ ] **A2 (USER) — ⛔ BLOCKED** Google Search Console: add property `entenser.com`,
       verify via DNS TXT record at the domain registrar. (Instructions in runbook.)
 - [~] **A3 — PARTIAL** `waitlist_click` (G2) and `odds_format_change` (F2) events
-      added and live. Remaining: verify events flow end-to-end — **needs A1**.
+      added and live. Remaining: verify GA4 events flow end-to-end — **needs A1**.
 - [x] **A4** Metrics defined (see Goal). Done at plan creation.
 
 ### B — Data-status honesty contract (Week 1) — P0
@@ -256,8 +307,8 @@ Owner is Claude unless marked **(USER)**. `[ ]` → `[x]` with a verdict-log ent
 
 - [x] **G1** `?league=support` "Support Entenser" card: locale-aware price, feature
       list, waitlist form tagged `supporter-waitlist`; footer + info-nav links.
-- [x] **G2** `waitlist_click` fires (Plausible attributes country server-side once A1
-      is live). **Decision gate:** build the paid tier only if ≥2% of returning users join.
+- [x] **G2** `waitlist_click` fires (GA4 will report geography once A1 is live).
+      **Decision gate:** build the paid tier only if ≥2% of returning users join.
 
 ### H — Distribution + launch content (Weeks 3–4: Aug 3–14)
 
@@ -280,13 +331,13 @@ Owner is Claude unless marked **(USER)**. `[ ]` → `[x]` with a verdict-log ent
       JSON-LD — **no blocking issues**. (More passes planned before launch.)
 - [ ] **I2 — ⛔ needs accounts** Analytics + email capture verified end-to-end on production.
 - [ ] **I3 — 🗓 Aug 14** Content freeze; nightly refresh + deploy chain green.
-- [ ] **I4 (USER) — 🗓 Aug 17** Post announcements; monitor Plausible/GSC.
+- [ ] **I4 (USER) — 🗓 Aug 17** Post announcements; monitor GA4/GSC.
 
 ## Timeline
 
 **Actual progress vs plan:** engineering is ~3 weeks ahead — all of B, C, D, F, G,
 H and the first QA pass landed in the Jul 16–17 window (originally scheduled through
-mid-August). What's left is user account setup + launch-week execution, not build work.
+mid-August). What's left is user account setup and launch-week execution.
 
 | Week (original plan) | Focus | Actual |
 |---|---|---|
@@ -296,15 +347,15 @@ mid-August). What's left is user account setup + launch-week execution, not buil
 | Aug 6–12 | H1–H4 · QA starts | ✅ done early |
 | Aug 13–17 | I freeze + final QA · **launch** | 🗓 remaining: I2–I4, more QA passes |
 
-**Now user-blocking (the only thing between here and a measured launch):**
-A1 (Plausible), A2 (GSC DNS), E1 (Resend + proxy host) — runbook below.
+**Now user-blocking:** A1 (GA4 Measurement ID), A2 (GSC DNS), E1 (Resend + proxy
+host) — runbook below. **Code-blocking:** none.
 
 ## Launch runbook — user setup instructions
 
-1. **Plausible (A1):** plausible.io → sign up → Add website → domain `entenser.com`,
-   timezone America/New_York. Nothing to install — the site's script loads
-   `plausible.io/js/script.tagged-events.js` already. Within minutes of the account
-   existing, visits appear. Then tell Claude to run A3 verification.
+1. **Google Analytics 4 (A1):** analytics.google.com → Admin → Create property →
+   Web data stream → URL `https://entenser.com` → copy the Measurement ID (`G-...`).
+   Keep enhanced measurement on. Then set `ANALYTICS.measurementId` in
+   `webapp/index.html` and run A3 verification.
 2. **Search Console (A2):** search.google.com/search-console → Add property →
    "Domain" type → `entenser.com` → copy the TXT record → add it at the DNS provider
    → Verify. Grant Claude the property URL for C10 submissions (screenshots suffice).
@@ -315,12 +366,12 @@ A1 (Plausible), A2 (GSC DNS), E1 (Resend + proxy host) — runbook below.
 
 ## Post-launch backlog (deferred by decision)
 
-Team pages (~1,100; after GSC proves league indexation) · Spanish landing pages
-(La Liga/Liga MX) · GBP/EUR pricing + real checkout (gated on G2) · weekly digest
-email sends (needs owner sign-off) · dynamic OG cards · quarterly competitive monitor
-(Silver Bulletin club-model watch; FotMob/Sofascore forecast features; Football Data
-Lab pricing) · contextual non-gambling sponsorship · ads (gated on RPM vs trust
-measurement).
+Plausible dashboard (deferred until traction justifies spend) · Team pages (~1,100;
+after GSC proves league indexation) · Spanish landing pages (La Liga/Liga MX) ·
+GBP/EUR pricing + real checkout (gated on G2) · weekly digest email sends (needs
+owner sign-off) · dynamic OG cards · quarterly competitive monitor (Silver Bulletin
+club-model watch; FotMob/Sofascore forecast features; Football Data Lab pricing) ·
+contextual non-gambling sponsorship · ads (gated on RPM vs trust measurement).
 
 ## Verification (per workstream)
 

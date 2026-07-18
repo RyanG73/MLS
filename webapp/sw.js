@@ -25,7 +25,9 @@
 // v10 (2026-07-18): full home + matches redesign (rotating tables, results strip,
 //   fixtures carousel, PL-style matchday rows), News + Subscribe routes, regrouped
 //   masthead with multi-column Europe dropdown, 5-tab bottom nav.
-const CACHE = "entenser-shell-v10";
+// v11 (2026-07-18): Intel (paywalled Personal Intelligence Hub mockup) + Account
+//   hub replace News + Subscribe in the nav; team pages gated behind Intel.
+const CACHE = "entenser-shell-v11";
 const SHELL = [
   "/",
   "/index.html",

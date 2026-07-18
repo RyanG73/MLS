@@ -26,20 +26,42 @@
   "logo":"https://entenser.com/assets/pwa/icon-512.png"}]}
 </script>
 <script>
-/* Privacy-preserving analytics (Plausible — no cookies, GDPR-friendly, matches the
-   Privacy page copy). Active ONLY on the live domain, never on localhost/file
-   previews, so development and the test suite never emit events. To disable
-   entirely, set provider to 'none'; to switch vendors, change provider + loader.
-   NOTE: events are only *recorded* once entenser.com exists in a Plausible account
-   (or self-hosted instance). Until then track() is a no-op off-domain and a harmless
-   dropped beacon on-domain — no code change needed when the account is created. */
-const ANALYTICS = {provider:'plausible', domain:'entenser.com', host:'https://plausible.io'};
-const _analyticsOn = ANALYTICS.provider==='plausible' && location.hostname===ANALYTICS.domain;
-window.plausible = window.plausible || function(){(window.plausible.q=window.plausible.q||[]).push(arguments);};
-function track(event, props){ if(!_analyticsOn) return; try{ window.plausible(event, props?{props}:undefined); }catch(e){} }
-if(_analyticsOn){
+/* Analytics adapter. Active ONLY on the canonical HTTPS live domain, never on
+   localhost/127.0.0.1/file previews, so development and tests never emit events.
+   Launch provider is GA4; fill measurementId with the A1 Web stream ID (G-...).
+   Plausible stays available as a deferred provider by changing provider + host. */
+const ANALYTICS = {
+  provider:'ga4',
+  domain:'entenser.com',
+  measurementId:'',
+  plausibleHost:'https://plausible.io'
+};
+const _analyticsLiveHost = location.protocol==='https:' && location.hostname===ANALYTICS.domain;
+const _analyticsProviderReady =
+  (ANALYTICS.provider==='ga4' && /^G-[A-Z0-9]+$/i.test(ANALYTICS.measurementId||'')) ||
+  ANALYTICS.provider==='plausible';
+const _analyticsOn = _analyticsLiveHost && _analyticsProviderReady;
+
+function track(event, props){
+  if(!_analyticsOn) return;
+  try{
+    if(ANALYTICS.provider==='ga4') window.gtag('event', event, props||{});
+    else if(ANALYTICS.provider==='plausible') window.plausible(event, props?{props}:undefined);
+  }catch(e){}
+}
+
+if(_analyticsOn && ANALYTICS.provider==='ga4'){
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
+  window.gtag('js', new Date());
+  window.gtag('config', ANALYTICS.measurementId, {send_page_view:false});
   const s=document.createElement('script');
-  s.defer=true; s.src=ANALYTICS.host+'/js/script.tagged-events.js';
+  s.async=true; s.src='https://www.googletagmanager.com/gtag/js?id='+encodeURIComponent(ANALYTICS.measurementId);
+  document.head.appendChild(s);
+}else if(_analyticsOn && ANALYTICS.provider==='plausible'){
+  window.plausible = window.plausible || function(){(window.plausible.q=window.plausible.q||[]).push(arguments);};
+  const s=document.createElement('script');
+  s.defer=true; s.src=ANALYTICS.plausibleHost+'/js/script.tagged-events.js';
   s.setAttribute('data-domain', ANALYTICS.domain);
   document.head.appendChild(s);
 }
@@ -922,10 +944,11 @@ const _isHome=!_rawLeague;                    // no param → the Home landing (
 const _isEdgeBoard=_rawLeague==='command';    // edge board moved to ?league=command ("Matches")
 const _isLeagues=_rawLeague==='leagues';      // full league index (replaces the old sidebar)
 const _isFavs=_rawLeague==='favorites';       // pinned leagues + teams
-const _isNews=_rawLeague==='news';            // global + personalized news (2026-07-17 redesign)
-const _isSubscribe=_rawLeague==='subscribe';  // email + favorites picker + supporter waitlist
+const _isNews=_rawLeague==='news';            // legacy global feed (nav now points at Intel, 2026-07-18)
+const _isIntel=_rawLeague==='intel';          // Personal Intelligence Hub — paywalled tier mockup (2026-07-18)
+const _isAccount=_rawLeague==='account'||_rawLeague==='subscribe'; // account hub (absorbs the old Subscribe page; old links land here)
 // Special routes that piggyback on the HOME payload rather than a per-league file.
-const _homeDataRoute=_isHome||_isLeagues||_isFavs||_isNews||_isSubscribe;
+const _homeDataRoute=_isHome||_isLeagues||_isFavs||_isNews||_isIntel||_isAccount;
 const LID=(_rawLeague&&_rawLeague!=='command')?_rawLeague:'mls';
 // Static info / trust / legal routes render self-contained content — there is no
 // per-league data/news/drift file to fetch, so skip those document.writes.
@@ -981,8 +1004,8 @@ const _isPower = new URLSearchParams(location.search).get('league')==='power';
 // below no-ops; renderPower()/renderEdgeBoard() (appended at the end of the page) then
 // hide the league UI and draw the real view.
 const D = (_isPower || _isEdgeBoard || _infoPage || _homeDataRoute)
-  ? {league:{name:_isHome?"Home":_isEdgeBoard?"Command Center":_infoPage?'Info':_isLeagues?'Leagues':_isFavs?'Favorites':_isNews?'News':_isSubscribe?'Subscribe':'Cross-League Power Rankings'},
-     outlook:{mode:_isHome?'home':_isEdgeBoard?'edge-board':_isLeagues?'leagues':_isFavs?'favorites':_isNews?'news':_isSubscribe?'subscribe':'power'}, standings:[], games:[],
+  ? {league:{name:_isHome?"Home":_isEdgeBoard?"Command Center":_infoPage?'Info':_isLeagues?'Leagues':_isFavs?'Favorites':_isNews?'News':_isIntel?'Intel':_isAccount?'Account':'Cross-League Power Rankings'},
+     outlook:{mode:_isHome?'home':_isEdgeBoard?'edge-board':_isLeagues?'leagues':_isFavs?'favorites':_isNews?'news':_isIntel?'intel':_isAccount?'account':'power'}, standings:[], games:[],
      sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], team_inputs:{}, elo_history:{},
      health:null, model_card:{}, in_season_brier:{}, season:2026}
   : window.LEAGUE_DATA;
@@ -1018,6 +1041,27 @@ const FavStore=(()=>{
       const added=i<0; added?a.push({league:lg,team:t}):a.splice(i,1); write(TKEY,a); return added;},
   };
 })();
+// ── IntelStore (2026-07-18): Entenser Intel paywall state. Nothing is for sale
+//    yet, so "unlocked" is a local flag the future checkout will set — every
+//    gate in the app reads this one place. Defined here (main script) because
+//    renderProfile can run synchronously for ?team= deep links before the
+//    later script blocks have parsed. ──
+const IntelStore={
+  KEY:'entenser.intel',
+  unlocked(){try{return localStorage.getItem(this.KEY)==='unlocked';}catch(e){return false;}},
+  unlock(){try{localStorage.setItem(this.KEY,'unlocked');}catch(e){}},
+  lock(){try{localStorage.removeItem(this.KEY);}catch(e){}},
+};
+// Gate card shown above a greyed-out team profile. Local esc (not commandEsc —
+// that helper lives in a later script block, see IntelStore comment above).
+function teamGateCardHTML(team){
+  const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return `<div class="intel-gatecard"><span class="lk">🔒</span>
+    <div class="gc-t"><b>Full team pages are part of Entenser Intel</b>
+      <span class="t">The complete ${esc(team)} dashboard — model inputs, "is this team for real?", club-level accuracy, what-ifs and news — unlocks with Intel. The league forecasts stay free.</span></div>
+    <a class="intel-btn" href="?league=intel">See what's inside →</a>
+    <a class="intel-btn ghost" href="?league=account#acct-subs">Manage plan</a></div>`;
+}
 // ── NYT-style masthead: date row + moose wordmark + search + country bar with
 //    league dropdowns (click or hover to open; rows show country · division) + LIVE strip ──
 (()=>{
@@ -1094,6 +1138,9 @@ const FavStore=(()=>{
     menuCols[g]=ls.length>=14?3:ls.length>=7?2:1;
     bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${ls[0].id}" class="${activeGroup===g?'active':''}">${flag} ${label}</a></div>`;});
   bar+=`<div class="mb-item"><a href="?league=power" class="${!_isEdgeBoard&&!_homeDataRoute&&!_infoPage&&LID==='power'?'active':''}">\u{1F30D} Rankings</a></div>`;
+  // Intel (paywalled hub mockup) + Account replace the old News/Subscribe pair (2026-07-18)
+  bar+=`<div class="mb-item"><a href="?league=intel" class="${_isIntel?'active':''}">\u{1F4E1} Intel<span class="intel-tag">PRO</span></a></div>`
+      +`<div class="mb-item"><a href="?league=account" class="${_isAccount?'active':''}">\u{1F464} Account</a></div>`;
   const live=(H&&H.fixtures&&H.fixtures.length)
     ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">${H.fixtures.length} fixtures modeled in the next 10 days</a><span>· across ${H.stats.leagues} leagues</span></div>`:'';
   mast.innerHTML=`<div class="mast-top">
@@ -1164,14 +1211,14 @@ const FavStore=(()=>{
       if(e.key==='Escape'){ msr.classList.remove('open'); msq.blur(); }});
     document.addEventListener('click',e=>{ if(!e.target.closest('.mast-search')) msr.classList.remove('open'); });
   }
-  // bottom tab bar (2026-07-17 redesign: Favorites out, News in, Subscribe as
-  // the filled action pill — favorites live on via the Subscribe page picker)
+  // bottom tab bar (2026-07-18: News → Intel — the paywalled hub mockup — and
+  // Subscribe → Account, which absorbed the email + favorites picker)
   const bn=$('#bnav'); if(bn) bn.innerHTML=
     `<a href="${location.pathname}" class="${_isHome?'active':''}"><span class="ico">\u{1F3E0}</span>Home</a>
      <a href="?league=command" class="${_isEdgeBoard?'active':''}"><span class="ico">⚽</span>Matches</a>
      <a href="?league=leagues" class="${_isLeagues?'active':''}"><span class="ico">\u{1F4CA}</span>Leagues</a>
-     <a href="?league=news" class="${_isNews?'active':''}"><span class="ico">\u{1F4F0}</span>News</a>
-     <a href="?league=subscribe" class="bn-sub${_isSubscribe?' active':''}">Subscribe</a>`;
+     <a href="?league=intel" class="${_isIntel?'active':''}"><span class="ico">\u{1F4E1}</span>Intel</a>
+     <a href="?league=account" class="bn-sub${_isAccount?' active':''}">Account</a>`;
 })();
 // ── League header (title + logo + % complete) ──
 (()=>{
@@ -3037,11 +3084,18 @@ function renderProfile(team,scroll){
       ${row('Naive Brier',bs.naive,null)}
       <div class="hnote">Lower is better · naive = this season's league base rates${bs.market==null?' · no market lines matched this club yet':''} · model ${bs.model<bs.naive?'beats':'trails'} naive on this club's matches</div></div>`;
   }
+  // Entenser Intel gate (2026-07-18): team pages are a paid feature. The header
+  // (and its favorite star) stays free; the full dashboard renders greyed-out
+  // beneath a gate card, fading to nothing — a real preview, not a wall of text.
+  const _gated=!IntelStore.unlocked();
   $('#teamProfile').innerHTML=
-    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div><span class="fav-team-star${FavStore.hasTeam(LID,team)?' on':''}" id="favTeamStar" title="Pin to Favorites">${FavStore.hasTeam(LID,team)?'★':'☆'}</span></div>
-     <div class="chart-wrap big">${chart}${trophLegend}<div class="troph-list">${chips}</div></div>
-     <div class="prof-grid">${inputsCard}${seasonCard}${forRealCard}${accCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}<div class="pcard" style="grid-column:1/-1"><h3>Club news</h3><div id="clubNews" class="hnote">Loading…</div></div></div>`;
-  fillClubNews(team);
+    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div><span class="fav-team-star${FavStore.hasTeam(LID,team)?' on':''}" id="favTeamStar" title="Pin to Favorites">${FavStore.hasTeam(LID,team)?'★':'☆'}</span></div>`
+    +(_gated?teamGateCardHTML(team)+`<div class="intel-lockwrap"><div class="lockbody" aria-hidden="true">`:'')
+    +`<div class="chart-wrap big">${chart}${trophLegend}<div class="troph-list">${chips}</div></div>
+     <div class="prof-grid">${inputsCard}${seasonCard}${forRealCard}${accCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}<div class="pcard" style="grid-column:1/-1"><h3>Club news</h3><div id="clubNews" class="hnote">Loading…</div></div></div>`
+    +(_gated?`</div></div>`:'');
+  if(_gated){const cn=document.getElementById('clubNews'); if(cn)cn.textContent='Included with Entenser Intel.';}
+  else fillClubNews(team);
   const _fts=$('#favTeamStar'); if(_fts) _fts.onclick=()=>{const on=FavStore.toggleTeam(LID,team);_fts.classList.toggle('on',on);_fts.textContent=on?'★':'☆';};
   if(scroll)$('#teamProfile').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -3336,6 +3390,114 @@ if (_isPower && window.POWER_DATA) {
 .sub-mail-h b{display:block;font-size:12.5px}
 .sub-mail-h span{font-size:10.5px;color:var(--txt-3)}
 .sub-mail-b{padding:12px 14px;font-size:12.5px;line-height:2}
+/* ── Entenser Intel (2026-07-18): premium tier branding — gold on the dark
+   terminal ink, distinct from the free product's qualify-green actions ── */
+:root{--intel:#f4b740}
+.intel-tag{font-family:var(--mono);font-size:7.5px;font-weight:800;letter-spacing:.08em;color:var(--intel);border:1px solid rgba(244,183,64,.5);border-radius:3px;padding:1px 3px;margin-left:5px;vertical-align:2px}
+.intel-kick{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--intel);display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.intel-kick:before{content:"";width:22px;height:1px;background:var(--intel)}
+.intel-hero{padding:var(--s5) 2px var(--s3)}
+.intel-hero h1{font-size:clamp(24px,3.6vw,34px);line-height:1.15;font-weight:900;letter-spacing:-.02em;margin:0 0 10px}
+.intel-hero h1 em{font-style:normal;color:var(--intel)}
+.intel-hero p{color:var(--txt-2);font-size:13.5px;line-height:1.6;max-width:66ch;margin:0 0 12px}
+.intel-tagchips{display:flex;gap:6px;flex-wrap:wrap}
+.intel-tagchips span{font-family:var(--mono);font-size:10px;color:var(--txt-2);border:1px solid var(--line-2);border-radius:999px;padding:4px 10px}
+.intel-btn{display:inline-flex;align-items:center;gap:6px;background:var(--intel);color:#181004;font-weight:800;font-size:12px;border:0;border-radius:var(--r-sm);padding:9px 14px;text-decoration:none;cursor:pointer;white-space:nowrap}
+.intel-btn:hover{filter:brightness(1.08)}
+.intel-btn.ghost{background:var(--ink-2);color:var(--txt-1);border:1px solid var(--line-2);font-weight:700}
+.intel-btn.ghost:hover{background:var(--ink-3);filter:none}
+/* subscribe hook card (gold) */
+.intel-hook{border:1px solid rgba(244,183,64,.45);border-radius:var(--r-lg);background:linear-gradient(180deg,rgba(244,183,64,.07),rgba(244,183,64,.015)),var(--ink-1);padding:var(--s4);display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:var(--s4);align-items:center;margin:var(--s4) 0}
+.ih-price{display:flex;align-items:baseline;gap:8px;margin:2px 0 6px}
+.ih-price b{font-family:"Archivo";font-size:28px;font-weight:900;letter-spacing:-.01em}
+.ih-price span{font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.05em}
+.intel-hook p{color:var(--txt-2);font-size:12.5px;line-height:1.55;margin:0 0 6px;max-width:52ch}
+.intel-hook .sup-form{margin:0 0 8px}
+.intel-hook .sup-form button{background:var(--intel);color:#181004}
+@media(max-width:760px){.intel-hook{grid-template-columns:1fr}}
+/* greyed-out demo panels: header + lock chip stay crisp, body content greys */
+.intel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--s3)}
+.ipanel{position:relative;border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--ink-1);padding:var(--s4);overflow:hidden}
+.ipanel h3{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-1);margin:0 0 3px;padding-right:60px}
+.ipanel .isub{font-size:11px;color:var(--txt-3);margin-bottom:10px;line-height:1.4}
+.ilock{position:absolute;top:11px;right:11px;font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--intel);border:1px solid rgba(244,183,64,.5);background:rgba(244,183,64,.09);border-radius:4px;padding:2px 6px}
+.idemo{filter:grayscale(1) brightness(.82);opacity:.55;pointer-events:none;user-select:none}
+.ifake-in{display:flex;align-items:center;gap:8px;background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-3);font-size:12px;padding:8px 10px;margin-bottom:9px}
+.ibar{height:9px;border-radius:4px;background:var(--ink-3);overflow:hidden;display:flex;flex:1;min-width:60px}
+.ibar span{height:100%}
+.irow{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;color:var(--txt-2)}
+.irow:last-child{border-bottom:0}
+.irow .k{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.irow .v{font-family:var(--mono);font-weight:700;color:var(--txt-1);flex:none}
+.iwbox{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;background:var(--ink-3);border:1px solid var(--line-3);font-family:var(--mono);font-size:10px;font-weight:700;color:var(--txt-2)}
+.iwbox.on{background:var(--qualify);color:#06120b;border-color:transparent}
+/* team-page gate: card above, greyed profile (with fade-out) below */
+.intel-gatecard{border:1px solid rgba(244,183,64,.45);border-radius:var(--r-lg);background:linear-gradient(180deg,rgba(244,183,64,.08),rgba(244,183,64,.02)),var(--ink-1);padding:14px 16px;margin:var(--s3) 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.intel-gatecard .lk{font-size:22px;flex:none}
+.intel-gatecard .gc-t{flex:1;min-width:230px}
+.intel-gatecard b{display:block;font-size:14px;margin-bottom:2px}
+.intel-gatecard .t{font-size:12px;color:var(--txt-2);line-height:1.5}
+.intel-lockwrap{position:relative}
+.intel-lockwrap .lockbody{filter:grayscale(.9) brightness(.8);opacity:.5;pointer-events:none;user-select:none;max-height:780px;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,#000 55%,transparent);mask-image:linear-gradient(180deg,#000 55%,transparent)}
+/* ── Account hub (2026-07-18): side nav on desktop, pill rail on mobile ── */
+.acct-wrap{display:grid;grid-template-columns:190px minmax(0,1fr);gap:var(--s5);align-items:start;padding-top:var(--s4)}
+.acct-nav{position:sticky;top:86px;display:flex;flex-direction:column;gap:2px}
+.acct-nav a{font-size:12.5px;font-weight:600;color:var(--txt-2);text-decoration:none;padding:8px 10px;border-radius:var(--r-sm);border-left:2px solid transparent}
+.acct-nav a:hover{color:var(--txt-1);background:var(--ink-1)}
+.acct-nav a.on{color:var(--txt-1);background:var(--ink-1);border-left-color:var(--qualify)}
+@media(max-width:900px){
+  .acct-wrap{grid-template-columns:1fr;gap:var(--s3)}
+  .acct-nav{position:sticky;top:0;z-index:20;background:var(--ink-0);flex-direction:row;overflow-x:auto;scrollbar-width:none;gap:6px;padding:8px 0}
+  .acct-nav::-webkit-scrollbar{display:none}
+  .acct-nav a{flex:none;border:1px solid var(--line-2);border-radius:999px;padding:6px 12px;border-left-width:1px}
+  .acct-nav a.on{border-color:var(--qualify)}
+}
+.acct-head{display:flex;align-items:center;gap:14px;padding:var(--s4) 0 var(--s3)}
+.acct-ava{width:54px;height:54px;border-radius:50%;background:var(--ink-3);border:1px solid var(--line-3);display:grid;place-items:center;font-family:"Archivo";font-weight:800;font-size:19px;color:var(--qualify);flex:none}
+.acct-head h1{font-size:20px;font-weight:800;margin:0}
+.acct-head .sub{font-size:12px;color:var(--txt-3)}
+.acct-sec{border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--ink-1);padding:var(--s4);margin-bottom:var(--s4);scroll-margin-top:96px}
+.acct-sec>h2{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin:0 0 2px;display:flex;align-items:center;gap:8px}
+.acct-sec>h2 .dot{width:7px;height:7px;border-radius:50%;background:var(--qualify);box-shadow:0 0 8px var(--qualify);flex:none}
+.acct-sec>.d{font-size:11.5px;color:var(--txt-3);margin-bottom:12px}
+.acct-field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.acct-field label{font-size:10px;font-weight:700;color:var(--txt-3);text-transform:uppercase;letter-spacing:.06em}
+.acct-field input,.acct-field select{background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:9px 11px;font-size:13px;outline:none;max-width:380px}
+.acct-field input:focus,.acct-field select:focus{border-color:var(--txt-3)}
+.acct-btn{display:inline-flex;align-items:center;gap:6px;background:var(--ink-2);color:var(--txt-1);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
+.acct-btn:hover{background:var(--ink-3)}
+.acct-btn.primary{background:var(--qualify);color:#06120b;border-color:transparent;font-weight:800}
+.acct-btn.primary:hover{filter:brightness(1.07);background:var(--qualify)}
+.acct-btn.danger{color:var(--drop);border-color:rgba(255,93,93,.4);background:rgba(255,93,93,.06)}
+.acct-btn.danger:hover{background:rgba(255,93,93,.12)}
+.acct-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.acct-row:last-child{border-bottom:0}
+.acct-row .ttl{flex:1;min-width:0}
+.acct-row .ttl b{display:block;font-size:12.5px}
+.acct-row .ttl b .ilock{position:static;margin-left:6px}
+.acct-row .ttl span{font-size:11px;color:var(--txt-3);line-height:1.4;display:block;margin-top:1px}
+/* toggle switch */
+.tgl{position:relative;width:38px;height:22px;flex:none}
+.tgl input{opacity:0;position:absolute;inset:0;margin:0;cursor:pointer}
+.tgl i{position:absolute;inset:0;background:var(--ink-3);border:1px solid var(--line-3);border-radius:999px;transition:.15s;pointer-events:none}
+.tgl i:after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:var(--txt-3);transition:.15s}
+.tgl input:checked+i{background:rgba(61,220,132,.22);border-color:var(--qualify)}
+.tgl input:checked+i:after{left:17px;background:var(--qualify)}
+.tgl input:disabled{cursor:not-allowed}
+.tgl input:disabled+i{opacity:.4}
+/* plan cards */
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:var(--s3);margin-bottom:8px}
+.plan{border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--ink-2);padding:14px;position:relative}
+.plan .nm{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-3)}
+.plan .pr{font-family:"Archivo";font-size:24px;font-weight:900;margin:4px 0 0}
+.plan .pr small{font-size:11px;color:var(--txt-3);font-weight:600;letter-spacing:.02em}
+.plan ul{list-style:none;margin:10px 0 0;padding:0}
+.plan li{font-size:12px;color:var(--txt-2);padding:5px 0 5px 18px;position:relative;line-height:1.45}
+.plan li:before{content:"✓";position:absolute;left:0;color:var(--qualify);font-weight:800}
+.plan.pro{border-color:rgba(244,183,64,.5);background:linear-gradient(180deg,rgba(244,183,64,.06),transparent),var(--ink-2)}
+.plan.pro li:before{color:var(--intel)}
+.plan .cur{position:absolute;top:13px;right:13px;font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--qualify);border:1px solid rgba(61,220,132,.5);border-radius:4px;padding:2px 6px}
+.plan.pro .cur{color:var(--intel);border-color:rgba(244,183,64,.5)}
 .sub-body h2{font-size:20px}
 @media(max-width:640px){
   .mxp-two{grid-template-columns:1fr}
@@ -3595,6 +3757,48 @@ function bindWaitlist(){
     if(input)input.disabled=true;
   });
 }
+// ── Entenser Intel waitlist (2026-07-18): the subscribe hook for the paywalled
+//    hub. Same demand-test pattern as the supporter tier — local capture +
+//    analytics event now, Resend proxy later. Separate localStorage key so the
+//    two waitlists can be measured independently. ──
+function _intelPrice(){
+  const l=(navigator.language||'').toLowerCase();
+  if(l==='en-gb'||l.endsWith('-gb'))return '£6.99';
+  if(/^(de|fr|es|it|nl|pt|fi|el|ga|et|lv|lt|sk|sl|mt)\b/.test(l)||l.endsWith('-eu'))return '€7.99';
+  return '$7.99';
+}
+function intelHookHTML(){
+  const joined=localStorage.getItem('entenser_intel_waitlist');
+  return `<div class="intel-hook" id="intelHook">
+    <div>
+      <div class="intel-kick">Entenser Intel · founding member</div>
+      <div class="ih-price"><b>${_intelPrice()}</b><span>/ month · launching soon</span></div>
+      <p>Custom deep dives, scenario what-ifs, a projection studio and full team pages for the clubs you follow — the same market-blind model, made personal.</p>
+      <div class="hnote">Every public forecast stays free. Intel adds the personal layer on top.</div>
+    </div>
+    <div>
+      <form class="sup-form" id="intelWaitlistForm">
+        <input type="email" name="email" placeholder="Email for early access" aria-label="Email for Entenser Intel early access" value="${commandEsc(joined||'')}" ${joined?'disabled':''}>
+        <button type="submit">${joined?"You're on the list ✓":'Get early access'}</button>
+      </form>
+      <div class="hnote">First in at the launch price · no obligation · <a href="?league=account#acct-subs" style="color:var(--txt-2)">manage in Account</a></div>
+    </div></div>`;
+}
+function bindIntelWaitlist(){
+  const form=document.getElementById('intelWaitlistForm');
+  if(!form)return;
+  form.addEventListener('submit',ev=>{
+    ev.preventDefault();
+    const input=form.querySelector('input[name="email"]');
+    const email=(input&&input.value||'').trim();
+    if(!email||!/.+@.+\..+/.test(email))return;
+    try{localStorage.setItem('entenser_intel_waitlist',email);}catch(e){}
+    track('waitlist_click',{tier:'intel'});
+    const btn=form.querySelector('button');
+    if(btn)btn.textContent="You're on the list ✓";
+    if(input)input.disabled=true;
+  });
+}
 // ── Matches-tab day calendar (2026-07-13 feedback: "a calendar for matches,
 //    so you can scroll across the top by day or on desktop ... select a day
 //    on an actual calendar box"). Backed by window.CALENDAR_DATA
@@ -3790,7 +3994,7 @@ if(_isHome && window.HOME_DATA){
   const persCol=(pers.length?pers:(H.news||[])).slice(0,4);
   const globCol=(H.news||[]).filter(n=>!persCol.includes(n)).slice(0,4);
   const onrampHTML=`<div class="hx-onramp"><span>🏆</span><span><b>New to club soccer after the World Cup?</b>
-    <a href="/after-the-world-cup/">Start here</a> — or <a href="?league=subscribe">pick a team to follow</a> and this section fills with their news.</span></div>`;
+    <a href="/after-the-world-cup/">Start here</a> — or <a href="?league=account">pick a team to follow</a> and this section fills with their news.</span></div>`;
   const storiesHTML=`${onrampHTML}<div class="hx-cols">
     <div><div class="hx-colh">${hasFavs&&pers.length?'★ Your teams & leagues':'⭐ Top stories'}</div>${persCol.map(newsItem).join('')||'<div class="news-empty">No stories yet.</div>'}</div>
     <div><div class="hx-colh">🌍 Around the world</div>${globCol.map(newsItem).join('')||'<div class="news-empty">No stories yet.</div>'}</div></div>`;
@@ -4003,7 +4207,7 @@ if(_isNews){
   const target=$('#view-outlook');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap">
     <div class="hx-onramp"><span>🏆</span><span><b>New to club soccer after the World Cup?</b>
-      <a href="/after-the-world-cup/">Start here</a> — or <a href="?league=subscribe">pick a team to follow</a> and this page leads with their news.</span></div>
+      <a href="/after-the-world-cup/">Start here</a> — or <a href="?league=account">pick a team to follow</a> and this page leads with their news.</span></div>
     ${pers.length?`<div class="ed-sec">★ Your teams &amp; leagues</div><div class="hx-cols"><div>${pers.filter((_,i)=>i%2===0).map(item).join('')}</div><div>${pers.filter((_,i)=>i%2===1).map(item).join('')}</div></div>`:''}
     <div class="ed-sec">🌍 Around the leagues</div>
     <div class="hx-cols"><div>${rest.filter((_,i)=>i%2===0).map(item).join('')}</div><div>${rest.filter((_,i)=>i%2===1).map(item).join('')}</div></div>
@@ -4012,16 +4216,121 @@ if(_isNews){
   const _fn=$('#foot'); if(_fn && !_fn.innerHTML.trim()) _fn.innerHTML=FOOT_HTML;
 }
 
-// ── Subscribe (?league=subscribe, 2026-07-17 redesign): one page unifying the
-//    weekly-email capture, the favorites picker (which personalizes home-D,
-//    News, and the Matches-page sort), and the supporter-tier waitlist. ──
-if(_isSubscribe){
+// ── Intel (?league=intel, 2026-07-18): the Personal Intelligence Hub — the
+//    paywalled tier, shown to the public as a greyed-out demo with a subscribe
+//    hook. Replaces News in the nav; the free global feed keeps a section at
+//    the bottom (and the full page survives at ?league=news for old links).
+//    Demo panels personalize around the user's first pinned club when one
+//    exists, so the mockup sells "YOUR club" rather than a generic one. ──
+if(_isIntel){
   const seg=$('#seg'); if(seg) seg.style.display='none';
   const hd=document.querySelector('header'); if(hd) hd.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
-  document.title="Subscribe · Entenser";
+  document.title="Intel · Entenser";
   const H=window.HOME_DATA||{};
   const nmL=id=>{const l=(window.LEAGUES||[]).find(x=>x.id===id);return l?l.name:id;};
+  const agoN=iso=>{ if(!iso) return ''; const d=(Date.now()-new Date(iso))/36e5;
+    return d<1?`${Math.max(1,Math.round(d*60))}m`:d<24?`${Math.round(d)}h`:`${Math.round(d/24)}d`; };
+  const item=n=>`<a class="hx-news-item" href="${n.link}" target="_blank" rel="noopener noreferrer">
+    <h4>${commandEsc(n.title||'')}</h4><div class="m">${nmL(n.league)} · ${commandEsc(n.source||'')}${n.published?' · '+agoN(n.published):''}</div></a>`;
+  const favT=FavStore.teams();
+  const myTeam=favT.length?favT[0].team:'Arsenal';
+  const nLive=(window.LEAGUES||[]).filter(l=>l.status==='live').length;
+  const lock='<span class="ilock">🔒 Intel</span>';
+  const wbox=(on,l)=>`<span class="iwbox${on?' on':''}">${l}</span>`;
+  const panels=`
+    <div class="ipanel">${lock}<h3>Custom deep dives</h3>
+      <div class="isub">Ask the model a question in plain English — it answers with its own numbers, not vibes.</div>
+      <div class="idemo">
+        <div class="ifake-in">🔎 How does ${commandEsc(myTeam)}'s title chance change if they lose the derby?</div>
+        <div class="irow"><span class="k">Title odds today</span><span class="v">23.4%</span></div>
+        <div class="irow"><span class="k">If they lose the derby</span><span class="v" style="color:var(--drop)">15.1%</span></div>
+        <div class="irow"><span class="k">Biggest driver</span><span class="v">6-pt head-to-head swing</span></div>
+      </div></div>
+    <div class="ipanel">${lock}<h3>Scenario what-ifs</h3>
+      <div class="isub">Flip any future result — the whole season resimulates in your browser, 10k runs.</div>
+      <div class="idemo">
+        <div class="irow"><span class="k">Sat · vs Tottenham</span><span style="display:flex;gap:4px">${wbox(1,'W')}${wbox(0,'D')}${wbox(0,'L')}</span></div>
+        <div class="irow"><span class="k">Oct 4 · @ Man City</span><span style="display:flex;gap:4px">${wbox(0,'W')}${wbox(0,'D')}${wbox(1,'L')}</span></div>
+        <div class="irow"><span class="k">Top-4 before → after</span><span class="v">61% → 54%</span></div>
+        <div class="ibar" style="margin-top:8px"><span style="width:54%;background:var(--qualify)"></span><span style="width:14%;background:var(--draw)"></span><span style="width:32%;background:var(--drop)"></span></div>
+      </div></div>
+    <div class="ipanel">${lock}<h3>Projection studio</h3>
+      <div class="isub">Season-long odds trajectories with confidence bands — how the forecast got here, week by week.</div>
+      <div class="idemo">
+        <svg viewBox="0 0 260 92" style="width:100%;height:auto;display:block" aria-hidden="true">
+          <line x1="0" y1="24" x2="260" y2="24" stroke="var(--line-2)"/><line x1="0" y1="52" x2="260" y2="52" stroke="var(--line-2)"/><line x1="0" y1="80" x2="260" y2="80" stroke="var(--line-2)"/>
+          <path d="M0,62 C60,58 120,44 200,26 L260,18 L260,58 L200,52 C120,66 60,72 0,76 Z" fill="rgba(244,183,64,.18)"/>
+          <path d="M0,69 C60,65 120,55 200,39 L260,38" stroke="var(--intel)" stroke-width="2" fill="none"/>
+          <line x1="200" y1="8" x2="200" y2="86" stroke="var(--line-3)" stroke-dasharray="3 3"/>
+          <text x="204" y="16" font-size="8" fill="var(--txt-3)">today</text>
+        </svg>
+        <div class="irow" style="border:0;padding-top:8px"><span class="k">Title odds, matchweek 1 → now</span><span class="v">9.8% → 23.4%</span></div>
+      </div></div>
+    <div class="ipanel">${lock}<h3>Your team HQ</h3>
+      <div class="isub">The full club dashboard — every model input, club-level accuracy, form vs underlying numbers.</div>
+      <div class="idemo">
+        <div class="irow"><span class="k">Full ${commandEsc(myTeam)} dashboard</span><span class="v" style="color:var(--qualify)">unlocked</span></div>
+        <div class="irow"><span class="k">Model inputs · xG · form · availability</span><span class="v">live</span></div>
+        <div class="irow"><span class="k">Model accuracy on this club</span><span class="v">Brier 0.581</span></div>
+        <div class="irow"><span class="k">Team pages, every league</span><span class="v">${nLive} leagues</span></div>
+      </div></div>
+    <div class="ipanel">${lock}<h3>Threshold alerts</h3>
+      <div class="isub">Email when an odds line you care about crosses a level you set — not a firehose.</div>
+      <div class="idemo">
+        <div class="irow"><span class="k">Title odds move &gt; 5 pts in a week</span><span class="v" style="color:var(--qualify)">on</span></div>
+        <div class="irow"><span class="k">Relegation risk crosses 25%</span><span class="v" style="color:var(--qualify)">on</span></div>
+        <div class="irow"><span class="k">Model vs market gap &gt; 8%</span><span class="v" style="color:var(--txt-3)">off</span></div>
+      </div></div>
+    <div class="ipanel">${lock}<h3>Data downloads</h3>
+      <div class="isub">Every projection and probability as CSV, for your own spreadsheets and models.</div>
+      <div class="idemo">
+        <div class="irow"><span class="k">projections_2026.csv</span><span class="v">↓ 41 KB</span></div>
+        <div class="irow"><span class="k">match_probabilities.csv</span><span class="v">↓ 220 KB</span></div>
+        <div class="irow"><span class="k">elo_history.csv</span><span class="v">↓ 1.2 MB</span></div>
+      </div></div>`;
+  const rest=(H.news||[]).slice(0,10);
+  const target=$('#view-outlook');
+  if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap">
+    <div class="intel-hero">
+      <div class="intel-kick">Personal Intelligence Hub</div>
+      <h1>Entenser <em>Intel</em> — the model, working for <em>your</em> club.</h1>
+      <p>The public site tells you what the model thinks. Intel lets you interrogate it: run your own deep dives, flip results and watch the season resimulate, open the full dashboard for any club you follow — all on the same market-blind engine that grades itself in public.</p>
+      <div class="intel-tagchips"><span>custom deep dives</span><span>scenario what-ifs</span><span>projection studio</span><span>team pages</span><span>threshold alerts</span><span>csv exports</span></div>
+    </div>
+    ${intelHookHTML()}
+    <div class="ed-sec">🔒 Inside the hub — preview</div>
+    <div class="hnote" style="margin:6px 0 12px">Greyed out until launch. Everything below is a live mockup of what members get.</div>
+    <div class="intel-grid">${panels}</div>
+    <div class="ed-sec" style="margin-top:26px">🌍 Free for everyone — around the leagues</div>
+    <div class="hx-cols" style="margin-top:6px"><div>${rest.filter((_,i)=>i%2===0).map(item).join('')}</div><div>${rest.filter((_,i)=>i%2===1).map(item).join('')}</div></div>
+    ${rest.length?`<div class="hnote" style="margin-top:8px"><a href="?league=news" style="color:var(--txt-2)">Full news feed →</a></div>`:'<div class="news-empty">No headlines right now — check back after the next build.</div>'}
+  </div>`; }
+  bindIntelWaitlist();
+  const _fx=$('#foot'); if(_fx && !_fx.innerHTML.trim()) _fx.innerHTML=FOOT_HTML;
+}
+
+// ── Account (?league=account, 2026-07-18 — was Subscribe): the user hub.
+//    Profile + favorites picker + subscriptions (free plan vs Intel, weekly
+//    email) + notification prefs + preferences + data/privacy. Everything is
+//    localStorage-backed ("saved on this device") until real accounts ship;
+//    ?league=subscribe old links land here via the _isAccount alias. ──
+if(_isAccount){
+  const seg=$('#seg'); if(seg) seg.style.display='none';
+  const hd=document.querySelector('header'); if(hd) hd.style.display='none';
+  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
+  document.title="Account · Entenser";
+  if(_rawLeague==='subscribe'){try{history.replaceState(null,'','?league=account');}catch(e){}}
+  const H=window.HOME_DATA||{};
+  const nmL=id=>{const l=(window.LEAGUES||[]).find(x=>x.id===id);return l?l.name:id;};
+  // Local account store: one JSON blob so future sync has a single payload.
+  const AcctStore=(()=>{const K='entenser.acct';
+    const read=()=>{try{return JSON.parse(localStorage.getItem(K)||'{}');}catch(e){return{};}};
+    return {get:read,set:p=>{const v={...read(),...p};try{localStorage.setItem(K,JSON.stringify(v));}catch(e){} return v;}};
+  })();
+  const acct=AcctStore.get();
+  const initials=s=>{const w=String(s||'').replace(/@.*/,'').split(/[\s._-]+/).filter(Boolean);
+    return ((w[0]?.[0]||'')+(w[1]?.[0]||'')).toUpperCase()||'⚽';};
   // Suggestion pool: popular leagues + each featured league's top clubs.
   const sugLeagues=_LEAGUE_POP.slice(0,8).map(id=>(window.LEAGUES||[]).find(l=>l.id===id)).filter(Boolean);
   const sugTeams=(H.tables||[]).flatMap(t=>t.rows.slice(0,2).map(r=>({league:t.league,team:r.team})));
@@ -4047,30 +4356,104 @@ if(_isSubscribe){
     const rows=[...L,...T].join('');
     return rows?`<div class="sp-h">Matches</div><div class="sp-row">${rows}</div>`:`<div class="sp-h">${window.SEARCH_INDEX?'No matches.':'Loading team index…'}</div>`;
   };
+  const NOTIF_DEFS=[   // [key, label, description, default-on, intel-gated]
+    ['weekly','Weekly digest','The one honest email a week — biggest movers, closest races, every graded call.',true,false],
+    ['matchday','Matchday reminders','A morning note when a club you follow plays that day.',false,false],
+    ['odds_move','Threshold alerts','Email the moment title / playoff / relegation odds cross a level you set.',false,true],
+    ['market_gap','Model vs market alerts','When the model disagrees with the market by 8%+ on a club you follow.',false,true],
+    ['product','Product updates','New leagues, new features, occasional launch news.',false,false],
+  ];
+  const notifs={...Object.fromEntries(NOTIF_DEFS.map(d=>[d[0],d[3]])),...(acct.notifs||{})};
+  const intelOn=IntelStore.unlocked();
+  const notifRow=([k,label,desc,_def,gated])=>{
+    const dis=gated&&!intelOn;
+    return `<div class="acct-row"><div class="ttl"><b>${label}${gated?'<span class="ilock">🔒 Intel</span>':''}</b><span>${desc}</span></div>
+      <label class="tgl"><input type="checkbox" data-notif="${k}" ${notifs[k]&&!dis?'checked':''} ${dis?'disabled':''}><i></i></label></div>`;
+  };
+  const savedEmail=acct.email||localStorage.getItem('entenser_email_interest')||'';
+  const navItems=[['acct-profile','Profile'],['acct-favs','Favorites'],['acct-subs','Subscriptions'],['acct-notifs','Notifications'],['acct-prefs','Preferences'],['acct-data','Data & privacy']];
   const target=$('#view-outlook');
-  if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap" style="max-width:720px;margin:0 auto">
-    <div class="sub-hero">
-      <h1>Your clubs. Your leagues.<br>One honest email a week.</h1>
-      <p>Biggest movers, closest races, and how our public calls did — graded hits <i>and</i> misses. Built from a market-blind model that never sees betting odds.</p>
-      <div class="hnote">free · one email a week · unsubscribe any time · the site never gets paywalled</div>
+  if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="acct-wrap">
+    <nav class="acct-nav" id="acctNav">${navItems.map(([id,l],i)=>`<a href="#${id}" class="${i===0?'on':''}">${l}</a>`).join('')}</nav>
+    <div class="acct-body">
+      <div class="acct-head">
+        <div class="acct-ava" id="acctAva">${initials(acct.name||savedEmail)}</div>
+        <div><h1>${commandEsc(acct.name||'Your account')}</h1>
+        <div class="sub">Saved on this device · syncs automatically when accounts launch</div></div>
+      </div>
+
+      <section class="acct-sec" id="acct-profile">
+        <h2><span class="dot"></span>Profile</h2>
+        <div class="d">Who the weekly email and alerts talk to.</div>
+        <div class="acct-field"><label for="acName">Display name</label>
+          <input id="acName" type="text" placeholder="e.g. Ryan" value="${commandEsc(acct.name||'')}" autocomplete="name"></div>
+        <div class="acct-field"><label for="acEmail">Email</label>
+          <input id="acEmail" type="email" placeholder="you@example.com" value="${commandEsc(savedEmail)}" autocomplete="email"></div>
+        <button class="acct-btn primary" id="acSave">Save profile</button>
+        <span class="hnote" id="acSaved" style="margin-left:10px"></span>
+      </section>
+
+      <section class="acct-sec" id="acct-favs">
+        <h2><span class="dot"></span>Favorites</h2>
+        <div class="d">Your teams &amp; leagues — personalizes the home page, sorts matchdays your way, tailors the weekly, and picks which club your Intel hub leads with.</div>
+        <input id="spSearch" class="sp-search" type="search" placeholder="🔍 Search any club or league…" autocomplete="off" spellcheck="false">
+        <div id="spResults"></div>
+        <div id="spFavs">${favsHTML()}</div>
+      </section>
+
+      <section class="acct-sec" id="acct-subs">
+        <h2><span class="dot"></span>Subscriptions</h2>
+        <div class="d">Every public forecast stays free, forever. Intel is the personal layer on top.</div>
+        <div class="plan-grid">
+          <div class="plan"><span class="cur">current plan</span>
+            <div class="nm">Free</div><div class="pr">$0<small> / forever</small></div>
+            <ul><li>Every league forecast, all ${(window.LEAGUES||[]).filter(l=>l.status==='live').length} live competitions</li>
+              <li>Match probabilities &amp; fair no-vig odds</li>
+              <li>Public grading — every hit and miss</li>
+              <li>Favorites, news &amp; the weekly email</li></ul></div>
+          <div class="plan pro"><span class="cur">${intelOn?'active':'waitlist'}</span>
+            <div class="nm" style="color:var(--intel)">Entenser Intel</div><div class="pr">${_intelPrice()}<small> / month · launching soon</small></div>
+            <ul><li>Custom deep dives &amp; scenario what-ifs</li>
+              <li>Full team pages for every club</li>
+              <li>Projection studio &amp; threshold alerts</li>
+              <li>CSV downloads of every projection</li></ul>
+            <div style="margin-top:12px"><a class="intel-btn" href="?league=intel">Preview the hub →</a></div></div>
+        </div>
+        ${intelHookHTML()}
+        <div class="acct-row"><div class="ttl"><b>Weekly email</b><span>Sections reorder around your picks — no picks yet gets the global edition. Free, unsubscribe any time.</span></div></div>
+        ${commandSignupHTML()}
+      </section>
+
+      <section class="acct-sec" id="acct-notifs">
+        <h2><span class="dot"></span>Notifications</h2>
+        <div class="d">What lands in your inbox. Nothing is sent without an email saved in Profile.</div>
+        ${NOTIF_DEFS.map(notifRow).join('')}
+        <div class="acct-row"><div class="ttl"><b>Alert threshold<span class="ilock">🔒 Intel</span></b><span>How big an odds move has to be before we email you.</span></div>
+          <select id="acThresh" ${intelOn?'':'disabled'} style="background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:7px 9px;font-size:12px">
+            ${['3','5','8','12'].map(v=>`<option value="${v}" ${String(acct.thresh||'5')===v?'selected':''}>±${v} pts</option>`).join('')}
+          </select></div>
+      </section>
+
+      <section class="acct-sec" id="acct-prefs">
+        <h2><span class="dot"></span>Preferences</h2>
+        <div class="d">Saved instantly, applied everywhere on this device.</div>
+        <div class="acct-row"><div class="ttl"><b>Odds format</b><span>How every quoted price renders across the site.</span></div>
+          <div class="sp-row">${[['american','American'],['decimal','Decimal'],['fractional','Fractional']].map(([f,l])=>
+            `<button type="button" class="sp-pill${window.ODDS_FMT===f?' on':''}" data-oddsfmt="${f}">${l}</button>`).join('')}</div></div>
+        <div class="acct-row"><div class="ttl"><b>Kickoff times</b><span>Always shown in your device's timezone (${Intl.DateTimeFormat().resolvedOptions().timeZone||'local'}).</span></div></div>
+        <div class="acct-row"><div class="ttl"><b>Favorites-first matchdays</b><span>Days with many leagues sort your clubs to the top. Automatic once you pin favorites.</span></div>
+          <label class="tgl"><input type="checkbox" checked disabled><i></i></label></div>
+      </section>
+
+      <section class="acct-sec" id="acct-data">
+        <h2><span class="dot"></span>Data &amp; privacy</h2>
+        <div class="d">Everything lives in your browser's localStorage — nothing is sent to a server. <a href="?league=privacy" style="color:var(--txt-2)">Privacy policy →</a></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="acct-btn" id="acExport">Export my data (JSON)</button>
+          <button class="acct-btn danger" id="acClear">Clear all local data</button>
+        </div>
+      </section>
     </div>
-    <div class="mxp-card" style="margin-bottom:16px">
-      <div class="sp-step"><b>1 · Your email</b><span>where the weekly goes</span></div>
-      ${commandSignupHTML()}
-      <div class="sp-step" style="margin-top:18px"><b>2 · Pick your teams &amp; leagues</b><span>personalizes your stories, sorts matchdays your way, and tailors the weekly — saved on this device even without an email</span></div>
-      <input id="spSearch" class="sp-search" type="search" placeholder="🔍 Search any club or league…" autocomplete="off" spellcheck="false">
-      <div id="spResults"></div>
-      <div id="spFavs">${favsHTML()}</div>
-    </div>
-    <div class="ed-sec">What the weekly looks like</div>
-    <div class="sub-mail">
-      <div class="sub-mail-h"><b>This week at Entenser</b><span>sections reorder around your picks — no picks yet gets the global edition</span></div>
-      <div class="sub-mail-b">🔥 <b>Your club's biggest odds move</b> — what changed and why<br>
-        📊 <b>The closest race you follow</b> — who's live, what the gap is<br>
-        🧾 <b>How our calls did</b> — every graded hit and miss, in the open</div>
-    </div>
-    <div class="ed-sec">Supporter tier</div>
-    <div class="sup-body">${supportCardHTML()}</div>
   </div>`; }
   // favorites picker: toggle pins in place (no reload), lazy-load the team index
   const wirePicker=()=>{
@@ -4093,7 +4476,55 @@ if(_isSubscribe){
   };
   wirePicker();
   bindCommandSignup();
-  bindWaitlist();
+  bindIntelWaitlist();
+  // profile save — name/email into the acct blob; email mirrored to the weekly-
+  // digest key so the existing signup flow and this page never disagree.
+  const acSave=$('#acSave');
+  if(acSave) acSave.addEventListener('click',()=>{
+    const name=($('#acName')||{}).value?.trim()||'', email=($('#acEmail')||{}).value?.trim()||'';
+    AcctStore.set({name,email});
+    if(email){try{localStorage.setItem('entenser_email_interest',email);}catch(e){} track('email_signup');}
+    const av=$('#acctAva'); if(av) av.textContent=initials(name||email);
+    const h1=document.querySelector('.acct-head h1'); if(h1) h1.textContent=name||'Your account';
+    const ok=$('#acSaved'); if(ok){ok.textContent='Saved ✓'; setTimeout(()=>ok.textContent='',2500);}
+  });
+  // notification toggles + threshold
+  document.querySelectorAll('[data-notif]').forEach(cb=>cb.addEventListener('change',()=>{
+    const cur=AcctStore.get().notifs||{};
+    AcctStore.set({notifs:{...cur,[cb.dataset.notif]:cb.checked}});
+  }));
+  const acThresh=$('#acThresh');
+  if(acThresh) acThresh.addEventListener('change',()=>AcctStore.set({thresh:acThresh.value}));
+  // odds format pills (setOddsFmt flips the .on class on every [data-oddsfmt])
+  document.querySelectorAll('.acct-sec [data-oddsfmt]').forEach(b=>
+    b.addEventListener('click',()=>setOddsFmt(b.dataset.oddsfmt)));
+  // data & privacy
+  const _ourKeys=()=>Object.keys(localStorage).filter(k=>/^(entenser|pitchside)/i.test(k));
+  const acExport=$('#acExport');
+  if(acExport) acExport.addEventListener('click',()=>{
+    const data=Object.fromEntries(_ourKeys().map(k=>[k,localStorage.getItem(k)]));
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+    a.download='entenser-data.json'; a.click(); URL.revokeObjectURL(a.href);
+  });
+  const acClear=$('#acClear');
+  if(acClear) acClear.addEventListener('click',()=>{
+    if(!confirm('Clear all Entenser data saved in this browser? Favorites, profile and preferences will be reset.'))return;
+    _ourKeys().forEach(k=>localStorage.removeItem(k));
+    location.reload();
+  });
+  // scrollspy: highlight the section in view (top-most wins on ties)
+  const _navLinks=[...document.querySelectorAll('#acctNav a')];
+  const _secs=_navLinks.map(a=>document.getElementById(a.hash.slice(1))).filter(Boolean);
+  if('IntersectionObserver' in window && _secs.length){
+    const vis=new Set();
+    const io=new IntersectionObserver(es=>{
+      es.forEach(e=>e.isIntersecting?vis.add(e.target.id):vis.delete(e.target.id));
+      const first=_secs.find(s=>vis.has(s.id));
+      if(first)_navLinks.forEach(a=>a.classList.toggle('on',a.hash==='#'+first.id));
+    },{rootMargin:'-20% 0px -55% 0px'});
+    _secs.forEach(s=>io.observe(s));
+  }
   const _fs=$('#foot'); if(_fs && !_fs.innerHTML.trim()) _fs.innerHTML=FOOT_HTML;
 }
 
@@ -4177,7 +4608,7 @@ if(_infoPage){
     <h3>What is and isn't collected</h3>
     <ul>
       <li>Your league favourites and collapsed-section preferences are stored <b>only in your own browser</b> (localStorage) and never sent to us.</li>
-      <li>We may use privacy-preserving, aggregate analytics to understand which pages are visited. No personally identifying profiles are built.</li>
+      <li>We may use aggregate analytics, currently Google Analytics on the live domain only, to understand page visits and interactions. We do not use analytics to identify individual visitors.</li>
       <li>If you choose to submit your email for the weekly digest, it is used only to send that digest and nothing else.</li>
     </ul>
     <h3>Third parties</h3>
@@ -4201,11 +4632,12 @@ if(_infoPage){
 
 /* ── Analytics instrumentation (track() defined in <head>; no-op off entenser.com) ──
    Events: pageview_route, tab_click, league_nav, article_click, match_expand,
-   edge_row_expand, team_open, email_signup. Delegated so it survives re-renders. */
+   team_open, favorite_toggle, email_signup, waitlist_click, home_table_jump,
+   odds_format_change. Delegated so it survives re-renders. */
 (()=>{
   const route = _isHome ? 'home'
     : _isEdgeBoard ? 'command-center'
-    : _isNews ? 'news' : _isSubscribe ? 'subscribe'
+    : _isNews ? 'news' : _isIntel ? 'intel' : _isAccount ? 'account'
     : _infoPage ? ('info:'+_infoPage) : _isPower ? 'power' : LID;
   track('pageview_route', {route});
   document.addEventListener('click', ev=>{
