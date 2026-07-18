@@ -92,6 +92,18 @@ def test_provenance_columns_present_on_every_row(monkeypatch, tmp_path):
     assert all("code_rev" in r for r in rows)
 
 
+def test_snapshot_rows_captures_season():
+    payload = _payload()
+    payload["season"] = 2026
+    rows = snapshot_rows("epl", payload)
+    assert all(r["season"] == 2026 for r in rows)
+
+
+def test_snapshot_rows_season_defaults_to_none_when_absent():
+    rows = snapshot_rows("epl", _payload())
+    assert all(r["season"] is None for r in rows)
+
+
 # ── the "conf" collision fix (2026-07-10): MLS ships conf="East"/"West"      ──
 # (conference name, a string); some UEFA leagues ship conf=<float>           ──
 # (Conference-League qualification %). Only the numeric form belongs in an   ──

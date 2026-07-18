@@ -112,6 +112,7 @@ def snapshot_rows(league_id: str, payload: dict) -> list[dict]:
     """One archive row per standings team; [] for payloads without standings."""
     generated = payload.get("generated") or ""
     snapshot_date = generated[:10] if generated else None
+    season = payload.get("season")
     games = payload.get("games") or []
     n_played = sum(1 for g in games if g.get("result") is not None)
     cid, rev = config_id(), code_rev()
@@ -122,7 +123,7 @@ def snapshot_rows(league_id: str, payload: dict) -> list[dict]:
             continue
         row = {
             "league": league_id, "team": team, "snapshot_date": snapshot_date,
-            "elo": s.get("elo"), "proj_pts": s.get("proj_pts"),
+            "season": season, "elo": s.get("elo"), "proj_pts": s.get("proj_pts"),
             "n_played": n_played, "config_id": cid, "code_rev": rev,
         }
         for k in _ODDS_KEYS:

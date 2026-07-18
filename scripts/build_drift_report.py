@@ -131,13 +131,25 @@ def compute_churn(hist: pd.DataFrame) -> dict:
     return out
 
 
-def compute_trajectories(hist: pd.DataFrame) -> dict:
-    """{league: {team: [{date, elo, proj_pts, <outcome keys...>}, ...]}}
+def compute_trajectories(hist: pd.DataFrame, current_season: dict) -> dict:
+    """{league: {team: [{date, elo, proj_pts, season, <outcome keys...>}, ...]}}
     Written one file per league (see write_trajectory_files) — never shipped
-    inside the main drift.js payload."""
+    inside the main drift.js payload.
+
+    `current_season` maps league_id -> that league's current payload `season`
+    value (an opaque per-league identifier — a calendar year for most leagues,
+    a torneo ordinal for Liga MX). Rows whose recorded season doesn't match are
+    excluded so the public trajectory never leaks a prior season across a
+    rollover (docs/intelligence-hub-implementation-instructions.md §4.9). Rows
+    with season=None (accrued before this field was captured) are kept as-is
+    rather than silently dropped, since we can't bound what we don't know.
+    """
     out: dict = {}
-    cols = ["elo", "proj_pts"] + _ODDS_KEYS
+    cols = ["elo", "proj_pts", "season"] + _ODDS_KEYS
     for (league, team), g in hist.groupby(["league", "team"]):
+        season = current_season.get(league)
+        if season is not None and "season" in g.columns:
+            g = g[g["season"].isna() | (g["season"] == season)]
         g = g.sort_values("snapshot_date").tail(_TRAJ_MAX_POINTS)
         series = [{"date": row["snapshot_date"],
                   **{c: _n(row[c]) for c in cols}}
@@ -261,7 +273,8 @@ def build() -> tuple[dict, dict]:
         "config_markers": compute_config_markers(hist),
         "kickoff_funnel": compute_kickoff_funnel(match_hist, payloads),
     }
-    return main, compute_trajectories(hist)
+    current_season = {lid: p.get("season") for lid, p in payloads.items()}
+    return main, compute_trajectories(hist, current_season)
 
 
 def main() -> int:

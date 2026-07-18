@@ -15,7 +15,7 @@ def _hist_rows(rows):
     out = []
     for r in rows:
         row = {k: None for k in _ODDS_KEYS}
-        row.update(elo=1500, proj_pts=50.0, config_id="cfg-1")
+        row.update(elo=1500, proj_pts=50.0, config_id="cfg-1", season=None)
         row.update(r)
         out.append(row)
     return pd.DataFrame(out)
@@ -96,7 +96,7 @@ def test_trajectories_grouped_and_sorted():
         {"league": "epl", "team": "Alpha", "snapshot_date": "2026-07-02", "n_played": 5, "title": 12.0},
         {"league": "epl", "team": "Alpha", "snapshot_date": "2026-07-01", "n_played": 5, "title": 10.0},
     ])
-    out = compute_trajectories(hist)
+    out = compute_trajectories(hist, {})
     series = out["epl"]["Alpha"]
     assert [s["date"] for s in series] == ["2026-07-01", "2026-07-02"]
     assert series[0]["title"] == 10.0 and series[1]["title"] == 12.0
@@ -106,7 +106,7 @@ def test_trajectories_nan_becomes_none_json_safe():
     hist = _hist_rows([
         {"league": "epl", "team": "Alpha", "snapshot_date": "2026-07-01", "n_played": 5},
     ])
-    out = compute_trajectories(hist)
+    out = compute_trajectories(hist, {})
     assert out["epl"]["Alpha"][0]["title"] is None
 
 
@@ -118,11 +118,40 @@ def test_trajectories_caps_to_max_points():
     orig = bdr._TRAJ_MAX_POINTS
     bdr._TRAJ_MAX_POINTS = 5
     try:
-        out = compute_trajectories(hist)
+        out = compute_trajectories(hist, {})
         assert len(out["epl"]["Alpha"]) == 5
         assert out["epl"]["Alpha"][-1]["date"] == "2026-01-31"   # keeps the tail
     finally:
         bdr._TRAJ_MAX_POINTS = orig
+
+
+def test_compute_trajectories_bounds_to_current_season():
+    hist = _hist_rows([
+        {"league": "epl", "team": "Alpha", "snapshot_date": "2025-08-01", "season": 2025, "elo": 1400},
+        {"league": "epl", "team": "Alpha", "snapshot_date": "2026-08-01", "season": 2026, "elo": 1500},
+    ])
+    out = compute_trajectories(hist, {"epl": 2026})
+    dates = [pt["date"] for pt in out["epl"]["Alpha"]]
+    assert dates == ["2026-08-01"]
+
+
+def test_compute_trajectories_keeps_all_rows_when_season_unknown():
+    # Rows written before this feature shipped have season=None — can't bound
+    # what we don't know, so don't silently drop them.
+    hist = _hist_rows([
+        {"league": "epl", "team": "Alpha", "snapshot_date": "2025-08-01", "season": None, "elo": 1400},
+        {"league": "epl", "team": "Alpha", "snapshot_date": "2026-08-01", "season": None, "elo": 1500},
+    ])
+    out = compute_trajectories(hist, {"epl": 2026})
+    assert len(out["epl"]["Alpha"]) == 2
+
+
+def test_compute_trajectories_emits_season_on_each_point():
+    hist = _hist_rows([
+        {"league": "epl", "team": "Alpha", "snapshot_date": "2026-08-01", "season": 2026, "elo": 1500},
+    ])
+    out = compute_trajectories(hist, {"epl": 2026})
+    assert out["epl"]["Alpha"][0]["season"] == 2026
 
 
 def test_trajectory_files_written_for_leagues_with_data(tmp_path, monkeypatch):
@@ -135,7 +164,7 @@ def test_trajectory_files_written_for_leagues_with_data(tmp_path, monkeypatch):
         {"league": "epl", "team": "Alpha", "snapshot_date": "2026-07-01", "n_played": 5, "title": 10.0},
         {"league": "mls", "team": "Beta", "snapshot_date": "2026-07-01", "n_played": 3, "cup": 20.0},
     ])
-    n = write_trajectory_files(compute_trajectories(hist), "2026-07-10 00:00 UTC")
+    n = write_trajectory_files(compute_trajectories(hist, {}), "2026-07-10 00:00 UTC")
     assert n == 2
     epl_file = json.loads((tmp_path / "epl.js").read_text().split("=", 1)[1].rstrip().rstrip(";"))
     assert epl_file["league"] == "epl"
@@ -154,7 +183,7 @@ def test_trajectory_files_written_for_every_registry_league_even_without_data(tm
     hist = _hist_rows([
         {"league": "epl", "team": "Alpha", "snapshot_date": "2026-07-01", "n_played": 5, "title": 10.0},
     ])
-    n = write_trajectory_files(compute_trajectories(hist), "2026-07-10 00:00 UTC")
+    n = write_trajectory_files(compute_trajectories(hist, {}), "2026-07-10 00:00 UTC")
     assert n == 2
     stub = json.loads((tmp_path / "canadian-pl.js").read_text().split("=", 1)[1].rstrip().rstrip(";"))
     assert stub == {"league": "canadian-pl", "generated": "2026-07-10 00:00 UTC", "teams": {}}
