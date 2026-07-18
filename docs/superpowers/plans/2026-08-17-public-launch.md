@@ -2,6 +2,17 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-18 (2): **test_build_movers fixed — not date-rot** (test-only change,
+>   production untouched). Root cause: the home-overhaul commit (3279e2a) changed
+>   `compute_movers`' contract — return went `list` → `(list, span_days,
+>   earliest_date)` and each (league, team)'s earliest snapshot is now dropped as
+>   a sentinel bootstrap row — without updating the tests. compute_movers has no
+>   `today()` dependence (window anchors to the data's max snapshot), so
+>   hardcoded fixture dates never age out and stay hardcoded. Tests now unpack
+>   the tuple and give each team a 100.0-valued bootstrap row, which doubles as
+>   a regression check on the bootstrap-drop. 1024 passed / 15 skipped
+>   (test_browser_smoke collection needs playwright, absent in this env).
+>
 > - 2026-07-18: **Home + Matches redesign shipped (desktop + mobile), News & Subscribe
 >   routes added** — user-directed template iteration (5 wireframes) then full build.
 >   Home: compact promise + Bundesliga-style results strip, rotating 8-league table
