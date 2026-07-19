@@ -96,7 +96,10 @@ def test_sitemap_wellformed_and_complete(built):
     # on-ramp pages are included when their inputs exist (they do here).
     league_locs = {f"{SITE}/leagues/{lid}/" for lid in _pages(built)}
     assert league_locs <= set(locs[2:])
-    assert set(locs[2:]) - league_locs <= {
+    dated_weekly = re.compile(rf"^{re.escape(SITE)}/weekly/\d{{4}}-\d{{2}}-\d{{2}}/$")
+    non_league = {loc for loc in set(locs[2:]) - league_locs
+                  if not dated_weekly.match(loc)}
+    assert non_league <= {
         f"{SITE}/weekly/", f"{SITE}/open-data/", f"{SITE}/after-the-world-cup/"}
     for u in root:
         lm = u.find(f"{ns}lastmod")
@@ -154,3 +157,37 @@ def test_data_dir_payloads_untouched_by_generator(built):
     # The generator must never write into webapp/data/ (the SPA payloads);
     # the open-data index lives at /open-data/, not /data/.
     assert not (built / "data" / "index.html").exists()
+
+
+# ── roadmap 1.5: dated /weekly/<date>/ recap pages from the F-3 archive ─────────
+
+def test_dated_weekly_pages_built_from_archive(tmp_path):
+    """Each archived recap becomes /weekly/<date>/, is in the sitemap with a
+    canonical matching its directory, and the latest /weekly/ links to it."""
+    root = tmp_path / "site"
+    root.mkdir()
+    (root / "leagues.js").write_text((WEBAPP / "leagues.js").read_text())
+    (root / "data").symlink_to(WEBAPP / "data")
+    archive = tmp_path / "weekly-archive"
+    archive.mkdir()
+    recap = {"status": "ok", "generated": "2026-07-12 10:00 UTC",
+             "week_label": "Week of Jul 12", "headline": "Test week recap"}
+    (archive / "2026-07-12.json").write_text(json.dumps(recap))
+
+    assert build_main(["--out", str(root), "--site", SITE,
+                       "--weekly-archive", str(archive)]) == 0
+
+    dated = root / "weekly" / "2026-07-12" / "index.html"
+    assert dated.exists()
+    html_txt = dated.read_text()
+    canon = re.search(r'rel="canonical" href="([^"]+)"', html_txt).group(1)
+    assert canon == f"{SITE}/weekly/2026-07-12/"
+
+    root_xml = ET.parse(root / "sitemap.xml").getroot()
+    ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
+    locs = [u.find(f"{ns}loc").text for u in root_xml]
+    assert f"{SITE}/weekly/2026-07-12/" in locs
+
+    # the latest /weekly/ page links to the dated archive entry
+    latest = (root / "weekly" / "index.html").read_text()
+    assert "/weekly/2026-07-12/" in latest

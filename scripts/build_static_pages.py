@@ -27,6 +27,7 @@ import csv
 import html
 import io
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -456,9 +457,12 @@ def hub_page(registry: list[dict], site: str) -> str:
 
 # ── weekly recap page ─────────────────────────────────────────────────────────
 
-def weekly_page(w: dict, site: str) -> str:
-    """Crawlable /weekly/ recap from webapp/data/weekly.js (launch plan H1)."""
-    canonical = f"{site}/weekly/"
+def weekly_page(w: dict, site: str, path: str = "weekly/",
+                archive_links: list[tuple[str, str]] | None = None) -> str:
+    """Crawlable weekly recap (launch plan H1). `path` is the page's directory
+    under the site root ("weekly/" for the latest, "weekly/<date>/" for an
+    archived one, roadmap 1.5); `archive_links` renders a "Past weeks" nav."""
+    canonical = f"{site}/{path}"
     generated = w.get("generated") or ""
     week = w.get("week_label") or "This week"
     headline = w.get("headline") or "This week across world football"
@@ -530,6 +534,13 @@ def weekly_page(w: dict, site: str) -> str:
                     f'</span><span class="p">had {E(m["fav"] or "favorite")} at '
                     f'{m["fav_pct"]:.0f}% · {E(m["outcome"])}</span></div>')
             parts.append('</div>')
+
+    if archive_links:
+        parts.append('<h2>Past weeks</h2><div class="fx">')
+        for url, date in archive_links:
+            parts.append(f'<div class="fxrow"><span class="t">'
+                         f'<a href="{url}">Week of {E(date)}</a></span></div>')
+        parts.append('</div>')
 
     parts.append(f'<h2>How this works</h2><p class="sub">{E(_METHOD_NOTE)}</p>')
     parts.append('<a class="cta" href="/">Open the interactive dashboard →</a>')
@@ -672,6 +683,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default="webapp", help="webapp root to write into")
     ap.add_argument("--site", default=SITE, help="canonical site origin")
+    ap.add_argument("--weekly-archive", default="data/weekly-archive",
+                    help="dir of dated weekly recap JSON (F-3 archive, roadmap 1.5)")
     args = ap.parse_args(argv)
     out = Path(args.out)
     site = args.site.rstrip("/")
@@ -733,12 +746,34 @@ def main(argv: list[str] | None = None) -> int:
                                                   encoding="utf-8")
 
     # Weekly recap page (launch plan H1) — optional: only when weekly.js exists.
+    # Dated archive pages (roadmap 1.5) come from the F-3 archive; the latest
+    # /weekly/ page links to them under a "Past weeks" nav.
     extra: list[tuple[str, str]] = []
+    archive_dir = Path(args.weekly_archive)
+    archive_links: list[tuple[str, str]] = []
+    if archive_dir.is_dir():
+        for jf in sorted(archive_dir.glob("*.json"), reverse=True):
+            date = jf.stem
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+                continue
+            try:
+                aw = json.loads(jf.read_text())
+            except (json.JSONDecodeError, OSError):
+                continue
+            if aw.get("status") != "ok":
+                continue
+            page_path = f"weekly/{date}/"
+            (out / "weekly" / date).mkdir(parents=True, exist_ok=True)
+            (out / "weekly" / date / "index.html").write_text(
+                weekly_page(aw, site, page_path), encoding="utf-8")
+            extra.append((f"{site}/{page_path}", date))
+            archive_links.append((f"/{page_path}", date))
+
     w = read_js_payload(out / "data" / "weekly.js")
     if w and w.get("status") == "ok":
         (out / "weekly").mkdir(parents=True, exist_ok=True)
-        (out / "weekly" / "index.html").write_text(weekly_page(w, site),
-                                                   encoding="utf-8")
+        (out / "weekly" / "index.html").write_text(
+            weekly_page(w, site, "weekly/", archive_links), encoding="utf-8")
         extra.append((f"{site}/weekly/", (w.get("generated") or "")[:10]))
     if exported:
         extra.append((f"{site}/open-data/", max_lastmod))
