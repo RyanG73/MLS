@@ -19,6 +19,7 @@ Two primitives that enforce the data contract across all builders:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -30,6 +31,32 @@ from typing import TYPE_CHECKING
 # runs on bare python3 with no pip install) import this module.
 if TYPE_CHECKING:
     import pandas as pd
+
+FIXTURE_ID_VERSION = "v1"
+
+
+def make_fixture_id(league_id: str, season: int | str, date: str,
+                     home_id: str, away_id: str) -> str:
+    """Deterministic fixture identifier, stable across rebuilds.
+
+    docs/intelligence-hub-implementation-instructions.md §4.3: "deterministic
+    identifier based on source ID where available; otherwise a versioned hash
+    of competition, season, kickoff, home team ID, and away team ID." No
+    upstream source (e.g. an ESPN event ID) is currently captured by any
+    builder, so this always uses the hash form.
+
+    Deliberately independent of the client-side simulator's array-index `id`
+    field on game cards (see the "SIM PORTING CONTRACT" comment in
+    scripts/build_dashboard_data.py and webapp/index.html) — that field is a
+    position in that build's remaining-fixtures array and must never be
+    repurposed as a stable identifier.
+
+    Prefixed with FIXTURE_ID_VERSION so a future change to this formula is
+    visibly distinguishable from old IDs rather than silently colliding.
+    """
+    raw = f"{league_id}|{season}|{date}|{home_id}|{away_id}"
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+    return f"{FIXTURE_ID_VERSION}:{digest}"
 
 
 def read_js_payload(path: Path | str) -> dict | list | None:
