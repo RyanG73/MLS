@@ -138,11 +138,12 @@ jobs:
           python scripts/validate_payloads.py
           python scripts/validate_history_growth.py
           python scripts/archive_intelligence_state.py
+          python scripts/build_intelligence_events.py
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet data/weekly-archive/ data/race_deltas_history.parquet
+          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet data/weekly-archive/ data/race_deltas_history.parquet data/intelligence_events.parquet data/intelligence_events_latest.json
           git add data/odds_log.parquet data/odds_closers.parquet data/bet_ledger.parquet 2>/dev/null || true
           git diff --staged --quiet && echo "No changes." || (
             git commit -m "chore(data): daily in-season refresh [$(date -u +%Y-%m-%d)]"
