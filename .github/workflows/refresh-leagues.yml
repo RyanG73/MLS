@@ -85,7 +85,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet data/weekly-archive/
+          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet data/weekly-archive/ data/race_deltas_history.parquet
           git add data/bet_ledger.parquet 2>/dev/null || true
           git diff --staged --quiet && echo "No changes." || (
             git commit -m "chore(data): weekly European league refresh [$(date -u +%Y-%m-%d)]"

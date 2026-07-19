@@ -22,9 +22,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from scripts.archive_odds_snapshot import append_snapshot
 from scripts.payload_utils import write_js_payload
 
 HISTORY = Path("data/odds_history.parquet")
+HISTORY_ARCHIVE = Path("data/race_deltas_history.parquet")
 OUT = Path("webapp/data/race-deltas.js")
 
 # Season-odds columns that back a race card (next-match probs excluded).
@@ -90,14 +92,33 @@ def compute_race_deltas(df: pd.DataFrame, min_delta: float = 0.3) -> dict:
     return out
 
 
+def append_race_delta_history(leagues: dict, path: Path = HISTORY_ARCHIVE) -> int:
+    """Flatten {league: {metric: {team, now, delta, cause, from, to}}} into rows
+    and append-dedup to `path`. Reuses archive_odds_snapshot's append_snapshot
+    for the same idempotent-append contract used by odds_history.parquet: a
+    same-day rerun over the same snapshot pair must not duplicate rows."""
+    rows = []
+    for league, metrics in leagues.items():
+        for metric, v in metrics.items():
+            rows.append({
+                "league": league, "metric": metric, "team": v["team"],
+                "now": v["now"], "delta": v["delta"], "cause": v["cause"],
+                "from_date": v["from"], "to_date": v["to"], "snapshot_date": v["to"],
+            })
+    return append_snapshot(rows, path, dedup_keys=["league", "metric", "to_date"])
+
+
 def main() -> None:
     generated = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    added = 0
     if not HISTORY.exists():
         payload = {"status": "empty", "generated": generated, "leagues": {},
                    "reason": "No odds history accrued yet."}
     else:
         df = pd.read_parquet(HISTORY)
         leagues = compute_race_deltas(df)
+        if leagues:
+            added = append_race_delta_history(leagues)
         payload = {"status": "ok" if leagues else "thin",
                    "generated": generated,
                    "cause_label": {"result": "new result",
@@ -108,7 +129,8 @@ def main() -> None:
                    "Not enough snapshot history yet — deltas appear as builds accrue."}
     write_js_payload(OUT, "RACE_DELTAS", payload)
     n = sum(len(v) for v in payload["leagues"].values())
-    print(f"[race-deltas] {payload['status']} · {len(payload['leagues'])} leagues, {n} races → {OUT}")
+    print(f"[race-deltas] {payload['status']} · {len(payload['leagues'])} leagues, "
+          f"{n} races → {OUT} · +{added} history rows")
 
 
 if __name__ == "__main__":
