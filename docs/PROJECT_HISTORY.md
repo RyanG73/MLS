@@ -549,3 +549,23 @@ respectively instead of being overwritten every run. A new `scripts/validate_his
 runs as the last step of both refresh workflows, before the commit step, and fails the build
 if any accrual parquet shrinks versus the version committed at HEAD, or if a public trajectory
 file carries a season-mismatched point. Next: S1 (stable cross-season IDs), as its own plan file.
+
+## Intelligence Hub S1: stable IDs for the MLS pilot (2026-07-18, plan completed and deleted)
+
+Second foundation step. Investigation before writing code found that `scripts/build_dashboard_data.py`
+already resolves a real, source-assigned stable team identifier (ASA's own `team_id`, e.g.
+`"KAqBN0Vqbg"`) for every MLS team and game internally — it was simply being dropped before the
+payload dict was built. Exposed it as `team_id` on every standings row and `home_id`/`away_id` on
+every game card, verified against a real local rebuild (not just synthetic tests, since this file's
+data-assembly body has no existing unit-test coverage — it depends on live ESPN/ASA calls). The one
+genuinely new piece was `fixture_id`: no fixture identifier survives rebuilds today — the existing
+`id` field on game cards is the client-side simulator's array index (the "SIM PORTING CONTRACT") and
+must never be repurposed. Added `scripts/payload_utils.make_fixture_id()`, a versioned SHA-1 hash of
+league+season+date+home_id+away_id, called alongside the untouched `id` field rather than replacing
+it. Both new IDs were threaded into the archive layer (`data/odds_history.parquet` /
+`data/match_prob_history.parquet`) as additive columns, and `validate_payloads.py` now gates the MLS
+payload on their presence. Scoped to MLS only — `league_id` and `season_id` already satisfied the
+spec as-is (no changes needed), and generalizing team_id/fixture_id to the other ~40 leagues in the
+registry is separate follow-on work since each sources team names from a different upstream with no
+equivalent stable-ID field yet. Next: S2 (extract and version the simulation engine), as its own plan
+file.
