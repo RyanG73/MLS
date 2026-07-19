@@ -457,12 +457,28 @@ public data, so — unlike S3 — it's committed to the repo, giving it real
 persistence across CI runs. See `docs/PROJECT_HISTORY.md` "Intelligence Hub
 S4" for the full outcome summary.
 
-### S5. Build secure delivery
+### S5. Build secure delivery — **done 2026-07-18, code + mocked tests only**
 
 - Implement magic-link auth, token verification, Stripe entitlements, preference
-  storage, and rate limits.
-- Add a single entitlement middleware used by all Intel endpoints.
-- Ensure expired, canceled, and trial users receive correct states.
+  storage, and rate limits. **Done** — `server/intel_auth.py`, `server/intel_store.py`,
+  `server/rate_limit.py`, `server/stripe_webhook.py`.
+- Add a single entitlement middleware used by all Intel endpoints. **Done** —
+  `require_entitlement()`, demonstrated by the one representative endpoint
+  this pass builds (`api/intel/me.py`); further Intel endpoints reuse it as
+  they're built.
+- Ensure expired, canceled, and trial users receive correct states. **Done** —
+  the middleware always re-checks the *current* plan from a live lookup,
+  never a token's embedded plan claim, so a canceled subscription is
+  correctly rejected even with a still-valid access token.
+
+**Scope confirmed with the user before starting:** code and mocked tests
+only — no Vercel project, Stripe account, Resend account, or Upstash Redis
+instance exists or was created by this work. Every module is written
+against clean interfaces (`KVStore`, `MagicLinkSender`) with in-memory/
+recording test doubles; swapping in real Upstash Redis / Resend / Stripe
+later is a small, isolated change, not a rewrite. See
+`docs/PROJECT_HISTORY.md` "Intelligence Hub S5" for the full outcome
+summary.
 
 ### S6. Replace the mockup with live data progressively
 

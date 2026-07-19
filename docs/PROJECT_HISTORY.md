@@ -651,3 +651,29 @@ fixed by adding it to the allowlist, same pattern as the other public accrual fi
 delivery — auth, entitlements, Stripe), as its own plan file. This is a materially larger, different
 kind of step than S0-S4: new infrastructure (magic-link auth, Stripe webhooks, a preference store, an
 entitlement middleware) rather than extending the existing static-site build pipeline.
+
+## Intelligence Hub S5: secure delivery (2026-07-18, plan completed and deleted)
+
+Sixth foundation step, and a genuinely different kind of step than S0-S4: no Vercel project, Stripe
+account, Resend account, or Upstash Redis instance exists or was created — creating accounts and
+handling real financial/API credentials are outside what an agent does on a user's behalf. Confirmed
+scope with the user before starting: code and mocked tests only. Delivered magic-link auth (one-time
+tokens, server-tracked so they're revocable), a minimal stdlib-only HS256 signed-token scheme (no
+PyJWT dependency — same "no new tooling unless it earns its keep" pattern as `webapp/sim-engine.js`),
+a KV-backed preference/entitlement store (`server/intel_store.py`, schema matching §4.8 exactly), rate
+limiting, and a Stripe webhook handler with signature verification and replay protection (event-ID
+deduplication, matching Stripe's own at-least-once delivery guarantee) — again without the `stripe`
+SDK. The one security property that mattered most: `require_entitlement()` always re-checks the
+*current* plan from a live KV lookup, never a token's embedded plan claim — so a still-valid,
+unexpired access token from a subscription that was canceled mid-session is correctly rejected. Tested
+explicitly (`test_require_entitlement_rechecks_current_plan_not_token_claim`) and proven in the full
+end-to-end flow test (request → callback → authenticated read → Stripe upgrade webhook → refresh →
+updated entitlement reflected). Followed the module table's own `api/` vs `server/` split: `server/*.py`
+holds all real, framework-agnostic logic; `api/*.py` holds thin adapters using a deliberately
+non-Vercel-specific `handle(method, headers, body)` signature, since no project is linked yet — wiring
+to a real deployment is a small adapter change, not a rewrite. One design bug caught before it shipped:
+each `api/*.py` file instantiating its own `InMemoryKVStore()` would have silently NOT shared state
+across endpoints (a user created via `callback.py` invisible to `me.py`) — fixed with a shared
+`server/kv_client.get_kv()` singleton. Next: S6 (replace the mockup with live data progressively) and
+onward into Milestone A's actual features — those need a decision on which comes first, since S6-S8
+plus the shadow-mode period are the last foundation steps before any user-facing Intel feature ships.
