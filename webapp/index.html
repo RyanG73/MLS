@@ -4086,6 +4086,21 @@ if(_isHome && window.HOME_DATA){
       <div class="hx-dots">${fxByLg.map((_,i)=>`<i class="${i===fIdx?'on':''}" data-i="${i}"></i>`).join('')}</div>`;
   };
 
+  // ── 1.2 "My matchday": this week's matches for pinned teams, closest races
+  //    first (closeness = 1-|pH-pA|; the cross-league half of leverageScore,
+  //    since the home payload carries no per-league rank map). No pins / no
+  //    matches → the whole panel is omitted. Reuses fixCard for visual parity. ──
+  const _mmPins=FavStore.teams();
+  const _mmInWeek=f=>{const dd=(new Date(f.date+'T12:00')-Date.now())/864e5;return dd>-1&&dd<8;};
+  const myFx=(H.fixtures||[])
+    .filter(f=>_mmPins.some(p=>p.team===f.home||p.team===f.away)&&_mmInWeek(f))
+    .sort((a,b)=>(1-Math.abs(b.pH-b.pA))-(1-Math.abs(a.pH-a.pA)))
+    .slice(0,6);
+  const myMatchdayHTML=myFx.length
+    ?`<div class="hx-caro-head"><b>★ My matchday</b><span>your pinned clubs · closest races first</span></div>
+      <div class="hx-caro">${myFx.map(fixCard).join('')}</div>`
+    :'';
+
   // ── Biggest Movers board (2026-07-13 feedback: "stock up/down of the three
   //    biggest movers in each direction ... a subtle filter"). Literal
   //    riser/faller ticker, distinct from the "More movement" story cards —
@@ -4123,7 +4138,7 @@ if(_isHome && window.HOME_DATA){
     <div class="hx-table"><div class="ed-sec">League Tables</div><div class="hx-card" id="hxTable">${T.length?tableHTML(T[tIdx]):'<div class="news-empty">League tables arrive with the next data build.</div>'}</div></div>
     <div class="hx-odds"><div class="ed-sec">Title Odds</div><div class="hx-card" id="hxBoard" style="padding:6px 8px">${T.length?boardHTML():'<div class="news-empty">Title odds arrive with the next data build.</div>'}</div></div>
     <div class="hx-stories"><div class="ed-sec">Your Stories</div>${storiesHTML}</div>
-    <div class="hx-fix"><div class="ed-sec">Upcoming Matches</div><div id="hxCaro">${caroHTML()}</div></div>
+    <div class="hx-fix">${myMatchdayHTML?`<div class="ed-sec">★ My Matchday</div><div class="hx-card" style="margin-bottom:16px" id="myMatchday">${myMatchdayHTML}</div>`:''}<div class="ed-sec">Upcoming Matches</div><div id="hxCaro">${caroHTML()}</div></div>
     <div class="hx-movers">${moversBody?`<div class="ed-sec">Biggest Movers</div>${moversBody}`:''}</div>
     <div class="hx-news"><div class="ed-sec">Around the Leagues</div><div class="hx-newsband">${(H.news||[]).slice(0,9).map(newsItem).join('')||'<div class="news-empty">No headlines right now.</div>'}</div></div>
   </div>`;
