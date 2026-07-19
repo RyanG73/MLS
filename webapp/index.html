@@ -63,6 +63,16 @@ function captureEmail(email,tags){
   }catch(e){}
 }
 
+// ── 1.6: one delegated listener for every upsell link (they render into many
+//    views). Remembers which free surface sent the user so the waitlist join
+//    can be attributed to a feature; sessionStorage clears on the join. ──
+document.addEventListener('click',e=>{
+  const u=e.target.closest&&e.target.closest('[data-upsell]');
+  if(!u)return;
+  try{sessionStorage.setItem('entenser_upsell_src',u.dataset.upsell);}catch(_){}
+  track('upsell_click',{source:u.dataset.upsell});
+});
+
 if(_analyticsOn && ANALYTICS.provider==='ga4'){
   window.dataLayer = window.dataLayer || [];
   window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
@@ -778,6 +788,13 @@ footer a:hover{color:var(--txt-2)}
 .sup-price{display:flex;align-items:baseline;gap:8px;margin:var(--s4) 0 4px}
 .sup-price b{font-size:30px;font-weight:800;color:var(--txt-1);letter-spacing:-.01em}
 .sup-price span{font-size:13px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.04em}
+.sup-cadence{display:inline-flex;gap:6px;margin:var(--s4) 0 0}
+.sup-cadence .sc-opt{font:inherit;font-size:12px;padding:4px 12px;border-radius:999px;border:1px solid var(--line-2);background:none;color:var(--txt-2);cursor:pointer}
+.sup-cadence .sc-opt.on{border-color:var(--floodlight);color:var(--floodlight)}
+.sup-cadence .sc-opt em{font-style:normal;opacity:.7;font-size:10px}
+.upsell-link{display:inline-flex;gap:6px;align-items:center;margin:8px 0;font-size:12px;color:var(--txt-2);text-decoration:none;border:1px dashed var(--line-2);border-radius:6px;padding:4px 10px}
+.upsell-link em{color:var(--floodlight);font-style:normal}
+.upsell-link:hover{border-color:var(--floodlight)}
 .sup-feats{list-style:none;margin:6px 0 var(--s4)!important;padding:0}
 .sup-feats li{position:relative;padding:7px 0 7px 22px;border-bottom:1px solid var(--line)}
 .sup-feats li:last-child{border-bottom:0}
@@ -878,6 +895,7 @@ footer a:hover{color:var(--txt-2)}
     <div class="favs" id="favs"></div>
     <div class="whatif-banner" id="wbanner"><b>What-if mode</b><span id="wcount"></span>
       <span style="color:var(--txt-3)">odds resimulated in your browser (10k runs)</span>
+      <a class="upsell-link" href="?league=support" data-upsell="saved-scenarios">★ Save scenarios across devices <em>supporter feature →</em></a>
       <a id="wreset">Reset ⟲</a></div>
     <div class="sec-h"><h2>League Table</h2><span class="note" id="laddernote"></span></div>
     <div class="ladders" id="ladders"></div>
@@ -3711,7 +3729,7 @@ function commandSignupHTML(){
   return `<form class="cc-email" id="ccEmailForm">
     <input type="email" name="email" placeholder="Email for weekly model movement" value="${commandEsc(saved||'')}" aria-label="Email for weekly model movement">
     <button type="submit">${saved?'Saved':'Notify me'}</button>
-  </form>`;
+  </form>${upsellHTML('weekly-briefing','Get this as a personalized weekly briefing')}`;
 }
 function bindCommandSignup(){
   const form=document.getElementById('ccEmailForm');
@@ -3738,13 +3756,30 @@ function _supporterPrice(){
   if(/^(de|fr|es|it|nl|pt|fi|el|ga|et|lv|lt|sk|sl|mt)\b/.test(l)||l.endsWith('-eu'))return '€5.99';
   return '$5.99';
 }
+// 1.6: annual = 10x monthly ("2 months free"), per roadmap §1 pricing anchors.
+function _supporterPriceAnnual(){
+  const l=(navigator.language||'').toLowerCase();
+  if(l==='en-gb'||l.endsWith('-gb'))return '£49.99';
+  if(/^(de|fr|es|it|nl|pt|fi|el|ga|et|lv|lt|sk|sl|mt)\b/.test(l)||l.endsWith('-eu'))return '€59.99';
+  return '$59.99';
+}
+// ── 1.6: upsell placements beside free features. Click → remember the source,
+//    fire the funnel event, go to the support card; the eventual waitlist join
+//    carries the source tag (gate reading: which promised feature pulls hardest).──
+function upsellHTML(source,text){
+  return `<a class="upsell-link" href="?league=support" data-upsell="${source}">★ ${text} <em>supporter feature →</em></a>`;
+}
 function supportCardHTML(){
   const joined=localStorage.getItem('entenser_supporter_waitlist');
   const price=_supporterPrice();
   return `
     <h2>Support Entenser</h2>
     <p class="lead">The forecasts stay free — every league race, every match probability, every public grade. This is a supporter tier for readers who want more control, and who want to keep an independent, market-blind model running.</p>
-    <div class="sup-price"><b>${price}</b><span>/ month · planned</span></div>
+    <div class="sup-cadence" id="supCadence" data-cadence="monthly">
+      <button type="button" class="sc-opt on" data-c="monthly">Monthly</button>
+      <button type="button" class="sc-opt" data-c="annual">Annual <em>2 months free</em></button>
+    </div>
+    <div class="sup-price" id="supPrice"><b>${price}</b><span>/ month · planned</span></div>
     <p class="fine">Nothing is for sale yet. We're gauging interest before building it — join the waitlist and you'll be first in, at the launch price, with no obligation.</p>
     <h3>What the supporter tier would add</h3>
     <ul class="sup-feats">
@@ -3752,7 +3787,7 @@ function supportCardHTML(){
       <li><b>Forecast-change history</b> — see how a club's odds shifted week by week, not just where they stand today.</li>
       <li><b>Weekly "model changed its mind" briefing</b> — the biggest movers and model-vs-market disagreements, in your inbox.</li>
       <li><b>Data downloads</b> — projections and probabilities as CSV for your own analysis.</li>
-      <li><b>Ad-free, always</b> — the site stays fast and free of gambling creative.</li>
+      <li><b>Ad-free, always</b> — supporters keep it that way; the site stays fast and free of gambling creative.</li>
     </ul>
     <form class="sup-form" id="waitlistForm">
       <input type="email" name="email" placeholder="Email address" aria-label="Email for the supporter waitlist" value="${commandEsc(joined||'')}" ${joined?'disabled':''}>
@@ -3763,14 +3798,25 @@ function supportCardHTML(){
 function bindWaitlist(){
   const form=document.getElementById('waitlistForm');
   if(!form)return;
+  const cad=document.getElementById('supCadence');
+  if(cad)cad.querySelectorAll('.sc-opt').forEach(b=>b.onclick=()=>{
+    cad.dataset.cadence=b.dataset.c;
+    cad.querySelectorAll('.sc-opt').forEach(x=>x.classList.toggle('on',x===b));
+    const p=document.getElementById('supPrice');
+    if(p)p.innerHTML=b.dataset.c==='annual'
+      ?`<b>${_supporterPriceAnnual()}</b><span>/ year · planned</span>`
+      :`<b>${_supporterPrice()}</b><span>/ month · planned</span>`;
+  });
   form.addEventListener('submit',ev=>{
     ev.preventDefault();
     const input=form.querySelector('input[name="email"]');
     const email=(input&&input.value||'').trim();
     if(!email||!/.+@.+\..+/.test(email))return;
     try{localStorage.setItem('entenser_supporter_waitlist',email);}catch(e){}
-    captureEmail(email,['supporter-waitlist']);
-    track('waitlist_click',{tier:'supporter'});
+    const cadence=(cad&&cad.dataset.cadence)||'monthly';
+    let src=null;try{src=sessionStorage.getItem('entenser_upsell_src');sessionStorage.removeItem('entenser_upsell_src');}catch(e){}
+    captureEmail(email,['supporter-waitlist','cadence-'+cadence].concat(src?['src-'+src]:[]));
+    track('waitlist_click',{tier:'supporter',cadence,source:src||'direct'});
     const btn=form.querySelector('button');
     if(btn)btn.textContent="You're on the list ✓";
     if(input)input.disabled=true;
