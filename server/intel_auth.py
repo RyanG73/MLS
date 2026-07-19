@@ -6,11 +6,9 @@ Token format is a minimal HS256 JWT (header.payload.signature, base64url,
 HMAC-SHA256) using only the standard library — no PyJWT dependency, same
 "no new tooling unless it earns its keep" pattern as webapp/sim-engine.js.
 
-Scope: code + mocked tests only. No real signing secret, KV backend, or
-email provider is wired up — MagicLinkSender is an injectable interface
-with no real implementation yet; a Resend-backed one is follow-on work
-once that account exists (docs/product-roadmap-2026-07.md Phase 0's
-"USER: ... Resend account setup" item).
+MagicLinkSender remains injectable for tests. Production selects the Resend
+adapter in server.email_client and persistent Upstash storage in
+server.kv_client; both fail closed when production credentials are absent.
 
 The server is always authoritative for entitlement state
 (docs/intelligence-hub-implementation-instructions.md §2 rule 7: "No
@@ -41,8 +39,7 @@ class MagicLinkSender(Protocol):
 
 
 class RecordingSender:
-    """Test double: records every send instead of contacting a real
-    provider. The real Resend-backed sender is follow-on work."""
+    """Development/test double that records sends without contacting Resend."""
 
     def __init__(self) -> None:
         self.sent: list[tuple[str, str]] = []
@@ -108,7 +105,8 @@ def request_magic_link(kv: KVStore, sender: MagicLinkSender, email: str, base_ur
     raw_token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
     kv.set(f"magic_link:{token_hash}", email, ex=MAGIC_LINK_TTL_SECONDS)
-    sender.send(email, f"{base_url}?token={raw_token}")
+    separator = "&" if "?" in base_url else "?"
+    sender.send(email, f"{base_url}{separator}token={raw_token}")
 
 
 def verify_magic_link(kv: KVStore, raw_token: str) -> str | None:

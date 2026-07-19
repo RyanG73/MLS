@@ -9,18 +9,18 @@ def test_build_payload_keys_by_team_name():
     assert payload["teams"]["Nashville SC"] == events_by_team_id["TID_A"]
 
 
-def test_build_payload_skips_team_id_with_no_standings_match():
+def test_build_payload_keeps_recognized_team_with_no_matching_event():
     events_by_team_id = {"TID_UNKNOWN": [{"event_type": "result"}]}
     standings = [{"team": "Nashville SC", "team_id": "TID_A"}]
     payload = build_payload(events_by_team_id, standings)
-    assert payload["teams"] == {}
-    assert payload["status"] == "empty"
+    assert payload["teams"] == {"Nashville SC": []}
+    assert payload["status"] == "ok"
 
 
-def test_build_payload_empty_when_no_events():
+def test_build_payload_marks_known_team_as_thin_when_no_events():
     payload = build_payload({}, [{"team": "Nashville SC", "team_id": "TID_A"}])
-    assert payload["status"] == "empty"
-    assert payload["teams"] == {}
+    assert payload["status"] == "ok"
+    assert payload["teams"] == {"Nashville SC": []}
 
 
 def test_build_payload_preserves_event_fields_unchanged():

@@ -1,0 +1,43 @@
+name: Intelligence Live Delivery
+
+on:
+  schedule:
+    - cron: '30 12 * * *'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type ENABLE LIVE INTELLIGENCE after the two-matchweek shadow review'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'ENABLE LIVE INTELLIGENCE') || (github.event_name == 'schedule' && vars.INTELLIGENCE_LIVE_SENDS == 'true') }}
+    runs-on: ubuntu-latest
+    environment: intelligence-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - name: Install delivery runtime
+        run: pip install -r requirements-api.txt
+      - name: Send approved intelligence alerts and briefings
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          ENTENSER_ENV: production
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}
+          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+          INTELLIGENCE_SENDS_ENABLED: 'true'
+          INTELLIGENCE_SENDS_OWNER_APPROVED: 'true'
+        run: |
+          python scripts/send_intelligence_notifications.py --send
+          python scripts/send_personalized_briefings.py --send

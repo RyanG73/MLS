@@ -5,14 +5,14 @@ NOTE for the framework-agnostic handle() signature.
 from __future__ import annotations
 
 import json
-import os
 
+from server.config import stripe_webhook_secret
 from server.kv_client import get_kv
 from server.stripe_webhook import InvalidWebhookSignature, handle_event, verify_stripe_signature
 
 
 def _webhook_secret() -> str:
-    return os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    return stripe_webhook_secret()
 
 
 def handle(method: str, headers: dict, body: bytes) -> tuple[int, dict, bytes]:

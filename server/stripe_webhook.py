@@ -3,10 +3,9 @@
 (docs/intelligence-hub-implementation-instructions.md §4.2, §5 S5, §9
 "Stripe webhook signature and replay protection.")
 
-Verifies Stripe's documented Stripe-Signature scheme
-(https://stripe.com/docs/webhooks/signatures) using stdlib hmac/hashlib —
-no `stripe` SDK dependency needed for this. No real webhook secret exists
-yet (no Stripe account) — code + mocked tests only, per this plan's scope.
+Verifies Stripe's documented Stripe-Signature scheme using stdlib hmac/hashlib,
+so the production webhook does not require the Stripe SDK. The secret is loaded
+from production configuration by api/stripe/webhook.py.
 """
 from __future__ import annotations
 
@@ -42,9 +41,10 @@ def verify_stripe_signature(payload: bytes, sig_header: str, webhook_secret: str
         raise InvalidWebhookSignature("signature mismatch")
 
 
-def _plan_for_status(status: str) -> str:
+def _plan_for_status(status: str, paid_plan: str = "intel") -> str:
+    paid_plan = paid_plan if paid_plan in {"intel", "creator"} else "intel"
     return {
-        "active": "intel", "trialing": "trial",
+        "active": paid_plan, "trialing": "trial",
         "canceled": "canceled", "unpaid": "canceled", "past_due": "canceled",
     }.get(status, "canceled")
 
@@ -67,10 +67,11 @@ def handle_event(kv: KVStore, event: dict) -> str | None:
     if not user_id:
         return None
 
+    requested_plan = (data.get("metadata") or {}).get("plan", "intel")
     if event_type == "checkout.session.completed":
-        set_plan(kv, user_id, "intel")
+        set_plan(kv, user_id, requested_plan if requested_plan in {"intel", "creator"} else "intel")
     elif event_type == "customer.subscription.updated":
-        set_plan(kv, user_id, _plan_for_status(data.get("status", "canceled")))
+        set_plan(kv, user_id, _plan_for_status(data.get("status", "canceled"), requested_plan))
     elif event_type == "customer.subscription.deleted":
         set_plan(kv, user_id, "canceled")
     else:

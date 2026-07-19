@@ -1,27 +1,30 @@
-"""Shared KV store singleton. Every api/*.py handler and server/*.py caller
-should go through get_kv() rather than constructing its own store — a real
-deployment swaps the single InMemoryKVStore() here for a shared Upstash
-Redis client; nothing else needs to change. Without this, each api/*.py
-module instantiating its own store would silently NOT share state with any
-other endpoint (e.g. a user created by api/auth/callback.py would be
-invisible to api/intel/me.py) — a real bug this singleton exists to
-prevent.
-"""
+"""Shared KV selection for local tests and production serverless functions."""
 from __future__ import annotations
 
+import os
+
 from server.kv_store import InMemoryKVStore, KVStore
+from server.upstash_kv import UpstashKVStore
 
 _kv: KVStore | None = None
 
 
 def get_kv() -> KVStore:
     global _kv
-    if _kv is None:
+    if _kv is not None:
+        return _kv
+    url = os.environ.get("UPSTASH_REDIS_REST_URL")
+    token = os.environ.get("UPSTASH_REDIS_REST_TOKEN")
+    if url and token:
+        _kv = UpstashKVStore(url, token)
+    elif os.environ.get("ENTENSER_ENV") == "production":
+        raise RuntimeError(
+            "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production")
+    else:
         _kv = InMemoryKVStore()
     return _kv
 
 
 def reset_kv_for_tests() -> None:
-    """Test-only: force a fresh store so tests don't leak state into each other."""
     global _kv
     _kv = InMemoryKVStore()

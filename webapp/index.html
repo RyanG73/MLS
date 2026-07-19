@@ -835,6 +835,7 @@ footer a:hover{color:var(--txt-2)}
   .wbox.w .wb-l,.wbox.d .wb-l,.wbox.l .wb-l{color:#06121d}
 }
 </style>
+<link rel="stylesheet" href="intelligence.css">
 </head>
 <body>
 <div id="mast"></div>
@@ -947,6 +948,13 @@ const _isLeagues=_rawLeague==='leagues';      // full league index (replaces the
 const _isFavs=_rawLeague==='favorites';       // pinned leagues + teams
 const _isNews=_rawLeague==='news';            // legacy global feed (nav now points at Intel, 2026-07-18)
 const _isIntel=_rawLeague==='intel';          // Personal Intelligence Hub — paywalled tier mockup (2026-07-18)
+// S6: real, committed event data for the Intel "Recent model activity" panel
+// (MLS only today) — lazy-loaded only on this route. Missing file 404s
+// harmlessly, same convention as data/drift-traj/<league>.js.
+if(_isIntel){
+  document.write('<scr'+'ipt src="data/intel-events/mls.js?t='+Date.now()+'"></scr'+'ipt>');
+  document.write('<scr'+'ipt src="data/team-catalog.js?t='+Date.now()+'"></scr'+'ipt>');
+}
 const _isAccount=_rawLeague==='account'||_rawLeague==='subscribe'; // account hub (absorbs the old Subscribe page; old links land here)
 // Special routes that piggyback on the HOME payload rather than a per-league file.
 const _homeDataRoute=_isHome||_isLeagues||_isFavs||_isNews||_isIntel||_isAccount;
@@ -1042,16 +1050,17 @@ const FavStore=(()=>{
       const added=i<0; added?a.push({league:lg,team:t}):a.splice(i,1); write(TKEY,a); return added;},
   };
 })();
-// ── IntelStore (2026-07-18): Entenser Intel paywall state. Nothing is for sale
-//    yet, so "unlocked" is a local flag the future checkout will set — every
-//    gate in the app reads this one place. Defined here (main script) because
-//    renderProfile can run synchronously for ?team= deep links before the
-//    later script blocks have parsed. ──
+// Presentation cache only. Paid endpoints always re-check the current plan on
+// the server; this token inspection never grants data access.
 const IntelStore={
-  KEY:'entenser.intel',
-  unlocked(){try{return localStorage.getItem(this.KEY)==='unlocked';}catch(e){return false;}},
-  unlock(){try{localStorage.setItem(this.KEY,'unlocked');}catch(e){}},
-  lock(){try{localStorage.removeItem(this.KEY);}catch(e){}},
+  KEY:'entenser.intel.access',
+  unlocked(){try{const t=localStorage.getItem(this.KEY);if(!t)return false;
+    let b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');while(b.length%4)b+='=';
+    const p=JSON.parse(atob(b));
+    return p.exp*1000>Date.now()&&['trial','intel','creator'].includes(p.plan);
+  }catch(e){return false;}},
+  unlock(){},
+  lock(){try{localStorage.removeItem(this.KEY);localStorage.removeItem('entenser.intel.refresh');}catch(e){}},
 };
 // Gate card shown above a greyed-out team profile. Local esc (not commandEsc —
 // that helper lives in a later script block, see IntelStore comment above).
@@ -1386,7 +1395,7 @@ function renderSoonView(){
   $('#foot').innerHTML=FOOT_HTML;
 }
 if((D.league||{}).status==='soon'){ renderSoonView(); }
-else if(_isHome){ /* home route — renderHome handles this below, skip normal league render */ }
+else if(_homeDataRoute){ /* home-data routes render in their dedicated views below */ }
 else if(_isPower){ /* power route — renderPower handles this below, skip normal league render */ }
 else if(_isEdgeBoard){ /* edge-board route — renderEdgeBoard handles this below, skip normal league render */ }
 else if(_infoPage){ /* static info/legal route — renderInfo() handles this below, skip normal league render */ }
@@ -3076,7 +3085,7 @@ function renderProfile(team,scroll){
   // Entenser Intel gate (2026-07-18): team pages are a paid feature. The header
   // (and its favorite star) stays free; the full dashboard renders greyed-out
   // beneath a gate card, fading to nothing — a real preview, not a wall of text.
-  const _gated=!IntelStore.unlocked();
+  const _gated=false; // Current public team data stays free; private Intel analysis is API-gated.
   $('#teamProfile').innerHTML=
     `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div><span class="fav-team-star${FavStore.hasTeam(LID,team)?' on':''}" id="favTeamStar" title="Pin to Favorites">${FavStore.hasTeam(LID,team)?'★':'☆'}</span></div>`
     +(_gated?teamGateCardHTML(team)+`<div class="intel-lockwrap"><div class="lockbody" aria-hidden="true">`:'')
@@ -3410,6 +3419,14 @@ if (_isPower && window.POWER_DATA) {
 .ipanel h3{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-1);margin:0 0 3px;padding-right:60px}
 .ipanel .isub{font-size:11px;color:var(--txt-3);margin-bottom:10px;line-height:1.4}
 .ilock{position:absolute;top:11px;right:11px;font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--intel);border:1px solid rgba(244,183,64,.5);background:rgba(244,183,64,.09);border-radius:4px;padding:2px 6px}
+/* S6: per-panel data-reality state (docs/intelligence-hub-implementation-
+   instructions.md §5 S6) — distinct from .ilock, which is entitlement, not
+   data truthfulness. */
+.istate{display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:1px}
+.istate.sample{color:var(--txt-3);border:1px solid var(--line-2);background:rgba(255,255,255,.03)}
+.istate.live{color:var(--qualify);border:1px solid rgba(61,220,132,.4);background:rgba(61,220,132,.08)}
+.istate.thin{color:var(--intel);border:1px solid rgba(244,183,64,.4);background:rgba(244,183,64,.08)}
+.istate.unavail{color:var(--drop);border:1px solid rgba(255,93,93,.35);background:rgba(255,93,93,.07)}
 .idemo{filter:grayscale(1) brightness(.82);opacity:.55;pointer-events:none;user-select:none}
 .ifake-in{display:flex;align-items:center;gap:8px;background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-3);font-size:12px;padding:8px 10px;margin-bottom:9px}
 .ibar{height:9px;border-radius:4px;background:var(--ink-3);overflow:hidden;display:flex;flex:1;min-width:60px}
@@ -4205,100 +4222,6 @@ if(_isNews){
   const _fn=$('#foot'); if(_fn && !_fn.innerHTML.trim()) _fn.innerHTML=FOOT_HTML;
 }
 
-// ── Intel (?league=intel, 2026-07-18): the Personal Intelligence Hub — the
-//    paywalled tier, shown to the public as a greyed-out demo with a subscribe
-//    hook. Replaces News in the nav; the free global feed keeps a section at
-//    the bottom (and the full page survives at ?league=news for old links).
-//    Demo panels personalize around the user's first pinned club when one
-//    exists, so the mockup sells "YOUR club" rather than a generic one. ──
-if(_isIntel){
-  const seg=$('#seg'); if(seg) seg.style.display='none';
-  const hd=document.querySelector('header'); if(hd) hd.style.display='none';
-  document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
-  document.title="Intel · Entenser";
-  const H=window.HOME_DATA||{};
-  const nmL=id=>{const l=(window.LEAGUES||[]).find(x=>x.id===id);return l?l.name:id;};
-  const agoN=iso=>{ if(!iso) return ''; const d=(Date.now()-new Date(iso))/36e5;
-    return d<1?`${Math.max(1,Math.round(d*60))}m`:d<24?`${Math.round(d)}h`:`${Math.round(d/24)}d`; };
-  const item=n=>`<a class="hx-news-item" href="${n.link}" target="_blank" rel="noopener noreferrer">
-    <h4>${commandEsc(n.title||'')}</h4><div class="m">${nmL(n.league)} · ${commandEsc(n.source||'')}${n.published?' · '+agoN(n.published):''}</div></a>`;
-  const favT=FavStore.teams();
-  const myTeam=favT.length?favT[0].team:'Arsenal';
-  const nLive=(window.LEAGUES||[]).filter(l=>l.status==='live').length;
-  const lock='<span class="ilock">🔒 Intel</span>';
-  const wbox=(on,l)=>`<span class="iwbox${on?' on':''}">${l}</span>`;
-  const panels=`
-    <div class="ipanel">${lock}<h3>Custom deep dives</h3>
-      <div class="isub">Ask the model a question in plain English — it answers with its own numbers, not vibes.</div>
-      <div class="idemo">
-        <div class="ifake-in">🔎 How does ${commandEsc(myTeam)}'s title chance change if they lose the derby?</div>
-        <div class="irow"><span class="k">Title odds today</span><span class="v">23.4%</span></div>
-        <div class="irow"><span class="k">If they lose the derby</span><span class="v" style="color:var(--drop)">15.1%</span></div>
-        <div class="irow"><span class="k">Biggest driver</span><span class="v">6-pt head-to-head swing</span></div>
-      </div></div>
-    <div class="ipanel">${lock}<h3>Scenario what-ifs</h3>
-      <div class="isub">Flip any future result — the whole season resimulates in your browser, 10k runs.</div>
-      <div class="idemo">
-        <div class="irow"><span class="k">Sat · vs Tottenham</span><span style="display:flex;gap:4px">${wbox(1,'W')}${wbox(0,'D')}${wbox(0,'L')}</span></div>
-        <div class="irow"><span class="k">Oct 4 · @ Man City</span><span style="display:flex;gap:4px">${wbox(0,'W')}${wbox(0,'D')}${wbox(1,'L')}</span></div>
-        <div class="irow"><span class="k">Top-4 before → after</span><span class="v">61% → 54%</span></div>
-        <div class="ibar" style="margin-top:8px"><span style="width:54%;background:var(--qualify)"></span><span style="width:14%;background:var(--draw)"></span><span style="width:32%;background:var(--drop)"></span></div>
-      </div></div>
-    <div class="ipanel">${lock}<h3>Projection studio</h3>
-      <div class="isub">Season-long odds trajectories with confidence bands — how the forecast got here, week by week.</div>
-      <div class="idemo">
-        <svg viewBox="0 0 260 92" style="width:100%;height:auto;display:block" aria-hidden="true">
-          <line x1="0" y1="24" x2="260" y2="24" stroke="var(--line-2)"/><line x1="0" y1="52" x2="260" y2="52" stroke="var(--line-2)"/><line x1="0" y1="80" x2="260" y2="80" stroke="var(--line-2)"/>
-          <path d="M0,62 C60,58 120,44 200,26 L260,18 L260,58 L200,52 C120,66 60,72 0,76 Z" fill="rgba(244,183,64,.18)"/>
-          <path d="M0,69 C60,65 120,55 200,39 L260,38" stroke="var(--intel)" stroke-width="2" fill="none"/>
-          <line x1="200" y1="8" x2="200" y2="86" stroke="var(--line-3)" stroke-dasharray="3 3"/>
-          <text x="204" y="16" font-size="8" fill="var(--txt-3)">today</text>
-        </svg>
-        <div class="irow" style="border:0;padding-top:8px"><span class="k">Title odds, matchweek 1 → now</span><span class="v">9.8% → 23.4%</span></div>
-      </div></div>
-    <div class="ipanel">${lock}<h3>Your team HQ</h3>
-      <div class="isub">The full club dashboard — every model input, club-level accuracy, form vs underlying numbers.</div>
-      <div class="idemo">
-        <div class="irow"><span class="k">Full ${commandEsc(myTeam)} dashboard</span><span class="v" style="color:var(--qualify)">unlocked</span></div>
-        <div class="irow"><span class="k">Model inputs · xG · form · availability</span><span class="v">live</span></div>
-        <div class="irow"><span class="k">Model accuracy on this club</span><span class="v">Brier 0.581</span></div>
-        <div class="irow"><span class="k">Team pages, every league</span><span class="v">${nLive} leagues</span></div>
-      </div></div>
-    <div class="ipanel">${lock}<h3>Threshold alerts</h3>
-      <div class="isub">Email when an odds line you care about crosses a level you set — not a firehose.</div>
-      <div class="idemo">
-        <div class="irow"><span class="k">Title odds move &gt; 5 pts in a week</span><span class="v" style="color:var(--qualify)">on</span></div>
-        <div class="irow"><span class="k">Relegation risk crosses 25%</span><span class="v" style="color:var(--qualify)">on</span></div>
-        <div class="irow"><span class="k">Model vs market gap &gt; 8%</span><span class="v" style="color:var(--txt-3)">off</span></div>
-      </div></div>
-    <div class="ipanel">${lock}<h3>Data downloads</h3>
-      <div class="isub">Every projection and probability as CSV, for your own spreadsheets and models.</div>
-      <div class="idemo">
-        <div class="irow"><span class="k">projections_2026.csv</span><span class="v">↓ 41 KB</span></div>
-        <div class="irow"><span class="k">match_probabilities.csv</span><span class="v">↓ 220 KB</span></div>
-        <div class="irow"><span class="k">elo_history.csv</span><span class="v">↓ 1.2 MB</span></div>
-      </div></div>`;
-  const rest=(H.news||[]).slice(0,10);
-  const target=$('#view-outlook');
-  if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap">
-    <div class="intel-hero">
-      <div class="intel-kick">Personal Intelligence Hub</div>
-      <h1>Entenser <em>Intel</em> — the model, working for <em>your</em> club.</h1>
-      <p>The public site tells you what the model thinks. Intel lets you interrogate it: run your own deep dives, flip results and watch the season resimulate, open the full dashboard for any club you follow — all on the same market-blind engine that grades itself in public.</p>
-      <div class="intel-tagchips"><span>custom deep dives</span><span>scenario what-ifs</span><span>projection studio</span><span>team pages</span><span>threshold alerts</span><span>csv exports</span></div>
-    </div>
-    ${intelHookHTML()}
-    <div class="ed-sec">🔒 Inside the hub — preview</div>
-    <div class="hnote" style="margin:6px 0 12px">Greyed out until launch. Everything below is a live mockup of what members get.</div>
-    <div class="intel-grid">${panels}</div>
-    <div class="ed-sec" style="margin-top:26px">🌍 Free for everyone — around the leagues</div>
-    <div class="hx-cols" style="margin-top:6px"><div>${rest.filter((_,i)=>i%2===0).map(item).join('')}</div><div>${rest.filter((_,i)=>i%2===1).map(item).join('')}</div></div>
-    ${rest.length?`<div class="hnote" style="margin-top:8px"><a href="?league=news" style="color:var(--txt-2)">Full news feed →</a></div>`:'<div class="news-empty">No headlines right now — check back after the next build.</div>'}
-  </div>`; }
-  bindIntelWaitlist();
-  const _fx=$('#foot'); if(_fx && !_fx.innerHTML.trim()) _fx.innerHTML=FOOT_HTML;
-}
-
 // ── Account (?league=account, 2026-07-18 — was Subscribe): the user hub.
 //    Profile + favorites picker + subscriptions (free plan vs Intel, weekly
 //    email) + notification prefs + preferences + data/privacy. Everything is
@@ -4641,5 +4564,6 @@ if(_infoPage){
   }, true);
 })();
 </script>
+<script src="intelligence.js"></script>
 </body>
 </html>

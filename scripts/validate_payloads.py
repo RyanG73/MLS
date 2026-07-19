@@ -54,6 +54,7 @@ _NON_PAYLOAD = {
     # here, so it failed contract validation and the REGISTRY-vs-disk test as
     # an unregistered "league". Not caused by round 5 — a pre-existing gap.
     "calendar.js",
+    "team-catalog.js",
 }
 
 

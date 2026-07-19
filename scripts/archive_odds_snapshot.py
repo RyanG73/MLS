@@ -37,6 +37,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from scripts.payload_utils import canonical_team_id, make_fixture_id
+
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 _DATA = REPO_ROOT / "webapp" / "data"
 _OUT = REPO_ROOT / "data" / "odds_history.parquet"
@@ -52,7 +54,8 @@ _CHAMPION = REPO_ROOT / "experiments" / "champion.json"
 # build_logo_map and here. search-index.js in particular is a JSON *array*.
 _NON_PAYLOAD = {"logos.js", "ledger.js", "edge-board.js", "movers.js",
                 "coefficients.js", "search-index.js", "calendar.js",
-                "home.js", "power.js", "drift.js", "europe-map.js"}
+                "home.js", "power.js", "drift.js", "europe-map.js",
+                "team-catalog.js"}
 
 # promoted/promo/conf/liguilla/playoffs added 2026-07-09 (round-3 promotion
 # playoffs + drift-tracking step 1a — history not captured never exists).
@@ -122,7 +125,8 @@ def snapshot_rows(league_id: str, payload: dict) -> list[dict]:
         if not team or not snapshot_date:
             continue
         row = {
-            "league": league_id, "team": team, "team_id": s.get("team_id"),
+            "league": league_id, "team": team,
+            "team_id": canonical_team_id(team, s.get("team_id")),
             "snapshot_date": snapshot_date,
             "season": season, "elo": s.get("elo"), "proj_pts": s.get("proj_pts"),
             "n_played": n_played, "config_id": cid, "code_rev": rev,
@@ -181,10 +185,14 @@ def match_prob_rows(league_id: str, payload: dict) -> list[dict]:
             dtk = (pd.Timestamp(g["date"]) - pd.Timestamp(snapshot_date)).days
         except (ValueError, TypeError):
             dtk = None
+        home_id = canonical_team_id(g.get("home"), g.get("home_id"))
+        away_id = canonical_team_id(g.get("away"), g.get("away_id"))
+        fixture_id = g.get("fixture_id") or make_fixture_id(
+            league_id, payload.get("season"), g["date"], home_id, away_id)
         rows.append({
             "league": league_id, "home": g.get("home"), "away": g.get("away"),
-            "home_id": g.get("home_id"), "away_id": g.get("away_id"),
-            "fixture_id": g.get("fixture_id"),
+            "home_id": home_id, "away_id": away_id,
+            "fixture_id": fixture_id,
             "date": g["date"], "snapshot_date": snapshot_date,
             "pH": g.get("pH"), "pD": g.get("pD"), "pA": g.get("pA"),
             "mkt_home": g.get("mkt_home"), "mkt_draw": g.get("mkt_draw"),

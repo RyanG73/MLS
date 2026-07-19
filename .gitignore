@@ -23,6 +23,9 @@ data/source_health.parquet
 # are NOT committed here. Durable storage is deferred to S5 (access-
 # controlled object store / deployment artifact).
 data/intelligence_snapshots/
+# Per-team Intelligence Hub artifacts contain paid multi-season analysis and
+# are delivered only through authenticated endpoints.
+data/team_intelligence/
 # Round-4 league expansion + venue-weather sources (same regenerable-cache
 # treatment as football_data/ and the other source dirs above)
 data/football_data_intl/

@@ -56,7 +56,13 @@ from scripts.eval.sim_variance import preseason_sigma_for_source, perturb_probs
 from scripts.eval.season_format import FORMATS, format_classification, regular_phase_mask
 from scripts.postgame_win_expectancy import compute_we
 from scripts.eval.upcoming_features import latest_team_features
-from scripts.payload_utils import write_js_payload, health_feature_stats, outcome_skill_block
+from scripts.payload_utils import (
+    canonical_team_id,
+    health_feature_stats,
+    make_fixture_id,
+    outcome_skill_block,
+    write_js_payload,
+)
 from data_pipeline import coefficients as co
 
 # B9: same canonical family grouping as build_dashboard_data.py (kept as an
@@ -1434,8 +1440,13 @@ def main():
         _wx = None
         if _ko and _city and r["date"] <= _wx_horizon:
             _wx = kickoff_weather(_city, _ko)
-        upcoming_cards.append({"id": len(remaining), "date": r["date"].strftime("%Y-%m-%d"),
+        _date = r["date"].strftime("%Y-%m-%d")
+        _home_id = canonical_team_id(tname(h))
+        _away_id = canonical_team_id(tname(a))
+        upcoming_cards.append({"id": len(remaining), "date": _date,
                                "home": tname(h), "away": tname(a),
+                               "home_id": _home_id, "away_id": _away_id,
+                               "fixture_id": make_fixture_id(lid, ts, _date, _home_id, _away_id),
                                "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
                                "lam": round(lam, 2), "mu": round(mu, 2),
                                "hg": None, "ag": None, "result": None,
@@ -1602,7 +1613,7 @@ def main():
     standings = []
     for t in tids:
         i = idx[t]
-        row = {"team": tname(t),
+        row = {"team": tname(t), "team_id": canonical_team_id(tname(t)),
                "pts": int(base_pts[i]), "gp": gp.get(t, 0),
                "gd": int(round(gf.get(t, 0) - ga.get(t, 0))),
                "proj_pts": round(proj[i] / N, 1),
@@ -1746,7 +1757,12 @@ def main():
         _has_row_xg = _we_available and pd.notna(_hxg) and pd.notna(_axg)
         _we_h = compute_we(float(_hxg), float(_axg), _we_family) if _has_row_xg else None
         _we_a = compute_we(float(_axg), float(_hxg), _we_family) if _has_row_xg else None
-        games.append({"date": r["date"].strftime("%Y-%m-%d"), "home": tname(h), "away": tname(a),
+        _date = r["date"].strftime("%Y-%m-%d")
+        _home_id = canonical_team_id(tname(h))
+        _away_id = canonical_team_id(tname(a))
+        games.append({"date": _date, "home": tname(h), "away": tname(a),
+                      "home_id": _home_id, "away_id": _away_id,
+                      "fixture_id": make_fixture_id(lid, ts, _date, _home_id, _away_id),
                       "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
                       "lam": round(_lam, 2), "mu": round(_mu, 2),
                       "hg": int(r["home_goals"]), "ag": int(r["away_goals"]), "result": res,

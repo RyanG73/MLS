@@ -114,9 +114,10 @@ def test_snapshot_rows_captures_team_id():
     assert a["team_id"] == "TID_ALPHA"
 
 
-def test_snapshot_rows_team_id_defaults_to_none_when_absent():
+def test_snapshot_rows_derives_stable_team_id_when_absent():
     rows = snapshot_rows("epl", _payload())
-    assert all(r["team_id"] is None for r in rows)
+    assert all(r["team_id"].startswith("v1:") for r in rows)
+    assert len({r["team_id"] for r in rows}) == len(rows)
 
 
 def test_match_prob_rows_captures_home_away_fixture_ids():
@@ -126,9 +127,13 @@ def test_match_prob_rows_captures_home_away_fixture_ids():
     assert r["home_id"] == "TID_A" and r["away_id"] == "TID_B" and r["fixture_id"] == "v1:deadbeef"
 
 
-def test_match_prob_rows_ids_default_to_none_when_absent():
-    r = match_prob_rows("epl", _payload())[0]
-    assert r["home_id"] is None and r["away_id"] is None and r["fixture_id"] is None
+def test_match_prob_rows_derives_stable_ids_when_absent():
+    first = match_prob_rows("epl", _payload())[0]
+    second = match_prob_rows("epl", _payload())[0]
+    assert first["home_id"].startswith("v1:")
+    assert first["away_id"].startswith("v1:")
+    assert first["fixture_id"].startswith("v1:")
+    assert first["fixture_id"] == second["fixture_id"]
 
 
 # ── the "conf" collision fix (2026-07-10): MLS ships conf="East"/"West"      ──

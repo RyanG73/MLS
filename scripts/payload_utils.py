@@ -33,6 +33,24 @@ if TYPE_CHECKING:
     import pandas as pd
 
 FIXTURE_ID_VERSION = "v1"
+TEAM_ID_VERSION = "v1"
+
+
+def canonical_team_id(display_name: str, source_id: str | None = None) -> str:
+    """Return a stable, versioned club identifier.
+
+    Source identifiers remain authoritative when a builder has one (MLS uses
+    ASA IDs). Other builders currently expose names only, so their fallback
+    ID is deliberately league-independent: exact canonical names survive
+    promotion/relegation and competition changes. Alias/name-change mapping
+    belongs upstream; changing that mapping never changes this hash contract
+    for already archived records.
+    """
+    if source_id is not None and str(source_id).strip():
+        return str(source_id).strip()
+    canonical = " ".join(str(display_name).strip().casefold().split())
+    digest = hashlib.sha1(canonical.encode("utf-8")).hexdigest()[:16]
+    return f"{TEAM_ID_VERSION}:{digest}"
 
 
 def make_fixture_id(league_id: str, season: int | str, date: str,
