@@ -559,6 +559,12 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .prof-hd .sub{font-size:12.5px;color:var(--txt-3)}
 .prof-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--s3);margin-bottom:var(--s4)}
 .pcard{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4)}
+.traj-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.traj-row:last-of-type{border-bottom:0}
+.traj-k{font-size:12px;color:var(--txt-2);flex:1;min-width:70px}
+.traj-spark{line-height:0}
+.traj-d{font-size:12px;color:var(--txt-1);font-variant-numeric:tabular-nums;text-align:right;min-width:64px}
+.traj-d em{font-style:normal;color:var(--txt-3);font-size:11px}
 .pcard h3{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3);margin-bottom:10px}
 .pstat{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
 .pstat:last-child{border-bottom:none}
@@ -3058,6 +3064,55 @@ function squadValuePanel(team){
     <div style="margin-top:8px;font-size:10px;color:var(--txt-3)">Values: <a href="https://www.transfermarkt.com" target="_blank" rel="noopener" style="color:var(--txt-3)">Transfermarkt.com</a></div>
     </div></div>`;
 }
+// ── 1.1: current-season forecast trajectories from the public DRIFT_TRAJ payload
+//    (free forever per the ratchet; the multi-season vault stays paid/M4). Shared
+//    by the profile sparklines (1.1a) and the league race-history chart (1.1b). ──
+const TRAJ_METRICS=[['title','Title odds'],['playoff','Playoff odds'],['promo','Promotion odds'],
+  ['liguilla','Liguilla odds'],['playoffs','Playoff odds'],['releg','Relegation risk'],
+  ['cup','Cup odds'],['shield','Shield odds']];
+function pickTrajMetric(rows){
+  for(const [k,label] of TRAJ_METRICS){
+    if(rows.map(r=>r[k]).filter(v=>v!=null).length>=2)return [k,label];
+  }
+  return null;
+}
+function sparkSVG(vals,w,h,color){
+  const nn=vals.filter(v=>v!=null);
+  if(nn.length<2)return '';
+  const min=Math.min(...nn),max=Math.max(...nn),span=(max-min)||1;
+  const pts=vals.map((v,i)=>v==null?null:[(i/(vals.length-1))*(w-4)+2,h-3-((v-min)/span)*(h-6)])
+    .filter(Boolean);
+  const path=pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const last=pts[pts.length-1];
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true">
+    <polyline points="${path}" fill="none" stroke="${color}" stroke-width="1.5"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.2" fill="${color}"/></svg>`;
+}
+// A "Season trajectory" card for one club: an odds-metric spark + a proj-pts spark,
+// each with a first→last delta. Renders nothing when the league has no drift-traj
+// payload or the club has fewer than 2 recorded points (leagues 404 harmlessly).
+function trajCardHTML(team){
+  const TJ=window.DRIFT_TRAJ;
+  const rows=TJ&&TJ.teams&&TJ.teams[team];
+  if(!rows||rows.length<2)return '';
+  const from=rows[0].date, to=rows[rows.length-1].date;
+  const spark=(key,label,color,unit)=>{
+    const vals=rows.map(r=>r[key]);
+    if(vals.filter(v=>v!=null).length<2)return '';
+    const first=vals.find(v=>v!=null), lastV=[...vals].reverse().find(v=>v!=null);
+    const d=lastV-first, sign=d>=0?'+':'';
+    return `<div class="traj-row"><span class="traj-k">${label}</span>
+      <span class="traj-spark">${sparkSVG(vals,120,26,color)}</span>
+      <span class="traj-d">${lastV.toFixed(unit==='pp'?1:1)}${unit} <em>${sign}${d.toFixed(1)}${unit}</em></span></div>`;
+  };
+  const pm=pickTrajMetric(rows);
+  const oddsSpark=pm?spark(pm[0],pm[1],'var(--floodlight)','pp'):'';
+  const ptsSpark=spark('proj_pts','Projected points','var(--qualify)','');
+  if(!oddsSpark&&!ptsSpark)return '';
+  return `<div class="pcard"><h3>Season trajectory</h3>${oddsSpark}${ptsSpark}
+    <div class="hnote">Model forecasts recorded nightly, ${from} → ${to} (current season).</div>
+    ${upsellHTML('team-history','Multi-season history for this club lives in the vault')}</div>`;
+}
 function renderProfile(team,scroll){
   const s=stdByTeam.get(team); if(!s)return;
   _selTeam=team;
@@ -3154,7 +3209,7 @@ function renderProfile(team,scroll){
     `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">${placeLabel} · ELO ${inp.elo??'—'} · ${troph.length} trophies</div></div><span class="fav-team-star${FavStore.hasTeam(LID,team)?' on':''}" id="favTeamStar" title="Pin to Favorites">${FavStore.hasTeam(LID,team)?'★':'☆'}</span></div>`
     +(_gated?teamGateCardHTML(team)+`<div class="intel-lockwrap"><div class="lockbody" aria-hidden="true">`:'')
     +`<div class="chart-wrap big">${chart}${trophLegend}<div class="troph-list">${chips}</div></div>
-     <div class="prof-grid">${inputsCard}${seasonCard}${forRealCard}${accCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}<div class="pcard" style="grid-column:1/-1"><h3>Club news</h3><div id="clubNews" class="hnote">Loading…</div></div></div>`
+     <div class="prof-grid">${trajCardHTML(team)}${inputsCard}${seasonCard}${forRealCard}${accCard}<div class="pcard"><h3>Next 5 — model win prob</h3>${upc}</div><div class="pcard"><h3>Recent results · model hit?</h3>${rec}</div>${fullInputsPanel(team)}${squadValuePanel(team)}<div class="pcard" style="grid-column:1/-1"><h3>Club news</h3><div id="clubNews" class="hnote">Loading…</div></div></div>`
     +(_gated?`</div></div>`:'');
   if(_gated){const cn=document.getElementById('clubNews'); if(cn)cn.textContent='Included with Entenser Intel.';}
   else fillClubNews(team);
