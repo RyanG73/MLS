@@ -896,6 +896,7 @@ footer a:hover{color:var(--txt-2)}
     <div class="whatif-banner" id="wbanner"><b>What-if mode</b><span id="wcount"></span>
       <span style="color:var(--txt-3)">odds resimulated in your browser (10k runs)</span>
       <a class="upsell-link" href="?league=support" data-upsell="saved-scenarios">★ Save scenarios across devices <em>supporter feature →</em></a>
+      <a id="wshare" title="Copy a link to this scenario">Share ⧉</a>
       <a id="wreset">Reset ⟲</a></div>
     <div class="sec-h"><h2>League Table</h2><span class="note" id="laddernote"></span></div>
     <div class="ladders" id="ladders"></div>
@@ -1563,6 +1564,28 @@ function confBracket(seeds,prng){        // seeds: 9 team idx, best first → ch
 }
 let forced={};            // gid -> 'H'|'D'|'A' (session-local)
 let simVals=null;         // team -> overridden odds when what-if active
+// ── 1.3: shareable scenarios. fixture_id ("v1:<hex>") is the stable handle;
+//    numeric ids are payload positions and change nightly. Unknown/settled
+//    fixtures in a shared URL are dropped silently (they've been played). ──
+function scenarioParam(){
+  const parts=[];
+  for(const [gid,r] of Object.entries(forced)){
+    const g=UPCOMING.find(x=>x.id===+gid);
+    if(g&&g.fixture_id)parts.push(g.fixture_id.replace(/^v1:/,'')+':'+r);
+  }
+  return parts.join(',');
+}
+function seedForcedFromURL(){
+  const wf=new URLSearchParams(location.search).get('wf');
+  if(!wf)return false;
+  const byFid=new Map(UPCOMING.map(g=>[String(g.fixture_id||'').replace(/^v1:/,''),g.id]));
+  let n=0;
+  wf.split(',').forEach(tok=>{
+    const [fid,r]=tok.split(':');
+    if(byFid.has(fid)&&/^[HDA]$/.test(r||'')){forced[byFid.get(fid)]=r;n++;}
+  });
+  return n>0;
+}
 function runSim(N=10000,seed=null){
   const t0=performance.now();
   const usedSeed=seed==null?Math.floor(Math.random()*0xFFFFFFFF):seed;
@@ -2164,7 +2187,10 @@ function renderKnockout(){
     ? `${D.outlook.season_label} final result · figures show how far each team actually reached`
     : D.outlook.format_label+' · ~ marks teams estimated from coefficients (not fully modeled)';
 }
+// 1.3: a shared ?wf= link opens pre-loaded with the scenario simulated + banner on.
+if(seedForcedFromURL()){simVals=null;$('#wbanner').classList.add('on');}
 (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();
+if(Object.keys(forced).length)scheduleSim();
 const _PHASE_LABEL={first_60d:'First 60 days',mid:'Mid-season',late:'Late season'};
 /* Plain-English definitions for the input families (H1, 2026-07-09 feedback:
    "model features should have a definition next to it or on hover").
@@ -2195,6 +2221,13 @@ $('#ladders').addEventListener('click',e=>{
   scheduleSim();
 });
 $('#wreset').onclick=()=>{forced={};simVals=null;$('#wbanner').classList.remove('on');(isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();};
+$('#wshare').onclick=()=>{
+  const url=location.origin+location.pathname+'?league='+LID+'&wf='+scenarioParam();
+  (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject())
+    .then(()=>{$('#wshare').textContent='Copied ✓';setTimeout(()=>$('#wshare').textContent='Share ⧉',1500);})
+    .catch(()=>prompt('Copy this scenario link:',url));
+  track('scenario_share',{league:LID,forced:Object.keys(forced).length});
+};
 
 /* model health tab — card-based, digestible model dimensions */
 // B4: reliability scatter — predicted-probability vs observed frequency, one dot
