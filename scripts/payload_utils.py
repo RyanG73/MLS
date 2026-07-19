@@ -59,6 +59,22 @@ def make_fixture_id(league_id: str, season: int | str, date: str,
     return f"{FIXTURE_ID_VERSION}:{digest}"
 
 
+SNAPSHOT_ID_VERSION = "v1"
+
+
+def make_snapshot_id(league_id: str, season: int | str, generated: str,
+                      config_id: str, simulation_version: str) -> str:
+    """Deterministic snapshot identifier (docs/intelligence-hub-implementation-instructions.md
+    §4.3): league, season, generated timestamp, configuration ID, and
+    simulation version — hashed and versioned the same way as make_fixture_id,
+    but as its own independent version counter (bumping the fixture_id formula
+    should not silently imply bumping the snapshot_id formula, or vice versa).
+    """
+    raw = f"{league_id}|{season}|{generated}|{config_id}|{simulation_version}"
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+    return f"{SNAPSHOT_ID_VERSION}:{digest}"
+
+
 def read_js_payload(path: Path | str) -> dict | list | None:
     """Parse a ``window.<VAR> = <json>;`` data file back into Python.
 
