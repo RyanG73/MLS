@@ -27,7 +27,9 @@
 //   masthead with multi-column Europe dropdown, 5-tab bottom nav.
 // v11 (2026-07-18): Intel (paywalled Personal Intelligence Hub mockup) + Account
 //   hub replace News + Subscribe in the nav; team pages gated behind Intel.
-const CACHE = "entenser-shell-v11";
+// v12 (2026-07-19): email-capture POST, waitlist annual toggle + upsells,
+//   My matchday, shareable scenarios, sparklines, race history (roadmap Phase 1).
+const CACHE = "entenser-shell-v12";
 const SHELL = [
   "/",
   "/index.html",

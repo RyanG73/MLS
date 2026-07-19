@@ -50,6 +50,19 @@ function track(event, props){
   }catch(e){}
 }
 
+// ── E3: email capture proxy (launch plan E2/E3). Fire-and-forget POST to the
+//    Vercel API; localStorage stays the primary UX record so a down/unbuilt
+//    API never breaks the form. Same host convention as intelligence.js. ──
+const CAPTURE_API=(location.hostname==='localhost'||location.hostname==='127.0.0.1')
+  ?'http://127.0.0.1:8787/v1':'https://api.entenser.com/v1';
+function captureEmail(email,tags){
+  try{
+    fetch(CAPTURE_API+'/public/subscribe',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,tags})}).catch(()=>{});
+  }catch(e){}
+}
+
 if(_analyticsOn && ANALYTICS.provider==='ga4'){
   window.dataLayer = window.dataLayer || [];
   window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
@@ -3708,6 +3721,7 @@ function bindCommandSignup(){
     const input=form.querySelector('input[name="email"]');
     const email=(input&&input.value||'').trim();
     if(email)localStorage.setItem('entenser_email_interest',email);
+    if(email)captureEmail(email,['weekly-digest'].concat(typeof LID==='string'&&LID?['lg-'+LID]:[]));
     if(email)track('email_signup');
     const btn=form.querySelector('button');
     if(btn)btn.textContent='Saved';
@@ -3716,8 +3730,8 @@ function bindCommandSignup(){
 // ── Supporter-tier waitlist (launch plan G) — a demand test, NOT a paywall.
 //    The public forecasts stay free; this measures willingness to pay before
 //    any checkout is built (decision gate: build the tier only if >=2% of
-//    returning users join). E will later POST the email to the Resend proxy
-//    tagged supporter-waitlist; for now it captures locally + fires the event. ──
+//    returning users join). Captures locally, POSTs to the Resend proxy tagged
+//    supporter-waitlist (+cadence/source, see 1.6), and fires the funnel event. ──
 function _supporterPrice(){
   const l=(navigator.language||'').toLowerCase();
   if(l==='en-gb'||l.endsWith('-gb'))return '£4.99';
@@ -3754,9 +3768,8 @@ function bindWaitlist(){
     const input=form.querySelector('input[name="email"]');
     const email=(input&&input.value||'').trim();
     if(!email||!/.+@.+\..+/.test(email))return;
-    // E will swap this local capture for a POST to the Resend proxy (tag:
-    // supporter-waitlist). Plausible attributes country to the event server-side.
     try{localStorage.setItem('entenser_supporter_waitlist',email);}catch(e){}
+    captureEmail(email,['supporter-waitlist']);
     track('waitlist_click',{tier:'supporter'});
     const btn=form.querySelector('button');
     if(btn)btn.textContent="You're on the list ✓";
@@ -3799,6 +3812,7 @@ function bindIntelWaitlist(){
     const email=(input&&input.value||'').trim();
     if(!email||!/.+@.+\..+/.test(email))return;
     try{localStorage.setItem('entenser_intel_waitlist',email);}catch(e){}
+    captureEmail(email,['intel-waitlist']);
     track('waitlist_click',{tier:'intel'});
     const btn=form.querySelector('button');
     if(btn)btn.textContent="You're on the list ✓";
