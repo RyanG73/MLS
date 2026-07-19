@@ -139,15 +139,23 @@ waitlist gate meaningful by showing users *previews* of what paid buys. Everythi
 here is static-site/product work except the already-planned Resend capture endpoint;
 zero new fixed cost.
 
-| # | Feature | WTP driver teased | Existing asset | Effort |
-|---|---|---|---|---|
-| 1.1 | **Trajectory sparklines** on team profiles + a "race history" chart per league — **current season, free forever** (this data is public in the static payloads; the ratchet forbids gating it later). Paid (Phase 2 M4) is the private *vault*: multi-season archive + match-level history, never shipped free | Interpretation / history | `drift-traj` after F-2 season bounding | M |
-| 1.2 | **"My matchday" panel** on Home: this weekend's matches for pinned teams, ranked by leverage | Personalization / recurrence | `FavStore` + `leverageScore` (both shipped) | S |
-| 1.3 | **Shareable what-if scenarios** — encode pinned hypothetical results in the URL | Utility + viral distribution | in-browser 10k-run `runSim` (shipped) | S |
-| 1.4 | **Weekly digest subscriber collection** (league-level interest, not personalized): POST to Resend Contacts once capture infra is live; **no sends in Phase 1** without explicit owner sign-off | Recurrence; measures the retention channel every analog built first | `build_weekly_recap.py` preview + Resend capture | S |
-| 1.5 | **Dated weekly recap pages** `/weekly/<date>/` (from F-3) | History + SEO | recap builder | S |
-| 1.6 | **Waitlist upsell placements** beside each free feature ("the full multi-season vault is a supporter feature") with distinct `waitlist_click` source tags, plus a **monthly vs annual preference toggle** on the waitlist form (measures annual appetite before any billing exists) | — (measures WTP per feature + billing-cadence mix) | waitlist form (shipped) | S |
-| 1.7 | Dynamic per-league OG cards (launch-plan C11) + team pages (~1,100, after GSC proves league indexation) | — (distribution) | `build_share_cards.py`, `build_static_pages.py` | M |
+> **Buildout status (2026-07-19):** 1.1–1.6 and the §6 copy tweak are **built and committed**
+> (see `docs/PROJECT_HISTORY.md` and the retired plan referenced below). They deploy with the
+> next push. **1.4's capture endpoint is live but key-gated** — it records subscribers to KV now
+> and mirrors to Resend only once E1's key exists; **no sends** happen regardless (E4 rule). **1.7
+> is not done** — it stays gated on A2/GSC proving league indexation before spending on ~1,100 OG
+> cards. Everything here was built by an agent with no account access; the remaining Phase-0 USER
+> tasks (A1 GA4, A2 GSC, E1 Resend) are the actual launch blocker, not feature work.
+
+| # | Feature | WTP driver teased | Existing asset | Effort | Status |
+|---|---|---|---|---|---|
+| 1.1 | **Trajectory sparklines** on team profiles + a "race history" chart per league — **current season, free forever** (this data is public in the static payloads; the ratchet forbids gating it later). Paid (Phase 2 M4) is the private *vault*: multi-season archive + match-level history, never shipped free | Interpretation / history | `drift-traj` after F-2 season bounding | M | ✅ 2026-07-19 |
+| 1.2 | **"My matchday" panel** on Home: this weekend's matches for pinned teams, ranked by leverage | Personalization / recurrence | `FavStore` + `leverageScore` (both shipped) | S | ✅ 2026-07-19 |
+| 1.3 | **Shareable what-if scenarios** — encode pinned hypothetical results in the URL | Utility + viral distribution | in-browser 10k-run `runSim` (shipped) | S | ✅ 2026-07-19 (keyed on stable `fixture_id`) |
+| 1.4 | **Weekly digest subscriber collection** (league-level interest, not personalized): POST to Resend Contacts once capture infra is live; **no sends in Phase 1** without explicit owner sign-off | Recurrence; measures the retention channel every analog built first | `build_weekly_recap.py` preview + Resend capture | S | ✅ 2026-07-19 capture built (key-gated; no sends) |
+| 1.5 | **Dated weekly recap pages** `/weekly/<date>/` (from F-3) | History + SEO | recap builder | S | ✅ 2026-07-19 |
+| 1.6 | **Waitlist upsell placements** beside each free feature ("the full multi-season vault is a supporter feature") with distinct `waitlist_click` source tags, plus a **monthly vs annual preference toggle** on the waitlist form (measures annual appetite before any billing exists) | — (measures WTP per feature + billing-cadence mix) | waitlist form (shipped) | S | ✅ 2026-07-19 (`upsell_click` + `src-*`/`cadence-*` tags) |
+| 1.7 | Dynamic per-league OG cards (launch-plan C11) + team pages (~1,100, after GSC proves league indexation) | — (distribution) | `build_share_cards.py`, `build_static_pages.py` | M | ⬜ gated on A2/GSC |
 
 Deliberately **not** in Phase 1: any auth, payments, per-user server state, or
 scheduled email sends. Phase 1 collects subscribers and waitlist intent only.
@@ -222,7 +230,7 @@ the gate after the 2027 Women's World Cup traffic wave.
 No ads exist and none are planned (CI report gates ads on RPM-vs-trust measurement).
 Do not ship ads in order to sell their absence. **Action:** reword the support card's
 "ad-free" bullet to "ad-free, always — supporters keep it that way," converting a null
-feature into an affiliation pitch. One-line copy change, Phase 1.
+feature into an affiliation pitch. One-line copy change, Phase 1. **✅ Done 2026-07-19.**
 
 ---
 

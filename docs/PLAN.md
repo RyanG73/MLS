@@ -1,5 +1,18 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-19 — Roadmap Phase-1 buildout: shipped every buildable undeployed item from
+> `docs/product-roadmap-2026-07.md`.** In owner-priority order: E2/E3/E4 email capture
+> (`server/subscribe.py` + `api/public/subscribe.py` → `POST /public/subscribe`; KV-durable,
+> Resend-mirrored only when the key exists, capture-only per E4), waitlist annual/monthly toggle +
+> source-tagged upsell placements (roadmap 1.6, `upsell_click` + `src-*`/`cadence-*` waitlist tags),
+> "My matchday" panel (1.2), shareable what-if scenario URLs keyed on stable `fixture_id` (1.3),
+> season-trajectory sparklines on team profiles + per-league race-history chart from the public
+> `drift-traj` payloads (1.1), dated `/weekly/<date>/` recap pages from the F-3 archive (1.5), and the
+> §6 "ad-free, always" copy tweak. All webapp features verified in-browser (sw.js → v12). Deferred:
+> 1.7 per-league OG cards (gated on A2/GSC) and the Phase-0 USER account tasks (A1/A2/E1) that gate
+> *activation* of measurement + email sends. Also retired the never-checkbox-ticked S6 plan file to
+> `PROJECT_HISTORY.md`. Full test suite green.
+>
 > **2026-07-19 — Dead-code audit: legacy archive completions + unused-code removals (no behavior change)**
 > Full-repo audit for dead/redundant code. Archived to `legacy/` (only legacy code referenced them):
 > `models/penaltyblog_baseline.py` (+ dropped `penaltyblog` from requirements.txt → requirements-legacy.txt),

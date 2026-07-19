@@ -2,6 +2,12 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-19: **E2/E3/E4 email capture BUILT (roadmap Phase-1 buildout).** `server/subscribe.py`
+>   + `api/public/subscribe.py` expose `POST /public/subscribe`: KV-durable capture that mirrors to
+>   Resend Contacts only when the key exists, so it deploys inert today and activates the moment E1
+>   lands. All three webapp signup forms POST via `captureEmail()` with localStorage fallback. E4's
+>   capture-only rule is enforced in code (never sends). E remains blocked on E1 (USER: Resend account)
+>   only for *activation*, not build. See `docs/superpowers/plans/2026-07-19-roadmap-phase1-buildout.md`.
 > - 2026-07-19: **Mobile nav active-tab glow + signed-out Intel Hub locked
 >   preview (user-directed, from a phone screenshot).** Bottom tab bar: the
 >   current tab now gets a soft green wash + icon drop-shadow glow
@@ -210,7 +216,8 @@ ready for the Measurement ID.
   D (messaging) · F (locale) · G (waitlist) · H1–H4 (distribution) · I1 (QA pass) ·
   A1a (GA4 adapter)
 - ⛔ **Blocked on USER (accounts):** A1 GA4 · A2 GSC · C10 sitemap submission ·
-  E1 Resend domain+key. E2–E4 are ready to build the moment the key exists.
+  E1 Resend domain+key. **E2/E3 are now BUILT (2026-07-19), key-gated at runtime** —
+  they deploy inert and light up the moment E1's key lands.
 - 🗓 **Launch-week / USER:** H5 post announcements · I2 analytics+email e2e (needs
   accounts) · I3 content freeze Aug 14 · I4 user posts Aug 17.
 
@@ -221,7 +228,7 @@ ready for the Measurement ID.
 | B | Data-status honesty contract | ✅ Done & live |
 | C | Crawlable pages + SEO | ✅ C1–C9 done & live · ⛔ C10 needs USER (GSC) · ⬜ C11 optional |
 | D | Messaging + trust on-ramp | ✅ Done & live |
-| E | Email capture (Resend) | ⛔ Blocked on USER (E1); E2–E4 ready to build |
+| E | Email capture (Resend) | ✅ E2/E3/E4 BUILT 2026-07-19 (key-gated, deploys inert) · ⛔ E1 needs USER |
 | F | Locale basics | ✅ Done & live |
 | G | Supporter-tier waitlist | ✅ Done & live |
 | H | Distribution content | ✅ H1–H4 done & live · 🗓 H5 is USER (post) |
@@ -305,11 +312,17 @@ Owner is Claude unless marked **(USER)**. `[ ]` → `[x]` with a verdict-log ent
 
 - [ ] **E1 (USER) — ⛔ BLOCKED** Verify `entenser.com` in Resend; create API key;
       confirm proxy host (recommended: single Vercel serverless function).
-- [ ] **E2 — ready to build (needs E1)** Endpoint: POST `{email, tags}` → Resend
-      Contacts audience; CORS locked to `https://entenser.com`; rate limiting; no key in client.
-- [ ] **E3 — ready to build (needs E1)** Rewire `bindCommandSignup()` + `bindWaitlist()`
-      to POST; localStorage fallback kept. (Both handlers already built E-ready in D/G.)
-- [ ] **E4** Standing rule: capture only — **no email sends without explicit owner sign-off**.
+- [x] **E2 — BUILT 2026-07-19, activates on E1** `POST /public/subscribe` (`server/subscribe.py`
+      + `api/public/subscribe.py`): writes every subscriber to KV unconditionally and mirrors to the
+      Resend audience **only when `RESEND_API_KEY`/`RESEND_AUDIENCE_ID` exist** — so it deploys now
+      and lights up the moment E1 lands, with KV as the backfill source. Per-IP rate limiting; CORS
+      via the central `ALLOWED_ORIGINS`; no key in the client.
+- [x] **E3 — BUILT 2026-07-19** `bindCommandSignup()`, `bindWaitlist()`, and `bindIntelWaitlist()`
+      now `captureEmail()`-POST to the endpoint (tags: `weekly-digest`+`lg-<id>` / `supporter-waitlist`
+      +cadence+source / `intel-waitlist`); localStorage stays the primary UX record so a down/unbuilt
+      API never breaks the form.
+- [x] **E4** Standing rule honored: `server/subscribe.py` only writes contacts, never sends. **No email
+      sends without explicit owner sign-off.**
 
 ### F — Locale basics (Week 3: Jul 30–Aug 5) — P1
 

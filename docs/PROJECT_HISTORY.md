@@ -677,3 +677,17 @@ across endpoints (a user created via `callback.py` invisible to `me.py`) — fix
 `server/kv_client.get_kv()` singleton. Next: S6 (replace the mockup with live data progressively) and
 onward into Milestone A's actual features — those need a decision on which comes first, since S6-S8
 plus the shadow-mode period are the last foundation steps before any user-facing Intel feature ships.
+
+## Intelligence Hub S6: replace the mockup with live data progressively (2026-07-18, plan completed and deleted)
+
+Seventh foundation step and the first time this program's frontend showed a real user real data. The
+`?league=intel` hub previously rendered six panels of hardcoded numbers under a single page-level "live
+mockup" note. S6 added a per-panel honesty state (`sample` / `live` / `thin history` / `unavailable`)
+and promoted exactly one panel — "Recent model activity" — to genuinely live, backed by S4's already-
+committed `data/intelligence_events.parquet`, keyed to the viewer's pinned MLS club. A new
+`scripts/build_intel_events_payload.py` exposes the events to the webapp as `webapp/data/intel-events/<lid>.js`;
+the five panels whose backing features don't exist yet stay honestly labeled `sample`. Scope stayed MLS-
+only, matching every prior step. Shipped across commits `c84f2e6`, `4489108`, and `afe18f9` (the last
+adding the signed-out locked-preview and the lit bottom-nav active tab). Note: the S6 plan file's
+checkboxes were never ticked even though every artifact landed and is live — a process miss corrected
+during the 2026-07-19 roadmap Phase-1 buildout, when the plan was retired to this entry.
