@@ -1729,8 +1729,8 @@ function raceCard(card){
 // Promotion-playoff bracket — MUST mirror scripts/build_league_data.py
 // _promo_playoff_winner (SIM PORTING CONTRACT). seeds = team indices, best
 // seed first; higher seed hosts; P(host advances) = pH + 0.5·pD.
-function promoWinner(seeds){
-  const win=(hi,ai)=>{const c=SIM.pmatrix[hi][ai];return Math.random()<(c[0]+0.5*c[1])/1000?hi:ai;};
+function promoWinner(seeds,prng){
+  const win=(hi,ai)=>{const c=SIM.pmatrix[hi][ai];return prng()<(c[0]+0.5*c[1])/1000?hi:ai;};
   const host=(a,b)=>seeds.indexOf(a)<seeds.indexOf(b)?win(a,b):win(b,a);
   let s=[...seeds];
   if(s.length===1)return s[0];
@@ -1741,33 +1741,25 @@ function promoWinner(seeds){
 // Single-table what-if Monte-Carlo (the table analog of MLS runSim): start from
 // current points, apply forced results, sample remaining via the pmatrix, rank
 // the one table → Title / Top-N (UCL) / bottom-M (relegation) frequencies.
-function runSimTable(N=10000){
+function runSimTable(N=10000,seed=null){
+  const usedSeed=seed==null?Math.floor(Math.random()*0xFFFFFFFF):seed;
+  const prng=SimEngine.createPRNG(usedSeed);
   const ol=D.outlook, cols=ol.columns;
   const acc={};SIM.teams.forEach(t=>{const a={proj:0,rank:0};cols.forEach(c=>a[c.key]=0);acc[t]=a;});
   // finishing-position histogram per team (index = team idx, slot = 0-based rank) → fuels the projected-finish plot
   const finishHist=[];for(let i=0;i<NT;i++)finishHist.push(new Float64Array(NT));
-  const fixedPts=new Float64Array(NT),free=[];
-  for(let id=0;id<NF;id++){const f=forced[id];
-    if(f==='H')fixedPts[FH[id]]+=3;
-    else if(f==='D'){fixedPts[FH[id]]+=1;fixedPts[FA[id]]+=1;}
-    else if(f==='A')fixedPts[FA[id]]+=3;
-    else free.push(id);}
-  const pts=new Float64Array(NT),key=new Float64Array(NT),order=[...Array(NT).keys()];
+  const {fixedPts,free}=SimEngine.resolveFixedAndFree(NT,NF,forced,FH,FA);
+  const order=[...Array(NT).keys()];
   for(let s=0;s<N;s++){
-    pts.set(basePts);for(let i=0;i<NT;i++)pts[i]+=fixedPts[i];
-    for(const id of free){const u=Math.random();
-      if(u<FPH[id])pts[FH[id]]+=3;
-      else if(u<FPHD[id]){pts[FH[id]]+=1;pts[FA[id]]+=1;}
-      else pts[FA[id]]+=3;}
-    for(let i=0;i<NT;i++)key[i]=pts[i]*10000+baseGd[i]*10+Math.random()*10;
+    const {pts,key}=SimEngine.simulateTrialPoints(prng,NT,basePts,baseGd,fixedPts,free,FH,FA,FPH,FPHD);
     order.sort((a,b)=>key[b]-key[a]);
     cols.forEach(c=>{
       let lo,hi;
       if(c.promo_top!==undefined){   // composite Promoted: auto spots + playoff winner (× barrage)
         for(let k=0;k<Math.min(c.promo_top,NT);k++)acc[SIM.teams[order[k]]][c.key]++;
         const seeds=order.slice(c.playoff_band[0]-1,Math.min(c.playoff_band[1],NT));
-        if(seeds.length&&Math.random()<(c.barrage_win_rate??1))
-          acc[SIM.teams[promoWinner(seeds)]][c.key]++;
+        if(seeds.length&&prng()<(c.barrage_win_rate??1))
+          acc[SIM.teams[promoWinner(seeds,prng)]][c.key]++;
         return;
       }
       if(c.top!==undefined){lo=0;hi=Math.min(c.top,NT);}
@@ -1779,13 +1771,16 @@ function runSimTable(N=10000){
     for(let r=0;r<NT;r++){acc[SIM.teams[order[r]]].rank+=r+1;finishHist[order[r]][r]++;}
     for(let i=0;i<NT;i++)acc[SIM.teams[i]].proj+=pts[i];
   }
-  // percentile of a position histogram (returns 1-indexed finishing position at cumulative quantile q)
-  const pctile=(hist,q)=>{let c=0;const target=q*N;for(let r=0;r<hist.length;r++){c+=hist[r];if(c>=target)return r+1;}return hist.length;};
   const out={};
   for(let i=0;i<SIM.teams.length;i++){const t=SIM.teams[i],a=acc[t];
     const e={proj_pts:+(a.proj/N).toFixed(1),proj_rank:+(a.rank/N).toFixed(1),
-      fin_p10:pctile(finishHist[i],0.10),fin_med:pctile(finishHist[i],0.50),fin_p90:pctile(finishHist[i],0.90)};
-    cols.forEach(c=>e[c.key]=+(a[c.key]/N*100).toFixed(1));out[t]=e;}
+      fin_p10:SimEngine.percentile(finishHist[i],0.10,N),
+      fin_med:SimEngine.percentile(finishHist[i],0.50,N),
+      fin_p90:SimEngine.percentile(finishHist[i],0.90,N)};
+    cols.forEach(c=>{const p=a[c.key]/N;e[c.key]=+(p*100).toFixed(1);
+      e[c.key+'_se']=+(SimEngine.standardError(p,N)*100).toFixed(2);});
+    out[t]=e;}
+  out._meta=SimEngine.meta(N,usedSeed);
   return out;
 }
 // Splits a league's plain-language outlook.rules ("Top 4 qualify for the
