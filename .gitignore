@@ -107,6 +107,7 @@ data/*.parquet
 !data/bet_ledger.parquet
 !data/match_prob_history.parquet
 !data/race_deltas_history.parquet
+!data/intelligence_events.parquet
 
 data/*.meta.json
 data/roster_profiles/
