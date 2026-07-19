@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from data_pipeline.http import espn_get  # noqa: E402
-from scripts.payload_utils import write_js_payload, health_feature_stats, outcome_skill_block  # noqa: E402
+from scripts.payload_utils import write_js_payload, health_feature_stats, outcome_skill_block, make_fixture_id  # noqa: E402
 from scripts.eval.upcoming_features import latest_team_features  # noqa: E402
 from scripts.postgame_win_expectancy import compute_we  # noqa: E402
 
@@ -421,7 +421,11 @@ def main():
             # CONTRACT: "id" = index into the remaining/RP sim arrays (assignment
             # order here), NOT display order — games are re-sorted by date below.
             # The client what-if sim must key fixtures by id, never by position.
+            # "fixture_id" is a SEPARATE, stable identifier (make_fixture_id) —
+            # never repurpose "id" for this; see the SIM PORTING CONTRACT above.
             upcoming_cards.append({"id": len(remaining),
+                                   "home_id": htid, "away_id": atid,
+                                   "fixture_id": make_fixture_id("mls", ts, local_date, htid, atid),
                                    "date": local_date, "home": id2name.get(htid), "away": id2name.get(atid),
                                    "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
                                    "lam": round(lam, 2), "mu": round(mu, 2),
@@ -556,7 +560,7 @@ def main():
     standings = []
     for t in tids:
         i = idx[t]
-        standings.append({"team": id2name.get(t, t), "conf": confs[i],
+        standings.append({"team": id2name.get(t, t), "team_id": t, "conf": confs[i],
                           "pts": int(base_pts[i]), "gp": gp.get(t, 0),
                           "gd": int(round(gf.get(t, 0) - ga.get(t, 0))),
                           "xgd": round(xgf.get(t, 0) - xga.get(t, 0), 1),
@@ -665,7 +669,10 @@ def main():
         _has_row_xg = _we_available and pd.notna(_hxg) and pd.notna(_axg)
         _we_h = compute_we(float(_hxg), float(_axg), "asa") if _has_row_xg else None
         _we_a = compute_we(float(_axg), float(_hxg), "asa") if _has_row_xg else None
-        games.append({"date": r["date"].strftime("%Y-%m-%d"), "home": id2name.get(h), "away": id2name.get(a),
+        _date = r["date"].strftime("%Y-%m-%d")
+        games.append({"date": _date, "home": id2name.get(h), "away": id2name.get(a),
+                      "home_id": h, "away_id": a,
+                      "fixture_id": make_fixture_id("mls", ts, _date, h, a),
                       "pH": round(float(pe[i, 0]), 3), "pD": round(float(pe[i, 1]), 3),
                       "pA": round(float(pe[i, 2]), 3),
                       "lam": round(_lam, 2), "mu": round(_mu, 2),
