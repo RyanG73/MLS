@@ -935,6 +935,7 @@ footer a:hover{color:var(--txt-2)}
 <script src="data/coefficients.js"></script>
 <script src="data/drift.js"></script>
 <script>document.write('<scr'+'ipt src="data/model-slices.js?t='+Date.now()+'"></scr'+'ipt>');</script>
+<script src="sim-engine.js"></script>
 <script>
 // League selected via ?league=<id>. No param at all → the cross-league edge board
 // (B12) is the site's landing view; ?league=mls etc. deep links are unchanged.
@@ -1504,46 +1505,34 @@ const EAST=[...Array(NT).keys()].filter(i=>confOf[i]==='East'),WEST=[...Array(NT
 const pwinPK=(h,a)=>{const c=SIM.pmatrix[h][a];return (c[0]+0.5*c[1])/1000;};
 const pwinET=(h,a)=>{const c=SIM.pmatrix[h][a];const ph=c[0],pd=c[1],pa=c[2];
   return (ph+(ph+pa>0?pd*ph/(ph+pa):0.5*pd))/1000;};
-function confBracket(seeds){            // seeds: 9 team idx, best first → champion
+function confBracket(seeds,prng){        // seeds: 9 team idx, best first → champion
   const rank=new Map(seeds.map((t,i)=>[t,i]));
-  const wc=Math.random()<pwinPK(seeds[7],seeds[8])?seeds[7]:seeds[8];
+  const wc=prng()<pwinPK(seeds[7],seeds[8])?seeds[7]:seeds[8];
   const r1=[[seeds[0],wc],[seeds[1],seeds[6]],[seeds[2],seeds[5]],[seeds[3],seeds[4]]];
   const winners=r1.map(([hi,lo])=>{let wh=0,wl=0;
     for(let g=0;g<3;g++){const host=g===1?lo:hi,guest=g===1?hi:lo;
-      const hw=Math.random()<pwinPK(host,guest);
+      const hw=prng()<pwinPK(host,guest);
       if((hw&&host===hi)||(!hw&&host===lo))wh++;else wl++;
       if(wh===2||wl===2)break;}
     return wh===2?hi:lo;});
   const single=(t1,t2)=>{const[h,g]=rank.get(t1)<rank.get(t2)?[t1,t2]:[t2,t1];
-    return Math.random()<pwinET(h,g)?h:g;};
+    return prng()<pwinET(h,g)?h:g;};
   return single(single(winners[0],winners[3]),single(winners[1],winners[2]));
 }
 let forced={};            // gid -> 'H'|'D'|'A' (session-local)
 let simVals=null;         // team -> overridden odds when what-if active
-function runSim(N=10000){
+function runSim(N=10000,seed=null){
   const t0=performance.now();
+  const usedSeed=seed==null?Math.floor(Math.random()*0xFFFFFFFF):seed;
+  const prng=SimEngine.createPRNG(usedSeed);
   const acc={};SIM.teams.forEach(t=>acc[t]={proj:0,playoff:0,hfa:0,shield:0,spoon:0,conf_win:0,cup:0});
   // conference-relative finishing-position histogram → feeds finishPlotPanelMLS()
   // (2026-07-11 feedback: MLS lacked the "projected finish" panel other leagues have).
   const _confN=Math.max(EAST.length,WEST.length);
   const finishHist={};SIM.teams.forEach(t=>finishHist[t]=new Float64Array(_confN));
-  const fixedPts=new Float64Array(NT);
-  const free=[];
-  for(let id=0;id<NF;id++){
-    const f=forced[id];
-    if(f==='H')fixedPts[FH[id]]+=3;
-    else if(f==='D'){fixedPts[FH[id]]+=1;fixedPts[FA[id]]+=1;}
-    else if(f==='A')fixedPts[FA[id]]+=3;
-    else free.push(id);
-  }
-  const pts=new Float64Array(NT),key=new Float64Array(NT);
+  const {fixedPts,free}=SimEngine.resolveFixedAndFree(NT,NF,forced,FH,FA);
   for(let s=0;s<N;s++){
-    pts.set(basePts);for(let i=0;i<NT;i++)pts[i]+=fixedPts[i];
-    for(const id of free){const u=Math.random();
-      if(u<FPH[id])pts[FH[id]]+=3;
-      else if(u<FPHD[id]){pts[FH[id]]+=1;pts[FA[id]]+=1;}
-      else pts[FA[id]]+=3;}
-    for(let i=0;i<NT;i++)key[i]=pts[i]*10000+baseGd[i]*10+Math.random()*10;
+    const {pts,key}=SimEngine.simulateTrialPoints(prng,NT,basePts,baseGd,fixedPts,free,FH,FA,FPH,FPHD);
     const finalists=[];
     for(const ci of [EAST,WEST]){
       const order=[...ci].sort((a,b)=>key[b]-key[a]);
@@ -1551,21 +1540,26 @@ function runSim(N=10000){
       for(let k=0;k<D.hfa_slots;k++)acc[SIM.teams[order[k]]].hfa++;
       acc[SIM.teams[order[0]]].conf_win++;
       order.forEach((idx,r)=>finishHist[SIM.teams[idx]][r]++);
-      finalists.push(confBracket(order.slice(0,9)));
+      finalists.push(confBracket(order.slice(0,9),prng));
     }
     let bi=0,wi=0;for(let i=1;i<NT;i++){if(key[i]>key[bi])bi=i;if(key[i]<key[wi])wi=i;}
     acc[SIM.teams[bi]].shield++;acc[SIM.teams[wi]].spoon++;
     const [f1,f2]=finalists;const host=key[f1]>=key[f2]?f1:f2,guest=host===f1?f2:f1;
-    acc[SIM.teams[Math.random()<pwinET(host,guest)?host:guest]].cup++;
+    acc[SIM.teams[prng()<pwinET(host,guest)?host:guest]].cup++;
     for(let i=0;i<NT;i++)acc[SIM.teams[i]].proj+=pts[i];
   }
-  const pctile=(hist,q)=>{let c=0;const target=q*N;for(let r=0;r<hist.length;r++){c+=hist[r];if(c>=target)return r+1;}return hist.length;};
   const out={};
-  for(const t of SIM.teams){const a=acc[t],h=finishHist[t];out[t]={proj_pts:+(a.proj/N).toFixed(1),
-    playoff:+(a.playoff/N*100).toFixed(1),hfa:+(a.hfa/N*100).toFixed(1),
-    shield:+(a.shield/N*100).toFixed(1),spoon:+(a.spoon/N*100).toFixed(1),
-    conf_win:+(a.conf_win/N*100).toFixed(1),cup:+(a.cup/N*100).toFixed(1),
-    fin_p10:pctile(h,0.10),fin_med:pctile(h,0.50),fin_p90:pctile(h,0.90)};}
+  for(const t of SIM.teams){const a=acc[t],h=finishHist[t];
+    const playoffP=a.playoff/N,shieldP=a.shield/N,cupP=a.cup/N;
+    out[t]={proj_pts:+(a.proj/N).toFixed(1),
+    playoff:+(playoffP*100).toFixed(1),hfa:+(a.hfa/N*100).toFixed(1),
+    shield:+(shieldP*100).toFixed(1),spoon:+(a.spoon/N*100).toFixed(1),
+    conf_win:+(a.conf_win/N*100).toFixed(1),cup:+(cupP*100).toFixed(1),
+    playoff_se:+(SimEngine.standardError(playoffP,N)*100).toFixed(2),
+    shield_se:+(SimEngine.standardError(shieldP,N)*100).toFixed(2),
+    cup_se:+(SimEngine.standardError(cupP,N)*100).toFixed(2),
+    fin_p10:SimEngine.percentile(h,0.10,N),fin_med:SimEngine.percentile(h,0.50,N),fin_p90:SimEngine.percentile(h,0.90,N)};}
+  out._meta=SimEngine.meta(N,usedSeed);
   console.log(`runSim(${N}) ${(performance.now()-t0).toFixed(0)}ms`);
   return out;
 }
