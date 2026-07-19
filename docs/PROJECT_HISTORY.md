@@ -527,3 +527,25 @@ concluded with no next-season fixtures published yet; a background rebuild queue
 explicitly. MLS's finish-plot parity was implemented by extending the existing `runSim()`
 simulation with a conference-relative rank histogram rather than writing a parallel sim, so
 the what-if resimulation path updates the new panel for free.
+
+## Intelligence Hub S0: historical flywheel hardening (2026-07-18, plan completed and deleted)
+
+First foundation step of the Intelligence Hub paywall program (`docs/intelligence-hub-implementation-instructions.md`):
+closed the five data-integrity gaps roadmap items F-1 through F-5
+(`docs/product-roadmap-2026-07.md` §2) that every later event/attribution/receipt feature
+depends on. `data/match_prob_history.parquet` had been silently discarded by CI every night
+since it was introduced — written by `archive_odds_snapshot.py` but never allowlisted past
+`.gitignore` or staged in either refresh workflow's commit step; both are now fixed and the
+locally-accrued rows were seeded into the repo. Investigation found the roadmap's proposed new
+`data/trajectory_history.parquet` would have duplicated data `data/odds_history.parquet`
+already accrues indefinitely and already commits — the real gap was the *public*
+`webapp/data/drift-traj/<league>.js` capping at 180 raw points with no season boundary, so a
+league crossing a season rollover would eventually leak prior-season rows into an
+unauthenticated payload; fixed by capturing each payload's `season` field on every archived
+row and filtering the public trajectory to the league's current season (unknown-season rows,
+accrued before this shipped, are kept rather than dropped). Weekly recaps and race-deltas now
+archive to `data/weekly-archive/<date>.json` and `data/race_deltas_history.parquet`
+respectively instead of being overwritten every run. A new `scripts/validate_history_growth.py`
+runs as the last step of both refresh workflows, before the commit step, and fails the build
+if any accrual parquet shrinks versus the version committed at HEAD, or if a public trajectory
+file carries a season-mismatched point. Next: S1 (stable cross-season IDs), as its own plan file.
