@@ -565,6 +565,11 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .traj-spark{line-height:0}
 .traj-d{font-size:12px;color:var(--txt-1);font-variant-numeric:tabular-nums;text-align:right;min-width:64px}
 .traj-d em{font-style:normal;color:var(--txt-3);font-size:11px}
+.race-hist{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4);margin-bottom:var(--s3)}
+.race-hist .rh-head{display:flex;flex-direction:column;gap:2px;margin-bottom:4px}
+.race-hist .rh-head b{font-size:13px}
+.race-hist .rh-head span{font-size:11px;color:var(--txt-3)}
+.race-hist svg{overflow:visible}
 .pcard h3{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt-3);margin-bottom:10px}
 .pstat{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
 .pstat:last-child{border-bottom:none}
@@ -899,6 +904,7 @@ footer a:hover{color:var(--txt-2)}
 
   <section id="view-outlook">
     <div class="favs" id="favs"></div>
+    <div id="raceHistory"></div>
     <div class="whatif-banner" id="wbanner"><b>What-if mode</b><span id="wcount"></span>
       <span style="color:var(--txt-3)">odds resimulated in your browser (10k runs)</span>
       <a class="upsell-link" href="?league=support" data-upsell="saved-scenarios">★ Save scenarios across devices <em>supporter feature →</em></a>
@@ -2197,6 +2203,10 @@ function renderKnockout(){
 if(seedForcedFromURL()){simVals=null;$('#wbanner').classList.add('on');}
 (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();
 if(Object.keys(forced).length)scheduleSim();
+// 1.1b: defer to a macrotask so (a) TRAJ_METRICS and the other const helpers
+// below are past their TDZ, and (b) the document.write-injected DRIFT_TRAJ
+// script has executed. Drift data is fixed per session, so one call suffices.
+setTimeout(renderRaceHistory,0);
 const _PHASE_LABEL={first_60d:'First 60 days',mid:'Mid-season',late:'Late season'};
 /* Plain-English definitions for the input families (H1, 2026-07-09 feedback:
    "model features should have a definition next to it or on hover").
@@ -3112,6 +3122,43 @@ function trajCardHTML(team){
   return `<div class="pcard"><h3>Season trajectory</h3>${oddsSpark}${ptsSpark}
     <div class="hnote">Model forecasts recorded nightly, ${from} → ${to} (current season).</div>
     ${upsellHTML('team-history','Multi-season history for this club lives in the vault')}</div>`;
+}
+// ── 1.1b: per-league race-history chart. Multi-line SVG of the season's primary
+//    race (top 6 clubs by latest value of the league's dominant metric) from the
+//    public DRIFT_TRAJ payload. Renders nothing without ≥2 clubs of ≥2 points. ──
+function renderRaceHistory(){
+  const box=document.getElementById('raceHistory');
+  if(!box)return;
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const TJ=window.DRIFT_TRAJ;
+  const entries=TJ&&TJ.teams?Object.entries(TJ.teams).filter(([,r])=>r&&r.length>=2):[];
+  if(entries.length<2){box.innerHTML='';return;}
+  let metric=null,label=null;
+  for(const [k,lab] of TRAJ_METRICS){
+    if(entries.filter(([,r])=>r.map(x=>x[k]).filter(v=>v!=null).length>=2).length>=2){metric=k;label=lab;break;}
+  }
+  if(!metric){box.innerHTML='';return;}
+  const latest=r=>{for(let i=r.length-1;i>=0;i--)if(r[i][metric]!=null)return r[i][metric];return null;};
+  const sel=entries.map(([team,rows])=>({team,rows,last:latest(rows)}))
+    .filter(t=>t.last!=null).sort((a,b)=>b.last-a.last).slice(0,6);
+  if(sel.length<2){box.innerHTML='';return;}
+  const allDates=[...new Set(sel.flatMap(t=>t.rows.map(r=>r.date)))].sort();
+  const xOf=d=>allDates.length<2?0:allDates.indexOf(d)/(allDates.length-1);
+  const maxV=Math.max(...sel.flatMap(t=>t.rows.map(r=>r[metric]).filter(v=>v!=null)),1);
+  const W=640,H=200,padL=8,padR=124,padT=14,padB=24;
+  const sx=f=>padL+f*(W-padL-padR), sy=v=>padT+(1-v/maxV)*(H-padT-padB);
+  const PAL=['#56d2ff','#3ddc84','#f4b740','#ff5d5d','#b78bff','#5ee6c0'];
+  const lines=sel.map((t,i)=>{
+    const pts=t.rows.filter(r=>r[metric]!=null).map(r=>`${sx(xOf(r.date)).toFixed(1)},${sy(r[metric]).toFixed(1)}`);
+    const lastR=[...t.rows].reverse().find(r=>r[metric]!=null);
+    return `<polyline points="${pts.join(' ')}" fill="none" stroke="${PAL[i%PAL.length]}" stroke-width="1.8"/>`+
+      `<text x="${(sx(xOf(lastR.date))+5).toFixed(1)}" y="${(sy(lastR[metric])+3).toFixed(1)}" fill="${PAL[i%PAL.length]}" font-size="11">${esc(t.team)}</text>`;
+  }).join('');
+  const ticks=[[allDates[0],'start',0],[allDates[Math.floor(allDates.length/2)],'middle',0.5],[allDates[allDates.length-1],'end',1]]
+    .map(([d,anc,f])=>`<text x="${sx(f).toFixed(1)}" y="${H-8}" fill="var(--txt-3)" font-size="10" text-anchor="${anc}">${d.slice(5)}</text>`).join('');
+  box.innerHTML=`<div class="race-hist"><div class="rh-head"><b>The race so far — ${label} over the season</b>
+    <span>model odds, recorded nightly (current season — full history is a supporter feature)</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">${lines}${ticks}</svg></div>`;
 }
 function renderProfile(team,scroll){
   const s=stdByTeam.get(team); if(!s)return;
