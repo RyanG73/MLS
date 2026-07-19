@@ -75,6 +75,23 @@ def make_snapshot_id(league_id: str, season: int | str, generated: str,
     return f"{SNAPSHOT_ID_VERSION}:{digest}"
 
 
+EVENT_ID_VERSION = "v1"
+
+
+def make_event_id(event_type: str, team_id, target_metric, effective_at: str,
+                   evidence_ids: list[str]) -> str:
+    """Stable event identifier (docs/intelligence-hub-implementation-instructions.md
+    §4.3): a hash of event type, team, target metric, effective time, and
+    evidence references, so the same underlying change is never archived
+    twice even if this build reruns. `team_id`/`target_metric` may be None
+    (league-scoped events like model_change/data_health carry no team).
+    `evidence_ids` is sorted before hashing so evidence order never affects
+    identity."""
+    raw = f"{event_type}|{team_id}|{target_metric}|{effective_at}|{','.join(sorted(evidence_ids))}"
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+    return f"{EVENT_ID_VERSION}:{digest}"
+
+
 def read_js_payload(path: Path | str) -> dict | list | None:
     """Parse a ``window.<VAR> = <json>;`` data file back into Python.
 

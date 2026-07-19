@@ -1,4 +1,4 @@
-from scripts.payload_utils import make_fixture_id, make_snapshot_id
+from scripts.payload_utils import make_event_id, make_fixture_id, make_snapshot_id
 
 
 def test_make_fixture_id_deterministic():
@@ -35,3 +35,31 @@ def test_make_snapshot_id_differs_by_generated_timestamp():
 def test_make_snapshot_id_is_versioned():
     sid = make_snapshot_id("mls", 2026, "2026-07-18 12:00 UTC", "run-1", "v1")
     assert sid.startswith("v1:")
+
+
+def test_make_event_id_deterministic():
+    a = make_event_id("result", "TID_A", "playoff", "2026-07-18", ["fixture:v1:abc"])
+    b = make_event_id("result", "TID_A", "playoff", "2026-07-18", ["fixture:v1:abc"])
+    assert a == b
+
+
+def test_make_event_id_order_independent_on_evidence_ids():
+    a = make_event_id("result", "TID_A", "playoff", "2026-07-18", ["fixture:v1:a", "fixture:v1:b"])
+    b = make_event_id("result", "TID_A", "playoff", "2026-07-18", ["fixture:v1:b", "fixture:v1:a"])
+    assert a == b
+
+
+def test_make_event_id_differs_by_team():
+    a = make_event_id("result", "TID_A", "playoff", "2026-07-18", [])
+    b = make_event_id("result", "TID_B", "playoff", "2026-07-18", [])
+    assert a != b
+
+
+def test_make_event_id_handles_none_team_for_league_scoped_events():
+    eid = make_event_id("model_change", None, None, "2026-07-18", ["config:run-2"])
+    assert eid.startswith("v1:")
+
+
+def test_make_event_id_is_versioned():
+    eid = make_event_id("result", "TID_A", "playoff", "2026-07-18", [])
+    assert eid.startswith("v1:")
