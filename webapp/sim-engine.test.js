@@ -105,4 +105,54 @@ test('meta reports seed as null when not provided', () => {
   assert.strictEqual(m.seed, null);
 });
 
+test('replayMlsConferenceTargets reconstructs published targets for a small synthetic league', () => {
+  // 4 teams, 2 per conference, no remaining fixtures (isolates the seeding/
+  // ranking logic from the sampling logic, which simulateTrialPoints already
+  // covers above).
+  const snapshot = {
+    replay_seed: 42,
+    rules: { playoff_slots: 1, hfa_slots: 1 },
+    teams: [
+      { team_id: 'A', conf: 'East', pts: 30, gd: 10 },
+      { team_id: 'B', conf: 'East', pts: 10, gd: -10 },
+      { team_id: 'C', conf: 'West', pts: 25, gd: 5 },
+      { team_id: 'D', conf: 'West', pts: 5, gd: -5 },
+    ],
+    fixtures: [],
+  };
+  const out = SimEngine.replayMlsConferenceTargets(snapshot, 500);
+  const byId = Object.fromEntries(out.map(r => [r.team_id, r]));
+  // No remaining fixtures → points are fixed → the ranking is deterministic
+  // every trial: A always leads East, C always leads West.
+  assert.strictEqual(byId['A'].playoff, 100);
+  assert.strictEqual(byId['A'].conf_win, 100);
+  assert.strictEqual(byId['B'].playoff, 0);
+  assert.strictEqual(byId['C'].playoff, 100);
+  assert.strictEqual(byId['D'].playoff, 0);
+  // Shield/spoon are global (best/worst key across both conferences) — A
+  // (30 pts) beats C (25 pts) for Shield; D (5 pts) is worst for Spoon.
+  assert.strictEqual(byId['A'].shield, 100);
+  assert.strictEqual(byId['D'].spoon, 100);
+});
+
+test('replayMlsConferenceTargets is deterministic given the same replay_seed', () => {
+  const snapshot = {
+    replay_seed: 7,
+    rules: { playoff_slots: 1, hfa_slots: 1 },
+    teams: [
+      { team_id: 'A', conf: 'East', pts: 20, gd: 2 },
+      { team_id: 'B', conf: 'East', pts: 18, gd: 1 },
+      { team_id: 'C', conf: 'West', pts: 19, gd: 0 },
+      { team_id: 'D', conf: 'West', pts: 17, gd: -1 },
+    ],
+    fixtures: [
+      { home_id: 'A', away_id: 'B', pH: 0.4, pD: 0.3 },
+      { home_id: 'C', away_id: 'D', pH: 0.5, pD: 0.2 },
+    ],
+  };
+  const r1 = SimEngine.replayMlsConferenceTargets(snapshot, 200);
+  const r2 = SimEngine.replayMlsConferenceTargets(snapshot, 200);
+  assert.deepStrictEqual(r1, r2);
+});
+
 if (process.exitCode !== 1) console.log('\nAll sim-engine.js tests passed.');
