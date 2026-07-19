@@ -122,7 +122,8 @@ def snapshot_rows(league_id: str, payload: dict) -> list[dict]:
         if not team or not snapshot_date:
             continue
         row = {
-            "league": league_id, "team": team, "snapshot_date": snapshot_date,
+            "league": league_id, "team": team, "team_id": s.get("team_id"),
+            "snapshot_date": snapshot_date,
             "season": season, "elo": s.get("elo"), "proj_pts": s.get("proj_pts"),
             "n_played": n_played, "config_id": cid, "code_rev": rev,
         }
@@ -182,6 +183,8 @@ def match_prob_rows(league_id: str, payload: dict) -> list[dict]:
             dtk = None
         rows.append({
             "league": league_id, "home": g.get("home"), "away": g.get("away"),
+            "home_id": g.get("home_id"), "away_id": g.get("away_id"),
+            "fixture_id": g.get("fixture_id"),
             "date": g["date"], "snapshot_date": snapshot_date,
             "pH": g.get("pH"), "pD": g.get("pD"), "pA": g.get("pA"),
             "mkt_home": g.get("mkt_home"), "mkt_draw": g.get("mkt_draw"),

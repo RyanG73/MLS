@@ -104,6 +104,33 @@ def test_snapshot_rows_season_defaults_to_none_when_absent():
     assert all(r["season"] is None for r in rows)
 
 
+# ── S1: stable team_id / fixture_id capture ─────────────────────────────────
+
+def test_snapshot_rows_captures_team_id():
+    payload = _payload()
+    payload["standings"][0]["team_id"] = "TID_ALPHA"
+    rows = snapshot_rows("epl", payload)
+    a = next(r for r in rows if r["team"] == "Alpha")
+    assert a["team_id"] == "TID_ALPHA"
+
+
+def test_snapshot_rows_team_id_defaults_to_none_when_absent():
+    rows = snapshot_rows("epl", _payload())
+    assert all(r["team_id"] is None for r in rows)
+
+
+def test_match_prob_rows_captures_home_away_fixture_ids():
+    payload = _payload()
+    payload["games"][0].update(home_id="TID_A", away_id="TID_B", fixture_id="v1:deadbeef")
+    r = match_prob_rows("epl", payload)[0]
+    assert r["home_id"] == "TID_A" and r["away_id"] == "TID_B" and r["fixture_id"] == "v1:deadbeef"
+
+
+def test_match_prob_rows_ids_default_to_none_when_absent():
+    r = match_prob_rows("epl", _payload())[0]
+    assert r["home_id"] is None and r["away_id"] is None and r["fixture_id"] is None
+
+
 # ── the "conf" collision fix (2026-07-10): MLS ships conf="East"/"West"      ──
 # (conference name, a string); some UEFA leagues ship conf=<float>           ──
 # (Conference-League qualification %). Only the numeric form belongs in an   ──
