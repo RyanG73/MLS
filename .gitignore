@@ -18,6 +18,11 @@ data/espn_fixtures/
 data/asa_cache/
 data/fbref_cache/
 data/source_health.parquet
+# Intelligence-state snapshots (S3) — private per docs/intelligence-hub-
+# implementation-instructions.md rule 6, and this repo is public, so these
+# are NOT committed here. Durable storage is deferred to S5 (access-
+# controlled object store / deployment artifact).
+data/intelligence_snapshots/
 # Round-4 league expansion + venue-weather sources (same regenerable-cache
 # treatment as football_data/ and the other source dirs above)
 data/football_data_intl/
