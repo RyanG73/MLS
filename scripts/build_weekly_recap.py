@@ -18,6 +18,7 @@ Run:  python3 scripts/build_weekly_recap.py
 from __future__ import annotations
 
 import datetime
+import json
 import sys
 from pathlib import Path
 
@@ -26,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scripts.payload_utils import read_js_payload, registry_ids, write_js_payload  # noqa: E402
 
 DATA = Path("webapp/data")
+WEEKLY_ARCHIVE_DIR = Path("data/weekly-archive")
 MISS_CONF = 0.60      # a "high-confidence" call: model favorite ≥ 60%
 WINDOW_DAYS = 8       # completed-game lookback for hits/misses
 
@@ -159,7 +161,11 @@ def main() -> int:
     }
     out = DATA / "weekly.js"
     write_js_payload(out, "WEEKLY_DATA", data)
-    print(f"[weekly] wrote {out} · {len(movers['risers'])} risers / "
+    WEEKLY_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    archive_path = WEEKLY_ARCHIVE_DIR / f"{now.strftime('%Y-%m-%d')}.json"
+    archive_path.write_text(json.dumps(data, separators=(",", ":")))
+    print(f"[weekly] wrote {out} · archived {archive_path} · "
+          f"{len(movers['risers'])} risers / "
           f"{len(movers['fallers'])} fallers · {len(fragile)} races · "
           f"{len(disagreements)} disagreements · "
           f"{hm['n_hits']}/{hm['n_calls']} calls hit · "

@@ -140,7 +140,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet
+          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet data/weekly-archive/
           git add data/odds_log.parquet data/odds_closers.parquet data/bet_ledger.parquet 2>/dev/null || true
           git diff --staged --quiet && echo "No changes." || (
             git commit -m "chore(data): daily in-season refresh [$(date -u +%Y-%m-%d)]"
