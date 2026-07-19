@@ -412,12 +412,28 @@ field yet — not a mechanical repeat of this pass. See `docs/PROJECT_HISTORY.md
 
 See `docs/PROJECT_HISTORY.md` "Intelligence Hub S2" for the full outcome summary.
 
-### S3. Archive reproducible simulation states
+### S3. Archive reproducible simulation states — **done 2026-07-18, MLS pilot only**
 
-- Implement `archive_intelligence_state.py`.
+- Implement `archive_intelligence_state.py`. **Done** — extracts standings,
+  `sim.pmatrix`/team order, upcoming fixtures (by S1 `fixture_id`), rules, and
+  provenance; a replay test against the real MLS payload confirms the
+  archived state reconstructs 6 of 7 published targets within a documented,
+  investigated tolerance (`cup` excluded — needs the MLS playoff bracket,
+  which stays client-page-specific).
 - Run it after payload validation and before building intelligence events.
+  **Done** — wired into `refresh-daily.yml` after `validate_payloads.py` and
+  `validate_history_growth.py`.
 - Fail closed when required inputs are missing; do not archive a partial state as
-  healthy.
+  healthy. **Done** — `MissingRequiredInput`, unit-tested for every required field.
+
+**Compliance note:** this repo is public (confirmed via `gh repo view`), and
+rule 6 above prohibits committing private archives to a public repo, so
+`data/intelligence_snapshots/` is gitignored rather than committed — the
+archiver runs and validates on every build regardless, but durable storage
+awaits S5's access-controlled infrastructure. See `docs/PROJECT_HISTORY.md`
+"Intelligence Hub S3" for the full outcome summary, including a real
+methodology gap (server-side "strength-uncertainty widening") this work
+uncovered in the pre-existing browser what-if simulator.
 
 ### S4. Build canonical intelligence events
 
