@@ -146,6 +146,21 @@ def validate_file(path: Path, registry_ds: dict[str, str] | None = None) -> list
                     "update fetch_league_teams.DATA_STATUS or the "
                     "build_league_data derivation")
 
+    # S1 stable-ID contract (docs/intelligence-hub-implementation-instructions.md
+    # §4.3), MLS-only for now — see the S1 plan's Scope note for why other
+    # leagues aren't checked yet.
+    if data.get("status") != "placeholder" and data.get("league", {}).get("id") == "mls":
+        for i, s in enumerate(data.get("standings") or []):
+            if not s.get("team_id"):
+                errors.append(f"standings[{i}] ({s.get('team')!r}): missing team_id "
+                               "(docs/intelligence-hub-implementation-instructions.md §4.3)")
+        for i, g in enumerate(data.get("games") or []):
+            for field in ("home_id", "away_id", "fixture_id"):
+                if not g.get(field):
+                    errors.append(f"games[{i}] ({g.get('home')!r} v {g.get('away')!r}): "
+                                   f"missing {field} "
+                                   "(docs/intelligence-hub-implementation-instructions.md §4.3)")
+
     return errors
 
 
