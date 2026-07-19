@@ -137,6 +137,7 @@ jobs:
           python scripts/build_weekly_recap.py
           python scripts/validate_payloads.py
           python scripts/validate_history_growth.py
+          python scripts/archive_intelligence_state.py
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
