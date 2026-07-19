@@ -81,6 +81,9 @@ jobs:
       - name: Model slice report
         run: python scripts/build_slice_report.py
 
+      - name: Validate history growth + season bounds
+        run: python scripts/validate_history_growth.py
+
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
