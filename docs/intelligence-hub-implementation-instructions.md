@@ -389,13 +389,28 @@ follow-on work, since each sources team names from a different upstream
 field yet — not a mechanical repeat of this pass. See `docs/PROJECT_HISTORY.md`
 "Intelligence Hub S1" for the full outcome summary.
 
-### S2. Extract and version simulation behavior
+### S2. Extract and version simulation behavior — **done 2026-07-18**
 
-- Move common browser simulation logic into `webapp/sim-engine.js`.
+- Move common browser simulation logic into `webapp/sim-engine.js`. **Done** —
+  both `runSim` (MLS) and `runSimTable` (all single-table leagues) ported, not
+  just one format; the duplicated code already existed side by side in the
+  same file, so unifying only one would have defeated the point.
 - Preserve current league-page behavior with characterization tests before adding
-  Intel calculations.
-- Add a deterministic PRNG and explicit seed.
+  Intel calculations. **Done** — Node-based characterization tests (no npm/jest;
+  the repo has no JS build tooling, so these use only Node's built-in `assert`,
+  wrapped by a pytest shim) plus live browser verification against the real
+  running site for both league formats. No Intel-specific calculations were
+  added in this pass.
+- Add a deterministic PRNG and explicit seed. **Done** — a seeded PRNG
+  (mulberry32) threaded through *every* random draw in both formats, including
+  the MLS playoff bracket and the promotion-playoff bracket, so a seeded run
+  is fully reproducible end-to-end; an unseeded call preserves today's
+  behavior exactly (a fresh seed drawn each time).
 - Return simulation metadata and Monte Carlo standard error with each result.
+  **Done** — additive `_meta` (engine version/n/seed) and per-metric `_se`
+  fields on both `runSim` and `runSimTable` output.
+
+See `docs/PROJECT_HISTORY.md` "Intelligence Hub S2" for the full outcome summary.
 
 ### S3. Archive reproducible simulation states
 

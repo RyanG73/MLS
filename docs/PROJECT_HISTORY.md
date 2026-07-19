@@ -569,3 +569,24 @@ spec as-is (no changes needed), and generalizing team_id/fixture_id to the other
 registry is separate follow-on work since each sources team names from a different upstream with no
 equivalent stable-ID field yet. Next: S2 (extract and version the simulation engine), as its own plan
 file.
+
+## Intelligence Hub S2: shared simulation engine (2026-07-18, plan completed and deleted)
+
+Third foundation step: extracted the Monte Carlo core duplicated between `runSim` (MLS conference
+format) and `runSimTable` (single-table format, ~40 other leagues) in `webapp/index.html` into
+`webapp/sim-engine.js` — fixture resolution, per-trial point/key sampling, a percentile helper, a
+seedable PRNG (mulberry32), and a Monte Carlo standard-error helper. Unlike S0/S1, both league
+formats were in scope together: the duplicated code already existed side by side in the same file,
+so unifying only one would have defeated the point. The repo has no `package.json`/JS build tooling
+anywhere, so the module is a dependency-free UMD file (works via `<script>` in the browser and
+`require()` in Node) and its characterization tests use only Node's built-in `assert`, wrapped by a
+thin pytest subprocess shim so `pytest tests/` stays the single CI entrypoint. The seeded PRNG was
+threaded through *every* random draw in both formats, including the MLS playoff bracket
+(`confBracket`) and the promotion-playoff bracket (`promoWinner`) — not just the outer trial loop —
+so a seeded run is fully reproducible end-to-end (verified live: two `runSim(500, 12345)` calls
+against the real MLS page returned byte-identical output), while an unseeded call draws a fresh seed
+each time, preserving today's behavior exactly. Both `_meta` (engine version/n/seed) and per-metric
+`_se` (standard error) fields are additive to the existing output shape. Verified against the real
+running site (not just unit tests): loaded MLS and EPL, clicked a real force-result box on each,
+confirmed the resimulation ran through the ported engine with zero console errors and correct
+visual updates. Next: S3 (archive reproducible simulation states), as its own plan file.
