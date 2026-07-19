@@ -50,11 +50,9 @@ from sklearn.linear_model import LogisticRegression
 import xgboost as xgb
 import urllib3
 import sys as _sys
-import pathlib as _pathlib
 from models.metrics import (
     brier_multiclass_sum as _brier_sum,
     per_class_brier as _per_class_brier,
-    log_loss_multiclass as _ll_multiclass,
 )
 
 warnings.filterwarnings("ignore")
@@ -306,14 +304,10 @@ _XGB_NJOBS = int(os.environ.get("EVAL_XGB_NJOBS", "2"))
 from scripts.eval.elo import compute_elo
 from scripts.eval.feature_builders import add_rolling_features as _add_rolling_features_fb, add_h2h_draw_features
 from scripts.eval.feature_registry import (
-    FIFA_BREAKS as _FIFA_BREAKS,
     HIGH_ALT_IDS as _HIGH_ALT_IDS_REG,
     PYTHAG_EXP as _PYTHAG_EXP_REG,
     PYTHAG_WIN as _PYTHAG_WIN_REG,
-    haversine_km as _haversine_km,
-    pythag_expected_pts as _pythag_expected_pts,
     is_post_fifa as _is_post_fifa_fn,
-    tz_band as _tz_band,
     away_tz_shift_abs as _away_tz_shift_abs,
     away_tz_shift_signed as _away_tz_shift_signed,
     zs_within_season as _zs_within_season,
@@ -542,10 +536,9 @@ print(f"\n[4/9] Rolling features "
       f"PPDA={'yes' if _HAS_PPDA else 'no'})...")
 
 
-# Pythagorean constants and geometry imported from scripts.eval.feature_registry
+# Pythagorean constants imported from scripts.eval.feature_registry
 _PYTHAG_EXP = _PYTHAG_EXP_REG
 _PYTHAG_WIN = _PYTHAG_WIN_REG
-# _pythag_expected_pts, _haversine_km, _HIGH_ALT_IDS → imported above
 
 
 # add_rolling_features imported from scripts.eval.feature_builders
@@ -1638,7 +1631,7 @@ else:
     print("\n[6d/9] Transfer-spend skipped (FETCH_TRANSFERMARKT=False).")
 
 # ─── TZ shift feature ─────────────────────────────────────────────────────────
-# _tz_band, _away_tz_shift_abs, _away_tz_shift_signed imported from feature_registry
+# _away_tz_shift_abs, _away_tz_shift_signed imported from feature_registry
 
 df["away_tz_shift"]        = [_away_tz_shift_abs(r.home_team, r.away_team)
                                for _, r in df.iterrows()]

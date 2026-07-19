@@ -27,9 +27,24 @@ These files use **repo-root-absolute imports** (e.g. `from models.dixon_coles
 import …`, `from market.kelly import …`) that no longer resolve from `legacy/`
 in place. To run any of it again, either restore the files to their original
 paths (`git mv legacy/<x> <x>`) or check out the pre-archive commit. It also
-requires a PostgreSQL instance with the schema in `data_pipeline/db_utils.py`
-(still live at the repo root, since the active promotion gate's
-`source_health` reads it lazily).
+requires a PostgreSQL instance with the schema in
+`legacy/data_pipeline/db_utils.py` (archived 2026-07-19 once `source_health`
+went DB-free and nothing active imported it).
+
+## Archived later (2026-07-19 dead-code audit)
+
+These were still at the repo root after the 2026-06-11 archive but had no
+active-tree references left, only imports from `legacy/` itself:
+
+- `models/penaltyblog_baseline.py` → `legacy/models/` (benchmark model; the
+  `penaltyblog` dep moved from `requirements.txt` to `requirements-legacy.txt`)
+- `models/r_bridge/{bayesian_elo.R, run_bayes.py, referee_stats_worldfootballR.R}`
+  → `legacy/models/r_bridge/` (the two Transfermarkt R scripts remain active)
+- `scripts/notify.py` → `legacy/scripts/` (ntfy.sh wrapper; only legacy cron
+  scripts called it)
+- `data_pipeline/db_utils.py` → `legacy/data_pipeline/`
+- `r_requirements.R` → `legacy/` (Raspberry Pi era R env installer; the active
+  Transfermarkt workflow installs its own R packages inline)
 
 ## Why kept, not deleted
 

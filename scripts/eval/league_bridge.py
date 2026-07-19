@@ -206,12 +206,6 @@ class _Match(NamedTuple):
     match_date: object = None  # pd.Timestamp (None for backward-compat synthetic matches)
 
 
-def _resolve_elo(team: str, league_id: str) -> float | None:
-    """Return current domestic ELO for a modeled team, or None on miss."""
-    cache = _league_elos(league_id)
-    return cache.get(team)
-
-
 def _collect_matches(confederation: str) -> list[_Match]:
     """Collect cross-modeled-league completed matches for one confederation."""
     comps = _COMPS_BY_CONF[confederation]

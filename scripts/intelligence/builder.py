@@ -20,7 +20,6 @@ from scripts.intelligence.schema import (
 from scripts.intelligence.simulation import fixture_leverage
 from scripts.payload_utils import canonical_team_id, read_js_payload
 
-ADVERSE_TARGETS = {"releg", "spoon"}
 PRIVATE_ROOT = Path("data/team_intelligence")
 LEAGUE_DATA = Path("webapp/data")
 ODDS_HISTORY = Path("data/odds_history.parquet")

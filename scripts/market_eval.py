@@ -27,12 +27,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from data_pipeline.market import devig
-
 REPO_ROOT = Path(__file__).parent.parent.resolve()
-logger = logging.getLogger("market_eval")
 
-_ASA_TEAM_CACHE = REPO_ROOT / "data" / "asa_cache" / "get_teams_mls.parquet"
 _OPENERS_PATH = REPO_ROOT / "data" / "odds_log.parquet"
 _CLOSERS_PATH = REPO_ROOT / "data" / "odds_closers.parquet"
 _WEBAPP_DATA = REPO_ROOT / "webapp" / "data"
@@ -188,111 +184,6 @@ def market_disagreement_buckets(df: pd.DataFrame,
             if len(disagreement_under) else None,
         },
     }
-
-
-# ── MLS market join ───────────────────────────────────────────────────────────
-
-def _asa_id_to_name() -> dict[str, str]:
-    """ASA hex team_id → display name (e.g. 'Nashville SC')."""
-    if not _ASA_TEAM_CACHE.exists():
-        logger.warning("ASA team cache not found: %s", _ASA_TEAM_CACHE)
-        return {}
-    df = pd.read_parquet(_ASA_TEAM_CACHE)
-    return dict(zip(df["team_id"], df["team_name"]))
-
-
-def _pivot_odds(parquet_path: Path, prefix: str) -> pd.DataFrame:
-    """Load odds parquet, pivot to one row per fixture.
-
-    Returns columns: home_team, away_team, date_str,
-    {prefix}_home, {prefix}_draw, {prefix}_away.
-    Empty DataFrame if file missing, empty, or malformed.
-    """
-    if not parquet_path.exists():
-        return pd.DataFrame()
-    raw = pd.read_parquet(parquet_path)
-    if raw.empty:
-        return pd.DataFrame()
-    wide = raw.pivot_table(
-        index=["fixture_key", "home_team", "away_team", "commence_time"],
-        columns="outcome", values="decimal_odds", aggfunc="first",
-    ).reset_index()
-    wide.columns.name = None
-    if not {"home", "draw", "away"}.issubset(wide.columns):
-        return pd.DataFrame()
-    wide["date_str"] = pd.to_datetime(wide["commence_time"]).dt.strftime("%Y-%m-%d")
-    return wide[["home_team", "away_team", "date_str", "home", "draw", "away"]].rename(
-        columns={"home": f"{prefix}_home", "draw": f"{prefix}_draw",
-                 "away": f"{prefix}_away"})
-
-
-def _devig_odds_columns(df: pd.DataFrame, prefix: str,
-                        out_cols: tuple[str, str, str]) -> pd.DataFrame:
-    """De-vig odds columns ({prefix}_home/draw/away) → implied prob columns."""
-    h_col, d_col, a_col = f"{prefix}_home", f"{prefix}_draw", f"{prefix}_away"
-    oh_col, od_col, oa_col = out_cols
-    df[oh_col] = np.nan
-    df[od_col] = np.nan
-    df[oa_col] = np.nan
-    has = df[h_col].notna()
-    for idx in df[has].index:
-        try:
-            dv = devig(float(df.at[idx, h_col]),
-                       float(df.at[idx, d_col]),
-                       float(df.at[idx, a_col]))
-            df.at[idx, oh_col] = dv["home"]
-            df.at[idx, od_col] = dv["draw"]
-            df.at[idx, oa_col] = dv["away"]
-        except (ValueError, TypeError):
-            pass
-    return df
-
-
-def join_mls_market(preds: pd.DataFrame) -> pd.DataFrame:
-    """Join MLS walk-forward predictions with opening/closing Pinnacle odds.
-
-    preds must have: date, home_team (ASA hex id), away_team (ASA hex id),
-    prob_home, prob_draw, prob_away, label_result, season.
-
-    Returns copy with mkt_home/mkt_draw/mkt_away (opening implied, NaN where
-    unmatched) and optionally close_mkt_* columns.
-    """
-    id_map = _asa_id_to_name()
-    out = preds.copy()
-    out["_ht"] = out["home_team"].map(id_map).fillna("")
-    out["_at"] = out["away_team"].map(id_map).fillna("")
-    out["_ds"] = pd.to_datetime(out["date"]).dt.strftime("%Y-%m-%d")
-
-    for path, prefix, out_prefix in [
-        (_OPENERS_PATH, "open", "mkt"),
-        (_CLOSERS_PATH, "close", "close_mkt"),
-    ]:
-        odds = _pivot_odds(path, prefix)
-        if odds.empty:
-            if out_prefix == "mkt":
-                out[["mkt_home", "mkt_draw", "mkt_away"]] = np.nan
-            continue
-        out = out.merge(
-            odds,
-            left_on=["_ht", "_at", "_ds"],
-            right_on=["home_team", "away_team", "date_str"],
-            how="left",
-            suffixes=("", f"_{prefix}"),
-        )
-        out = _devig_odds_columns(
-            out, prefix,
-            (f"{out_prefix}_home", f"{out_prefix}_draw", f"{out_prefix}_away"),
-        )
-        drop = [c for c in [f"home_team_{prefix}", f"away_team_{prefix}",
-                             "date_str", f"{prefix}_home",
-                             f"{prefix}_draw", f"{prefix}_away",
-                             "home_team", "away_team"]
-                if c in out.columns and c not in preds.columns]
-        out = out.drop(columns=drop, errors="ignore")
-
-    if "mkt_home" not in out.columns:
-        out[["mkt_home", "mkt_draw", "mkt_away"]] = np.nan
-    return out.drop(columns=["_ht", "_at", "_ds"], errors="ignore")
 
 
 # ── European market summary (from existing webapp payloads) ───────────────────

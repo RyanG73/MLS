@@ -1,5 +1,21 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-19 — Dead-code audit: legacy archive completions + unused-code removals (no behavior change)**
+> Full-repo audit for dead/redundant code. Archived to `legacy/` (only legacy code referenced them):
+> `models/penaltyblog_baseline.py` (+ dropped `penaltyblog` from requirements.txt → requirements-legacy.txt),
+> `models/r_bridge/{bayesian_elo.R, run_bayes.py, referee_stats_worldfootballR.R}` (the two Transfermarkt
+> R scripts stay active), `scripts/notify.py` (ntfy wrapper, zero callers — drift-playbook updated),
+> `data_pipeline/db_utils.py`, and root `r_requirements.R`. Removed verified-dead code in place:
+> `market_eval.py`'s never-called MLS market-join cluster (`join_mls_market` + 3 private helpers),
+> `source_health.py`'s three report functions (legacy-only callers), `team_metadata.py`'s five
+> convenience accessors (active code uses the raw dicts), `league_bridge._resolve_elo`,
+> `understat._strip_accents`, `builder.ADVERSE_TARGETS`, `import_transfermarkt`'s never-applied
+> UEFA-discount knob, unused imports in `eval_baseline.py`, and webapp `resultBadge()`. Also pruned
+> 5 stale agent worktrees (133 MB; unmerged commits were the DROPped R2 experiment). Verified: 1210
+> tests pass, gate self-test passes, vulture clean at 90%. NOTE: `--smoke-test` fails 2024 Brier
+> 0.6359 vs ref 0.6346 (Δ=0.0013 > tol 0.001) **identically before and after the audit** — pre-existing
+> reference staleness (likely upstream ASA data revisions), needs a separate re-pin decision.
+
 > **2026-07-18 — Home + Matches redesign (desktop & mobile), News + Subscribe routes**
 > User-directed redesign built from five iterated wireframe templates. Home now leads with a
 > compact promise + Bundesliga-style recent-results strip, a rotating featured-league table

@@ -145,30 +145,3 @@ DOME_TEAM_IDS: frozenset = frozenset({
     "lgpMOvnQzy",  # Vancouver Whitecaps (BC Place)
 })
 
-# ─── Convenience functions ────────────────────────────────────────────────────
-
-
-def resolve_team_id(display_name: str) -> str | None:
-    """Resolve any display name variant (ASA or ESPN) to an internal short code."""
-    return TEAM_NAME_MAP.get(display_name) or ESPN_TO_TEAM.get(display_name)
-
-
-def get_conference(team_id: str) -> str:
-    """Return 'E' or 'W' for a team's conference. Defaults to 'E' if unknown."""
-    return CONFERENCE_MAP.get(team_id, "E")
-
-
-def is_expansion(team_id: str, season: int, expansion_seasons: int = 2) -> bool:
-    """True if the team is in its first N seasons (uses expansion-team prior)."""
-    first = FIRST_SEASON.get(team_id, 1996)
-    return (season - first) < expansion_seasons
-
-
-def is_dome(asa_team_id: str) -> bool:
-    """True if the home stadium has a retractable/fixed roof."""
-    return asa_team_id in DOME_TEAM_IDS
-
-
-def get_coords(asa_team_id: str) -> tuple[float, float] | None:
-    """Return (lat, lon) for a team's stadium, or None if unknown."""
-    return TEAM_COORDS.get(asa_team_id)

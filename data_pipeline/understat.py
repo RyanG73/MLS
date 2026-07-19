@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -115,11 +114,6 @@ _ESPN_NAME_OVERRIDES: dict[str, dict[str, str]] = {
 def espn_name(league_id: str, title: str) -> str:
     """Map an Understat team title to ESPN's displayName (for crest lookup)."""
     return _ESPN_NAME_OVERRIDES.get(league_id, {}).get(title, title)
-
-
-def _strip_accents(s: str) -> str:
-    return "".join(c for c in unicodedata.normalize("NFKD", s)
-                   if not unicodedata.combining(c))
 
 
 def _default_seasons() -> list[int]:

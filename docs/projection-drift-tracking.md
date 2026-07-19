@@ -40,7 +40,7 @@ The foundation is right (append-only parquet keyed by build). Drift tracking is 
 - The existing movers strip stays as the "what changed today" view; the health card is the "is change healthy" view.
 
 ### 4. Alerting (optional, later)
-- launchd nightly job exits non-zero (or `scripts/notify.py`) on: churn alert, calibration alert, archiver wrote 0 rows (pipeline silently broken), or a league's snapshot missing >48h.
+- launchd nightly job exits non-zero (or `legacy/scripts/notify.py`, archived 2026-07-19) on: churn alert, calibration alert, archiver wrote 0 rows (pipeline silently broken), or a league's snapshot missing >48h.
 
 ## Implementation order & effort
 

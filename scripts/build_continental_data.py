@@ -316,7 +316,6 @@ def _build_games(comp_id: str, played, caches: dict | None = None) -> list[dict]
         else:
             result = "D"
 
-        _, round_ordinal = _ESPN_ROUND.get(row["round"], (row["round"], 0))
         display_round, _ = _ESPN_ROUND.get(row["round"], (row["round"], 0))
 
         games.append({

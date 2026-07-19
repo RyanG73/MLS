@@ -2641,8 +2641,6 @@ function edgePick(g){
   let bi=0;for(let i=1;i<3;i++)if(mp[i]>mp[bi])bi=i;
   return {k:ks[bi],label:_OL[ks[bi]],val:Math.round(mp[bi]*100),isEdge:false};
 }
-function resultBadge(g){if(g.result==null)return'';const ok=edgePick(g).k===g.result;
-  return `<span class="res ${ok?'ok':'miss'}">${ok?'✓':'✗'} ${_OL[g.result]}</span>`;}
 // B6: max |model−market| across outcomes, or null when no market line exists.
 function edgeMag(g){
   const mkt=g.mkt&&g.mkt.length===3?g.mkt:(g.mkt_home!=null?[g.mkt_home,g.mkt_draw,g.mkt_away]:null);

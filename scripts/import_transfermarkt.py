@@ -9,7 +9,7 @@ covers: EPL, Championship, League One, League Two, La Liga, Segunda, Serie A,
 Serie B, Bundesliga, 2.Bundesliga, Ligue 1, Ligue 2, Liga MX, Canadian PL.
 
 PELE-inspired features computed per team-season:
-  squad_value_eur   — adjusted total squad value (optional UEFA discount)
+  squad_value_eur   — total squad value
   att_value_pct     — FW/AM/W value as % of squad total (Tilt prior)
   def_value_pct     — CB/FB value as % of squad total
   tilt              — att_value_pct − def_value_pct (>0 = attacking)
@@ -94,17 +94,6 @@ _POS_GROUP: dict[str, str] = {
     "striker": "ATT", "forward": "ATT",
     "fw": "ATT",
 }
-
-# Top-5 European league country codes (for optional UEFA discount).
-# Transfermarkt nationality fields use full country names; keep as guide for
-# future use — not applied by default since MLS rosters already represent
-# the market at MLS-level spending.
-_UEFA_LEAGUES = frozenset([
-    "England", "Spain", "Germany", "Italy", "France",
-    "Netherlands", "Portugal", "Scotland", "Belgium",
-])
-
-UEFA_DISCOUNT = 0.0  # set to 0.30 to replicate PELE's ~30% pro-Europe correction
 
 # Transfermarkt competition codes for every non-MLS league A9 covers (docs/superpowers/plans/
 # 2026-07-02-model-and-ui-improvements.md Task A9). Only the `wettbewerb/<CODE>` segment of a TM
@@ -668,8 +657,6 @@ def validate_transfermarkt(season: int, name_map: dict[str, str] | None = None,
 
     n_players = len(raw_csv)
     teams_in_raw = raw_csv["tm_team_name"].nunique() if "tm_team_name" in raw_csv.columns else 0
-    has_observed_at = "observed_at" in raw_csv.columns and not raw_csv["observed_at"].isna().all()
-
     if "market_value_eur" in raw_csv.columns:
         raw_csv["market_value_eur"] = pd.to_numeric(raw_csv["market_value_eur"], errors="coerce").fillna(0)
         n_valued = int((raw_csv["market_value_eur"] > 0).sum())
