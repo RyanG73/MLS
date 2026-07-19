@@ -84,11 +84,34 @@ jobs:
       - name: Validate history growth + season bounds
         run: python scripts/validate_history_growth.py
 
+      - name: Build, validate, publish, and shadow Intelligence
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: |
+          python scripts/archive_intelligence_state.py
+          python scripts/build_intelligence_events.py
+          python scripts/build_intel_events_payload.py
+          python scripts/build_team_intelligence.py
+          python scripts/build_team_catalog.py
+          python scripts/validate_intelligence_launch.py
+          python scripts/publish_intelligence_artifacts.py
+          python scripts/send_intelligence_notifications.py
+          python scripts/send_personalized_briefings.py
+          python scripts/report_intelligence_shadow.py
+
+      - name: Upload Intelligence shadow report
+        uses: actions/upload-artifact@v4
+        with:
+          name: intelligence-shadow-weekly
+          path: output/intelligence-shadow-report.json
+          if-no-files-found: error
+
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet data/weekly-archive/ data/race_deltas_history.parquet
+          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet data/weekly-archive/ data/race_deltas_history.parquet data/intelligence_events.parquet data/intelligence_events_latest.json
           git add data/bet_ledger.parquet 2>/dev/null || true
           git diff --staged --quiet && echo "No changes." || (
             git commit -m "chore(data): weekly European league refresh [$(date -u +%Y-%m-%d)]"

@@ -20,6 +20,9 @@ class KVStore(Protocol):
     def set(self, key: str, value: str, ex: int | None = None) -> None: ...
     def delete(self, key: str) -> None: ...
     def exists(self, key: str) -> bool: ...
+    def add_to_set(self, key: str, value: str) -> None: ...
+    def members(self, key: str) -> set[str]: ...
+    def increment(self, key: str, ex: int | None = None) -> int: ...
 
 
 class InMemoryKVStore:
@@ -49,3 +52,18 @@ class InMemoryKVStore:
 
     def exists(self, key: str) -> bool:
         return self.get(key) is not None
+
+    def add_to_set(self, key: str, value: str) -> None:
+        raw = self.get(key)
+        values = set(raw.split("\n")) if raw else set()
+        values.add(value)
+        self.set(key, "\n".join(sorted(values)))
+
+    def members(self, key: str) -> set[str]:
+        raw = self.get(key)
+        return set(raw.split("\n")) if raw else set()
+
+    def increment(self, key: str, ex: int | None = None) -> int:
+        value = int(self.get(key) or 0) + 1
+        self.set(key, str(value), ex=ex)
+        return value

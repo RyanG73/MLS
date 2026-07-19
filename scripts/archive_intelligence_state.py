@@ -1,32 +1,9 @@
 #!/usr/bin/env python3
-"""S3: archive a compact, reproducible simulation-state snapshot after each
-successful league build (docs/intelligence-hub-implementation-instructions.md
-§4.7, §5 S3).
+"""Archive compact, reproducible simulation states for every forecast league.
 
-Reads the already-built, already-validated MLS payload (webapp/data/mls.js)
-and extracts exactly what a later replay needs to reconstruct the published
-target probabilities: team-strength inputs (the sim.pmatrix + team order the
-client simulator reads), current standings (points/goal-diff/conference),
-remaining fixtures (by stable fixture_id, not display order — S1), season-
-format rules, and provenance (config/code revision, generation timestamp).
-Decorative UI fields (crests, colors, weather, venue) are never archived.
-
-Fails closed: if any required input is missing, this exits non-zero and
-writes NOTHING rather than archiving a partial/misleading snapshot as
-healthy.
-
-COMPLIANCE NOTE: per docs/intelligence-hub-implementation-instructions.md
-rule 6, private archives must not be committed to a publicly readable
-repository — this one is public. data/intelligence_snapshots/ is gitignored;
-this script still runs on every build (fail-closed validation + a
-replay-testable local artifact), but durable committed persistence is
-deferred to S5's access-controlled storage.
-
-Run after scripts/validate_payloads.py and scripts/validate_history_growth.py,
-before any future intelligence-event builder (S4).
-
-Usage:
-    python scripts/archive_intelligence_state.py            # MLS only, for now
+Private snapshots are written beneath data/intelligence_snapshots/ (gitignored).
+The archive is the single reproducibility source for scenarios, leverage,
+attribution, receipts, watchpoints, and saved user work.
 """
 from __future__ import annotations
 
@@ -36,19 +13,29 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from scripts.payload_utils import make_snapshot_id, read_js_payload  # noqa: E402
+from scripts.payload_utils import (  # noqa: E402
+    canonical_team_id,
+    make_fixture_id,
+    make_snapshot_id,
+    read_js_payload,
+)
 
-PAYLOAD_PATH = Path("webapp/data/mls.js")
-SNAPSHOT_DIR = Path("data/intelligence_snapshots/mls")
-SIMULATION_VERSION = "v1"  # matches webapp/sim-engine.js ENGINE_VERSION
+PAYLOAD_DIR = Path("webapp/data")
+SNAPSHOT_ROOT = Path("data/intelligence_snapshots")
+SNAPSHOT_DIR = SNAPSHOT_ROOT / "mls"  # backwards-compatible test/default path
+SIMULATION_VERSION = "v1"
+TARGET_KEYS = (
+    "title", "playoff", "playoffs", "shield", "cup", "hfa", "spoon",
+    "conf_win", "ucl", "europa", "conf", "releg", "promo", "promoted",
+    "liguilla", "premiers", "finals", "continental",
+)
 
 
 class MissingRequiredInput(Exception):
-    """Raised when the payload lacks a field this archive cannot honestly represent."""
+    """Raised when a payload cannot be represented truthfully."""
 
 
-def _require(payload: dict, path: str, predicate=lambda v: bool(v)):
-    """Walk a dotted path in payload; raise if missing or fails `predicate`."""
+def _require(payload: dict, path: str, predicate=lambda value: bool(value)):
     cur = payload
     for part in path.split("."):
         if not isinstance(cur, dict) or part not in cur:
@@ -59,57 +46,124 @@ def _require(payload: dict, path: str, predicate=lambda v: bool(v)):
     return cur
 
 
-def build_snapshot(payload: dict) -> dict:
-    """Extract the reproducibility-relevant subset of `payload`. Raises
-    MissingRequiredInput (fail closed) if anything required is absent."""
-    league_id = _require(payload, "league.id")
-    season = _require(payload, "season", lambda v: v is not None)
-    generated = _require(payload, "generated")
-    config_id = _require(payload, "provenance.champion_run")
-    code_rev = payload.get("provenance", {}).get("git_commit")
-    n_sims = _require(payload, "n_sims")
-    playoff_slots = _require(payload, "playoff_slots")
-    hfa_slots = _require(payload, "hfa_slots")
-    standings = _require(payload, "standings", lambda v: isinstance(v, list) and len(v) > 0)
-    sim_teams = _require(payload, "sim.teams", lambda v: isinstance(v, list) and len(v) > 0)
-    pmatrix = _require(payload, "sim.pmatrix", lambda v: isinstance(v, list) and len(v) > 0)
+def _champion_config_id() -> str | None:
+    try:
+        return json.loads(Path("experiments/champion.json").read_text()).get("run_id")
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
 
-    by_name = {s["team"]: s for s in standings}
+
+def _target_rules(payload: dict) -> list[dict]:
+    outlook = payload.get("outlook") or {}
+    if outlook.get("mode") == "mls":
+        return [
+            {"key": "playoff", "per_conf_top": payload.get("playoff_slots")},
+            {"key": "hfa", "per_conf_top": payload.get("hfa_slots")},
+            {"key": "shield", "top": 1},
+            {"key": "spoon", "bottom": 1},
+        ]
+    return [dict(rule) for rule in (outlook.get("columns") or [])
+            if isinstance(rule, dict) and rule.get("key")]
+
+
+def build_snapshot(payload: dict, league_id: str | None = None) -> dict:
+    """Extract the simulation-relevant subset of a league payload."""
+    league_id = league_id or _require(payload, "league.id")
+    season = _require(payload, "season", lambda value: value is not None)
+    generated = _require(payload, "generated")
+    provenance = payload.get("provenance") or {}
+    config_id = provenance.get("champion_run")
+    if not config_id and (provenance.get("model_file") or provenance.get("data_source")):
+        config_id = _champion_config_id()
+    if not config_id:
+        raise MissingRequiredInput("missing required field: provenance.champion_run")
+    code_rev = provenance.get("git_commit")
+    n_sims = _require(payload, "n_sims", lambda value: isinstance(value, int) and value > 0)
+    standings = _require(payload, "standings", lambda value: isinstance(value, list) and bool(value))
+    sim_teams = _require(payload, "sim.teams", lambda value: isinstance(value, list) and bool(value))
+    pmatrix = _require(payload, "sim.pmatrix", lambda value: isinstance(value, list) and bool(value))
+
+    by_name = {row.get("team"): row for row in standings if row.get("team")}
     teams = []
+    team_id_by_name: dict[str, str] = {}
     for name in sim_teams:
-        s = by_name.get(name)
-        if s is None:
+        row = by_name.get(name)
+        if row is None:
             raise MissingRequiredInput(f"sim.teams entry {name!r} has no matching standings row")
+        team_id = canonical_team_id(name, row.get("team_id"))
+        team_id_by_name[name] = team_id
+        published = {"proj_pts": row.get("proj_pts"), "proj_rank": row.get("proj_rank")}
+        published.update({key: row.get(key) for key in TARGET_KEYS if key in row})
         teams.append({
-            "team": name, "team_id": s.get("team_id"), "conf": s.get("conf"),
-            "pts": s.get("pts"), "gd": s.get("gd"),
-            "published": {k: s.get(k) for k in
-                          ("proj_pts", "playoff", "hfa", "shield", "spoon", "conf_win", "cup")},
+            "team": name,
+            "team_id": team_id,
+            "conf": row.get("conf") if isinstance(row.get("conf"), str) else None,
+            "pts": row.get("pts"),
+            "gd": row.get("gd"),
+            "gp": row.get("gp"),
+            "elo": row.get("elo"),
+            "published": published,
         })
 
     fixtures = []
-    for g in payload.get("games") or []:
-        if g.get("result") is not None:
+    for game in payload.get("games") or []:
+        if game.get("result") is not None:
             continue
-        if not g.get("fixture_id") or not g.get("home_id") or not g.get("away_id"):
-            continue  # S1 IDs not backfilled on this row yet — skip rather than
-                      # archive a fixture that can't be joined back to a team_id
+        home, away, date = game.get("home"), game.get("away"), game.get("date")
+        if home not in team_id_by_name or away not in team_id_by_name or not date:
+            continue
+        probs = (game.get("pH"), game.get("pD"), game.get("pA"))
+        if not all(isinstance(value, (int, float)) for value in probs):
+            continue
+        home_id = canonical_team_id(home, game.get("home_id") or team_id_by_name[home])
+        away_id = canonical_team_id(away, game.get("away_id") or team_id_by_name[away])
+        fixture_id = game.get("fixture_id") or make_fixture_id(
+            league_id, season, date, home_id, away_id)
         fixtures.append({
-            "fixture_id": g["fixture_id"], "home_id": g["home_id"], "away_id": g["away_id"],
-            "date": g.get("date"), "pH": g.get("pH"), "pD": g.get("pD"), "pA": g.get("pA"),
+            "fixture_id": fixture_id,
+            "home_id": home_id,
+            "away_id": away_id,
+            "home": home,
+            "away": away,
+            "date": date,
+            "ko": game.get("ko"),
+            "pH": float(probs[0]),
+            "pD": float(probs[1]),
+            "pA": float(probs[2]),
         })
 
-    snapshot_id = make_snapshot_id(league_id, season, generated, config_id, SIMULATION_VERSION)
-    replay_seed = int(snapshot_id.split(":", 1)[1][:8], 16)  # deterministic from the id itself
-
+    snapshot_id = make_snapshot_id(
+        league_id, season, generated, config_id, SIMULATION_VERSION)
+    replay_seed = int(snapshot_id.split(":", 1)[1][:8], 16)
+    outlook = payload.get("outlook") or {}
+    source_health = payload.get("health") or {}
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "snapshot_id": snapshot_id,
-        "league_id": league_id, "season": season, "generated": generated,
-        "config_id": config_id, "code_rev": code_rev,
+        "league_id": league_id,
+        "league_name": (payload.get("league") or {}).get("name", league_id),
+        "season": season,
+        "season_id": str(season),
+        "generated": generated,
+        "status": payload.get("status"),
+        "data_status": payload.get("data_status"),
+        "config_id": config_id,
+        "code_rev": code_rev,
         "simulation_version": SIMULATION_VERSION,
-        "n_sims": n_sims, "replay_seed": replay_seed,
-        "rules": {"playoff_slots": playoff_slots, "hfa_slots": hfa_slots},
+        "n_sims": n_sims,
+        "replay_seed": replay_seed,
+        "rules": {
+            "mode": outlook.get("mode"),
+            "playoff_slots": payload.get("playoff_slots"),
+            "hfa_slots": payload.get("hfa_slots"),
+            "targets": _target_rules(payload),
+            "description": outlook.get("rules"),
+        },
+        "source": {
+            "provenance": provenance,
+            "health": source_health,
+            "freshness": "current",
+        },
         "teams": teams,
         "pmatrix": pmatrix,
         "fixtures": fixtures,
@@ -117,53 +171,61 @@ def build_snapshot(payload: dict) -> dict:
 
 
 def _latest_snapshot(snapshot_dir: Path) -> dict | None:
-    """Most recently WRITTEN snapshot in `snapshot_dir` (by file mtime — the
-    hash-based filenames are not lexicographically time-ordered)."""
     if not snapshot_dir.exists():
         return None
-    files = sorted(snapshot_dir.glob("*.json.gz"), key=lambda p: p.stat().st_mtime)
+    files = sorted(snapshot_dir.glob("*.json.gz"), key=lambda path: path.stat().st_mtime)
     if not files:
         return None
-    with gzip.open(files[-1], "rt", encoding="utf-8") as f:
-        return json.load(f)
+    with gzip.open(files[-1], "rt", encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 def write_snapshot(snapshot: dict, snapshot_dir: Path = SNAPSHOT_DIR) -> tuple[Path, bool]:
-    """Write `snapshot`, gzip-compressed, deduplicating an unchanged pmatrix
-    against the immediately previous snapshot (a large array that rarely
-    changes build-to-build — e.g. two consecutive preseason builds with no
-    new results). Returns (path, deduped)."""
+    """Write a compressed snapshot and reference an unchanged prior matrix."""
     snapshot_dir.mkdir(parents=True, exist_ok=True)
-    prev = _latest_snapshot(snapshot_dir)
+    previous = _latest_snapshot(snapshot_dir)
     to_write = dict(snapshot)
-    deduped = prev is not None and prev.get("pmatrix") == snapshot["pmatrix"]
+    deduped = previous is not None and previous.get("pmatrix") == snapshot["pmatrix"]
     if deduped:
-        to_write["pmatrix"] = {"$ref": prev["snapshot_id"]}
+        to_write["pmatrix"] = {"$ref": previous["snapshot_id"]}
     out_path = snapshot_dir / f"{snapshot['snapshot_id'].replace(':', '_')}.json.gz"
-    with gzip.open(out_path, "wt", encoding="utf-8") as f:
-        json.dump(to_write, f, separators=(",", ":"))
+    with gzip.open(out_path, "wt", encoding="utf-8") as handle:
+        json.dump(to_write, handle, separators=(",", ":"))
     return out_path, deduped
 
 
+def archive_all(payload_dir: Path = PAYLOAD_DIR,
+                snapshot_root: Path = SNAPSHOT_ROOT) -> tuple[list[Path], list[str]]:
+    written: list[Path] = []
+    skipped: list[str] = []
+    for payload_path in sorted(payload_dir.glob("*.js")):
+        payload = read_js_payload(payload_path)
+        if not isinstance(payload, dict) or not payload.get("standings"):
+            continue
+        league_id = (payload.get("league") or {}).get("id") or payload_path.stem
+        if payload.get("data_status") in {"results_only", "historical"}:
+            skipped.append(f"{league_id}: unsupported data_status")
+            continue
+        if not payload.get("sim") or payload.get("season") is None:
+            skipped.append(f"{league_id}: no reproducible simulation state")
+            continue
+        try:
+            snapshot = build_snapshot(payload, league_id=league_id)
+            path, _ = write_snapshot(snapshot, snapshot_root / league_id)
+            written.append(path)
+        except MissingRequiredInput as exc:
+            skipped.append(f"{league_id}: {exc}")
+    return written, skipped
+
+
 def main() -> int:
-    if not PAYLOAD_PATH.exists():
-        print(f"[archive-intelligence-state] {PAYLOAD_PATH} does not exist — nothing to archive",
-              file=sys.stderr)
+    written, skipped = archive_all()
+    for reason in skipped:
+        print(f"[archive-intelligence-state] skip {reason}", file=sys.stderr)
+    print(f"[archive-intelligence-state] wrote {len(written)} league snapshots")
+    if not written:
+        print("[archive-intelligence-state] no reproducible forecast payloads", file=sys.stderr)
         return 1
-    payload = read_js_payload(PAYLOAD_PATH)
-    if payload is None:
-        print(f"[archive-intelligence-state] {PAYLOAD_PATH} did not parse — nothing to archive",
-              file=sys.stderr)
-        return 1
-    try:
-        snapshot = build_snapshot(payload)
-    except MissingRequiredInput as e:
-        print(f"[archive-intelligence-state] FAILED CLOSED: {e}", file=sys.stderr)
-        return 1
-    out_path, deduped = write_snapshot(snapshot)
-    note = " (pmatrix deduplicated)" if deduped else ""
-    print(f"[archive-intelligence-state] wrote {out_path} "
-          f"({len(snapshot['teams'])} teams, {len(snapshot['fixtures'])} fixtures){note}")
     return 0
 
 

@@ -49,7 +49,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scripts.archive_odds_snapshot import append_snapshot  # noqa: E402
 from scripts.build_race_deltas import METRICS, _cause  # noqa: E402
-from scripts.payload_utils import make_event_id  # noqa: E402
+from scripts.payload_utils import canonical_team_id, make_event_id  # noqa: E402
 
 HISTORY = Path("data/odds_history.parquet")
 MATCH_HISTORY = Path("data/match_prob_history.parquet")
@@ -79,13 +79,17 @@ def compute_materiality_score(delta_pp: float, crossed: list[float], cause_class
     return round(move_component + threshold_component + result_component, 3)
 
 
-def _resolved_fixture_evidence(match_hist: pd.DataFrame, team_id, prev_date: str, cur_date: str) -> list[str]:
+def _resolved_fixture_evidence(match_hist: pd.DataFrame, team_id, prev_date: str, cur_date: str,
+                               team_name: str | None = None) -> list[str]:
     """Fixture(s) that were listed as upcoming for `team_id` as of `prev_date`
     but are no longer upcoming as of `cur_date` — i.e. resolved between the
     two snapshots. The evidence for a "result" event."""
     if match_hist is None or "home_id" not in match_hist.columns:
         return []
-    is_team = (match_hist["home_id"] == team_id) | (match_hist["away_id"] == team_id)
+    id_match = (match_hist["home_id"].astype(str) == str(team_id)) | (match_hist["away_id"].astype(str) == str(team_id))
+    name_match = ((match_hist.get("home") == team_name) | (match_hist.get("away") == team_name)
+                  if team_name and "home" in match_hist and "away" in match_hist else False)
+    is_team = id_match | name_match
     prev_ids = set(match_hist.loc[is_team & (match_hist["snapshot_date"] == prev_date), "fixture_id"].dropna())
     cur_ids = set(match_hist.loc[is_team & (match_hist["snapshot_date"] == cur_date), "fixture_id"].dropna())
     resolved = sorted(prev_ids - cur_ids)
@@ -100,14 +104,30 @@ def _event_row(*, event_type, league_id, season, team_id, target_metric,
         "schema_version": 1,
         "event_id": make_event_id(event_type, team_id, target_metric, effective_at, evidence_ids),
         "generated_at": generated_at, "effective_at": effective_at,
-        "league_id": league_id, "season": season, "team_id": team_id,
+        "league_id": league_id, "season": season,
+        "season_id": str(season) if season is not None and pd.notna(season) else None,
+        "team_id": team_id,
         "event_type": event_type, "target_metric": target_metric,
         "before_pct": before_pct, "after_pct": after_pct, "delta_pp": delta_pp,
         "materiality_score": materiality_score_, "cause_class": cause_class,
         "attribution_kind": attribution_kind, "evidence_ids": json.dumps(evidence_ids),
         "attribution_quality": attribution_quality,
+        "attribution": json.dumps([{
+            "kind": attribution_kind,
+            "delta_pp": delta_pp,
+            "evidence_ids": evidence_ids,
+        }] if delta_pp is not None else []),
         "confidence_status": confidence_status, "data_freshness": data_freshness,
+        "confidence": json.dumps({
+            "status": confidence_status,
+            "data_freshness": data_freshness,
+            "attribution_quality": attribution_quality,
+            "notes": notes,
+        }),
         "notes": json.dumps(notes),
+        "snapshot_before_id": None, "snapshot_after_id": None,
+        "simulation_version": "v1",
+        "template_id": "intelligence-event", "template_version": 1,
         "config_id": config_id, "code_rev": code_rev, "public_safe": True,
     }
 
@@ -170,7 +190,8 @@ def build_events(hist: pd.DataFrame, match_hist: pd.DataFrame | None, league_id:
     metrics = [m for m in METRICS if m in grp.columns]
     for team in sorted(set(prev_snap.index) & set(cur_snap.index)):
         prow, crow = prev_snap.loc[team], cur_snap.loc[team]
-        team_id = crow.get("team_id") if pd.notna(crow.get("team_id")) else prow.get("team_id")
+        raw_team_id = crow.get("team_id") if pd.notna(crow.get("team_id")) else prow.get("team_id")
+        team_id = canonical_team_id(str(team), raw_team_id)
         cause = _cause(prow, crow)
         if cause == "refresh":
             continue  # suppress fan-facing events from harmless build churn
@@ -189,8 +210,9 @@ def build_events(hist: pd.DataFrame, match_hist: pd.DataFrame | None, league_id:
                 event_type = "result"
             else:
                 event_type = "forecast_move"
-            evidence_ids = (_resolved_fixture_evidence(match_hist, team_id, prev_date, cur_date)
-                            if cause == "result" and pd.notna(team_id) else [])
+            evidence_ids = (_resolved_fixture_evidence(
+                match_hist, team_id, prev_date, cur_date, team_name=str(team))
+                if cause == "result" and pd.notna(team_id) and match_hist is not None else [])
             if cause == "result" and not evidence_ids:
                 attribution_quality, confidence_status, notes = (
                     "unavailable", "unsupported",
@@ -251,13 +273,24 @@ def main() -> int:
     hist = pd.read_parquet(HISTORY)
     match_hist = pd.read_parquet(MATCH_HISTORY) if MATCH_HISTORY.exists() else None
     generated_at = dt.datetime.now(dt.timezone.utc).isoformat()
-    events = build_events(hist, match_hist, league_id="mls", generated_at=generated_at)
-    added = append_events(events)
+    candidates = []
+    for league_id in sorted(hist["league"].dropna().unique()):
+        candidates.extend(build_events(
+            hist, match_hist, league_id=str(league_id), generated_at=generated_at))
+    added = append_events(candidates)
     all_events = pd.read_parquet(EVENTS_OUT) if EVENTS_OUT.exists() else pd.DataFrame()
-    mls_events = all_events[all_events["league_id"] == "mls"] if len(all_events) else all_events
-    write_latest_index(build_latest_index(mls_events))
-    print(f"[intelligence-events] {len(events)} candidate events this run, +{added} new after dedup, "
-          f"{len(mls_events)} total accrued for mls")
+    league_indexes = {}
+    if len(all_events):
+        for league_id, rows in all_events.groupby("league_id"):
+            league_indexes[str(league_id)] = build_latest_index(rows)
+    write_latest_index({
+        "schema_version": 2,
+        "generated_at": generated_at,
+        "leagues": league_indexes,
+    })
+    print(f"[intelligence-events] {len(candidates)} candidate events across "
+          f"{len(league_indexes)} leagues, +{added} new after dedup, "
+          f"{len(all_events)} total accrued")
     return 0
 
 

@@ -1,0 +1,46 @@
+name: Deploy Intelligence API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'server/**'
+      - 'scripts/intelligence/**'
+      - 'scripts/archive_intelligence_state.py'
+      - 'scripts/payload_utils.py'
+      - 'requirements-api.txt'
+      - 'vercel.json'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: intelligence-api-production
+  cancel-in-progress: false
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: intelligence-api-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Use runtime-only Python dependencies
+        run: cp requirements-api.txt requirements.txt
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Pull production environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Build production function
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy production function
+        run: vercel deploy --prebuilt --prod --archive=tgz --token=${{ secrets.VERCEL_TOKEN }}

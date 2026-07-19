@@ -1,10 +1,36 @@
 # Entenser Intelligence Hub - Implementation Instructions
 
 **Date:** 2026-07-18  
-**Status:** Implementation specification  
+**Status:** Engineering implementation complete; production launch gated
 **Audience:** Product and engineering  
-**Related:** `docs/product-roadmap-2026-07.md`, `docs/CURRENT_STATE.md`,
-`docs/projection-drift-tracking.md`
+**Related:** docs/product-roadmap-2026-07.md, docs/CURRENT_STATE.md,
+docs/projection-drift-tracking.md, docs/intelligence-hub-launch-runbook.md
+
+## 0. Implementation status
+
+As of 2026-07-18, S0 through S7 are implemented in the repository. All 26
+feature contracts are compiled for every supported team and rendered from one
+authenticated, evidence-backed Hub. The launch validator currently covers 47
+leagues, 836 teams, and 21,736 feature records:
+
+| State | Feature records | Meaning |
+|---|---:|---|
+| live | 14,369 | Sufficient current evidence exists for this calculation |
+| thin history | 4,014 | The feature works but history is not yet deep enough for a full claim |
+| unavailable | 3,353 | The required source or statistically valid calculation is absent |
+
+An unavailable state is a truthful implementation outcome, not a mock. The UI
+must never substitute sample figures for it.
+
+Verification at this revision: 1,168 non-browser tests passed with 15 explicit
+skips, 42 Chromium tests passed, Python compilation succeeded, workflow YAML
+parsed, and the launch validator matched the catalog to the private manifest.
+
+The program is not yet approved for live email delivery. S8 requires at least
+two complete matchweeks of shadow output, review of one quiet-mode cycle, and
+explicit owner sign-off. Production Vercel, Upstash, Stripe, and Resend
+credentials and webhooks also require deployment verification. See the launch
+runbook for the exact gates and rollback controls.
 
 ## 1. Product contract
 
@@ -73,9 +99,8 @@ empty weekly email merely to preserve cadence.
    sits outside `webapp/`. If the repository is publicly readable, private
    archives must not be committed there. Store them in an access-controlled
    deployment artifact or object store approved in the roadmap cost table.
-7. **No localStorage security theater.** The current `IntelStore` flag is useful
-   for a mockup only. It is not an entitlement system and must never protect
-   paid data.
+7. **No localStorage security theater.** `IntelStore` is a presentation cache,
+   not an entitlement system. It must never protect or grant paid data.
 8. **Respect route status.** `live`, `preseason`, `completed`, results-only, and
    historical leagues support different features. Unsupported analyses must
    render a precise unavailable state rather than fabricated or stale output.
@@ -87,9 +112,9 @@ empty weekly email merely to preserve cadence.
     call a simulation percentile a confidence band unless its coverage has been
     statistically validated.
 
-## 3. Existing assets and known gaps
+## 3. Starting assets and implementation disposition
 
-### Assets to reuse
+### Assets reused
 
 | Existing asset | Intelligence Hub use |
 |---|---|
@@ -106,27 +131,25 @@ empty weekly email merely to preserve cadence.
 | `webapp/data/edge-board.js` | Market-consensus comparison, subject to quiet-middle policy |
 | `scripts/build_share_cards.py` | Rendering pattern for evidence-backed conversation cards |
 | `scripts/build_static_pages.py` | Public share and archive page pattern |
-| `?league=intel` | Demand-test UI prototype only |
-| `?league=account` | Preference and favorites prototype only |
+| `?league=intel` | Authenticated Hub route and public sign-in entry point |
+| `?league=account` | Legacy local favorites source; server account APIs are authoritative for Intel |
 
-### Gaps that block truthful implementation
+### Original gaps and current disposition
 
-- No canonical intelligence-event record shared by all delivery surfaces.
-- No stable cross-season `team_id` emitted in every payload.
-- No archived simulation-state snapshot that can reproduce an old forecast.
-- No quantitative decomposition of forecast movement.
-- No true fixture impact calculation for the user's target metric.
-- No authenticated account, server-side preference store, or entitlement check.
-- No private data delivery path.
-- No notification deduplication, frequency cap, unsubscribe processing, or send
-  ledger.
-- No distinction in the current Intel mockup between sample values and live
-  values.
-- No validated model-uncertainty interval, despite the prototype's
-  "confidence bands" wording.
-- No competition calendar-mode classifier or quiet-period composition rules.
-- No versioned Team Thesis, model-watchpoint, historical-analog, or personal
-  forecast-journal records.
+| Original gap | Current disposition |
+|---|---|
+| Canonical event and evidence record | Implemented in scripts/intelligence and scripts/build_intelligence_events.py |
+| Stable team, fixture, snapshot, and event IDs | Implemented across all supported builders with versioned fallbacks |
+| Reproducible simulation state | Implemented with deterministic seed, version, run count, and compact private artifacts |
+| Authenticated accounts and entitlements | Implemented with signed access tokens, revocable refresh tokens, server-side plan checks, and Stripe lifecycle handling |
+| Private delivery path | Implemented through compressed Upstash artifacts; direct public artifact publication is blocked |
+| Preferences, scenarios, journal, and creator workspaces | Implemented in the server-side user record with export and deletion |
+| Alert safety and observability | Implemented with shadow/live separation, deduplication, caps, retries, provider status, unsubscribe, and privacy-limited analytics |
+| Calendar mode and quiet-period composition | Implemented for active matchweek, short lull, scheduled break, offseason, and preseason |
+| Team Thesis, watchpoints, analogs, and journal | Implemented with explicit live, thin-history, or unavailable states |
+| Validated model-uncertainty interval | Not claimed. Features render unavailable where the required interval is not statistically supported |
+| Counterfactual attribution depth | Not emitted yet; current movement attribution is observational or unavailable until enough archived replay states accrue |
+| Production provider verification | Pending deployment credentials, webhook smoke tests, and S8 sign-off |
 
 ## 4. Target architecture
 
@@ -367,27 +390,20 @@ Complete these foundations before feature work diverges:
 
 See `docs/PROJECT_HISTORY.md` "Intelligence Hub S0" for the full outcome summary.
 
-### S1. Add stable IDs and season fields — **done 2026-07-18, MLS pilot only**
+### S1. Add stable IDs and season fields - **done 2026-07-18, all supported leagues**
 
-- Emit IDs from all league builders and normalize existing records during read.
-  **Done for MLS**; other leagues deferred — see below.
-- Backfill aliases carefully; do not invent cross-season identity where clubs
-  cannot be matched confidently. **N/A for this pass** — MLS's `team_id` reuses
-  ASA's own existing stable identifier rather than inventing new cross-season
-  identity, so there was nothing to backfill or alias.
-- Extend `validate_payloads.py` and archive tests. **Done** — `validate_payloads.py`
-  gates the MLS payload on `team_id`/`home_id`/`away_id`/`fixture_id` presence;
-  both new IDs are additive columns in `data/odds_history.parquet` and
-  `data/match_prob_history.parquet`.
-
-**Scoped to the MLS pilot league only.** `league_id` and `season_id` already
-satisfied this section as-is (both explicit, source-derived, never inferred from
-a snapshot date) — no changes were needed. `team_id` and `fixture_id` are real
-for MLS now; generalizing to the other leagues in the registry is separate
-follow-on work, since each sources team names from a different upstream
-(football-data.co.uk, API-Football, ESPN-only) with no equivalent stable-ID
-field yet — not a mechanical repeat of this pass. See `docs/PROJECT_HISTORY.md`
-"Intelligence Hub S1" for the full outcome summary.
+- All league builders emit or normalize team_id, league_id, season_id, and
+  fixture_id.
+- Source IDs remain authoritative where available. Name-only sources use a
+  league-independent versioned canonical-name hash so promotion and division
+  changes do not change identity.
+- Fixture IDs use a versioned hash of league, season, kickoff, home team ID, and
+  away team ID when no upstream fixture ID is available.
+- Payload, archive, and launch validation reject missing identities. Legacy
+  public fixtures are hydrated from the archived state before a paid artifact
+  is emitted.
+- Alias/name-change mapping remains an upstream data-maintenance responsibility;
+  archived IDs are never silently rewritten.
 
 ### S2. Extract and version simulation behavior — **done 2026-07-18**
 
@@ -412,96 +428,126 @@ field yet — not a mechanical repeat of this pass. See `docs/PROJECT_HISTORY.md
 
 See `docs/PROJECT_HISTORY.md` "Intelligence Hub S2" for the full outcome summary.
 
-### S3. Archive reproducible simulation states — **done 2026-07-18, MLS pilot only**
+### S3. Archive reproducible simulation states - **done 2026-07-18, all supported leagues**
 
-- Implement `archive_intelligence_state.py`. **Done** — extracts standings,
-  `sim.pmatrix`/team order, upcoming fixtures (by S1 `fixture_id`), rules, and
-  provenance; a replay test against the real MLS payload confirms the
-  archived state reconstructs 6 of 7 published targets within a documented,
-  investigated tolerance (`cup` excluded — needs the MLS playoff bracket,
-  which stays client-page-specific).
-- Run it after payload validation and before building intelligence events.
-  **Done** — wired into `refresh-daily.yml` after `validate_payloads.py` and
-  `validate_history_growth.py`.
-- Fail closed when required inputs are missing; do not archive a partial state as
-  healthy. **Done** — `MissingRequiredInput`, unit-tested for every required field.
+- scripts/archive_intelligence_state.py archives standings, fixtures,
+  probabilities, competition rules, target definitions, source health, and
+  complete simulation metadata.
+- The archive runs after payload and history validation and before event and
+  team-artifact builds.
+- Missing required inputs fail closed. A partial state is never labeled healthy.
+- Private states and per-team artifacts are gitignored and published only as
+  compressed records to authenticated Upstash storage.
+- Replay metadata is carried into scenarios, receipts, briefings, Ask answers,
+  cards, and exports.
 
-**Compliance note:** this repo is public (confirmed via `gh repo view`), and
-rule 6 above prohibits committing private archives to a public repo, so
-`data/intelligence_snapshots/` is gitignored rather than committed — the
-archiver runs and validates on every build regardless, but durable storage
-awaits S5's access-controlled infrastructure. See `docs/PROJECT_HISTORY.md`
-"Intelligence Hub S3" for the full outcome summary, including a real
-methodology gap (server-side "strength-uncertainty widening") this work
-uncovered in the pre-existing browser what-if simulator.
+### S4. Build canonical intelligence events - **done 2026-07-18, all supported leagues**
 
-### S4. Build canonical intelligence events — **done 2026-07-18, MLS pilot only**
+- Movement, threshold-crossing, result, model-change, and data-health events use
+  one versioned schema and stable event IDs.
+- Evidence links, materiality, attribution quality, and residuals are stored
+  once and reused by every surface.
+- Events append to the durable archive with stable deduplication and compile
+  into current public-safe event payloads for all registry leagues.
+- Per-team artifacts are built for the 47 leagues that pass forecast and state
+  validation. Unsupported public routes are excluded from the authenticated
+  team catalog.
+- Current movement attribution is observational or unavailable. Do not emit a
+  counterfactual label until archived replay states support the claim.
 
-- Start with movement, threshold-crossing, result, model-change, and data-health
-  events. **Done** — all five implemented in `scripts/build_intelligence_events.py`.
-- Add evidence links and attribution quality. **Done, observational only** —
-  `attribution_quality` is `"observational"` or `"unavailable"`, never
-  `"counterfactual"` (that needs S3's archived states to accrue enough
-  history to replay against, which is separate follow-on work).
-- Append to a durable archive with stable deduplication keys. **Done** —
-  `data/intelligence_events.parquet`, deduped on `event_id`.
-- Compile current per-team snapshots for fast API delivery. **Done** —
-  `data/intelligence_events_latest.json`, recomputed from the full archive
-  each run.
+### S5. Build secure delivery - **done 2026-07-18, production adapters implemented**
 
-**Architecture note:** deliberately reads `data/odds_history.parquet` /
-`data/match_prob_history.parquet` (S0/S1, already public) rather than S3's
-`data/intelligence_snapshots/` (private, gitignored, empty on every fresh CI
-checkout). This keeps the event archive itself derived only from already-
-public data, so — unlike S3 — it's committed to the repo, giving it real
-persistence across CI runs. See `docs/PROJECT_HISTORY.md` "Intelligence Hub
-S4" for the full outcome summary.
+- Magic-link authentication, signed access tokens, revocable refresh tokens,
+  server-side preferences, rate limits, and account export/deletion are
+  implemented.
+- Every paid endpoint rechecks the authoritative current plan. Trial, Intel,
+  Creator, canceled, expired, and malformed-token states are covered.
+- Hosted Stripe Checkout selects price IDs server-side and copies user and plan
+  metadata to the Checkout Session and Subscription. Webhooks alone change
+  entitlement.
+- Upstash REST and Resend adapters fail closed in production when credentials
+  are missing. Local development uses explicit in-memory/recording doubles.
+- Vercel routing, runtime-only dependencies, CORS, private bundle exclusions,
+  and production deployment workflow are present.
 
-### S5. Build secure delivery — **done 2026-07-18, code + mocked tests only**
+External provider credentials, DNS, price objects, and webhook registrations
+are deployment tasks, not completed local verification. Follow
+docs/intelligence-hub-launch-runbook.md before calling production ready.
 
-- Implement magic-link auth, token verification, Stripe entitlements, preference
-  storage, and rate limits. **Done** — `server/intel_auth.py`, `server/intel_store.py`,
-  `server/rate_limit.py`, `server/stripe_webhook.py`.
-- Add a single entitlement middleware used by all Intel endpoints. **Done** —
-  `require_entitlement()`, demonstrated by the one representative endpoint
-  this pass builds (`api/intel/me.py`); further Intel endpoints reuse it as
-  they're built.
-- Ensure expired, canceled, and trial users receive correct states. **Done** —
-  the middleware always re-checks the *current* plan from a live lookup,
-  never a token's embedded plan claim, so a canceled subscription is
-  correctly rejected even with a still-valid access token.
+### S6. Replace the mockup with live data progressively - **done 2026-07-18**
 
-**Scope confirmed with the user before starting:** code and mocked tests
-only — no Vercel project, Stripe account, Resend account, or Upstash Redis
-instance exists or was created by this work. Every module is written
-against clean interfaces (`KVStore`, `MagicLinkSender`) with in-memory/
-recording test doubles; swapping in real Upstash Redis / Resend / Stripe
-later is a small, isolated change, not a rewrite. See
-`docs/PROJECT_HISTORY.md` "Intelligence Hub S5" for the full outcome
-summary.
+- The obsolete hard-coded Intel preview renderer has been removed.
+- webapp/intelligence.js renders every feature from authenticated per-team
+  artifacts and uses only live, thin_history, or unavailable states.
+- The Hub includes sign-in, plan handling, team/target selection, deep links,
+  scenario controls, Ask intents, journal, verified cards, and Creator tools.
+- The backend is authoritative; local token inspection is presentation-only.
+- Authenticated Chromium tests exercise all 26 feature IDs and core workflows
+  on desktop and 375px mobile.
 
-### S6. Replace the mockup with live data progressively
+### S7. Add delivery controls and observability - **done 2026-07-18**
 
-- Keep the current Intel screen as a labeled preview while no live endpoint exists.
-- Remove every hard-coded percentage before labeling a panel live.
-- Replace panels one at a time and display a `sample`, `live`, `thin history`, or
-  `unavailable` state.
+- Alerts and adaptive briefings share a private send ledger with event IDs,
+  recipients, template versions, provider IDs, attempts, and status.
+- Shadow and live deduplication are separate so shadow review cannot suppress
+  the first approved live message.
+- Per-team caps, retry limits, bounce suppression, signed unsubscribe links,
+  Resend webhook verification, and privacy-limited analytics are implemented.
+- Scheduled delivery is protected by the INTELLIGENCE_LIVE_SENDS environment
+  variable, both process kill switches, adaptive cadence, and the protected
+  intelligence-production environment.
+- Refresh workflows build, validate, publish, shadow, report, and upload the
+  shadow report without enabling live sends.
 
-### S7. Add delivery controls and observability
+### S8. Run a shadow period - **in progress; mandatory launch gate**
 
-- Maintain an alert send ledger with event ID, recipient, template version,
-  provider ID, and delivery status.
-- Add deduplication, frequency caps, retries, and provider webhook processing.
-- Track hub activation, brief opens, scenario completion, alert click-through,
-  and 30/90-day retention without logging sensitive question text by default.
+- Keep INTELLIGENCE_LIVE_SENDS false during shadow review.
+- Accrue at least two complete matchweeks and one quiet-mode cycle.
+- Review false positives, source-refresh events, residuals over 0.5 percentage
+  points, repeated notifications, skips, retries, bounces, and unsubscribe
+  behavior.
+- Record owner approval only after the report and representative rendered
+  messages are accepted.
+- Enable scheduled delivery only through the protected environment and retain
+  the repository/environment variable as an immediate kill switch.
 
-### S8. Run a shadow period
+This step cannot be completed by code or compressed into a same-day test. Until
+the observation window and owner sign-off finish, the Hub may launch for
+authenticated web use, but scheduled live email must remain disabled.
 
-- Generate events, briefs, and alerts without sending for at least two full
-  matchweeks.
-- Review false positives, source-refresh events, decomposition residuals, and
-  repeated notifications.
-- Require owner sign-off before enabling scheduled email sends.
+### Feature delivery matrix
+
+Every row below is implemented in webapp/intelligence.js and compiled by
+scripts/intelligence/builder.py. Status is decided per team and snapshot.
+
+| # | Feature | Hub tab | Delivery state |
+|---:|---|---|---|
+| 1 | Team Intelligence Brief | Today | Implemented; live/thin/unavailable |
+| 2 | Since You Last Checked | Today | Implemented; live/thin/unavailable |
+| 3 | Why It Changed | Today | Implemented; live/thin/unavailable |
+| 4 | Match Leverage Radar | Today | Implemented; live/thin/unavailable |
+| 5 | Scenario Explorer | Explore | Implemented; reproducible |
+| 6 | Path to the Goal | Explore | Implemented; live/thin/unavailable |
+| 7 | Smart Alerts | Studio | Implemented; live sends gated by S8 |
+| 8 | Personalized Briefing | Studio | Implemented; live sends gated by S8 |
+| 9 | Race Context | Explore | Implemented; live/thin/unavailable |
+| 10 | Expectation Versus Performance | History | Implemented; live/thin/unavailable |
+| 11 | Forecast Time Machine | History | Implemented; live/thin/unavailable |
+| 12 | Consensus Disagreement | Studio | Implemented; unavailable without market evidence |
+| 13 | Schedule Difficulty Outlook | Explore | Implemented; live/thin/unavailable |
+| 14 | Critical Date Calendar | Explore | Implemented; live/thin/unavailable |
+| 15 | Model Confidence and Fragility | Explore | Implemented; unsupported intervals are not claimed |
+| 16 | Ask Entenser | Studio | Implemented over finite evidence-backed intents |
+| 17 | Turning-Point Detection | History | Implemented; live/thin/unavailable |
+| 18 | Prediction Receipts | History | Implemented; live/thin/unavailable |
+| 19 | Rival Comparison Mode | Explore | Implemented with deep links |
+| 20 | Conversation Cards | Studio | Implemented with public verification and PNG |
+| 21 | Creator Mode | Studio | Implemented with workspaces and PNG/CSV/JSON exports |
+| 22 | Team Thesis | Today | Implemented and versioned |
+| 23 | What Would Change the Model's Mind | Today | Implemented from scenarios/watchpoints |
+| 24 | Historical Analogs and Club Baselines | History | Implemented; thin/unavailable when history is insufficient |
+| 25 | Break and Offseason Intelligence Mode | Today | Implemented across five calendar modes |
+| 26 | Personal Forecast Journal | History | Implemented; private by default |
 
 ## 6. Feature implementation instructions
 
