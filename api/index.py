@@ -12,6 +12,7 @@ from api.intel import (
     analytics, ask, briefing, cards, events, export, journal, me, preferences, scenario, team, workspaces,
 )
 from api.public import card as public_card
+from api.public import subscribe as public_subscribe
 from api.public import unsubscribe as public_unsubscribe
 from api.resend import webhook as resend_webhook
 from api.stripe import webhook as stripe_webhook
@@ -75,6 +76,8 @@ def _dispatch(method: str, path: str, headers: dict, body: bytes):
         return public_card.handle(method, headers, query)
     if route == "/public/unsubscribe":
         return public_unsubscribe.handle(method, headers, query)
+    if route == "/public/subscribe":
+        return public_subscribe.handle(method, headers, body)
     return 404, {"Content-Type": "application/json"}, b'{"error":"not found"}'
 
 
