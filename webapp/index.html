@@ -177,9 +177,11 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
   body{padding-bottom:84px}
   .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:70;
     background:rgba(10,13,11,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line-3);padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
-  .bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--txt-3);text-decoration:none}
+  .bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--txt-3);text-decoration:none;margin:0 6px;padding:4px 0 3px;border-radius:10px}
   .bnav a .ico{font-size:19px;line-height:1}
-  .bnav a.active{color:var(--txt-1)}
+  /* current tab is "lit": soft green wash + icon glow (2026-07-19) */
+  .bnav a.active{color:var(--txt-1);background:rgba(61,220,132,.10);box-shadow:inset 0 0 12px rgba(61,220,132,.08)}
+  .bnav a.active .ico{filter:drop-shadow(0 0 6px rgba(61,220,132,.55))}
   /* Subscribe is the one action-tab among navigation-tabs (2026-07-17): filled pill */
   .bnav a.bn-sub{align-self:center;justify-self:center;background:var(--qualify);color:#06120b;border-radius:999px;
     padding:7px 14px;font-weight:800;font-size:11px}

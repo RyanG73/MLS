@@ -2,6 +2,21 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-19: **Mobile nav active-tab glow + signed-out Intel Hub locked
+>   preview (user-directed, from a phone screenshot).** Bottom tab bar: the
+>   current tab now gets a soft green wash + icon drop-shadow glow
+>   (`webapp/index.html` `.bnav a.active`) instead of the near-invisible
+>   text-color swap. Intel Hub signed-out view (`webapp/intelligence.js`
+>   `signInView`): auth block retitled "Sign in or create an account" (magic
+>   link does both), and below it a new `lockedPreviewHTML()` — a greyed
+>   (`opacity .42`, grayscale, bottom fade mask), `inert`/`aria-hidden`
+>   sample mockup of the hub (tabs, trust tape, Season brief, movement tape,
+>   Fixture leverage) with a sticky "🔒 Sign in to unlock" CTA that scrolls
+>   to + focuses the email field, plus a full-opacity "Also inside" chip list
+>   of the 10 remaining locked features. CSS in `webapp/intelligence.css`.
+>   Verified in-browser (mobile 375px + desktop): DOM checks for inert/opacity/
+>   chip placement, CTA focus lands on `#intel-email`, zero console errors.
+>
 > - 2026-07-18 (5): **Intel + Account shipped (user-directed): News → Intel tab
 >   with a paywalled Personal Intelligence Hub mockup; Subscribe → full Account
 >   hub; team pages gated behind Intel.** New routes `?league=intel` and

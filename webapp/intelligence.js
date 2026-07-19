@@ -209,13 +209,68 @@
       '<header class="intel-command"><div class="intel-command-copy">' +
       '<div class="intel-eyebrow">Private team intelligence</div><h1>Intelligence Hub</h1>' +
       '<p>Your teams, monitored. Every conclusion links back to a forecast snapshot or fixture.</p></div></header>' +
-      '<section class="intel-auth"><h2>Sign in</h2><p>Use a one-time link. No password is stored.</p>' +
+      '<section class="intel-auth" id="intel-auth"><h2>Sign in or create an account</h2>' +
+      '<p>One secure email link does both — no password is stored. New here? The same link creates your account.</p>' +
       '<form id="intel-signin" class="intel-form-row"><div class="intel-field"><label for="intel-email">Email</label>' +
       '<input class="intel-input" id="intel-email" type="email" autocomplete="email" required></div>' +
       '<button class="intel-action primary" type="submit">Send secure link</button></form>' +
       (state.notice ? '<div class="intel-success">' + escapeHtml(state.notice) + "</div>" : "") +
       (state.error ? '<div class="intel-error">' + escapeHtml(state.error) + "</div>" : "") +
-      '<div class="intel-note">The link expires in 15 minutes and can be used once.</div></section></div>';
+      '<div class="intel-note">The link expires in 15 minutes and can be used once.</div></section>' +
+      lockedPreviewHTML() + "</div>";
+  }
+
+  // Signed-out teaser: a greyed, non-interactive mockup of the hub with sample
+  // data so visitors can see the surface they are unlocking before they commit
+  // an email. Everything inside .intel-locked-body is inert and aria-hidden.
+  function lockedPreviewHTML() {
+    var tabs = '<nav class="intel-tabs">' + ["Today", "Explore", "History", "Studio"].map(function (tab, index) {
+      return '<button class="intel-tab' + (index === 0 ? " on" : "") + '" type="button" tabindex="-1">' + tab + "</button>";
+    }).join("") + "</nav>";
+    var trust = '<div class="intel-trust-tape">' +
+      '<div class="intel-tape-step"><span>Change</span><b>+4.2pp</b><small>playoff</small></div>' +
+      '<div class="intel-tape-step"><span>Cause / evidence</span><b>Result shock</b><small>supported record</small></div>' +
+      '<div class="intel-tape-step"><span>Next</span><b>Home vs Rival A</b><small>Jul 26 · 6.1pp range</small></div>' +
+      '<div class="intel-tape-step"><span>Receipt</span><b>snap_0718_a3</b><small>2026-07-18</small></div></div>';
+    var brief = '<section class="intel-feature"><div class="intel-feature-head">' +
+      '<span class="intel-feature-num">01</span><div class="intel-feature-title"><h2>Season brief</h2></div>' +
+      '<span class="intel-state live">live</span></div>' +
+      '<div class="intel-brief"><div class="intel-primary-metric"><div class="label">playoff</div>' +
+      '<div class="value">63.8%</div><div class="delta up">+4.2pp in 7 days</div></div>' +
+      '<div><p class="intel-brief-summary">Playoff qualification is trending up after back-to-back wins; the largest remaining swing is the next home fixture.</p>' +
+      '<div class="intel-facts">' +
+      '<div class="intel-fact"><span>Projected points</span><b>52.4</b></div>' +
+      '<div class="intel-fact"><span>Projected rank</span><b>4.6</b></div>' +
+      '<div class="intel-fact"><span>Next leverage</span><b>6.1pp</b></div>' +
+      '<div class="intel-fact"><span>Freshness</span><b>Today</b></div></div>' +
+      '<div class="intel-evidence">Evidence: snap_0718_a3 · fix_88121</div></div></div></section>';
+    var tape = '<section class="intel-feature"><div class="intel-feature-head">' +
+      '<span class="intel-feature-num">02</span><div class="intel-feature-title"><h2>What changed since your last visit</h2></div>' +
+      '<span class="intel-state live">live</span></div><div class="intel-tape">' +
+      '<div class="intel-tape-row"><time>Jul 18</time><div class="body"><b>forecast update</b> · result shock</div><span class="intel-move up">+2.9pp</span></div>' +
+      '<div class="intel-tape-row"><time>Jul 15</time><div class="body"><b>schedule change</b> · fixture congestion eased</div><span class="intel-move up">+1.3pp</span></div>' +
+      '<div class="intel-tape-row"><time>Jul 12</time><div class="body"><b>rival result</b> · direct competitor won late</div><span class="intel-move down">-0.8pp</span></div>' +
+      "</div></section>";
+    var leverage = '<section class="intel-feature"><div class="intel-feature-head">' +
+      '<span class="intel-feature-num">04</span><div class="intel-feature-title"><h2>Fixture leverage</h2></div>' +
+      '<span class="intel-state live">live</span></div>' +
+      '<div class="intel-table-scroll"><table class="intel-data-table"><thead><tr>' +
+      "<th>Date</th><th>Fixture</th><th>Scope</th><th>Range</th><th>Expected move</th></tr></thead><tbody>" +
+      '<tr><td>Jul 26</td><td><strong>Home vs Rival A</strong></td><td>Own match</td><td class="num">6.1pp</td><td class="num">+2.4pp</td></tr>' +
+      '<tr><td>Aug 2</td><td><strong>Rival B vs Rival C</strong></td><td>Rival dependency</td><td class="num">3.4pp</td><td class="num">+0.9pp</td></tr>' +
+      '<tr><td>Aug 9</td><td><strong>Away vs Rival D</strong></td><td>Own match</td><td class="num">5.2pp</td><td class="num">-1.1pp</td></tr>' +
+      "</tbody></table></div></section>";
+    var more = '<div class="intel-locked-more"><div class="intel-eyebrow">Also inside</div><div class="intel-tagchips">' +
+      ["Scenario studio", "Paths to the target", "Alerts & briefings", "Rival race", "Forecast time machine",
+       "Pre-match receipts", "Ask the model", "Confidence panel", "Private journal", "Creator exports"].map(function (label) {
+        return "<span>" + escapeHtml(label) + "</span>";
+      }).join("") + "</div></div>";
+    return '<section class="intel-locked" aria-label="Locked preview of Intelligence Hub features">' +
+      '<div class="intel-locked-head"><div class="intel-eyebrow">Locked preview · sample data</div>' +
+      "<h2>What members see</h2><p>A live version of this workspace — for the teams you follow — unlocks with an account and an Intelligence trial or subscription.</p></div>" +
+      '<div class="intel-locked-stage"><div class="intel-locked-overlay">' +
+      '<button class="intel-action primary" type="button" data-action="focus-signin">🔒 Sign in to unlock</button></div>' +
+      '<div class="intel-locked-body" inert aria-hidden="true">' + tabs + trust + brief + tape + leverage + "</div></div>" + more + "</section>";
   }
 
   function freeView() {
@@ -1015,6 +1070,12 @@
         state.tab = button.getAttribute("data-tab");
         hubView();
 
+      } else if (action === "focus-signin") {
+        var emailField = document.getElementById("intel-email");
+        if (emailField) {
+          emailField.scrollIntoView({block: "center"});
+          emailField.focus({preventScroll: true});
+        }
       } else if (action === "refresh") {
         if (state.record) await loadTeam(state.leagueId, state.teamId);
         else await initialize();

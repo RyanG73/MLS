@@ -122,6 +122,17 @@
 .intel-journal-list{margin-top:12px;border-top:1px solid var(--line-2)}
 .intel-journal-entry{padding:9px 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:110px 1fr auto;gap:10px;font-size:11px}
 .intel-journal-entry .notes{color:var(--txt-3);white-space:pre-wrap}
+/* Signed-out locked preview: greyed hub mockup + floating unlock CTA */
+.intel-locked{margin-top:26px}
+.intel-locked-head h2{font-size:18px;margin:0 0 4px}
+.intel-locked-head p{color:var(--txt-2);font-size:12.5px;line-height:1.55;margin:0 0 14px;max-width:66ch}
+.intel-locked-stage{position:relative}
+.intel-locked-body{opacity:.42;filter:grayscale(.6);pointer-events:none;user-select:none;
+  -webkit-mask-image:linear-gradient(to bottom,#000 78%,transparent);mask-image:linear-gradient(to bottom,#000 78%,transparent)}
+.intel-locked-overlay{position:absolute;inset:0;z-index:2;display:flex;justify-content:center;align-items:flex-start;pointer-events:none}
+.intel-locked-overlay .intel-action{pointer-events:auto;position:sticky;top:42vh;box-shadow:0 8px 28px rgba(0,0,0,.5)}
+.intel-locked-more{margin-top:14px}
+.intel-locked-more .intel-eyebrow{margin-bottom:8px}
 .intel-loading{display:flex;align-items:center;gap:9px;padding:28px 0;color:var(--txt-3);font:600 11px var(--mono)}
 .intel-loading:before{content:"";width:14px;height:14px;border:2px solid var(--line-3);border-top-color:var(--qualify);border-radius:50%;animation:intel-spin .8s linear infinite}
 @keyframes intel-spin{to{transform:rotate(360deg)}}
