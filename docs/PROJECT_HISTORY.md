@@ -620,3 +620,34 @@ first time (and expected to shrink automatically as the season progresses, since
 scales with `1 - season_fraction`). The replay test's tolerance was set to 3.0pp with this reasoning
 documented inline, rather than silently widened with no explanation. Next: S4 (build canonical
 intelligence events), as its own plan file.
+
+## Intelligence Hub S4: canonical intelligence events (2026-07-18, plan completed and deleted)
+
+Fifth foundation step: `scripts/build_intelligence_events.py` detects five event types (forecast_move,
+threshold_crossing, result, model_change, data_health) between the two most recent snapshot dates. Key
+architecture decision, made before writing any code: rather than depend on S3's
+`data/intelligence_snapshots/` (gitignored, private, and empty on every fresh CI checkout — nothing
+durable to diff against there), the detector reads `data/odds_history.parquet` and
+`data/match_prob_history.parquet` (S0/S1 — already public, already committed, already accruing daily).
+That choice means the detector's own output is also derived only from already-public data, so
+`data/intelligence_events.parquet` and `data/intelligence_events_latest.json` are committed (unlike
+S3's snapshots) — solving the "no persistent state across CI runs" problem structurally rather than
+reaching for GitHub Actions cache or another workaround. Reused `build_race_deltas.py`'s existing
+result/model/refresh classification instead of duplicating it; evidence links for "result" events are
+found by diffing `match_prob_history.parquet`'s upcoming-fixture rows between the two snapshots (a
+fixture present as upcoming yesterday and absent today resolved in between) using S1's `fixture_id`.
+Attribution is observational only this pass (`attribution_quality`: `"observational"` or
+`"unavailable"`, never `"counterfactual"`) — the deeper counterfactual/Shapley decomposition §4.6
+describes needs S3's archived states to have accrued enough history to replay against, which they
+haven't yet. Materiality scoring is a documented, deliberately simple heuristic (movement magnitude +
+threshold-crossing + result bonus); fixture-impact and pinned-team/user-threshold factors are noted
+inline as depending on features not built yet, not silently omitted. Run against the real repo: 17
+real events detected on the first run, all `forecast_move` with `cause_class="model"` — correctly
+reflecting that this session's own commits changed `code_rev` between builds without the champion
+config itself changing (so the league-level `model_change` detector, which only checks `config_id`,
+correctly stayed silent). One real mistake caught by git itself: the new parquet file was silently
+blocked by the pre-existing broad `data/*.parquet` gitignore rule until `git add` warned about it —
+fixed by adding it to the allowlist, same pattern as the other public accrual files. Next: S5 (secure
+delivery — auth, entitlements, Stripe), as its own plan file. This is a materially larger, different
+kind of step than S0-S4: new infrastructure (magic-link auth, Stripe webhooks, a preference store, an
+entitlement middleware) rather than extending the existing static-site build pipeline.

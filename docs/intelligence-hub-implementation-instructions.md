@@ -435,13 +435,27 @@ awaits S5's access-controlled infrastructure. See `docs/PROJECT_HISTORY.md`
 methodology gap (server-side "strength-uncertainty widening") this work
 uncovered in the pre-existing browser what-if simulator.
 
-### S4. Build canonical intelligence events
+### S4. Build canonical intelligence events — **done 2026-07-18, MLS pilot only**
 
 - Start with movement, threshold-crossing, result, model-change, and data-health
-  events.
-- Add evidence links and attribution quality.
-- Append to a durable archive with stable deduplication keys.
-- Compile current per-team snapshots for fast API delivery.
+  events. **Done** — all five implemented in `scripts/build_intelligence_events.py`.
+- Add evidence links and attribution quality. **Done, observational only** —
+  `attribution_quality` is `"observational"` or `"unavailable"`, never
+  `"counterfactual"` (that needs S3's archived states to accrue enough
+  history to replay against, which is separate follow-on work).
+- Append to a durable archive with stable deduplication keys. **Done** —
+  `data/intelligence_events.parquet`, deduped on `event_id`.
+- Compile current per-team snapshots for fast API delivery. **Done** —
+  `data/intelligence_events_latest.json`, recomputed from the full archive
+  each run.
+
+**Architecture note:** deliberately reads `data/odds_history.parquet` /
+`data/match_prob_history.parquet` (S0/S1, already public) rather than S3's
+`data/intelligence_snapshots/` (private, gitignored, empty on every fresh CI
+checkout). This keeps the event archive itself derived only from already-
+public data, so — unlike S3 — it's committed to the repo, giving it real
+persistence across CI runs. See `docs/PROJECT_HISTORY.md` "Intelligence Hub
+S4" for the full outcome summary.
 
 ### S5. Build secure delivery
 
