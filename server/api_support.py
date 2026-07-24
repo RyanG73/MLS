@@ -4,9 +4,10 @@ from __future__ import annotations
 import json
 
 from server.config import access_token_secret
-from server.intel_auth import InvalidToken, require_entitlement
+from server.intel_auth import InvalidToken, require_entitlement, verify_access_token
 from server.intel_store import get_plan
 from server.kv_client import get_kv
+from server.open_access import is_open
 
 PLAN_RANK = {"free": 0, "trial": 1, "intel": 2, "creator": 3, "canceled": -1}
 
@@ -35,12 +36,26 @@ def body_json(body: bytes) -> dict:
 
 
 def bearer_user(headers: dict, required_plan: str = "intel") -> str:
+    """Resolve the caller's user_id, enforcing `required_plan`.
+
+    While an open-access promo is running (server.open_access) the plan-rank
+    check is waived, but the token check is not: the caller must still present
+    a valid, unexpired, correctly-signed access token, and a `canceled` account
+    stays out. Open access means "no payment required", never "no account
+    required" — Intel state is per-user and needs somewhere to live.
+    """
     authorization = headers.get("Authorization", "")
     if not authorization.startswith("Bearer "):
         raise ApiError(401, "missing bearer token")
+    token = authorization[7:]
     try:
+        if is_open(get_kv()):
+            user_id = verify_access_token(access_token_secret(), token)["sub"]
+            if PLAN_RANK.get(get_plan(get_kv(), user_id), -1) < PLAN_RANK["free"]:
+                raise InvalidToken("account is canceled")
+            return user_id
         return require_entitlement(
-            access_token_secret(), authorization[7:],
+            access_token_secret(), token,
             lambda user_id: get_plan(get_kv(), user_id),
             PLAN_RANK, required_plan,
         )

@@ -52,6 +52,39 @@ Do these three first. Runbook detail in the [launch plan §"Launch runbook"](sup
 - **Aug 17 (Mon):** post the launch announcements (H5 — drafts ready in [launch-announcements.md](launch-announcements.md)), go live (I4). **Block two reply windows** that day (social plan §6).
 - **Social warm‑up starts now:** claim handles, comment in r/MLS & r/NWSL without linking for 1–2 weeks first (social plan §6 timeline).
 
+#### Open-access promo switch — run a "everything free" push
+
+Drops the paid-plan requirement on every Intel endpoint for a fixed window, without touching anyone's real plan. Needs `ADMIN_TOKEN` set in the Vercel project (shared secret; the endpoint **fails closed** if it's unset, so nothing is exposed before you set it).
+
+**Open it** — `days` defaults to 7, max 90:
+
+```bash
+curl -X POST https://api.entenser.com/v1/admin/open-access \
+  -H "X-Admin-Token: $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"days":7,"note":"launch week"}'
+```
+
+**Check what's running** (also public at `/v1/public/config`, which is what the site reads to drop its lock chrome):
+
+```bash
+curl https://api.entenser.com/v1/admin/open-access -H "X-Admin-Token: $ADMIN_TOKEN"
+```
+
+**Close it early:**
+
+```bash
+curl -X DELETE https://api.entenser.com/v1/admin/open-access -H "X-Admin-Token: $ADMIN_TOKEN"
+```
+
+What it does and does not do:
+
+- **Auto-closes at the expiry** even if you forget — the window is enforced on every read, not just by a TTL. A promo cannot be left open by accident; that's the failure mode that costs money.
+- **Never waives the login.** Open access means "no payment", not "no account" — Intel state is per-user (workspaces, journal, saved teams), so a free magic-link signup is still the front door. Requests with no token, or a forged one, stay 401.
+- **Does not resurrect a `canceled` account.** Cancellation is a deliberate state, not a missing entitlement.
+- Swap the host for `http://127.0.0.1:8787` to exercise it locally against `scripts/dev_intelligence_server.py`.
+
+Built + tested 2026‑07‑23: `server/open_access.py`, `api/admin/open_access.py`, `api/public/config.py`, bypass wired at the single chokepoint `bearer_user()` in `server/api_support.py`. 16 tests in `tests/test_open_access.py`. Verified end‑to‑end on genuinely gated endpoints (`/intel/journal`, `/intel/workspaces`): 401 → 200 → 401 across close/open/close. **Live only once the API is deployed (§2b).**
+
 ### 2d. Decisions & spends (no deadline, but they gate later work)
 
 | Decision | When it matters | Est. cost |

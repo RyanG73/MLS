@@ -11,7 +11,9 @@ from api.billing import checkout
 from api.intel import (
     analytics, ask, briefing, cards, events, export, journal, me, preferences, scenario, team, workspaces,
 )
+from api.admin import open_access as admin_open_access
 from api.public import card as public_card
+from api.public import config as public_config
 from api.public import subscribe as public_subscribe
 from api.public import unsubscribe as public_unsubscribe
 from api.resend import webhook as resend_webhook
@@ -72,6 +74,10 @@ def _dispatch(method: str, path: str, headers: dict, body: bytes):
         return cards.handle(method, headers, body)
     if route == "/account/data":
         return account_data.handle(method, headers, body)
+    if route == "/public/config":
+        return public_config.handle(method, headers)
+    if route in ("/admin/open-access", "/admin/open_access"):
+        return admin_open_access.handle(method, headers, body)
     if route == "/public/card":
         return public_card.handle(method, headers, query)
     if route == "/public/unsubscribe":
