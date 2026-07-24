@@ -36,8 +36,8 @@ Do these three first. Runbook detail in the [launch plan §"Launch runbook"](sup
 
 | # | Action | Time | Unblocks | How |
 |---|---|---|---|---|
-| **A1** | **Google Analytics 4** — create property + Web stream for `entenser.com`, copy the `G-…` Measurement ID and hand it to me | ~5 min | *All* measurement — you're currently flying blind on traffic. Gates the Oct 31 paid‑tier decision. | analytics.google.com → Admin → Create property → Web data stream |
-| **A2** | **Google Search Console** — add `entenser.com` (Domain type), verify via a DNS TXT record | ~5 min | Sitemap submission (C10) + the 1.7 OG‑cards gate (needs proof leagues are indexing) | search.google.com/search-console |
+| ~~**A1**~~ | ~~**Google Analytics 4**~~ — ✅ **done 2026‑07‑23.** ID `G-GVSLY1KBHQ` is wired into the SPA *and* the static SEO pages. Google's "install a tag" step needed nothing — the code was already there (A1a). **Remaining: deploy, then confirm GA4 Realtime shows a session** (that's I2). | — | *All* measurement. Gates the Oct 31 paid‑tier decision. | Done in code; verify at analytics.google.com → Reports → Realtime |
+| ~~**A2**~~ | ~~**Google Search Console**~~ — ✅ **done 2026‑07‑23** (domain property verified). **Remaining: submit the sitemap** (C10) at `https://entenser.com/sitemap.xml`, then wait ~1–2 weeks for indexing before judging the 1.7 OG‑cards gate. | — | Sitemap submission (C10) + the 1.7 OG‑cards gate (needs proof leagues are indexing) | search.google.com/search-console → Sitemaps → enter `sitemap.xml` |
 | **E1** | **Resend** — add `entenser.com` domain (SPF/DKIM DNS records), create an API key + an Audience "Entenser interest", store the key as a **secret on the host, never in the repo** | ~5–10 min | Email capture starts mirroring to Resend (it's already recording to KV; see bug #1 caveat). **No emails send** regardless until you sign off. | resend.com → Domains / API Keys / Audiences |
 
 ### 2b. Infrastructure — the API isn't deployed
@@ -112,7 +112,7 @@ Do these three first. Runbook detail in the [launch plan §"Launch runbook"](sup
 
 ## 7. The single most important thing
 
-**Do the ~15‑minute account setup (A1 GA4, A2 GSC, E1 Resend) and link the Vercel
+**Do the account setup that's left (E1 Resend — A1 GA4 and A2 GSC are done) and link the Vercel
 project.** That one afternoon unblocks measurement, email capture, the API, and the
 launch's measurement half — and it's the difference between launching blind and
 launching instrumented. Everything else is either already done, gated on a future date,

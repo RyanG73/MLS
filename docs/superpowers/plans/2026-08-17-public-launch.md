@@ -2,6 +2,18 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-23: **A1 unblocked — GA4 Measurement ID `G-GVSLY1KBHQ` wired in.**
+>   User created the property + Web stream; no manual "tag install" was needed
+>   because A1a already shipped the adapter. `ANALYTICS.measurementId` filled in
+>   `webapp/index.html`, and — new — the crawlable static pages now carry their
+>   own gtag load via `_GA_TAG` in `scripts/build_static_pages.py:_head()`. That
+>   gap mattered: the 60+ `/leagues/<id>/` pages are separate documents from the
+>   SPA, so all organic search landings (the entire C1–C9 SEO bet) would have
+>   been invisible in GA4. Static pages use the default automatic `page_view`;
+>   the SPA keeps `send_page_view:false` and fires its own. Same live-host guard
+>   on both, so local builds and previews stay silent. 13/13 test_static_pages
+>   green. **A1 is not verified until a deploy lands and GA4 Realtime shows a
+>   session from entenser.com** (I2 e2e still open).
 > - 2026-07-19 (6): **Leagues tab (user-directed).** Masthead "Upcoming: N
 >   fixtures projected · N leagues" ticker suppressed on `?league=leagues`
 >   only; the small honest-coverage line ("N competitions tracked · N with

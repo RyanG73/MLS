@@ -61,6 +61,23 @@ _DS_NOTE = {
                    "record, not a live forecast."),
 }
 
+# GA4 tag for the crawlable static pages. These are separate documents from the
+# SPA, so they need their own gtag load — organic search lands here first and
+# would otherwise be invisible in GA4. Same guard as webapp/index.html: live
+# HTTPS entenser.com only, so local builds and previews never emit events.
+# Keep the ID in sync with ANALYTICS.measurementId in webapp/index.html.
+_GA_ID = "G-GVSLY1KBHQ"
+_GA_TAG = f"""<script>
+if(location.protocol==='https:'&&location.hostname==='entenser.com'){{
+  window.dataLayer=window.dataLayer||[];
+  window.gtag=window.gtag||function(){{window.dataLayer.push(arguments);}};
+  gtag('js',new Date()); gtag('config','{_GA_ID}');
+  var s=document.createElement('script'); s.async=true;
+  s.src='https://www.googletagmanager.com/gtag/js?id={_GA_ID}';
+  document.head.appendChild(s);
+}}
+</script>"""
+
 _CSS = """
 :root{--ink:#070809;--ink1:#0e1013;--ink2:#15181d;--line:#242a33;--txt:#e8ecf1;
 --txt2:#aeb6c2;--txt3:#78818f;--green:#3ddc84;--red:#ff6b6b;--mono:ui-monospace,Menlo,monospace}
@@ -180,6 +197,7 @@ def _head(title: str, desc: str, canonical: str, og_image: str,
 <meta name="theme-color" content="#070809">
 <link rel="icon" href="/assets/pwa/icon-192.png">
 <style>{_CSS}</style>
+{_GA_TAG}
 {ld}
 </head>
 <body>
