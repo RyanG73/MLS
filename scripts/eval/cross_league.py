@@ -48,6 +48,40 @@ _CONF_CONST: dict[str, dict[str, float]] = {
         "goal_scale": 2000.0,
         "home_adv_elo": 110.0,
     },
+    # CONMEBOL (2026-07-24). Calibrated by scripts/eval/continental_calibrate.py
+    # over 2922 cross-league Libertadores+Sudamericana matches (2015-2026):
+    # ridge sweep → constants grid (48 points, offsets refit at each) → scored on
+    # a 584-match holdout that neither stage saw. Result there: 0.5834 fitted vs
+    # 0.6264 prior vs 0.6102 naive base-rate — it beats BOTH, which neither
+    # Concacaf comp manages (see the note above). goal_scale lands at 2000 rather
+    # than UEFA's 3000: CONMEBOL's continental record is lower-scoring (2.43 g/g
+    # vs UCL's 3.18) and drawier, and the tighter scale makes ELO gaps bite
+    # harder, which is what fits a confederation with a genuinely wide spread
+    # between its strongest and weakest leagues.
+    "CONMEBOL": {
+        "base_goals": 1.25,
+        "goal_scale": 2000.0,
+        "home_adv_elo": 100.0,
+    },
+    # AFC (2026-07-24) — PRESENT BUT NOT SHIPPED. Same calibration procedure;
+    # the AFC Champions League is NOT built (see build_continental_data.META).
+    # Two independent reasons, either fatal on its own:
+    #   1. On the untouched 76-match holdout the fit beats the prior (-0.0311)
+    #      but LOSES to a naive base-rate predictor (+0.0020). CONMEBOL clears
+    #      the same bar comfortably; this does not.
+    #   2. Only 54% of the AFC Champions League Elite field resolves to a modeled
+    #      league. The competition splits into West and East regions, and every
+    #      West Asian league (Qatar, UAE, Iran, Uzbekistan, Iraq) is absent from
+    #      ESPN's catalog entirely, so half the field would sit on a flat
+    #      baseline. saudi-pro's own offset rests on just 13 inter-regional
+    #      matches — West and East only meet in the final.
+    # Kept here so the numbers are recorded rather than lost, and so re-running
+    # the calibrator after a paid West-Asian source lands is a one-line change.
+    "AFC": {
+        "base_goals": 1.35,
+        "goal_scale": 3500.0,
+        "home_adv_elo": 100.0,
+    },
 }
 
 # Module-level aliases — kept for backward compatibility with any direct references.

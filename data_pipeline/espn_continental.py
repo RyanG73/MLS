@@ -25,14 +25,34 @@ SLUGS = {
     "ucl": "uefa.champions", "europa": "uefa.europa",
     "conference": "uefa.europa.conf", "concacaf-champions": "concacaf.champions",
     "leagues-cup": "concacaf.leagues.cup",
+    # Round 6 calibration (2026-07-24). CONMEBOL + AFC continental comps, added
+    # alongside the fitted league-offset scales that make their cross-league
+    # probabilities meaningful (see scripts/eval/league_bridge.py).
+    "libertadores": "conmebol.libertadores",
+    "sudamericana": "conmebol.sudamericana",
+    "afc-champions": "afc.champions",
 }
 
+# Comps whose season is a CALENDAR YEAR rather than the Aug–May straddle the
+# default window assumes. Verified 2026-07-24 from monthly event histograms:
+# both CONMEBOL comps run Feb–Nov of a single year (2024 and 2025 both show
+# Feb/Mar–Nov with a hard Dec–Jan gap), so the default Jul–Jun window would cut
+# each edition in half and label the two pieces as different seasons — the group
+# stage landing in season N-1 and the knockouts in season N. AFC Champions
+# League Elite is a genuine Sep–May straddle (Sep–Dec then Feb–May) and stays on
+# the default window.
+CALENDAR_YEAR_COMPS = {"libertadores", "sudamericana"}
 
-def _fetch(slug: str, y0: int, y1: int) -> list[dict]:
+
+def _fetch(slug: str, y0: int, y1: int, calendar_year: bool = False) -> list[dict]:
     url = f"{_BASE}/{slug}/scoreboard"
     # Date window: season runs ~Aug–May; end at Jun 30 (not Jul 1 — ESPN rejects
-    # {y+1}0701 for some seasons with HTTP 400).
-    params = {"dates": f"{y0}0701-{y1}0630", "limit": 500}
+    # {y+1}0701 for some seasons with HTTP 400). Calendar-year comps instead take
+    # Jan 1–Dec 31 of y0.
+    if calendar_year:
+        params = {"dates": f"{y0}0101-{y0}1231", "limit": 500}
+    else:
+        params = {"dates": f"{y0}0701-{y1}0630", "limit": 500}
     try:
         return espn_get(url, params).get("events", [])
     except Exception as e:
@@ -68,6 +88,17 @@ def _parse(events: list[dict], season: int, completed_only: bool) -> list[dict]:
             "date": dt.normalize().tz_localize(None) if pd.notna(dt) else pd.NaT,
             "season": season, "round": rnd, "home_team": ht, "away_team": at,
             "neutral": bool(comp.get("neutralSite", False)),
+            # ESPN team ids (2026-07-24). Names alone cannot resolve a continental
+            # club to its domestic league in CONMEBOL: River Plate (Argentina) and
+            # River Plate (Uruguay), Guaraní (Paraguay) and Guarani (Brazil Série B),
+            # Portuguesa (Brazil) and Portuguesa (Venezuela), Llaneros (Colombia)
+            # and Llaneros (Venezuela) are all distinct clubs sharing a normalized
+            # name, and several meet in the same competition. The id is drawn from
+            # the same ESPN namespace as each league's /teams endpoint, so it
+            # resolves club identity exactly. Older caches predate these columns —
+            # readers must use .get()/reindex rather than assume they exist.
+            "home_id": str(home.get("team", {}).get("id") or "") or None,
+            "away_id": str(away.get("team", {}).get("id") or "") or None,
         }
         if done:
             try:
@@ -116,7 +147,9 @@ def continental_results(comp_id: str, seasons: range | None = None,
         fetch_range = seasons if seasons is not None else range(2018, 2027)
         frames = []
         for y in fetch_range:
-            rows = _parse(_fetch(slug, y, y + 1), y, completed_only=True)
+            rows = _parse(_fetch(slug, y, y + 1,
+                                 calendar_year=comp_id in CALENDAR_YEAR_COMPS),
+                         y, completed_only=True)
             if rows:
                 frames.append(pd.DataFrame(rows))
             time.sleep(0.25)
@@ -154,7 +187,9 @@ def latest_season(comp_id: str) -> int | None:
 
 def continental_fixtures(comp_id: str, season: int) -> pd.DataFrame:
     """Upcoming (undrawn ties absent) fixtures for the current season."""
-    rows = _parse(_fetch(SLUGS[comp_id], season, season + 1), season, completed_only=False)
+    rows = _parse(_fetch(SLUGS[comp_id], season, season + 1,
+                         calendar_year=comp_id in CALENDAR_YEAR_COMPS),
+                 season, completed_only=False)
     df = pd.DataFrame(rows)
     return df[~df["is_result"]] if not df.empty else df
 

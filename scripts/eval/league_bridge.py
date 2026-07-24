@@ -79,16 +79,77 @@ _UEFA_ANCHOR = "epl"
 _CONCACAF_LEAGUES = ["mls", "liga-mx"]
 _CONCACAF_ANCHOR = "mls"
 
+# ── CONMEBOL / AFC (2026-07-24) ───────────────────────────────────────────────
+# Added so the South American and Asian continental competitions can ship. Before
+# this fit, `coefficients.league_offset` returned 0.0 for every league here, which
+# would have baselined a Bolivian club level with a Brazilian one in a Libertadores
+# tie — the reason round 6 shipped the domestic leagues but held the cups back.
+#
+# Second tiers are included because they really do enter these competitions: a
+# Brasileirão club relegated to Série B still plays out the Libertadores group
+# stage it qualified for, and the as-of-date ELO lookup will find it in whichever
+# frame it was actually playing in at the time.
+_CONMEBOL_LEAGUES = [
+    "brazil-serie-a", "argentina-primera", "chile-primera", "colombia-primera-a",
+    "uruguay-primera", "peru-liga1", "ecuador-ligapro", "paraguay-primera",
+    "bolivia-profesional", "venezuela-primera",
+    "brazil-serie-b", "argentina-nacional",
+]
+# Brazil anchors CONMEBOL: most continental matches by a wide margin, and the
+# deepest domestic history. Offsets are RELATIVE within the confederation — the
+# same convention as MLS anchoring Concacaf.
+_CONMEBOL_ANCHOR = "brazil-serie-a"
+
+# k-league-1 has no ESPN slug (API-Football, seasons 2022-2024 only) so it has no
+# roster for id-based resolution and falls back to name matching; india-isl has
+# thin continental history. Both are safe to include — a league with few matches
+# contributes ~nothing to the NLL and the ridge holds it at its prior.
+_AFC_LEAGUES = [
+    "japan-j1", "saudi-pro", "china-super", "k-league-1",
+    "australia-aleague", "thai-league-1", "india-isl",
+]
+_AFC_ANCHOR = "japan-j1"
+
 _COMPS_BY_CONF = {
     "UEFA": ["ucl", "europa", "conference"],
     "Concacaf": ["concacaf-champions", "leagues-cup"],
+    "CONMEBOL": ["libertadores", "sudamericana"],
+    "AFC": ["afc-champions"],
 }
 
 # Experiments output
 _OFFSETS_JSON = Path("experiments/league_offsets.json")
 
-# Sanity bound: reject fit if any offset deviates more than this from its prior
+# Sanity bound: reject fit if any offset deviates more than this from its prior.
+# UEFA and Concacaf priors come from real external anchors (UEFA country
+# coefficients / a hand-calibrated MLS-Liga MX gap), so a large deviation there
+# genuinely signals a bad fit. CONMEBOL and AFC have NO external anchor in this
+# repo — every prior is 0.0, which carries no information — so holding them to
+# ±150 of an uninformative prior would just encode the uninformed guess. They get
+# a wider bound; the held-out Brier and 10-seed robustness gates below are the
+# real protection, and they are unchanged.
 _MAX_DELTA_FROM_PRIOR = 150.0
+_MAX_DELTA_BY_CONF = {"CONMEBOL": 600.0, "AFC": 600.0}
+
+# Per-confederation ridge configuration: (lambda, weight_by_league_match_count).
+# UEFA/Concacaf keep the historical count-weighted ridge and its lambda — their
+# priors are informative and the existing offsets were fitted under exactly this
+# setting, so changing it would silently move live UCL numbers. CONMEBOL/AFC use
+# the constant-weight ridge with a lambda chosen on held-out data by
+# scripts/eval/continental_calibrate.py (Stage 1).
+_RIDGE_BY_CONF: dict[str, tuple[float, bool]] = {
+    "CONMEBOL": (3e-6, False),
+    "AFC": (1e-5, False),
+}
+
+# Confederations whose priors carry NO information (every prior is 0.0, because
+# this repo has no external coefficient table for them). "Beat the prior" is a
+# meaningless bar there — beating an all-zeros offset vector only proves the
+# leagues differ at all. These must additionally beat a naive base-rate
+# predictor on held-out data before they are adopted. This is what separates
+# CONMEBOL (beats naive by 0.027, shipped) from AFC (loses to naive by 0.002,
+# not shipped).
+_UNINFORMATIVE_PRIOR_CONFS = {"CONMEBOL", "AFC"}
 
 # ── ELO history cache: {league_id: (sorted_dates, {team: [sorted_dates], {team: [elos]}})}
 # We store per-team parallel arrays (dates, elos) sorted ascending.
@@ -226,8 +287,13 @@ def _collect_matches(confederation: str) -> list[_Match]:
 
         if confederation == "UEFA":
             matches.extend(_collect_uefa(df, comp))
-        else:
+        elif confederation == "Concacaf":
             matches.extend(_collect_concacaf(df, comp))
+        else:
+            # CONMEBOL / AFC (2026-07-24) — ESPN-id resolution, see _resolve_by_id.
+            leagues = (_CONMEBOL_LEAGUES if confederation == "CONMEBOL"
+                       else _AFC_LEAGUES)
+            matches.extend(_collect_by_id(df, leagues))
 
     _log.info("collect_matches: %s → %d cross-league matches", confederation, len(matches))
     return matches
@@ -294,6 +360,93 @@ def _resolve_uefa_team(espn_name: str) -> tuple[str, str] | None:
         if close:
             return (lid, idx[close[0]])
     return None
+
+
+# ── ESPN-id resolution for CONMEBOL / AFC (2026-07-24) ───────────────────────
+# Name matching is NOT safe in CONMEBOL. Measured across the 12 modeled leagues:
+# 45 of 408 normalized club names collide. Most are benign (the same club either
+# side of a promotion — Cruzeiro, Santos, Tigre appear in both tiers of their
+# country), but four are genuinely DIFFERENT clubs sharing a name:
+#     River Plate   Argentina  vs  Uruguay      ← both play Libertadores
+#     Guaraní       Paraguay   vs  Brazil (B)
+#     Portuguesa    Brazil     vs  Venezuela
+#     Llaneros      Colombia   vs  Venezuela
+# Resolving River Plate to the wrong country would hand a continental heavyweight
+# a minor side's ELO (or vice-versa) and quietly poison the fit — precisely the
+# kind of silent corruption a Brier gate would NOT catch, because the damage is
+# spread thinly across many matches.
+#
+# So club identity is resolved by ESPN team id, which is shared between the
+# continental feed and each league's /teams endpoint. Ambiguity that remains
+# (a club that changed TIER between the continental match and today's roster
+# snapshot) is settled by date: whichever candidate league that club actually
+# played a domestic match in most recently before the continental match.
+# Roster/name resolution lives in scripts/eval/continental_resolve so the
+# production build can use it too — build_continental_data cannot import this
+# module (this module imports IT), so neither may own the resolver.
+from scripts.eval.continental_resolve import (          # noqa: E402
+    league_rosters as _league_rosters,
+    match_name_in_league as _match_name_in_league,
+    resolve as _resolve_shared,
+)
+
+
+def _last_domestic_date(lid: str, key: str, before: pd.Timestamp):
+    """Most recent domestic match date for `key` in `lid` strictly before `before`."""
+    hist = _build_elo_history(lid)
+    if key not in hist:
+        return None
+    dates = hist[key][0]
+    idx = bisect.bisect_left(dates, before)
+    return dates[idx - 1] if idx else None
+
+
+def _resolve_by_id(espn_id, espn_name: str, leagues: list[str],
+                   date: pd.Timestamp) -> tuple[str, str] | None:
+    """Date-aware wrapper over continental_resolve.resolve.
+
+    When a club resolves to more than one candidate league it has moved TIER
+    (Brazil Série A↔B, Argentina Primera↔Nacional). Pick the league it last
+    played a domestic match in before THIS continental match, so a historical
+    match is rated on the frame the club was actually in at the time rather
+    than on today's roster snapshot.
+    """
+    def tie_break(cands, name):
+        best, best_date = None, None
+        for lid in cands:
+            k = _match_name_in_league(name, lid)
+            if not k:
+                continue
+            d = _last_domestic_date(lid, k, date)
+            if d is not None and (best_date is None or d > best_date):
+                best, best_date = (lid, k), d
+        return best
+
+    return _resolve_shared(espn_id, espn_name, leagues, tie_break=tie_break)
+
+
+def _collect_by_id(df, leagues: list[str]) -> list[_Match]:
+    """Cross-league matches for a confederation resolved via ESPN team ids."""
+    out: list[_Match] = []
+    for _, row in df.iterrows():
+        date = pd.Timestamp(row["date"]) if pd.notna(row.get("date")) else None
+        if date is None:
+            continue
+        h = _resolve_by_id(row.get("home_id"), row["home_team"], leagues, date)
+        a = _resolve_by_id(row.get("away_id"), row["away_team"], leagues, date)
+        if not h or not a:
+            continue
+        h_lid, h_key = h
+        a_lid, a_key = a
+        if h_lid == a_lid:
+            continue  # same league — carries no cross-league signal
+        hg, ag = int(row["home_goals"]), int(row["away_goals"])
+        outcome = 0 if hg > ag else (1 if hg == ag else 2)
+        out.append(_Match(h_lid, a_lid,
+                          elo_asof(h_lid, h_key, date),
+                          elo_asof(a_lid, a_key, date),
+                          bool(row.get("neutral", False)), outcome, date))
+    return out
 
 
 def _collect_uefa(df, comp: str) -> list[_Match]:
@@ -390,6 +543,67 @@ def _collect_concacaf(df, comp: str) -> list[_Match]:
 
 # ── optimization ──────────────────────────────────────────────────────────────
 
+def _probs_vec(sh: np.ndarray, sa: np.ndarray, neutral: np.ndarray,
+               conf: str, max_g: int = 10) -> np.ndarray:
+    """Vectorized (n,3) [P_home, P_draw, P_away] — the array form of match_probs.
+
+    The scalar `match_probs` is a Python-loop-per-match call that rebuilds a
+    Poisson score matrix (and a factorial table) every time. That is fine for a
+    build that scores a few hundred fixtures, but the bridge fit evaluates the
+    objective across thousands of matches on every L-BFGS step — with CONMEBOL's
+    2808 matches the scalar path made a single ridge sweep untenable. This is the
+    same arithmetic, broadcast across matches; `test_league_bridge_vectorized`
+    asserts it matches `match_probs` elementwise.
+    """
+    from scripts.eval.cross_league import _CONF_CONST
+    c = _CONF_CONST.get(conf, _CONF_CONST["UEFA"])
+    ha = np.where(neutral, 0.0, c["home_adv_elo"])
+    diff = sh - sa
+    lam_h = c["base_goals"] * 10.0 ** ((diff + ha) / c["goal_scale"])
+    lam_a = c["base_goals"] * 10.0 ** ((-diff) / c["goal_scale"])
+
+    ks = np.arange(max_g + 1)
+    log_fact = np.cumsum(np.concatenate([[0.0], np.log(np.arange(1, max_g + 1))]))
+    # log P(k; lam) = -lam + k*log(lam) - log(k!)
+    ph = np.exp(-lam_h[:, None] + ks[None, :] * np.log(lam_h[:, None]) - log_fact[None, :])
+    pa = np.exp(-lam_a[:, None] + ks[None, :] * np.log(lam_a[:, None]) - log_fact[None, :])
+    M = ph[:, :, None] * pa[:, None, :]          # (n, home_goals, away_goals)
+    tri = np.tril(np.ones((max_g + 1, max_g + 1)), -1)   # home > away
+    home = (M * tri[None]).sum(axis=(1, 2))
+    draw = np.einsum("nii->n", M)
+    away = (M * tri.T[None]).sum(axis=(1, 2))
+    tot = home + draw + away
+    return np.stack([home / tot, draw / tot, away / tot], axis=1)
+
+
+class _Packed(NamedTuple):
+    """Match list flattened into arrays for the vectorized objective."""
+    home_elo: np.ndarray
+    away_elo: np.ndarray
+    home_idx: np.ndarray   # index into the offset vector (anchor → -1)
+    away_idx: np.ndarray
+    neutral: np.ndarray
+    outcome: np.ndarray
+
+
+def _pack(matches: list[_Match], anchor: str, free_leagues: list[str]) -> _Packed:
+    pos = {lid: i for i, lid in enumerate(free_leagues)}
+    return _Packed(
+        np.array([m.home_elo for m in matches], dtype=float),
+        np.array([m.away_elo for m in matches], dtype=float),
+        np.array([pos.get(m.home_league, -1) for m in matches], dtype=int),
+        np.array([pos.get(m.away_league, -1) for m in matches], dtype=int),
+        np.array([m.neutral for m in matches], dtype=bool),
+        np.array([m.outcome for m in matches], dtype=int),
+    )
+
+
+def _apply_offsets(pk: _Packed, vec: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Strengths with per-league offsets applied (anchor index -1 contributes 0)."""
+    padded = np.concatenate([vec, [0.0]])      # index -1 → the appended 0.0
+    return pk.home_elo + padded[pk.home_idx], pk.away_elo + padded[pk.away_idx]
+
+
 def _nll_with_ridge(
     free_offsets: np.ndarray,
     matches: list[_Match],
@@ -398,6 +612,8 @@ def _nll_with_ridge(
     priors: dict[str, float],
     lam: float,
     league_counts: dict[str, int] | None = None,
+    conf: str = "UEFA",
+    ridge_by_count: bool = True,
 ) -> float:
     """Objective = NLL + ridge toward priors (vectorized across matches).
 
@@ -411,53 +627,70 @@ def _nll_with_ridge(
     shouldn't be held by the same absolute penalty as a league with 3 just
     because the total dataset happens to be large.
     """
-    offsets = {anchor_league: 0.0}
-    for i, lid in enumerate(free_leagues):
-        offsets[lid] = float(free_offsets[i])
-
-    nll = 0.0
-    for m in matches:
-        delta_h = offsets.get(m.home_league, 0.0)
-        delta_a = offsets.get(m.away_league, 0.0)
-        ph, pd_, pa = match_probs(
-            m.home_elo + delta_h,
-            m.away_elo + delta_a,
-            neutral=m.neutral,
-        )
-        probs = (ph, pd_, pa)
-        p = max(probs[m.outcome], 1e-12)
-        nll -= math.log(p)
+    # `matches` may arrive as a raw list (any external caller) or pre-packed
+    # arrays (the fit path, which packs once instead of per L-BFGS step).
+    pk = matches if isinstance(matches, _Packed) else _pack(matches, anchor_league, free_leagues)
+    sh, sa = _apply_offsets(pk, np.asarray(free_offsets, dtype=float))
+    probs = _probs_vec(sh, sa, pk.neutral, conf)
+    p = np.maximum(probs[np.arange(len(pk.outcome)), pk.outcome], 1e-12)
+    nll = float(-np.log(p).sum())
 
     # Ridge: penalise deviation from priors, weighted by each league's OWN
     # match count (falls back to the global total if counts weren't supplied,
     # matching the old behaviour for any other caller).
+    # ridge_by_count=False (2026-07-24, CONMEBOL/AFC): penalty CONSTANT in the
+    # league's match count. The count-weighted form above cancels against the
+    # NLL — a league's log-likelihood contribution also scales with its match
+    # count — so every league ends up with the same shrinkage factor no matter
+    # how much evidence supports it. That is fine when the priors are
+    # informative (UEFA/Concacaf, where the ridge is really just holding a
+    # coefficient-derived value), but it is actively wrong when fitting from an
+    # uninformative 0 prior: it let india-isl run to -2417 ELO off FOUR matches
+    # while brazil-serie-a moved barely at all off a thousand. With a constant
+    # penalty the shrinkage factor becomes lam/(lam + n_league·I), which is what
+    # adaptive shrinkage should look like — thin leagues stay near the prior,
+    # well-observed leagues move freely.
     n = len(matches) if matches else 1
     for i, lid in enumerate(free_leagues):
-        weight = league_counts.get(lid, n) if league_counts else n
-        nll += lam * max(weight, 1) * (free_offsets[i] - priors[lid]) ** 2
+        if ridge_by_count:
+            weight = league_counts.get(lid, n) if league_counts else n
+            weight = max(weight, 1)
+        else:
+            weight = 1.0
+        nll += lam * weight * (free_offsets[i] - priors[lid]) ** 2
 
     return nll
 
 
-def _brier_score(matches: list[_Match], offsets: dict[str, float]) -> float:
+def _brier_score(matches: list[_Match], offsets: dict[str, float],
+                 conf: str = "UEFA") -> float:
     """1X2 Brier score on a set of matches given offset dict."""
-    if not matches:
+    if len(matches) == 0:
         return float("nan")
-    total = 0.0
-    for m in matches:
-        delta_h = offsets.get(m.home_league, 0.0)
-        delta_a = offsets.get(m.away_league, 0.0)
-        ph, pd_, pa = match_probs(
-            m.home_elo + delta_h,
-            m.away_elo + delta_a,
-            neutral=m.neutral,
-        )
-        probs = [ph, pd_, pa]
-        actuals = [0.0, 0.0, 0.0]
-        actuals[m.outcome] = 1.0
-        bs = sum((probs[i] - actuals[i]) ** 2 for i in range(3))
-        total += bs
-    return total / len(matches)
+    sh = np.array([m.home_elo + offsets.get(m.home_league, 0.0) for m in matches])
+    sa = np.array([m.away_elo + offsets.get(m.away_league, 0.0) for m in matches])
+    neutral = np.array([m.neutral for m in matches], dtype=bool)
+    outcome = np.array([m.outcome for m in matches], dtype=int)
+    probs = _probs_vec(sh, sa, neutral, conf)
+    actuals = np.zeros_like(probs)
+    actuals[np.arange(len(outcome)), outcome] = 1.0
+    return float(((probs - actuals) ** 2).sum(axis=1).mean())
+
+
+def _naive_brier(matches: list[_Match]) -> float:
+    """Base-rate baseline: this confederation's overall home/draw/away split.
+
+    Fitted on the very matches it scores, which makes it the strongest possible
+    form of the naive baseline — deliberately, so that clearing it means
+    something. See _UNINFORMATIVE_PRIOR_CONFS for why it gates the new fits.
+    """
+    if len(matches) == 0:
+        return float("nan")
+    outcome = np.array([m.outcome for m in matches], dtype=int)
+    rates = np.array([(outcome == k).mean() for k in range(3)])
+    actuals = np.zeros((len(outcome), 3))
+    actuals[np.arange(len(outcome)), outcome] = 1.0
+    return float(((rates[None, :] - actuals) ** 2).sum(axis=1).mean())
 
 
 def _fit_group(
@@ -466,6 +699,8 @@ def _fit_group(
     anchor: str,
     lam: float,
     seed: int = 42,
+    conf: str = "UEFA",
+    ridge_by_count: bool = True,
 ) -> tuple[dict[str, float], dict[str, float], float, float]:
     """Fit offsets for one confederation group.
 
@@ -505,7 +740,8 @@ def _fit_group(
     result = minimize(
         _nll_with_ridge,
         x0,
-        args=(train, anchor, free_leagues, priors, lam, league_counts),
+        args=(_pack(train, anchor, free_leagues), anchor, free_leagues,
+              priors, lam, league_counts, conf, ridge_by_count),
         method="L-BFGS-B",
         options={"maxiter": 1000, "ftol": 1e-10},
     )
@@ -515,15 +751,16 @@ def _fit_group(
         fitted[lid] = float(result.x[i])
 
     # Evaluate held-out Brier
-    brier_prior = _brier_score(test, priors)
-    brier_fitted = _brier_score(test, fitted)
+    brier_prior = _brier_score(test, priors, conf=conf)
+    brier_fitted = _brier_score(test, fitted, conf=conf)
 
     return fitted, priors, brier_prior, brier_fitted
 
 
 # ── main entry point ──────────────────────────────────────────────────────────
 
-def fit_offsets(lam: float = 0.00002, seed: int = 42) -> dict[str, float]:
+def fit_offsets(lam: float = 0.00002, seed: int = 42,
+                only: set[str] | None = None) -> dict[str, float]:
     """Fit cross-league ELO offsets from continental results (Approach C, as-of-date ELO).
 
     Runs two independent fits (UEFA and Concacaf) with validation.  Each team's
@@ -538,10 +775,14 @@ def fit_offsets(lam: float = 0.00002, seed: int = 42) -> dict[str, float]:
     adopted: dict[str, float] = {}
     decisions: dict[str, str] = {}
 
-    for confederation, all_leagues, anchor in [
+    _ALL_GROUPS = [
         ("UEFA", _UEFA_LEAGUES, _UEFA_ANCHOR),
         ("Concacaf", _CONCACAF_LEAGUES, _CONCACAF_ANCHOR),
-    ]:
+        ("CONMEBOL", _CONMEBOL_LEAGUES, _CONMEBOL_ANCHOR),
+        ("AFC", _AFC_LEAGUES, _AFC_ANCHOR),
+    ]
+    groups = [g for g in _ALL_GROUPS if only is None or g[0] in only]
+    for confederation, all_leagues, anchor in groups:
         print(f"\n{'='*60}")
         print(f"Confederation: {confederation}  (anchor={anchor})")
         print(f"{'='*60}")
@@ -557,9 +798,13 @@ def fit_offsets(lam: float = 0.00002, seed: int = 42) -> dict[str, float]:
             decisions[confederation] = "NO_DATA — priors adopted"
             continue
 
+        # Per-confederation ridge configuration (see _RIDGE_BY_CONF).
+        conf_lam, by_count = _RIDGE_BY_CONF.get(confederation, (lam, True))
+
         # Run the primary seed fit
         fitted, priors, brier_prior, brier_fitted = _fit_group(
-            matches, all_leagues, anchor, lam=lam, seed=seed,
+            matches, all_leagues, anchor, lam=conf_lam, seed=seed,
+            conf=confederation, ridge_by_count=by_count,
         )
 
         # Robustness check: run 9 more seeds and count how often fitted beats prior.
@@ -569,7 +814,9 @@ def fit_offsets(lam: float = 0.00002, seed: int = 42) -> dict[str, float]:
         _ROBUSTNESS_MIN_WIN_RATE = 0.70  # must beat prior in >= 70% of seeds
         wins = 1 if brier_fitted < brier_prior else 0
         for s in range(1, _ROBUSTNESS_SEEDS + 1):
-            _, _, bp, bf = _fit_group(matches, all_leagues, anchor, lam=lam, seed=seed + s * 100)
+            _, _, bp, bf = _fit_group(matches, all_leagues, anchor, lam=conf_lam,
+                                      seed=seed + s * 100, conf=confederation,
+                                      ridge_by_count=by_count)
             if bf < bp:
                 wins += 1
         total_seeds = 1 + _ROBUSTNESS_SEEDS
@@ -594,14 +841,29 @@ def fit_offsets(lam: float = 0.00002, seed: int = 42) -> dict[str, float]:
             abs(fitted[lid] - priors[lid])
             for lid in all_leagues
         )
-        is_stable = max_deviation <= _MAX_DELTA_FROM_PRIOR
+        bound = _MAX_DELTA_BY_CONF.get(confederation, _MAX_DELTA_FROM_PRIOR)
+        is_stable = max_deviation <= bound
         is_better = (
             (not math.isnan(brier_fitted)) and brier_fitted < brier_prior
             and win_rate >= _ROBUSTNESS_MIN_WIN_RATE
         )
 
+        # Extra gate for confederations with uninformative (all-zero) priors:
+        # beating the prior there proves only that the leagues differ at all, so
+        # the fit must also beat a base-rate predictor to be worth adopting.
+        beats_naive = True
+        if confederation in _UNINFORMATIVE_PRIOR_CONFS:
+            rng_n = np.random.default_rng(seed)
+            idxs_n = rng_n.permutation(len(matches))
+            test_n = [matches[i] for i in idxs_n[int(0.7 * len(matches)):]]
+            naive = _naive_brier(test_n)
+            beats_naive = (not math.isnan(brier_fitted)) and brier_fitted < naive
+            print(f"Naive base-rate Brier: {naive:.4f}  "
+                  f"(fitted {brier_fitted:.4f} → {'BEATS' if beats_naive else 'LOSES TO'} naive)")
+            is_better = is_better and beats_naive
+
         print(f"\nMax deviation from prior: {max_deviation:.1f} ELO"
-              f"  ({'within' if is_stable else 'EXCEEDS'} ±{_MAX_DELTA_FROM_PRIOR} bound)")
+              f"  ({'within' if is_stable else 'EXCEEDS'} ±{bound} bound)")
 
         if is_better and is_stable:
             print(f"\nDECISION: ADOPT fitted offsets for {confederation}")
@@ -616,8 +878,12 @@ def fit_offsets(lam: float = 0.00002, seed: int = 42) -> dict[str, float]:
                     f"robustness check failed: only {wins}/{total_seeds} seeds improve on prior "
                     f"({win_rate:.0%} < {_ROBUSTNESS_MIN_WIN_RATE:.0%} threshold)"
                 )
+            if not beats_naive:
+                reasons.append("fitted Brier loses to a naive base-rate predictor "
+                               "(uninformative-prior confederation — see "
+                               "_UNINFORMATIVE_PRIOR_CONFS)")
             if not is_stable:
-                reasons.append(f"max deviation {max_deviation:.1f} > {_MAX_DELTA_FROM_PRIOR} ELO")
+                reasons.append(f"max deviation {max_deviation:.1f} > {bound} ELO")
             reason_str = "; ".join(reasons)
             print(f"\nDECISION: REJECT fitted offsets for {confederation} ({reason_str})")
             print(f"  Falling back to prior offsets.")
@@ -628,9 +894,21 @@ def fit_offsets(lam: float = 0.00002, seed: int = 42) -> dict[str, float]:
             adopted[lid] = v
         decisions[confederation] = decision
 
-    # Write results
+    # Write results. MERGE into the existing file rather than overwrite it: a
+    # run scoped with --conf must not drop (or silently re-drift) the offsets of
+    # confederations it did not fit. Because each run's "prior" is the previous
+    # run's fitted value, a full unscoped re-fit walks every league a little
+    # every time — scoping keeps live UEFA numbers stable when only a new
+    # confederation is being calibrated.
     _OFFSETS_JSON.parent.mkdir(parents=True, exist_ok=True)
-    _OFFSETS_JSON.write_text(json.dumps(adopted, indent=2, sort_keys=True))
+    merged: dict[str, float] = {}
+    if _OFFSETS_JSON.exists():
+        try:
+            merged = json.loads(_OFFSETS_JSON.read_text())
+        except json.JSONDecodeError:
+            merged = {}
+    merged.update(adopted)
+    _OFFSETS_JSON.write_text(json.dumps(merged, indent=2, sort_keys=True))
     print(f"\n{'='*60}")
     print(f"Wrote {_OFFSETS_JSON}")
     for conf, dec in decisions.items():
@@ -651,5 +929,9 @@ if __name__ == "__main__":
                          "and over-regularizes now that the ridge is properly "
                          "scaled per-league across 20 free leagues)")
     ap.add_argument("--seed", type=int, default=42, help="RNG seed for train/test split")
+    ap.add_argument("--conf", action="append", default=None,
+                    choices=["UEFA", "Concacaf", "CONMEBOL", "AFC"],
+                    help="fit only these confederations and merge into the "
+                         "existing offsets file (repeatable). Default: all.")
     a = ap.parse_args()
-    fit_offsets(lam=a.lam, seed=a.seed)
+    fit_offsets(lam=a.lam, seed=a.seed, only=set(a.conf) if a.conf else None)

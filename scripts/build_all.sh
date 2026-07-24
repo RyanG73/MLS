@@ -129,7 +129,10 @@ done
 # ── 5. Continental competitions ───────────────────────────────────────────────
 # For each comp: (a) merge-refresh the current season's ESPN cache,
 #               (b) rebuild the .js (auto-detects concluded vs. in-progress).
-for C in ucl europa conference concacaf-champions leagues-cup; do
+# libertadores/sudamericana added 2026-07-24 — they became buildable once the
+# CONMEBOL league-offset scale was calibrated (scripts/eval/continental_calibrate.py).
+# AFC/CAF Champions League deliberately absent: see docs/CURRENT_STATE.md.
+for C in ucl europa conference concacaf-champions leagues-cup libertadores sudamericana; do
   echo "--- continental: $C (cache refresh $PREV-$CUR) ---"
   PYTHONPATH="$REPO_DIR" "$PY" -m data_pipeline.espn_continental \
       --comp "$C" --from-year "$PREV" --to-year "$CUR" \

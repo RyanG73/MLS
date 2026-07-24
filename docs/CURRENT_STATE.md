@@ -59,13 +59,33 @@ definitions, data sources, and run commands. Update it when any of these change.
   that `_bucket_idx` reads as `None`) and `_PLAYOFFS` (table sets playoff berths, bracket unplayed).
   Weakest-modeled: `argentina-nacional` — two real zones of 18 flattened into one 36-team table,
   caveated in its `rules` string; its per-match probabilities are fine, its ranks are not.
-- **Continental cups beyond UEFA/Concacaf are blocked, not forgotten.** Libertadores,
-  Sudamericana, AFC and CAF Champions all have working ESPN slugs and live fixtures, but
-  `data_pipeline/coefficients.py` (`_LEAGUE_COEFF`, `_CONCACAF_OFFSET`) and
-  `scripts/eval/cross_league.py` (`_CONF_CONST`) only carry calibrated strength scales for UEFA
-  and Concacaf. An unknown league falls back to offset `0.0`, which would baseline a Bolivian
-  club level with a Brazilian one in Libertadores. Shipping needs a calibrated CONMEBOL/AFC/CAF
-  league-offset scale plus per-confederation goal/home-advantage constants first.
+- **CONMEBOL calibration (2026-07-24) — Libertadores + Sudamericana now SHIP.** The blocker above
+  is resolved for South America. `scripts/eval/continental_calibrate.py` is the staged calibrator:
+  20% holdout carved off first → ridge sweep → 48-point constants grid (offsets refit at each) →
+  refit → score the untouched holdout. Adoption requires beating **both** the prior and a naive
+  base-rate predictor. CONMEBOL: 0.5834 vs 0.6264 prior vs 0.6102 naive on 584 held-out matches.
+  Offsets live in `experiments/league_offsets.json` (anchor `brazil-serie-a` = 0, RELATIVE within
+  the confederation like MLS anchors Concacaf); constants in `cross_league._CONF_CONST["CONMEBOL"]`.
+  Re-run with `python -m scripts.eval.league_bridge --conf CONMEBOL` — **always scope with `--conf`**:
+  each run's "prior" is the previous run's fitted value, so an unscoped re-fit walks every league a
+  little every time. The run merges into the existing file rather than overwriting it.
+- **AFC and CAF continental cups remain blocked, and the gate — not judgement — says so.**
+  AFC Champions League: the fit beats its prior but LOSES to a naive base-rate predictor
+  (+0.0020 on a 76-match holdout), and only **54%** of the field resolves to a modeled league —
+  the competition splits West/East and every West Asian league (Qatar, UAE, Iran, Uzbekistan,
+  Iraq) is absent from ESPN's catalog, so `saudi-pro`'s own offset rests on 13 inter-regional
+  matches. CAF: only one modeled African league (`south-africa-psl`) means there is literally no
+  cross-league signal to fit. Both need a paid non-ESPN source, not more modeling.
+- **Two CONMEBOL-specific hazards, both handled — do not "simplify" them away.**
+  (1) *Club identity must be resolved by ESPN team id, never by name.* 45 of 408 normalized club
+  names collide across the 12 modeled South American leagues, and four are genuinely DIFFERENT
+  clubs: River Plate (Argentina vs Uruguay — both play these cups), Guaraní (Paraguay vs Brazil
+  Série B), Portuguesa (Brazil vs Venezuela), Llaneros (Colombia vs Venezuela).
+  `scripts/eval/continental_resolve.py` owns this; `tests/test_league_bridge.py::TestConmebolResolution`
+  guards it. (2) *The ridge penalty has two modes.* `ridge_by_count=True` (UEFA/Concacaf, historical)
+  scales with each league's match count, which CANCELS against the NLL and gives every league the
+  same shrinkage regardless of evidence. That is only safe with informative priors; with a 0 prior
+  it let a 4-match league reach −2417 ELO. CONMEBOL/AFC use `ridge_by_count=False`.
 - **`refresh-leagues.yml` is the only job that flips an off-season league back to `live`**
   (`refresh-daily.yml` rebuilds only leagues already live). Its league list is now derived from
   `build_league_data.OUTLOOK`; it had been hardcoded and drifted to 21 of 70, which meant no

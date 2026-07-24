@@ -315,3 +315,92 @@ class TestJsonWireIn:
         monkeypatch.setattr(co, "_FITTED_OFFSETS_LOADED", False)
 
         assert co.league_offset("mls") == 0.0
+
+
+class TestVectorizedObjective:
+    """The bridge fit scores thousands of matches per L-BFGS step, so the NLL
+    was vectorized (2026-07-24). It must stay numerically identical to the
+    scalar `cross_league.match_probs` the production build calls — a silent
+    divergence would move fitted offsets without failing anything else."""
+
+    def test_probs_vec_matches_match_probs(self):
+        import numpy as np
+        from scripts.eval.league_bridge import _probs_vec
+        from scripts.eval.cross_league import match_probs
+
+        rng = np.random.default_rng(0)
+        for conf in ("UEFA", "Concacaf", "CONMEBOL", "AFC"):
+            sh = rng.normal(1500, 150, 120)
+            sa = rng.normal(1500, 150, 120)
+            neutral = rng.random(120) < 0.3
+            vec = _probs_vec(sh, sa, neutral, conf)
+            scalar = np.array([
+                match_probs(sh[i], sa[i], neutral=bool(neutral[i]), conf=conf)
+                for i in range(120)
+            ])
+            assert np.abs(vec - scalar).max() < 1e-9, f"{conf} diverges"
+            assert np.allclose(vec.sum(axis=1), 1.0)
+
+    def test_ridge_constant_mode_shrinks_thin_leagues_harder(self):
+        """Constant-weight ridge must penalise a thin league's deviation the
+        same in absolute terms as a thick one's — that is the whole point (the
+        count-weighted form cancels against the NLL and let a 4-match league
+        run to -2417 ELO)."""
+        import numpy as np
+        from scripts.eval.league_bridge import _nll_with_ridge, _Match
+
+        matches = [_Match("a", "b", 1500.0, 1500.0, False, 0)]
+        free = ["b"]
+        priors = {"a": 0.0, "b": 0.0}
+        counts_thin, counts_thick = {"b": 4}, {"b": 400}
+        off = np.array([100.0])
+        thin = _nll_with_ridge(off, matches, "a", free, priors, 1e-4,
+                               counts_thin, "CONMEBOL", False)
+        thick = _nll_with_ridge(off, matches, "a", free, priors, 1e-4,
+                                counts_thick, "CONMEBOL", False)
+        assert thin == thick, "constant mode must ignore league match counts"
+
+
+class TestConmebolResolution:
+    """CONMEBOL club identity is resolved by ESPN team id, not name: River Plate
+    exists in BOTH Argentina and Uruguay and both play these competitions, so a
+    name-only resolver would hand a continental heavyweight a minor side's ELO.
+    This asserts the shipped payloads got it right."""
+
+    def _field(self, comp):
+        import json
+        import pathlib
+        import re
+        p = pathlib.Path(__file__).parent.parent / "webapp" / "data" / f"{comp}.js"
+        if not p.exists():
+            return None
+        m = re.match(r"window\.\w+\s*=\s*(.*?);?\s*$", p.read_text(), re.DOTALL)
+        return json.loads(m.group(1)).get("field", [])
+
+    def test_duplicate_names_resolve_to_the_right_country(self):
+        expected = {
+            "River Plate": "argentina-primera",
+            "Nacional": "uruguay-primera",
+            "Club Olimpia": "paraguay-primera",
+        }
+        for comp in ("libertadores", "sudamericana"):
+            field = self._field(comp)
+            if field is None:
+                continue
+            for row in field:
+                want = expected.get(row["team"])
+                if want:
+                    assert row.get("league") == want, (
+                        f"{comp}: {row['team']} resolved to {row.get('league')}, "
+                        f"expected {want}")
+
+    def test_every_entrant_is_modeled(self):
+        """Both CONMEBOL fields resolved 100% at ship time. A drop here means a
+        club fell out of its league's roster/frame and is silently sitting on
+        the flat baseline strength."""
+        for comp in ("libertadores", "sudamericana"):
+            field = self._field(comp)
+            if not field:
+                continue
+            unmodeled = [t["team"] for t in field if not t.get("modeled")]
+            assert not unmodeled, f"{comp}: unmodeled entrants {unmodeled}"

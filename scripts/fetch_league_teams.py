@@ -75,6 +75,7 @@ LEAGUE_INFO = {
     "australia-aleague-women": ("Australia", 1),
     "northern-super-league": ("Canada", 1), "usl-super-league": ("United States", 1),
     "ucl": ("Europe", None), "europa": ("Europe", None), "conference": ("Europe", None),
+    "libertadores": ("South America", None), "sudamericana": ("South America", None),
 }
 
 REGISTRY = [
@@ -186,6 +187,12 @@ REGISTRY = [
     ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "live", "Cups"),
     ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "live", "Cups"),
     ("conference",          "UEFA Conference League",   "uefa.europa.conf", "UEFA", "live", "Cups"),
+    # CONMEBOL continental cups (2026-07-24). Held back in round 6 because every
+    # South American league sat at league_offset 0.0; shipped once
+    # scripts/eval/continental_calibrate.py produced a validated CONMEBOL offset
+    # scale. 100% of both fields resolves to a modeled league.
+    ("libertadores",        "CONMEBOL Libertadores",    "conmebol.libertadores", "CONMEBOL", "live", "Cups"),
+    ("sudamericana",        "CONMEBOL Sudamericana",    "conmebol.sudamericana", "CONMEBOL", "live", "Cups"),
 ]
 
 

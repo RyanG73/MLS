@@ -1,5 +1,35 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-24 — CONMEBOL cross-league calibration: Libertadores + Sudamericana ship (registry 76 → 78).**
+> Round 6 held the continental cups back because `coefficients.league_offset` returned 0.0 for every
+> non-UEFA/Concacaf league. This is the calibration that fixes it. New
+> `scripts/eval/continental_calibrate.py` runs a staged fit — carve off a 20% holdout, sweep the
+> ridge, grid the match constants (48 points, offsets refit at each), refit, then score the untouched
+> holdout against BOTH the prior and a naive base-rate predictor. **CONMEBOL adopted:** on 584 held-out
+> matches, **0.5834 fitted vs 0.6264 prior vs 0.6102 naive** — it beats both, which neither Concacaf
+> comp manages. Fitted offsets (anchor brazil-serie-a=0) order exactly as domain knowledge predicts:
+> Argentina −80, Brazil Série B −99, Colombia −190, Ecuador −194, Paraguay −210, Uruguay −289,
+> Chile −308, Bolivia −416, Peru −483, Venezuela −541. `_CONF_CONST["CONMEBOL"]` = base_goals 1.25 /
+> goal_scale 2000 / home_adv 100, swept (CONMEBOL's continental record is 2.43 g/g vs UCL's 3.18).
+> **AFC rejected by the gate** — beats the prior but LOSES to naive (+0.0020) on a 76-match holdout,
+> and only 54% of the AFC Champions League field resolves to a modeled league (every West Asian
+> league is absent from ESPN). **CAF not attempted**: one modeled African league means zero
+> cross-league signal. **Three modeling fixes found along the way.** (1) The ridge was
+> `lam × league_match_count × delta²`, which cancels against the NLL — every league got identical
+> shrinkage regardless of evidence, letting a 4-match league (india-isl) run to −2417 ELO. Added a
+> constant-weight mode for the uninformative-prior confederations. (2) Club identity in CONMEBOL
+> cannot be resolved by name: 45 of 408 normalized names collide and four are genuinely different
+> clubs (River Plate exists in Argentina AND Uruguay, both in these competitions). Now resolved by
+> ESPN team id via the new `scripts/eval/continental_resolve.py`; **100% of both fields resolves**.
+> (3) The bridge objective was a Python loop per match; vectorized (identical to 1e-16, regression
+> test added) — a ridge sweep over 2922 matches was otherwise untenable. New `groups` phase type in
+> `bracket_sim` (8 groups of 4, top 2 out) that **conditions on a completed group stage** rather than
+> re-rolling it. **Two pre-existing bugs fixed:** in-progress continental payloads dropped their
+> `rules` string entirely (so UCL/Europa/Conference have been shipping mid-season with no format
+> caveats), and `_league_elos` raised "Unknown Understat league" for any non-big-5 league. Live
+> UEFA/Concacaf offsets verified byte-identical — the fit is now scoped with `--conf` and merges.
+> 79/79 payloads valid, 1414 passed / 21 skipped, sw v14.
+>
 > **2026-07-24 — League expansion round 6: +20 leagues, registry 56 → 76.** Exhausted ESPN's
 > soccer catalog for the single-table model: diffed all 220 slugs from
 > `sports.core.api.espn.com/v2/sports/soccer/leagues` against the 50 already wired, probed the

@@ -54,6 +54,31 @@ FORMATS: dict[str, dict] = {
         "extra_time": True, "pens": True,
         "conf": "Concacaf",
     },
+    # CONMEBOL (2026-07-24). Both comps: 32 teams, 8 groups of 4, double
+    # round-robin, top 2 out, then a two-legged bracket to a one-off final.
+    # Qualifying rounds (Libertadores first/second/third stage, Sudamericana
+    # first stage) precede the group stage and are NOT modeled — the same
+    # treatment UEFA qualifying gets, and stated in each comp's `rules`.
+    "libertadores": {
+        "phase": {"type": "groups", "teams": 32, "groups": 8, "advance_per_group": 2},
+        "ko": [{"round": "R16", "legs": 2}, {"round": "QF", "legs": 2},
+               {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
+        "away_goals": False, "extra_time": True, "pens": True,
+        "conf": "CONMEBOL",
+    },
+    # Sudamericana's real R16 also absorbs the eight third-placed Libertadores
+    # group teams, who meet the group runners-up in a knockout play-off round.
+    # That inflow comes from a DIFFERENT competition's field and cannot be
+    # represented inside this comp's team list, so it is not modeled — the
+    # group runners-up are advanced directly. Same precedent as the unmodeled
+    # cross-league barrages in the domestic second tiers.
+    "sudamericana": {
+        "phase": {"type": "groups", "teams": 32, "groups": 8, "advance_per_group": 2},
+        "ko": [{"round": "R16", "legs": 2}, {"round": "QF", "legs": 2},
+               {"round": "SF", "legs": 2}, {"round": "Final", "legs": 1, "neutral": True}],
+        "away_goals": False, "extra_time": True, "pens": True,
+        "conf": "CONMEBOL",
+    },
 }
 
 
@@ -326,7 +351,115 @@ def _simulate_two_table(comp_id, field, N, seed=0):
     return {"standings": standings, "field": out_field}
 
 
-def simulate(comp_id: str, field, N: int, seed: int = 0):
+def _simulate_groups(comp_id, field, N, seed=0, groups=None, qualifiers=None):
+    """CONMEBOL shape: G groups of K, top `advance_per_group` into a KO bracket.
+
+    Neither `league` (one table) nor `two_table` fits Libertadores/Sudamericana:
+    32 teams in 8 groups of 4, double round-robin inside each group, top 2 out.
+
+    `groups` — list of lists of FIELD INDICES. Passed in by the caller, which
+    infers the real draw from played group-stage matches rather than inventing
+    one (two teams in the same group are exactly the teams that played each
+    other in the group stage). Falls back to a seeded random partition when no
+    group match has been played yet.
+
+    `qualifiers` — when the group stage is already COMPLETE, the caller passes
+    the teams that actually advanced and the group phase is not simulated at
+    all. Without this the page would re-roll a group stage whose results are
+    already known and print, say, a 30% elimination chance for a team that has
+    demonstrably already qualified. The UEFA `league` path has this same
+    limitation; it is fixable here because the group structure makes the
+    qualifier set unambiguous.
+    """
+    fmt = FORMATS[comp_id]
+    conf = fmt.get("conf", "UEFA")
+    n = len(field)
+    rng = np.random.default_rng(seed)
+    rounds = [r["round"] for r in fmt["ko"]]
+    reach = {r: np.zeros(n) for r in rounds}
+    win = np.zeros(n)
+    advance = np.zeros(n)
+    strengths = np.array([t["strength"] for t in field], dtype=float)
+    adv_per = fmt["phase"]["advance_per_group"]
+    n_groups = fmt["phase"]["groups"]
+
+    if not groups:
+        perm = list(rng.permutation(n))
+        groups = [perm[i::n_groups] for i in range(n_groups)]
+
+    locked = None
+    if qualifiers:
+        locked = [i for i in qualifiers if 0 <= i < n]
+        # A KO bracket needs a power of two; bail out to simulation if the
+        # caller handed us a partial or malformed qualifier set.
+        if len(locked) < 2 or (len(locked) & (len(locked) - 1)) != 0:
+            locked = None
+
+    for _ in range(N):
+        if locked is not None:
+            for i in locked:
+                advance[i] += 1
+            alive = list(locked)
+        else:
+            pts = np.zeros(n)
+            gd = np.zeros(n)
+            for g in groups:
+                for a_i in range(len(g)):
+                    for b_i in range(a_i + 1, len(g)):
+                        for hi, ai in ((g[a_i], g[b_i]), (g[b_i], g[a_i])):
+                            hg, ag = _sim_match(strengths[hi], strengths[ai], False,
+                                                rng, conf=conf)
+                            gd[hi] += hg - ag
+                            gd[ai] += ag - hg
+                            if hg > ag:
+                                pts[hi] += 3
+                            elif ag > hg:
+                                pts[ai] += 3
+                            else:
+                                pts[hi] += 1
+                                pts[ai] += 1
+            seeded = []
+            for g in groups:
+                order = sorted(g, key=lambda i: -(pts[i] * 1000 + gd[i] + rng.random()))
+                seeded.append(order[:adv_per])
+                for i in order[:adv_per]:
+                    advance[i] += 1
+            # Cross-pair winners against runners-up from a DIFFERENT group, which
+            # is the one hard constraint in the real draw.
+            alive = []
+            for k in range(len(seeded)):
+                alive.append(seeded[k][0])
+                alive.append(seeded[(k + 1) % len(seeded)][min(1, adv_per - 1)])
+            alive = alive[:2 ** int(np.log2(max(len(alive), 2)))]
+        _run_ko(alive, fmt, strengths, rng, reach, win, conf=conf)
+
+    out_field = []
+    for i, t in enumerate(field):
+        odds = {r: float(reach[r][i] / N) for r in rounds}
+        odds["win"] = float(win[i] / N)
+        out_field.append({**t, "odds": odds, "advance": float(advance[i] / N)})
+    tot = sum(t["odds"]["win"] for t in out_field) or 1.0
+    for t in out_field:
+        t["odds"]["win"] /= tot
+    # `table` is what the webapp groups the standings panels on (the key the
+    # Leagues Cup two-table view already uses). Groups are numbered by their
+    # alphabetically-first club so the labels are STABLE across rebuilds; they
+    # are our own positional numbering, not CONMEBOL's official group letters,
+    # which ESPN's feed does not expose (every group match carries the same
+    # "group-stage" round slug).
+    group_of: dict[int, str] = {}
+    for gi, g in enumerate(sorted(groups, key=lambda g: min(field[i]["team"] for i in g))):
+        for i in g:
+            group_of[i] = f"Group {gi + 1}"
+    standings = [{"team": t["team"], "league": t.get("league"),
+                  "table": group_of.get(i, "Group 1"),
+                  "strength": float(strengths[i]), "advance": float(advance[i] / N)}
+                 for i, t in enumerate(field)]
+    return {"standings": standings, "field": out_field}
+
+
+def simulate(comp_id: str, field, N: int, seed: int = 0,
+             groups=None, qualifiers=None):
     """Full Monte-Carlo: league phase (if any) + knockout -> standings + odds.
 
     Returns {"standings": [...], "field": [...with odds...]}.
@@ -343,6 +476,9 @@ def simulate(comp_id: str, field, N: int, seed: int = 0):
         return _simulate_bracket(comp_id, field, N, seed)
     if fmt["phase"]["type"] == "two_table":
         return _simulate_two_table(comp_id, field, N, seed)
+    if fmt["phase"]["type"] == "groups":
+        return _simulate_groups(comp_id, field, N, seed,
+                                groups=groups, qualifiers=qualifiers)
 
     conf = fmt.get("conf", "UEFA")
     n = len(field)

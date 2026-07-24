@@ -29,7 +29,11 @@
 //   hub replace News + Subscribe in the nav; team pages gated behind Intel.
 // v12 (2026-07-19): email-capture POST, waitlist annual toggle + upsells,
 //   My matchday, shareable scenarios, sparklines, race history (roadmap Phase 1).
-const CACHE = "entenser-shell-v13";
+// v14 (2026-07-24): round-6 league expansion (+20 leagues, new Africa nav group,
+// new country flags) and the CONMEBOL continental cups — index.html now reads
+// outlook.advance_per_table instead of hardcoding the Leagues Cup value of 4,
+// so a stale shell would render "top 4 advance" over 8 groups of 4.
+const CACHE = "entenser-shell-v14";
 const SHELL = [
   "/",
   "/index.html",

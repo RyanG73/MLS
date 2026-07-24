@@ -28,6 +28,14 @@ _LEAGUE_PHASE_ROUND = "league-phase"  # ESPN season.slug for the UCL/Europa grou
 # competition. Used to resolve a finished edition's actual bracket from results.
 _ESPN_ROUND = {
     "league-phase": ("league", 0), "group-stage": ("league", 0),
+    # CONMEBOL qualifying rounds, played BEFORE the group stage (2026-07-24).
+    # They must be listed with ordinal 0 like the group stage: left unmapped they
+    # fall through to `(raw_slug, 0)` and would render as a raw "second-stage"
+    # label, and worse, _resolve_actual's furthest-round logic would read an
+    # unknown ordinal as no progress at all.
+    "first-stage": ("Qualifying", 0),
+    "second-stage": ("Qualifying", 0),
+    "third-stage": ("Qualifying", 0),
     "knockout-round-playoffs": ("Playoff", 1),
     "round-one": ("RoundOne", 1),
     "round-of-16": ("R16", 2),
@@ -104,6 +112,39 @@ META = {
         "confederation": "Concacaf",
         "format_label": "Two-table group → knockout",
         "phases": ["group", "knockout"],
+    },
+    # CONMEBOL (2026-07-24). Shipped once scripts/eval/continental_calibrate.py
+    # produced a validated CONMEBOL league-offset scale — before that every South
+    # American league sat at offset 0.0 and a Bolivian club would have been rated
+    # level with a Brazilian one. 100% of both fields resolves to a modeled league.
+    "libertadores": {
+        "name": "CONMEBOL Libertadores",
+        "confederation": "CONMEBOL",
+        "format_label": "8 groups of 4 → knockout",
+        "phases": ["group", "knockout"],
+        "rules": "Three qualifying stages each February decide the last six group-stage places; "
+                 "those rounds are not modeled below (the projection starts at the group stage) "
+                 "· 32 clubs are drawn into 8 groups of 4 and play everyone in their group home "
+                 "and away · the top 2 of each group reach the round of 16, while the eight "
+                 "third-placed clubs transfer into the Copa Sudamericana's knockout play-off "
+                 "round · from the round of 16 the competition is two-legged single elimination "
+                 "until a one-off final at a pre-selected neutral venue · projections-only: "
+                 "there is no continental odds source, so no edge figures are shown.",
+    },
+    "sudamericana": {
+        "name": "CONMEBOL Sudamericana",
+        "confederation": "CONMEBOL",
+        "format_label": "8 groups of 4 → knockout",
+        "phases": ["group", "knockout"],
+        "rules": "A first qualifying stage each March decides part of the group-stage field and "
+                 "is not modeled below · 32 clubs are drawn into 8 groups of 4 and play everyone "
+                 "in their group home and away · the 8 group winners go straight to the round of "
+                 "16; in the real competition the 8 runners-up first play a knockout play-off "
+                 "against the third-placed clubs dropping out of the Copa Libertadores — that "
+                 "cross-competition inflow cannot be represented inside this competition's field, "
+                 "so runners-up are advanced directly and their odds are correspondingly "
+                 "optimistic · two-legged single elimination from the round of 16 to a one-off "
+                 "neutral final · projections-only: no continental odds source.",
     },
 }
 
@@ -203,8 +244,21 @@ def _league_elos(league_id: str) -> dict[str, float]:
         df = df.dropna(subset=["home_goals", "away_goals"])
         result = cl.compute_league_elos(df)
     else:
-        # Big-5 Understat leagues
-        frame = canonical_frame(league_id)
+        # Big-5 Understat leagues keep the direct canonical_frame call; every
+        # other league routes through build_league_data's own source registry
+        # (2026-07-24). Before this, ANY non-big-5 league reaching here raised
+        # "Unknown Understat league" — which is why the CONMEBOL comps could not
+        # be built even after their offsets were calibrated: Libertadores needs
+        # ELO maps for a dozen leagues, none of them Understat-sourced.
+        from data_pipeline.understat import BIG5
+        if league_id in BIG5:
+            frame = canonical_frame(league_id)
+        else:
+            from scripts.build_league_data import OUTLOOK, _load_frame
+            cfg = OUTLOOK.get(league_id, {})
+            frame = _load_frame(league_id, cfg.get("source", "espn"), cfg.get("asa_key"))
+            if "is_result" in frame.columns:
+                frame = frame[frame["is_result"]]
         frame = frame.dropna(subset=["home_goals", "away_goals"])
         result = cl.compute_league_elos(frame)
 
@@ -246,6 +300,20 @@ def _resolve_one(
         else:
             strength = cl.team_strength(team, None, {})
             return {"team": team, "league": None, "strength": strength, "modeled": False}
+
+    elif confederation == "CONMEBOL":
+        # Resolution is by ESPN team id, not name — see league_bridge._resolve_by_id
+        # for why (River Plate exists in both Argentina and Uruguay, and both play
+        # this competition). `elos_caches` carries the prebuilt {league: {team: elo}}
+        # maps plus the id→(league, frame_key) index built once per build.
+        idx = (elos_caches or {}).get("_conmebol_index") or {}
+        hit = idx.get(team)
+        if hit:
+            lid, frame_key = hit
+            strength = cl.team_strength(frame_key, lid, (elos_caches or {}).get(lid, {}))
+            return {"team": team, "league": lid, "strength": strength, "modeled": True}
+        strength = cl.team_strength(team, None, {})
+        return {"team": team, "league": None, "strength": strength, "modeled": False}
 
     else:  # Concacaf
         mls_elos = elos_caches["mls"]
@@ -358,6 +426,133 @@ def _value_layer_scaffold() -> dict:
     }
 
 
+_CONMEBOL_LEAGUES = [
+    "brazil-serie-a", "argentina-primera", "chile-primera", "colombia-primera-a",
+    "uruguay-primera", "peru-liga1", "ecuador-ligapro", "paraguay-primera",
+    "bolivia-profesional", "venezuela-primera",
+    "brazil-serie-b", "argentina-nacional",
+]
+
+
+def _conmebol_caches(comp_id: str, season: int) -> dict:
+    """ELO maps for every CONMEBOL league + an ESPN-name → (league, key) index.
+
+    The index is keyed by DISPLAY NAME but built by resolving ESPN team IDs, so
+    it inherits id-level correctness while giving `_resolve_one` (which only
+    receives a name) something it can look up. Safe because a club appears at
+    most once in a single season's field, so names are unique within it.
+    """
+    from scripts.eval.continental_resolve import resolve as _resolve
+    df = continental_results(comp_id, range(season, season + 1))
+    pairs: dict[str, str] = {}
+    for _, r in df.iterrows():
+        for side in ("home", "away"):
+            nm = r.get(f"{side}_team")
+            if nm:
+                pairs[nm] = r.get(f"{side}_id")
+    try:
+        up = continental_fixtures(comp_id, season)
+        for _, r in up.iterrows():
+            for side in ("home", "away"):
+                nm = r.get(f"{side}_team")
+                if nm and nm not in pairs:
+                    pairs[nm] = r.get(f"{side}_id")
+    except Exception:  # noqa: BLE001
+        pass
+
+    index: dict[str, tuple[str, str]] = {}
+    for name, tid in pairs.items():
+        hit = _resolve(tid, name, _CONMEBOL_LEAGUES)
+        if hit:
+            index[name] = hit
+    caches: dict = {"_conmebol_index": index}
+    for lid in {lid for lid, _ in index.values()}:
+        caches[lid] = _league_elos(lid)
+    unresolved = [n for n in pairs if n not in index]
+    if unresolved:
+        logger.warning("_conmebol_caches: %d/%d unresolved: %s",
+                       len(unresolved), len(pairs), sorted(unresolved)[:8])
+    return caches
+
+
+def _infer_groups(comp_id: str, season: int, field) -> tuple[list[list[int]], list[int] | None]:
+    """(groups, qualifiers) as FIELD INDICES, inferred from played group matches.
+
+    Two clubs share a group exactly when they played each other in the group
+    stage, so the real draw is recoverable from results — no need to invent one.
+    When every group has played its full double round-robin the group stage is
+    OVER, and the teams that actually advanced are returned as `qualifiers` so
+    the simulator does not re-roll a settled phase (which would print
+    elimination odds for clubs that have demonstrably already qualified).
+    """
+    df = continental_results(comp_id, range(season, season + 1))
+    gs = df[(df["season"] == season) & (df["round"] == "group-stage")] if not df.empty else df
+    pos = {t["team"]: i for i, t in enumerate(field)}
+    if gs.empty:
+        return [], None
+
+    # Connected components over "played each other in the group stage".
+    adj: dict[str, set] = {}
+    for _, r in gs.iterrows():
+        h, a = r["home_team"], r["away_team"]
+        if h in pos and a in pos:
+            adj.setdefault(h, set()).add(a)
+            adj.setdefault(a, set()).add(h)
+    seen, groups = set(), []
+    for t in adj:
+        if t in seen:
+            continue
+        comp, stack = [], [t]
+        while stack:
+            cur = stack.pop()
+            if cur in seen:
+                continue
+            seen.add(cur)
+            comp.append(cur)
+            stack.extend(adj.get(cur, ()) - seen)
+        groups.append(sorted(comp))
+
+    fmt = bs.FORMATS[comp_id]["phase"]
+    size = fmt["teams"] // fmt["groups"]
+    if len(groups) != fmt["groups"] or any(len(g) != size for g in groups):
+        logger.warning("_infer_groups: %s %s got %d groups %s — falling back to a random draw",
+                       comp_id, season, len(groups), [len(g) for g in groups])
+        return [], None
+
+    # Complete when every group has played its full double round-robin.
+    per_group_expected = size * (size - 1)
+    complete = all(
+        len(gs[(gs["home_team"].isin(g)) & (gs["away_team"].isin(g))]) >= per_group_expected
+        for g in groups)
+
+    qualifiers = None
+    if complete:
+        adv = fmt["advance_per_group"]
+        qualifiers = []
+        for g in groups:
+            pts = dict.fromkeys(g, 0)
+            gd = dict.fromkeys(g, 0)
+            sub = gs[(gs["home_team"].isin(g)) & (gs["away_team"].isin(g))]
+            for _, r in sub.iterrows():
+                h, a = r["home_team"], r["away_team"]
+                hg, ag = r.get("home_goals"), r.get("away_goals")
+                if hg is None or ag is None or hg != hg or ag != ag:
+                    continue
+                gd[h] += hg - ag
+                gd[a] += ag - hg
+                if hg > ag:
+                    pts[h] += 3
+                elif ag > hg:
+                    pts[a] += 3
+                else:
+                    pts[h] += 1
+                    pts[a] += 1
+            ranked = sorted(g, key=lambda t: (-pts[t], -gd[t], t))
+            qualifiers.extend(pos[t] for t in ranked[:adv])
+
+    return [[pos[t] for t in g] for g in groups], qualifiers
+
+
 def _resolve_field(comp_id: str, season: int):
     """Latest field for the comp -> [{team, league, strength, modeled, ...}].
 
@@ -381,6 +576,12 @@ def _resolve_field(comp_id: str, season: int):
 
     # Prefer the league-phase round (new 36-team UEFA format) if present.
     lp = df[(df["season"] == season) & (df["round"] == _LEAGUE_PHASE_ROUND)]
+    if lp.empty and bs.FORMATS[comp_id]["phase"]["type"] == "groups":
+        # CONMEBOL: the season's rows also carry the pre-group qualifying stages,
+        # whose losers never reach the competition proper. Restrict the field to
+        # the group stage or the 32-team format check below would truncate an
+        # arbitrary alphabetical slice of a ~60-team set.
+        lp = df[(df["season"] == season) & (df["round"] == "group-stage")]
     if not lp.empty:
         teams = sorted(set(lp["home_team"]) | set(lp["away_team"]))
     else:
@@ -389,12 +590,14 @@ def _resolve_field(comp_id: str, season: int):
 
     # Pre-load Concacaf caches once (amortised across all teams in the field).
     confederation = META[comp_id]["confederation"]
-    elos_caches: dict[str, dict[str, float]] | None = None
+    elos_caches: dict | None = None
     if confederation == "Concacaf":
         elos_caches = {
             "mls": _league_elos("mls"),
             "liga-mx": _league_elos("liga-mx"),
         }
+    elif confederation == "CONMEBOL":
+        elos_caches = _conmebol_caches(comp_id, season)
 
     field = [_resolve_one(t, comp_id, elos_caches) for t in teams]
 
@@ -530,6 +733,11 @@ def build(comp_id: str, season: int | None, sims: int):
                 "rules": META[comp_id].get("rules"),
                 "phases": META[comp_id]["phases"],
                 "rounds": [r["round"] for r in bs.FORMATS[comp_id]["ko"]],
+                # How many per group/table advance. The webapp hardcoded 4 (the
+                # Leagues Cup value) until CONMEBOL's 8-groups-of-4-top-2 shape
+                # arrived; it now reads this instead.
+                "advance_per_table": (bs.FORMATS[comp_id]["phase"].get("advance_per_group")
+                                      or bs.FORMATS[comp_id]["phase"].get("advance_per_table")),
                 "concluded": True, "champion": res["champion"], "season_label": label,
             },
             "standings": res["standings"],
@@ -552,7 +760,14 @@ def build(comp_id: str, season: int | None, sims: int):
     if len(field) < bs.FORMATS[comp_id]["phase"]["teams"]:
         print(f"[{comp_id}] only {len(field)} teams resolved — field not yet drawn; "
               f"emitting completed-bracket placeholder.")
-    result = bs.simulate(comp_id, field, N=sims)
+    sim_groups, sim_quals = ([], None)
+    if bs.FORMATS[comp_id]["phase"]["type"] == "groups":
+        sim_groups, sim_quals = _infer_groups(comp_id, season, field)
+        if sim_quals:
+            print(f"[{comp_id}] group stage complete — seeding the bracket from the "
+                  f"{len(sim_quals)} teams that actually qualified")
+    result = bs.simulate(comp_id, field, N=sims,
+                         groups=sim_groups or None, qualifiers=sim_quals)
     champ = sorted(
         ({"team": t["team"], "win_pct": round(t["odds"]["win"] * 100, 1)}
          for t in result["field"]),
@@ -566,6 +781,8 @@ def build(comp_id: str, season: int | None, sims: int):
             "mls": _league_elos("mls"),
             "liga-mx": _league_elos("liga-mx"),
         }
+    elif confederation == "CONMEBOL":
+        caches_for_games = _conmebol_caches(comp_id, season)
     games = _build_games(comp_id, played, caches_for_games)
     # Append upcoming fixtures (result=None, probs only).
     try:
@@ -617,8 +834,16 @@ def build(comp_id: str, season: int | None, sims: int):
             "mode": "knockout",
             "confederation": META[comp_id]["confederation"],
             "format_label": META[comp_id]["format_label"],
+            # `rules` was present on the CONCLUDED path only — an in-progress
+            # edition silently dropped its format caveats (fixed 2026-07-24).
+            # That matters most exactly while a competition is live: Sudamericana's
+            # note that the runners-up play-off against the Libertadores drop-downs
+            # is NOT modeled is only meaningful before the bracket resolves.
+            "rules": META[comp_id].get("rules"),
             "phases": META[comp_id]["phases"],
             "rounds": [r["round"] for r in bs.FORMATS[comp_id]["ko"]],
+            "advance_per_table": (bs.FORMATS[comp_id]["phase"].get("advance_per_group")
+                                  or bs.FORMATS[comp_id]["phase"].get("advance_per_table")),
         },
         "standings": result["standings"],
         "field": result["field"],

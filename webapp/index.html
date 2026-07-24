@@ -2241,8 +2241,12 @@ function renderKnockout(){
   }
   // Group stage — two parallel heat tables side by side (Leagues Cup)
   if(phases.includes('group')){
-    const byT={}; D.standings.forEach(s=>{(byT[s.table]=byT[s.table]||[]).push(s);});
-    const ADV=4;
+    const byT={}; D.standings.forEach(s=>{(byT[s.table||'Group']=byT[s.table||'Group']||[]).push(s);});
+    // Advance-per-table used to be hardcoded to 4 (the Leagues Cup value). The
+    // CONMEBOL comps are 8 groups of 4 with the top TWO advancing, so it now
+    // comes from the payload; the literal stays as the fallback for any older
+    // payload built before outlook.advance_per_table existed.
+    const ADV=(D.outlook&&D.outlook.advance_per_table)||4;
     h+='<div class="ko-pane'+off()+'" data-pane="group"><div class="ko-twocol">';
     Object.keys(byT).sort().forEach(tk=>{
       const rows=byT[tk].sort((a,b)=>b.advance-a.advance);
