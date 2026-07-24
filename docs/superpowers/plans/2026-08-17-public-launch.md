@@ -2,6 +2,29 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-23 (2): **Nightly refresh fixed — CI had been discarding good data
+>   for 5 days.** `refresh-daily.yml` failed Jul 19–23 and `refresh-leagues.yml`
+>   on Jul 13 + 20, both for the same reason: the last command of the finalize
+>   step, `publish_intelligence_artifacts.py`, exits 2 when the `UPSTASH_*`
+>   secrets are absent, and the "Commit and push if changed" step that follows
+>   is fail-fast (no `if: always()`). Everything upstream succeeded — 47 leagues,
+>   836 teams, `"failures": {}`, `validate-intelligence ok` — and was then thrown
+>   away unpushed. Last CI data commit was `a594590` (Jul 18); the Jul 19–23 data
+>   in the repo came from local hand-runs, which is exactly why the live site
+>   looked healthy and this went unnoticed for five days. Bug #2's "transient/
+>   partial" diagnosis was wrong, and bug #3's "resolves on the first successful
+>   nightly refresh" was unreachable by construction. **Fix: pass
+>   `--allow-missing-config`, a flag the script already implemented, in both
+>   workflows** — no script change, and the strict exit-2 behaviour is preserved
+>   for anyone who actually intends to publish. Rejected `if: always()` on the
+>   commit step: that would mask genuine build failures by committing
+>   half-built payloads. Reproduced locally (exit 2 → exit 0 with the flag) and
+>   confirmed the three downstream scripts exit 0 without Upstash (`get_kv()`
+>   falls back to `InMemoryKVStore` off production) and still write
+>   `output/intelligence-shadow-report.json`, which the upload step requires.
+>   **Remove the flag when the Upstash secrets land (§2b)** so a real publish
+>   failure is loud again. Bug #3 separately verified resolved live:
+>   `/weekly/2026-07-21|22|23/` all 200.
 > - 2026-07-23: **A1 unblocked — GA4 Measurement ID `G-GVSLY1KBHQ` wired in.**
 >   User created the property + Web stream; no manual "tag install" was needed
 >   because A1a already shipped the adapter. `ANALYTICS.measurementId` filled in

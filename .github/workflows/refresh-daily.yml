@@ -146,7 +146,13 @@ jobs:
           python scripts/build_team_intelligence.py
           python scripts/build_team_catalog.py
           python scripts/validate_intelligence_launch.py
-          python scripts/publish_intelligence_artifacts.py
+          # --allow-missing-config: Upstash is not provisioned yet (launch plan
+          # §2b). Without the flag this exits 2 on every run, and because the
+          # commit step below is fail-fast, five days of correctly-built data
+          # (2026-07-19..23) were built and then thrown away. A missing optional
+          # integration must not fail the data refresh; drop the flag once the
+          # UPSTASH_* secrets exist so a genuine publish failure is loud again.
+          python scripts/publish_intelligence_artifacts.py --allow-missing-config
           python scripts/send_intelligence_notifications.py
           python scripts/send_personalized_briefings.py
           python scripts/report_intelligence_shadow.py

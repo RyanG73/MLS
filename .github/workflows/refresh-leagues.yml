@@ -95,7 +95,10 @@ jobs:
           python scripts/build_team_intelligence.py
           python scripts/build_team_catalog.py
           python scripts/validate_intelligence_launch.py
-          python scripts/publish_intelligence_artifacts.py
+          # See the note in refresh-daily.yml: unflagged this exits 2 while
+          # Upstash is unprovisioned, and the fail-fast commit step below then
+          # discards the whole run (this workflow last succeeded 2026-07-06).
+          python scripts/publish_intelligence_artifacts.py --allow-missing-config
           python scripts/send_intelligence_notifications.py
           python scripts/send_personalized_briefings.py
           python scripts/report_intelligence_shadow.py
