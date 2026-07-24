@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Saint-\u00c9tienne":[],"Stade de Reims":[],"Rodez Aveyron":[],"Montpellier":[],"Annecy":[],"Red Star FC 93":[],"Nantes":[],"Dunkerque":[],"Grenoble":[],"Clermont Foot":[],"Guingamp":[],"Metz":[],"Stade Laval":[],"Boulogne":[],"AS Nancy Lorraine":[],"Pau":[],"Dijon FCO":[],"Sochaux":[]}};

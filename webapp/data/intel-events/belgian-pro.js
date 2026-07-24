@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Club Brugge":[],"Union St.-Gilloise":[],"Sint-Truidense":[],"Racing Genk":[],"Anderlecht":[],"Royal Charleroi SC":[],"Zulte-Waregem":[],"Standard Liege":[],"KVC Westerlo":[],"KAA Gent":[],"Cercle Brugge KSV":[],"Antwerp":[],"KV Mechelen":[],"OH Leuven":[],"RAAL La Louvi\u00e8re":[],"Lommel SK":[],"KV Kortrijk":[],"Waasland-Beveren":[]}};

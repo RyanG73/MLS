@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Palermo":[],"Benevento":[],"Catanzaro":[],"Cremonese":[],"Modena":[],"Juve Stabia":[],"Mantova":[],"Empoli":[],"Carrarese":[],"Pisa":[],"US Avellino":[],"Padova":[],"Sampdoria":[],"Virtus Entella":[],"Sudtirol":[],"Cesena":[],"Vicenza":[],"Arezzo":[],"Hellas Verona":[],"Ascoli":[]}};

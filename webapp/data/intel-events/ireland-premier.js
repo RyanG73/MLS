@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Shamrock Rovers":[],"Bohemians":[],"St. Patrick's Athletic":[],"Dundalk":[],"Shelbourne":[],"Derry City":[],"Galway United":[],"Drogheda United":[],"Waterford":[],"Sligo Rovers":[],"Galway United FC":[],"St Patrick's Athletic":[]}};

@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Chengdu Rongcheng":[],"Shandong Taishan":[],"Shanghai Shenhua":[],"Chongqing Tonglianglong":[],"Dalian Yingbo":[],"Beijing Guoan":[],"Zhejiang Professional FC":[],"Yunnan Yukun":[],"Qingdao West Coast":[],"Henan":[],"Shanghai Port":[],"Tianjin Jinmen Tiger":[],"Liaoning Tieren":[],"Qingdao Hainiu":[],"Shenzhen Xinpengcheng":[],"Wuhan Three Towns":[]}};

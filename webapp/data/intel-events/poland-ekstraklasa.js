@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Lech Poznan":[],"Jagiellonia":[],"Gornik Zabrze":[],"Rakow":[],"GKS Katowice":[],"Legia":[],"Zaglebie":[],"Wisla Plock":[],"Pogon Szczecin":[],"Radomiak Radom":[],"Korona Kielce":[],"Lechia Gdansk":[],"Motor Lublin":[],"Widzew Lodz":[],"Cracovia":[],"Piast Gliwice":[],"Arka Gdynia":[],"Termalica B-B.":[]}};

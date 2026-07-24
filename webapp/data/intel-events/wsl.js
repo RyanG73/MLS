@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Manchester City":[],"Arsenal":[],"Chelsea":[],"Manchester United":[],"Tottenham Hotspur":[],"London City Lionesses":[],"Brighton & Hove Albion":[],"Everton":[],"Aston Villa":[],"West Ham United":[],"Liverpool":[],"Leicester City":[]}};

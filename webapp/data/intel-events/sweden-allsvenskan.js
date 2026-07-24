@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"IK Sirius":[],"Hammarby IF":[],"BK H\u00e4cken":[],"AIK":[],"Djurg\u00e5rden":[],"Malm\u00f6 FF":[],"GAIS":[],"V\u00e4ster\u00e5s SK":[],"IF Elfsborg":[],"Mj\u00e4llby AIF":[],"IF Brommapojkarna":[],"Kalmar FF":[],"IFK G\u00f6teborg":[],"Degerfors IF":[],"\u00d6rgryte IS":[],"Halmstads BK":[]}};

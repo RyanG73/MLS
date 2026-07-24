@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Washington Spirit":[],"Gotham FC":[],"San Diego Wave FC":[],"Portland Thorns FC":[],"Utah Royals":[],"Kansas City Current":[],"Angel City FC":[],"North Carolina Courage":[],"Orlando Pride":[],"Denver Summit FC":[],"Bay FC":[],"Seattle Reign FC":[],"Houston Dash":[],"Boston Legacy FC":[],"Chicago Stars FC":[],"Racing Louisville FC":[]}};

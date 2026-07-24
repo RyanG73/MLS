@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Tromso":[],"Viking FK":[],"Bodo/Glimt":[],"Lillestrom":[],"Molde":[],"SK Brann":[],"Sarpsborg FK":[],"Hamarkameratene":[],"V\u00e5lerenga":[],"Rosenborg":[],"Sandefjord":[],"Fredrikstad":[],"KFUM Oslo":[],"Kristiansund BK":[],"Aalesund":[],"IK Start":[]}};

@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Sporting CP":[],"Benfica":[],"FC Porto":[],"Braga":[],"FC Famalicao":[],"Gil Vicente":[],"Estoril":[],"Arouca":[],"Santa Clara":[],"Vit\u00f3ria de Guimaraes":[],"C.D. Nacional":[],"Alverca":[],"Moreirense":[],"Estrela":[],"Rio Ave":[],"Casa Pia":[],"Acad\u00e9mico de Viseu":[],"Maritimo":[]}};

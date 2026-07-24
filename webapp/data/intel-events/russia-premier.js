@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Zenit St Petersburg":[],"Krasnodar":[],"Lokomotiv Moscow":[],"Spartak Moscow":[],"CSKA Moscow":[],"FC Baltika Kaliningrad":[],"Dinamo Moscow":[],"Rubin Kazan":[],"Akhmat Grozny":[],"Rostov":[],"Krylia Sovetov":[],"Gazovik Orenburg":[],"Akron Tolyatti":[],"Dynamo Makhachkala":[],"Pari NN":[],"Sochi":[]}};

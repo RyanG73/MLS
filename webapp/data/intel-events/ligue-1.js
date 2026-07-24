@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Paris Saint Germain":[],"Lens":[],"Lille":[],"Lyon":[],"Rennes":[],"Marseille":[],"Strasbourg":[],"Monaco":[],"Paris FC":[],"Toulouse":[],"Lorient":[],"Auxerre":[],"Le Mans":[],"Nice":[],"Brest":[],"Troyes":[],"Le Havre":[],"Angers":[]}};

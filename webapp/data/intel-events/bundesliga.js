@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Bayern Munich":[],"Borussia Dortmund":[],"VfB Stuttgart":[],"Bayer Leverkusen":[],"RB Leipzig":[],"Hoffenheim":[],"Schalke 04":[],"Mainz 05":[],"Eintracht Frankfurt":[],"Freiburg":[],"Borussia M.Gladbach":[],"Hamburger SV":[],"Union Berlin":[],"Augsburg":[],"Werder Bremen":[],"FC Cologne":[],"SC Paderborn 07":[],"SV Elversberg":[]}};

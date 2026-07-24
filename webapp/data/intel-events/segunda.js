@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Mallorca":[],"Girona":[],"Castell\u00f3n":[],"Eibar":[],"Almer\u00eda":[],"Las Palmas":[],"FC Andorra":[],"Burgos":[],"Sporting Gij\u00f3n":[],"Albacete":[],"C\u00f3rdoba":[],"Granada":[],"Ceuta":[],"Real Sociedad II":[],"Legan\u00e9s":[],"Real Valladolid":[],"C\u00e1diz":[],"CD Sabadell":[],"Eldense":[],"RC Celta Fortuna":[],"Real Oviedo":[],"Tenerife":[]}};

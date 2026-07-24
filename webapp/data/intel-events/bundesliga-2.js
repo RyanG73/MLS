@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Hannover 96":[],"Dynamo Dresden":[],"1. FC N\u00fcrnberg":[],"VfL Bochum":[],"SV Darmstadt 98":[],"1. FC Magdeburg":[],"Arminia Bielefeld":[],"Kaiserslautern":[],"Hertha Berlin":[],"Holstein Kiel":[],"Karlsruher SC":[],"SpVgg Greuther F\u00fcrth":[],"TSV Eintracht Braunschweig":[],"Energie Cottbus":[],"St. Pauli":[],"VfL Osnabruck":[],"1. FC Heidenheim 1846":[],"VfL Wolfsburg":[]}};

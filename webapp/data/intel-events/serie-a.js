@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Inter":[],"Como":[],"Roma":[],"Juventus":[],"Napoli":[],"Atalanta":[],"AC Milan":[],"Bologna":[],"Udinese":[],"Lazio":[],"Fiorentina":[],"Sassuolo":[],"Venezia":[],"Genoa":[],"Parma Calcio 1913":[],"Cagliari":[],"Frosinone":[],"Monza":[],"Torino":[],"Lecce":[]}};

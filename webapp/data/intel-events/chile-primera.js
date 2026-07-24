@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Colo Colo":[],"Universidad Cat\u00f3lica":[],"Universidad de Chile":[],"Coquimbo Unido":[],"Palestino":[],"Huachipato":[],"Everton CD":[],"\u00d1ublense":[],"Deportes Limache":[],"O'Higgins":[],"Universidad de Concepci\u00f3n":[],"La Serena":[],"Audax Italiano":[],"Deportes Concepcion":[],"Cobresal":[],"Uni\u00f3n La Calera":[]}};

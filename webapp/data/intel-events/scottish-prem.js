@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-19 04:26 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Celtic":[],"Rangers":[],"Heart of Midlothian":[],"St Johnstone":[],"Motherwell":[],"Hibernian":[],"Falkirk":[],"Kilmarnock":[],"Dundee United":[],"Dundee":[],"Aberdeen":[],"St Mirren":[]}};
