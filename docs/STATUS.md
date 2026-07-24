@@ -19,14 +19,15 @@ points back to the canonical doc — this page is a dashboard, not a replacement
 The **free static product is live and shipping** on entenser.com: 56 leagues, full
 forecasts/tables/trust pages, plus the six roadmap Phase‑1 features that shipped today
 (sparklines, race‑history chart, My matchday, shareable scenarios, waitlist upsells +
-annual toggle, dated weekly pages). The **Intelligence API is now deployed and live**
+annual toggle, dated weekly pages). The **Intelligence API is deployed and live**
 (2026‑07‑24, `https://mls-five.vercel.app/v1/public/config` → 200 — custom domain
-`api.entenser.com` still needs DNS attached). GA4, GSC, and Resend account setup are
-all done; the **one thing left is storing the Resend key as a Vercel env var**, which
-is what activates email capture. **Nothing is monetized and nothing sends email yet**
-— both are gated on that one remaining step. Launch is **~4 weeks out** (Aug 17); the
-code is essentially ready, the blockers are that last key, the custom domain, content
-posting, and a few decisions/spends only you can make.
+`api.entenser.com` still needs DNS attached). **Email capture is now fully live**: GA4,
+GSC, and Resend are all set up and wired end‑to‑end — a real `/public/subscribe` call
+against production returned `"resend": true`, confirming the contact actually landed in
+the Resend Audience. **Nothing is monetized and no *broadcast* emails send** (that still
+needs your explicit sign‑off, §2d) but capture itself is live. Launch is **~4 weeks
+out** (Aug 17); the code is essentially ready, the remaining blockers are the custom
+domain, content posting, and a few decisions/spends only you can make.
 
 ---
 
@@ -40,13 +41,13 @@ Do these three first. Runbook detail in the [launch plan §"Launch runbook"](sup
 |---|---|---|---|---|
 | ~~**A1**~~ | ~~**Google Analytics 4**~~ — ✅ **done 2026‑07‑23.** ID `G-GVSLY1KBHQ` is wired into the SPA *and* the static SEO pages. Google's "install a tag" step needed nothing — the code was already there (A1a). **Remaining: deploy, then confirm GA4 Realtime shows a session** (that's I2). | — | *All* measurement. Gates the Oct 31 paid‑tier decision. | Done in code; verify at analytics.google.com → Reports → Realtime |
 | ~~**A2**~~ | ~~**Google Search Console**~~ — ✅ **done 2026‑07‑23** (domain property verified). **Remaining: submit the sitemap** (C10) at `https://entenser.com/sitemap.xml`, then wait ~1–2 weeks for indexing before judging the 1.7 OG‑cards gate. | — | Sitemap submission (C10) + the 1.7 OG‑cards gate (needs proof leagues are indexing) | search.google.com/search-console → Sitemaps → enter `sitemap.xml` |
-| ~~**E1**~~ | ~~**Resend**~~ — ✅ **domain/DNS, API key, and the "Entenser interest" Audience done 2026‑07‑24.** **Remaining: store the API key as a Vercel env var** (`RESEND_API_KEY`) — the project is linked and deploying now (bug #1 fixed), this is the last piece. | ~5 min | Email capture starts mirroring to Resend once the key is live server‑side (it's already recording to KV; see bug #1 note). **No emails send** regardless until you sign off. | Vercel dashboard → `mls` project → Settings → Environment Variables → Production, or `vercel env add RESEND_API_KEY production` |
+| ~~**E1**~~ | ~~**Resend**~~ — ✅ **fully done and verified live 2026‑07‑24.** Domain/DNS, API key, and Audience all set up; `RESEND_API_KEY`/`RESEND_AUDIENCE_ID`/`RESEND_FROM_EMAIL` are stored as Vercel production env vars. A live `POST /v1/public/subscribe` test (using Resend's `delivered@resend.dev` test address, nothing real emailed) returned `{"ok":true,"resend":true}` — the contact landed in the Resend Audience. `RESEND_WEBHOOK_SECRET` still unset (optional, only needed once a Resend webhook exists). | — | Email capture now mirrors to Resend on every signup. **Broadcast/digest sends still need your explicit sign‑off** (§2d) — capture ≠ sending. | Nothing left to do here. |
 
-### 2b. Infrastructure — ✅ Vercel linked, API deploying (2026‑07‑24)
+### 2b. Infrastructure — ✅ Vercel linked, API deployed and verified (2026‑07‑24)
 
 | Action | Why | Notes |
 |---|---|---|
-| ~~Create/link the Vercel project + set its secrets~~ | ✅ Done. `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` are set as GitHub secrets on `intelligence-api-production`; project `ryang73/mls` is linked and deploys cleanly — see bug #1. | Remaining infra work: attach the `api.entenser.com` custom domain (Vercel dashboard → Domains) and set `RESEND_API_KEY` (E1 above). |
+| ~~Create/link the Vercel project + set its secrets~~ | ✅ Done. `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` are set as GitHub secrets on `intelligence-api-production`; project `ryang73/mls` is linked and deploys cleanly — see bug #1. | Remaining infra work: attach the `api.entenser.com` custom domain (Vercel dashboard → Domains). Resend env vars are done (E1 above). |
 
 ### 2c. Launch execution (Aug 14–17) — yours to run
 
@@ -102,7 +103,7 @@ Built + tested 2026‑07‑23: `server/open_access.py`, `api/admin/open_access.p
 
 | # | Issue | Severity | Status / cause | Action |
 |---|---|---|---|---|
-| 1 | ~~**Intelligence API deploy fails on every push**~~ — ✅ **fixed 2026‑07‑24**, `https://api.entenser.com/v1/public/config` returns 200 | ~~Medium~~ | Was four stacked issues, not one: (a) Vercel project/secrets never existed — fixed by linking the project and setting `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` as GitHub secrets on `intelligence-api-production`; (b) Vercel's Python build now needs `uv` on the CI runner, added to `deploy-api.yml`; (c) `pyproject.toml` had zero declared dependencies and Vercel's `uv` builder reads it *instead of* `requirements-api.txt` when both exist, so numpy/requests/Pillow silently never installed; (d) that revealed a `.python-version` mismatch (3.13 vs the runtime's actual 3.12, a numpy binary-incompatibility); (e) with those fixed, `api/public/*` was still missing from every deploy — confirmed via a local `vercel build` that every other `api/` subpackage appeared in the function's file map except `api/public`, i.e. Vercel silently drops any directory literally named `public`. Renamed to `api/pub` (route strings like `/public/config` are untouched, they're string literals in `api/index.py`, not tied to the package name). | Done. Custom domain `api.entenser.com` still isn't in DNS yet (`NXDOMAIN`) — the live URL today is the Vercel-assigned `mls-five.vercel.app`; attaching the domain is a separate follow-up. |
+| 1 | ~~**Intelligence API deploy fails on every push**~~ — ✅ **fixed 2026‑07‑24**, `https://mls-five.vercel.app/v1/public/config` returns 200 (custom domain not attached yet — see §7) | ~~Medium~~ | Was five stacked issues, not one: (a) Vercel project/secrets never existed — fixed by linking the project and setting `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` as GitHub secrets on `intelligence-api-production`; (b) Vercel's Python build now needs `uv` on the CI runner, added to `deploy-api.yml`; (c) `pyproject.toml` had zero declared dependencies and Vercel's `uv` builder reads it *instead of* `requirements-api.txt` when both exist, so numpy/requests/Pillow silently never installed; (d) that revealed a `.python-version` mismatch (3.13 vs the runtime's actual 3.12, a numpy binary-incompatibility); (e) with those fixed, `api/public/*` was still missing from every deploy — confirmed via a local `vercel build` that every other `api/` subpackage appeared in the function's file map except `api/public`, i.e. Vercel silently drops any directory literally named `public`. Renamed to `api/pub` (route strings like `/public/config` are untouched, they're string literals in `api/index.py`, not tied to the package name). | Done. Custom domain `api.entenser.com` still isn't in DNS yet (`NXDOMAIN`) — the live URL today is the Vercel-assigned `mls-five.vercel.app`; attaching the domain is a separate follow-up. |
 | 2 | ~~**Nightly data refresh failing**~~ — ✅ **fixed 2026‑07‑23** | ~~Medium~~ | **Not transient — it failed 5 nights running (Jul 19–23), and the earlier "looks transient/partial" reading was wrong.** The build itself succeeded every night (47 leagues, 836 teams, `"failures": {}`, validation ok); the run died on the *last* command of the `finalize` step, `publish_intelligence_artifacts.py`, which exits 2 when Upstash is unprovisioned. Because "Commit and push if changed" runs after it with no `if: always()`, five nights of good data were built and discarded — the last CI data commit was `a594590` (Jul 18); everything since was hand‑committed locally, which is why the site looked current and this stayed invisible. The weekly `refresh-leagues.yml` had the identical bug (last green Jul 6). | Fixed by passing the flag the script already supported: `--allow-missing-config` in both workflows. **Drop the flag once the `UPSTASH_*` secrets exist (§2b)** so a real publish failure is loud again. |
 | 3 | ~~**Dated `/weekly/<date>/` pages return 404**~~ — ✅ **resolved, verified live 2026‑07‑23** (`/weekly/2026-07-21|22|23/` all return HTTP 200) | Low | The pages build from committed `data/weekly-archive/*.json`. The old note said this "resolves automatically on the first successful nightly refresh" — that was never going to happen, because bug #2 meant no nightly refresh *could* succeed. Archives through `2026-07-23.json` are now committed (via local runs), and CI can commit again as of the bug #2 fix. | Should already be resolved on the live site. Verify a dated URL after the next nightly run. |
 | 4 | **1 test fails: `test_intelligence_state_replay`** | Low (pre‑existing, non‑blocking) | Monte‑Carlo replay tolerance breach (spoon odds 3.4pp vs a 3.0pp tolerance). **Proven to fail identically before any recent work** — it's data‑drift/flakiness, not a regression. Rest of suite: 1179 passed. | Decide later: widen tolerance or re‑baseline the snapshot. Not launch‑blocking. |
@@ -147,11 +148,12 @@ Built + tested 2026‑07‑23: `server/open_access.py`, `api/admin/open_access.p
 
 ## 7. The single most important thing
 
-**Set `RESEND_API_KEY` (and `RESEND_AUDIENCE_ID`/`RESEND_FROM_EMAIL`/`RESEND_WEBHOOK_SECRET`) as
-Vercel env vars, and attach the `api.entenser.com` custom domain.** The Vercel project is linked,
-its GitHub Actions secrets are set, and the Intelligence API is deployed and live as of
-2026‑07‑24 (bug #1's four stacked build issues are all fixed) — today it only answers on the
-Vercel‑assigned `mls-five.vercel.app`, not yet `api.entenser.com`. A1 GA4, A2 GSC, and E1 Resend
-account setup are all done. Setting the Resend key activates email capture; attaching the domain
-makes the API reachable at the URL the docs/webapp actually expect. Everything else is either
+**Attach the `api.entenser.com` custom domain to the Vercel project.** Everything else in
+account setup is done: A1 GA4, A2 GSC, and E1 Resend (domain/DNS, API key, Audience, and the
+Vercel env vars) are all live — a real subscribe call against production confirmed a contact
+landed in Resend. The Intelligence API itself is deployed and working as of 2026‑07‑24 (bug #1's
+five stacked build issues are all fixed), but today it only answers on the Vercel‑assigned
+`mls-five.vercel.app`; `api.entenser.com` still returns `NXDOMAIN`. Attaching the domain (Vercel
+dashboard → Domains) is what makes the API reachable at the URL the docs/webapp actually expect.
+Everything else is either
 already done, gated on a future date, or a decision that can wait.
