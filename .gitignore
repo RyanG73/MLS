@@ -125,3 +125,5 @@ webapp/sitemap.xml
 webapp/open-data/
 webapp/exports/
 webapp/after-the-world-cup/
+.vercel
+.env*

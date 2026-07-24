@@ -1,6 +1,6 @@
 # Entenser — Consolidated Status
 
-**Last updated:** 2026-07-19 · **Owner:** Ryan · **Launch target:** Monday **2026-08-17**
+**Last updated:** 2026-07-24 · **Owner:** Ryan · **Launch target:** Monday **2026-08-17**
 
 This is the single hub that reconciles the four planning docs so you don't have to. It
 answers: *where are we, what do I act on, what's broken, what's left to build.* Each row
@@ -20,11 +20,12 @@ The **free static product is live and shipping** on entenser.com: 56 leagues, fu
 forecasts/tables/trust pages, plus the six roadmap Phase‑1 features that shipped today
 (sparklines, race‑history chart, My matchday, shareable scenarios, waitlist upsells +
 annual toggle, dated weekly pages). The **email‑capture and paid‑tier code is built but
-inert** — it can't activate until you create three external accounts. **Nothing is
-monetized, nothing sends email, and no analytics are recording yet** — all three are
-gated on ~15 minutes of your account setup, which is the single highest‑leverage thing
-you can do. Launch is **~4 weeks out** (Aug 17); the code is essentially ready, the
-blockers are accounts, content posting, and a few decisions/spends only you can make.
+inert** — GA4, GSC, and Resend (domain/DNS/API key/Audience) are all created now; the
+one thing left is linking the Vercel project and storing the Resend key there as a
+secret. **Nothing is monetized and nothing sends email yet** — both are gated on that
+one remaining setup step, which is the single highest‑leverage thing you can do. Launch
+is **~4 weeks out** (Aug 17); the code is essentially ready, the blockers are that last
+account link, content posting, and a few decisions/spends only you can make.
 
 ---
 
@@ -38,13 +39,13 @@ Do these three first. Runbook detail in the [launch plan §"Launch runbook"](sup
 |---|---|---|---|---|
 | ~~**A1**~~ | ~~**Google Analytics 4**~~ — ✅ **done 2026‑07‑23.** ID `G-GVSLY1KBHQ` is wired into the SPA *and* the static SEO pages. Google's "install a tag" step needed nothing — the code was already there (A1a). **Remaining: deploy, then confirm GA4 Realtime shows a session** (that's I2). | — | *All* measurement. Gates the Oct 31 paid‑tier decision. | Done in code; verify at analytics.google.com → Reports → Realtime |
 | ~~**A2**~~ | ~~**Google Search Console**~~ — ✅ **done 2026‑07‑23** (domain property verified). **Remaining: submit the sitemap** (C10) at `https://entenser.com/sitemap.xml`, then wait ~1–2 weeks for indexing before judging the 1.7 OG‑cards gate. | — | Sitemap submission (C10) + the 1.7 OG‑cards gate (needs proof leagues are indexing) | search.google.com/search-console → Sitemaps → enter `sitemap.xml` |
-| **E1** | **Resend** — add `entenser.com` domain (SPF/DKIM DNS records), create an API key + an Audience "Entenser interest", store the key as a **secret on the host, never in the repo** | ~5–10 min | Email capture starts mirroring to Resend (it's already recording to KV; see bug #1 caveat). **No emails send** regardless until you sign off. | resend.com → Domains / API Keys / Audiences |
+| ~~**E1**~~ | ~~**Resend**~~ — ✅ **domain/DNS, API key, and the "Entenser interest" Audience done 2026‑07‑24.** **Remaining: store the API key as a secret** (`RESEND_API_KEY`) — hasn't been stored anywhere yet. Do this alongside **2b** once the Vercel project is linked, since that's where it needs to live. | — | Email capture starts mirroring to Resend once the key is live server‑side (it's already recording to KV; see bug #1 caveat). **No emails send** regardless until you sign off. | Set `RESEND_API_KEY` as a Vercel env var (never in the repo) |
 
 ### 2b. Infrastructure — the API isn't deployed
 
 | Action | Why | Notes |
 |---|---|---|
-| **Create/link the Vercel project + set its secrets** (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`) | The Intelligence API (email endpoint, magic‑link auth, Stripe webhook) **fails to deploy on every push** — see bug #1. All that server code exists and is tested but has nowhere to run. | This is the same "no Vercel account exists yet" gap the S5 history entry flagged. Until it's linked, the webapp works but nothing server‑side does. |
+| **Create/link the Vercel project + set its secrets** (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, and now `RESEND_API_KEY` from E1) | The Intelligence API (email endpoint, magic‑link auth, Stripe webhook) **fails to deploy on every push** — see bug #1. All that server code exists and is tested but has nowhere to run. | This is the same "no Vercel account exists yet" gap the S5 history entry flagged. Until it's linked, the webapp works but nothing server‑side does — including mirroring signups to the now‑created Resend Audience. |
 
 ### 2c. Launch execution (Aug 14–17) — yours to run
 
@@ -145,8 +146,10 @@ Built + tested 2026‑07‑23: `server/open_access.py`, `api/admin/open_access.p
 
 ## 7. The single most important thing
 
-**Do the account setup that's left (E1 Resend — A1 GA4 and A2 GSC are done) and link the Vercel
-project.** That one afternoon unblocks measurement, email capture, the API, and the
-launch's measurement half — and it's the difference between launching blind and
-launching instrumented. Everything else is either already done, gated on a future date,
-or a decision that can wait.
+**Link the Vercel project and set its secrets** (`VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`
+plus `RESEND_API_KEY`). A1 GA4, A2 GSC, and E1 Resend (domain/DNS, API key, Audience) are all
+done — the only thing left in account setup is storing that Resend key as a secret, which
+naturally happens at the same time as linking Vercel. That one step unblocks the API, email
+capture, and Stripe — and it's the difference between launching blind and launching
+instrumented. Everything else is either already done, gated on a future date, or a decision
+that can wait.

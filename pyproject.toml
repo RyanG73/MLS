@@ -6,6 +6,14 @@ build-backend = "setuptools.build_meta"
 name = "mls-projections"
 version = "0.1.0"
 requires-python = ">=3.11"
+# Kept in sync with requirements-api.txt by hand: Vercel's uv-based Python
+# builder reads dependencies from here instead of requirements.txt when
+# this file is present, so an empty list here silently ships a broken function.
+dependencies = [
+    "numpy>=1.26.0,<3.0.0",
+    "requests>=2.31.0,<3.0.0",
+    "Pillow>=11.0.0,<13.0.0",
+]
 
 [tool.setuptools.packages.find]
 include = ["data_pipeline*", "models*", "scripts*", "config*"]
