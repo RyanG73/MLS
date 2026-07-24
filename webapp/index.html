@@ -111,7 +111,11 @@ if('serviceWorker' in navigator && location.hostname!=='localhost' && location.p
 :root{
   --ink-0:#070809; --ink-1:#0a0d0b; --ink-2:#0c100d; --ink-3:#121a14;
   --line:#131b14; --line-2:#18211a; --line-3:#243026;
-  --txt-1:#e3e9e4; --txt-2:#9fb0a3; --txt-3:#54665b;
+  /* txt-3 lifted #54665b→#6b7d71 (2026-07-23): the old value scored 3.27:1 on
+     --ink-0 and carries real data (odds prices, league names, kickoff dates),
+     not just chrome. #6b7d71 is 4.58:1 — clears WCAG AA at the same hue.
+     txt-4 keeps the old value for genuinely decorative marks only. */
+  --txt-1:#e3e9e4; --txt-2:#9fb0a3; --txt-3:#6b7d71; --txt-4:#54665b;
   --win:#f4b740; --qualify:#3ddc84; --europa:#4aa3ff; --drop:#ff5d5d; --draw:#5a6b7a;
   /* legacy aliases kept so not-yet-restyled code keeps working until its task lands */
   --floodlight:#3ddc84; --west:#f4b740; --hfa:#f4b740; --shield:#d7deea; --spoon:#bd7d4e;
@@ -167,7 +171,9 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mast-bar{display:flex;justify-content:center;gap:2px;border-top:1px solid var(--line-2);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:0 var(--s4)}
 .mast-bar::-webkit-scrollbar{display:none}
 .mb-item{position:relative;flex:none}
-.mb-item>a{display:flex;align-items:center;gap:5px;padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--txt-2);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap}
+/* min-height 44px (2026-07-23): these chips sit on a horizontal scroller, so a
+   38px target meant swipe gestures kept landing as taps on the wrong league. */
+.mb-item>a{display:flex;align-items:center;gap:5px;min-height:44px;padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--txt-2);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap}
 .mb-item>a:hover{color:var(--txt-1)}
 .mb-item>a.active{color:var(--txt-1);border-bottom-color:var(--txt-1)}
 .region-mark{display:inline-grid;place-items:center;width:19px;height:16px;border:1px solid var(--line-3);border-radius:4px;background:var(--ink-1);color:var(--txt-2);font-family:var(--mono);font-size:8px;font-weight:800;letter-spacing:0;line-height:1;flex:none}
@@ -194,6 +200,21 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mast-live .dot{width:7px;height:7px;border-radius:50%;background:var(--drop);animation:pulse 1.6s infinite}
 @keyframes pulse{50%{opacity:.35}}
 .mast-live a{color:var(--txt-1);text-decoration:none;font-weight:600}
+/* ── open-access promo banner (2026-07-23) ── Rendered only while
+   server/open_access.py reports an active window. Gold, not green: this is a
+   priced-offer state, and system.md reserves green for validated signal. It
+   sits directly under the live strip so it reads as site status, not an ad. */
+.oa-banner{display:none}
+.open-access .oa-banner{display:flex;align-items:center;justify-content:center;gap:8px;
+  flex-wrap:wrap;text-align:center;padding:7px var(--s4);
+  border-top:1px solid rgba(244,183,64,.35);background:rgba(244,183,64,.08);
+  font-size:12px;color:var(--txt-1)}
+.oa-banner b{font-weight:700}
+.oa-banner .why{color:var(--txt-2)}
+.oa-banner a{color:var(--win);font-weight:700;text-decoration:none;white-space:nowrap}
+.oa-banner a:hover{text-decoration:underline}
+/* During a promo the entitlement chips are lying — nothing is locked. */
+.open-access .ilock,.open-access .intel-tag{display:none}
 /* ── mobile bottom tab bar ── */
 .bnav{display:none}
 @media(max-width:900px){
@@ -1096,11 +1117,60 @@ const FavStore=(()=>{
       const added=i<0; added?a.push({league:lg,team:t}):a.splice(i,1); write(TKEY,a); return added;},
   };
 })();
+// Open-access promo mirror (2026-07-23). The server is authoritative — see
+// server/open_access.py and bearer_user() in server/api_support.py. This is a
+// presentation cache so the UI can drop lock chrome without waiting on a fetch:
+// the last known state is read synchronously from localStorage, then refreshed
+// in the background. A stale cache can only ever make the UI *look* wrong; it
+// cannot grant data, because every paid endpoint re-checks server-side.
+const OpenAccess={
+  KEY:'entenser.open_access',
+  API:(location.hostname==='localhost'||location.hostname==='127.0.0.1')
+    ?'http://127.0.0.1:8787/v1':'https://api.entenser.com/v1',
+  state(){try{const r=JSON.parse(localStorage.getItem(this.KEY)||'null');
+    return (r&&r.active&&r.until*1000>Date.now())?r:null;}catch(e){return null;}},
+  active(){return !!this.state();},
+  refresh(){
+    const base=new URLSearchParams(location.search).get('api')||window.ENTENSER_API_BASE||this.API;
+    return fetch(base+'/public/config',{cache:'no-store'})
+      .then(r=>r.ok?r.json():null)
+      .then(j=>{const s=j&&j.open_access;
+        try{s&&s.active?localStorage.setItem(this.KEY,JSON.stringify(s))
+                       :localStorage.removeItem(this.KEY);}catch(e){}
+        document.documentElement.classList.toggle('open-access',this.active());
+        syncOpenAccessBanner();
+        return this.active();})
+      .catch(()=>this.active());   // offline / API down: keep the cached view
+  },
+};
+// One builder, used both by the masthead's initial render and by the async
+// refresh below — a promo that starts mid-session must not need a page reload
+// to show up, and two copies of this markup would drift.
+function oaBannerHTML(){
+  const s=OpenAccess.state(); if(!s) return '';
+  const days=Math.max(1,Math.ceil((s.until*1000-Date.now())/86400000));
+  const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  return `<div class="oa-banner"><b>Intel is open to everyone${s.note?` — ${esc(s.note)}`:''}.</b>`
+    +`<span class="why">Every paid feature, free for the next ${days} ${days===1?'day':'days'}.</span>`
+    +`<a href="?league=intel">Open Intel →</a></div>`;
+}
+// Reconcile the banner with current state after an async refresh.
+function syncOpenAccessBanner(){
+  const mast=document.getElementById('mast'); if(!mast) return;
+  const existing=mast.querySelector('.oa-banner');
+  const html=oaBannerHTML();
+  if(!html){ if(existing) existing.remove(); return; }
+  if(existing){ existing.outerHTML=html; return; }
+  const anchor=mast.querySelector('.mast-live')||mast.querySelector('.mast-bar');
+  if(anchor) anchor.insertAdjacentHTML('afterend',html);
+}
 // Presentation cache only. Paid endpoints always re-check the current plan on
 // the server; this token inspection never grants data access.
 const IntelStore={
   KEY:'entenser.intel.access',
-  unlocked(){try{const t=localStorage.getItem(this.KEY);if(!t)return false;
+  unlocked(){
+    if(OpenAccess.active()) return true;   // promo: everything reads as unlocked
+    try{const t=localStorage.getItem(this.KEY);if(!t)return false;
     let b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');while(b.length%4)b+='=';
     const p=JSON.parse(atob(b));
     return p.exp*1000>Date.now()&&['trial','intel','creator'].includes(p.plan);
@@ -1108,6 +1178,8 @@ const IntelStore={
   unlock(){},
   lock(){try{localStorage.removeItem(this.KEY);localStorage.removeItem('entenser.intel.refresh');}catch(e){}},
 };
+document.documentElement.classList.toggle('open-access',OpenAccess.active());
+OpenAccess.refresh();
 // Gate card shown above a greyed-out team profile. Local esc (not commandEsc —
 // that helper lives in a later script block, see IntelStore comment above).
 function teamGateCardHTML(team){
@@ -1199,6 +1271,7 @@ function teamGateCardHTML(team){
       +`<div class="mb-item"><a href="?league=account" class="${_isAccount?'active':''}">\u{1F464} Account</a></div>`;
   const live=(H&&H.fixtures&&H.fixtures.length&&!_isLeagues)
     ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">Upcoming: ${H.fixtures.length} fixtures projected</a><span>· ${H.stats.leagues} leagues</span></div>`:'';
+  const oa=oaBannerHTML();
   mast.innerHTML=`<div class="mast-top">
       <div class="mast-date">${dstr}${H?`<span>Updated ${H.generated}</span>`:''}</div>
       <a class="mast-wordmark" href="${location.pathname}"><img class="mast-moose" src="assets/branding/entenser-icon-light.png" alt="">Entenser</a>
@@ -1209,7 +1282,7 @@ function teamGateCardHTML(team){
             `<button type="button" data-oddsfmt="${f}" class="${window.ODDS_FMT===f?'on':''}">${lbl}</button>`).join('')}</div>
         <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
       </div>
-    </div><nav class="mast-bar">${bar}</nav>${live}<div class="mb-portal" id="mbPortal"></div>`;
+    </div><nav class="mast-bar">${bar}</nav>${live}${oa}<div class="mb-portal" id="mbPortal"></div>`;
   // Odds-format toggle (launch plan F2): switches every quoted price in place.
   mast.querySelectorAll('[data-oddsfmt]').forEach(b=>
     b.addEventListener('click',()=>setOddsFmt(b.dataset.oddsfmt)));
@@ -3743,25 +3816,51 @@ if (_isPower && window.POWER_DATA) {
 /* Tagline (2026-07-19: signature serif headline, balanced across two full
    lines; the old promise paragraph + recap CTA are gone) */
 .hx-tag h1{font-family:var(--serif);font-size:clamp(21px,2.9vw,34px);line-height:1.16;font-weight:800;letter-spacing:-.012em;margin:0;color:var(--txt-1);padding:2px 2px 0;text-wrap:balance;max-width:17.6em}
-.hx-strip{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 8px;margin-top:10px}
-.hx-strip-scroll{display:flex;gap:10px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
+/* 2026-07-23 live-state hero: the tagline described the product to people who
+   already pay for it. The h1 now states what changed; the tagline survives as
+   a sub-line so crawlers and first-time visitors still get the promise. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.hx-live{padding:2px 2px 0}
+.hx-live-r{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.hx-live-r+.hx-live-r{margin-top:5px}
+.hx-live .n{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--txt-1);white-space:nowrap}
+.hx-live .n em{font-style:normal;color:var(--qualify)}
+/* the mover clause carries a club name of unknown length — it must wrap */
+.hx-live-r.mv .n{white-space:normal;font-size:13.5px;font-weight:600;color:var(--txt-2)}
+.hx-live-r.mv .n b{font-weight:700;color:var(--txt-1)}
+.hx-live-r.mv .n em{font-style:normal;color:var(--win)}
+.hx-live .sep{color:var(--txt-4)}
+.hx-sub{font-size:12px;line-height:1.45;color:var(--txt-2);margin:7px 0 0;padding:0 2px;max-width:34em}
+.hx-strip{position:relative;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 8px;margin-top:10px}
+/* Edge fade (2026-07-23): this strip runs ~4200px inside a 317px viewport on
+   mobile and the only hint was a hairline scrollbar. The fade is an affordance,
+   not decoration — it retracts once the strip is scrolled to its end. */
+.hx-strip::after{content:"";position:absolute;top:1px;right:1px;bottom:1px;width:28px;pointer-events:none;
+  border-radius:0 var(--r-lg) var(--r-lg) 0;
+  background:linear-gradient(90deg,rgba(10,13,11,0),var(--ink-1));
+  opacity:1;transition:opacity .18s}
+.hx-strip.at-end::after{opacity:0}
+.hx-strip-scroll{display:flex;gap:10px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px;scroll-snap-type:x proximity}
+.hx-strip-scroll>*{scroll-snap-align:start}
 .hx-day{flex:none}
 .hx-dh{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);border-bottom:1px solid var(--line-3);padding-bottom:5px;margin-bottom:8px;white-space:nowrap}
 .hx-cards{display:flex;gap:6px}
 /* Result / fixture cards (2026-07-19 sketch): league-name header, then one
    row per team — crest left, score (or win% + fair odds) tight beside it. */
-.hx-scard{flex:none;width:64px;background:var(--ink-2);border-radius:var(--r-md);padding:5px 6px 4px;text-decoration:none;color:inherit}
+/* 2026-07-23: card widened 64→78px so the league label can sit at the 11px
+   type floor instead of 8px. Below ~11px these read as texture, not text. */
+.hx-scard{flex:none;width:78px;background:var(--ink-2);border-radius:var(--r-md);padding:5px 6px 4px;text-decoration:none;color:inherit}
 .hx-scard:hover{background:var(--ink-3)}
-.hx-scard .lg{display:block;font-size:8px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;text-align:center;border-bottom:1px solid var(--line-3);padding-bottom:3px;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-scard .lg{display:block;font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;text-align:center;border-bottom:1px solid var(--line-3);padding-bottom:3px;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hx-scard .tr{display:flex;align-items:center;justify-content:flex-start;gap:6px;padding:3px 0}
 .hx-scard .tr+.tr{border-top:1px solid var(--line)}
 .hx-scard .tr .crest{width:22px;height:22px;font-size:8px}
 .hx-scard .tr b{font-family:var(--mono);font-weight:700;font-size:13px}
-.hx-scard.fx{width:104px}
+.hx-scard.fx{width:112px}
 .hx-scard.fx .p{display:flex;align-items:baseline;gap:4px}
 .hx-scard.fx .p b{font-size:12px}
-.hx-scard.fx .p .o{font-family:var(--mono);font-size:9px;color:var(--txt-3)}
-.hx-scard.fx .drw{font-family:var(--mono);font-size:8.5px;color:var(--txt-3);text-align:center;border-top:1px solid var(--line-3);padding-top:3px;margin-top:1px;white-space:nowrap}
+.hx-scard.fx .p .o{font-family:var(--mono);font-size:11px;color:var(--txt-3)}
+.hx-scard.fx .drw{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:center;border-top:1px solid var(--line-3);padding-top:3px;margin-top:1px;white-space:nowrap}
 .hx-strip-foot{text-align:right;margin-top:6px}
 .hx-strip-foot a{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--qualify);text-decoration:none}
 /* C: rotating league table · E: synced title-odds board */
@@ -3808,11 +3907,14 @@ if (_isPower && window.POWER_DATA) {
 /* J: broad news band */
 .hx-newsband{display:grid;grid-template-columns:repeat(3,1fr);gap:0 24px;margin-top:2px}
 @media(max-width:900px){
+  /* 2026-07-23: mobile leads with what changed since the last visit. The old
+     order buried Upcoming Matches at y=1330 — below the fold on every phone —
+     behind ~1300px of preseason tables reading 0 pts / 0 GD. Volatile first
+     (fix → movers), reference second (odds → table → results), ambient last. */
   .hx-wrap{grid-template-columns:minmax(0,1fr);column-gap:0;
-    grid-template-areas:"tag" "odds" "table" "b" "fix" "movers" "news"}
+    grid-template-areas:"tag" "fix" "movers" "odds" "table" "b" "news"}
   .hx-stories{display:none}  /* D lives behind the News tab on mobile */
   .hx-cols,.hx-newsband{grid-template-columns:1fr}
-  .hx-tag h1{font-size:19.5px}
 }
 .eb-row{padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer}
 .eb-row:hover{background:var(--ink-2)}
@@ -4306,11 +4408,41 @@ if(_isHome && window.HOME_DATA){
       <div id="mvBody">${moversBoardBody()}</div>`;
   };
 
+  // Live-state hero (2026-07-23). Counts fixtures inside the next 48h and names
+  // the single largest probability move, so the top of the page changes daily
+  // instead of restating the product promise. Every part degrades on its own:
+  // if there are no fixtures in the window, or no movers, that clause is
+  // dropped rather than rendering a zero.
+  const liveStateHTML=()=>{
+    // local escape: escHTML/esc are scoped to other blocks in this file
+    const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const counts=[];
+    const now=Date.now(), horizon=now+48*3600*1000;
+    const soon=(H.fixtures||[]).filter(f=>{
+      const t=Date.parse(f.ko||f.date||'');
+      return Number.isFinite(t)&&t>=now&&t<=horizon;
+    }).length;
+    if(soon) counts.push(`<span class="n"><em>${soon}</em> ${soon===1?'match':'matches'} next 48h</span>`);
+    const lg=(H.stats||{}).leagues;
+    if(lg) counts.push(`<span class="n"><em>${lg}</em> leagues</span>`);
+    let mv='';
+    const top=((H.movers_board||{}).movers||[])[0];
+    if(top&&Number.isFinite(top.delta)&&Math.abs(top.delta)>=1){
+      const up=top.delta>0;
+      mv=`<div class="hx-live-r mv"><span class="n">Biggest move <em>${up?'▲':'▼'}${Math.abs(top.delta).toFixed(1)}</em> <b>${e(top.team)}</b> ${e(top.metric_label||'').toLowerCase()}</span></div>`;
+    }
+    if(!counts.length&&!mv) return '';
+    const row1=counts.length?`<div class="hx-live-r">${counts.join('<span class="sep">·</span>')}</div>`:'';
+    return `<div class="hx-live">${row1}${mv}</div>`;
+  };
+
   const moversBody=moversBoardHTML();
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`
     <div class="hx-wrap">
-    <div class="hx-tag"><h1>Title, qualification and relegation forecasts across world football.</h1></div>
+    <div class="hx-tag">${(()=>{const ls=liveStateHTML();return ls
+      ?`<h1 class="sr-only">Today on Entenser</h1>${ls}<p class="hx-sub">Market-blind football probabilities, explained and audited.</p>`
+      :`<h1>Title, qualification and relegation forecasts across world football.</h1>`;})()}</div>
     <div class="hx-b">
       ${stripHTML()}
     </div>
@@ -4322,6 +4454,17 @@ if(_isHome && window.HOME_DATA){
     <div class="hx-news"><div class="ed-sec">Around the Leagues</div><div class="hx-newsband">${(H.news||[]).slice(0,9).map(newsItem).join('')||'<div class="news-empty">No headlines right now.</div>'}</div></div>
   </div>`;
     // region-pill filter for the movers board (re-renders just #mvBody, no reload)
+    // Retract each strip's edge fade once it is scrolled to the end, and skip it
+    // entirely when the content already fits (desktop, or a thin fixture day).
+    target.querySelectorAll('.hx-strip').forEach(strip=>{
+      const sc=strip.querySelector('.hx-strip-scroll');
+      if(!sc) return;
+      const sync=()=>strip.classList.toggle('at-end',sc.scrollLeft>=sc.scrollWidth-sc.clientWidth-2);
+      sc.addEventListener('scroll',sync,{passive:true});
+      addEventListener('resize',sync,{passive:true});
+      sync();
+    });
+
     const mvPillsEl=$('.mv-pills');
     if(mvPillsEl){ mvPillsEl.addEventListener('click',e=>{
       const btn=e.target.closest('.mv-pill'); if(!btn) return;
