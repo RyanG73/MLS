@@ -36,6 +36,7 @@ jobs:
           node-version: '22'
       - name: Use runtime-only Python dependencies
         run: cp requirements-api.txt requirements.txt
+      - uses: astral-sh/setup-uv@v5
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
       - name: Pull production environment
