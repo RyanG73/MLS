@@ -272,7 +272,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .crest{width:26px;height:26px;border-radius:6px;flex:none;display:grid;place-items:center;position:relative;
   font-family:"Archivo";font-weight:700;font-size:9.5px;color:var(--txt-2);background:var(--ink-3);
   border:1px solid var(--line-2);overflow:hidden}
-.crest img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:2px;
+.crest img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
   background:#eef1f4;border-radius:5px}   /* light plate so dark-heavy crests (navy, black) stay visible on the dark theme */
 .crest:has(img) .mono{display:none}   /* logo present → hide fallback initials */
 
@@ -1197,8 +1197,8 @@ function teamGateCardHTML(team){
   // Intel (paywalled hub mockup) + Account replace the old News/Subscribe pair (2026-07-18)
   bar+=`<div class="mb-item"><a href="?league=intel" class="${_isIntel?'active':''}">\u{1F4E1} Intel<span class="intel-tag">PRO</span></a></div>`
       +`<div class="mb-item"><a href="?league=account" class="${_isAccount?'active':''}">\u{1F464} Account</a></div>`;
-  const live=(H&&H.fixtures&&H.fixtures.length)
-    ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">${H.fixtures.length} fixtures modeled in the next 10 days</a><span>· across ${H.stats.leagues} leagues</span></div>`:'';
+  const live=(H&&H.fixtures&&H.fixtures.length&&!_isLeagues)
+    ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">Upcoming: ${H.fixtures.length} fixtures projected</a><span>· ${H.stats.leagues} leagues</span></div>`:'';
   mast.innerHTML=`<div class="mast-top">
       <div class="mast-date">${dstr}${H?`<span>Updated ${H.generated}</span>`:''}</div>
       <a class="mast-wordmark" href="${location.pathname}"><img class="mast-moose" src="assets/branding/entenser-icon-light.png" alt="">Entenser</a>
@@ -3683,6 +3683,8 @@ if (_isPower && window.POWER_DATA) {
 }
 .eb-h{padding:9px 14px;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--line-2);background:var(--ink-2)}
 /* ── Leagues index page (sidebar's successor) ── */
+/* Coverage brag line (2026-07-19): the leagues index headline stat */
+.lx-brag{font-family:var(--serif);font-size:clamp(26px,7.4vw,44px);line-height:1.1;font-weight:800;letter-spacing:-.015em;color:var(--txt-1);padding:4px 2px 0;white-space:nowrap}
 .lx-grp{font-family:var(--serif);font-size:17px;font-weight:700;border-bottom:1px solid var(--line-3);padding:var(--s4) 0 6px;margin-bottom:2px}
 .lx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 20px}
 .lx-lg{display:flex;align-items:center;gap:9px;padding:9px 4px;font-size:13.5px;color:var(--txt-2);text-decoration:none;border-bottom:1px solid var(--line)}
@@ -3720,7 +3722,7 @@ if (_isPower && window.POWER_DATA) {
 .mv-col-h.up{color:var(--qualify)}
 .mv-col-h.down{color:#e25f4f}
 .mv-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-3)}
-.mv-row img{width:20px;height:20px;object-fit:contain;flex:none}
+.mv-row .crest{width:24px;height:24px;font-size:8.5px}
 .mv-row .nm{flex:1;min-width:0}
 .mv-row .nm b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mv-row .nm span{display:block;font-size:10.5px;color:var(--txt-3)}
@@ -3735,27 +3737,31 @@ if (_isPower && window.POWER_DATA) {
    fixtures carousel) → G (movers) → J (news band). Mobile reorders to
    E → C → B → F → G → J via grid-template-areas; D drops to the News tab. ── */
 .hx-wrap{padding-top:var(--s4);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:24px;row-gap:6px;
-  grid-template-areas:"b b" "table odds" "stories stories" "fix fix" "movers movers" "news news"}
-.hx-b{grid-area:b}.hx-table{grid-area:table}.hx-odds{grid-area:odds}
+  grid-template-areas:"tag tag" "b b" "table odds" "stories stories" "fix fix" "movers movers" "news news"}
+.hx-tag{grid-area:tag}.hx-b{grid-area:b}.hx-table{grid-area:table}.hx-odds{grid-area:odds}
 .hx-stories{grid-area:stories}.hx-fix{grid-area:fix}.hx-movers{grid-area:movers}.hx-news{grid-area:news}
-/* B: compact promise + results strip */
-.hx-promise{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:2px 2px 4px}
-.hx-promise h1{font-size:clamp(19px,2.6vw,26px);line-height:1.22;font-weight:800;letter-spacing:-.01em;margin:0;max-width:26ch}
-.hx-promise p{color:var(--txt-2);font-size:12.5px;line-height:1.5;margin:4px 0 0;max-width:64ch}
-.hx-promise .cta{font-size:12.5px;font-weight:600;color:var(--qualify);text-decoration:none;white-space:nowrap}
-.hx-promise .cta:hover{text-decoration:underline}
+/* Tagline (2026-07-19: signature serif headline, balanced across two full
+   lines; the old promise paragraph + recap CTA are gone) */
+.hx-tag h1{font-family:var(--serif);font-size:clamp(21px,2.9vw,34px);line-height:1.16;font-weight:800;letter-spacing:-.012em;margin:0;color:var(--txt-1);padding:2px 2px 0;text-wrap:balance;max-width:17.6em}
 .hx-strip{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 8px;margin-top:10px}
-.hx-strip-scroll{display:flex;gap:14px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
+.hx-strip-scroll{display:flex;gap:10px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
 .hx-day{flex:none}
 .hx-dh{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);border-bottom:1px solid var(--line-3);padding-bottom:5px;margin-bottom:8px;white-space:nowrap}
-.hx-cards{display:flex;gap:8px}
-.hx-scard{flex:none;width:128px;background:var(--ink-2);border-radius:var(--r-md);padding:9px 8px 7px;text-align:center;text-decoration:none;color:inherit}
+.hx-cards{display:flex;gap:6px}
+/* Result / fixture cards (2026-07-19 sketch): league-name header, then one
+   row per team — crest left, score (or win% + fair odds) tight beside it. */
+.hx-scard{flex:none;width:64px;background:var(--ink-2);border-radius:var(--r-md);padding:5px 6px 4px;text-decoration:none;color:inherit}
 .hx-scard:hover{background:var(--ink-3)}
-.hx-scard .t{display:flex;align-items:center;justify-content:center;gap:6px}
-.hx-scard .t img{width:18px;height:18px;object-fit:contain}
-.hx-scard .ft{font-size:8px;font-weight:800;color:var(--txt-3);background:var(--ink-0);border-radius:3px;padding:2px 4px}
-.hx-scard .sc{font-family:var(--mono);font-weight:700;font-size:13.5px;margin-top:6px}
-.hx-scard .lg{font-size:8.5px;color:var(--txt-3);margin-top:3px;text-transform:uppercase;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-scard .lg{display:block;font-size:8px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;text-align:center;border-bottom:1px solid var(--line-3);padding-bottom:3px;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-scard .tr{display:flex;align-items:center;justify-content:flex-start;gap:6px;padding:3px 0}
+.hx-scard .tr+.tr{border-top:1px solid var(--line)}
+.hx-scard .tr .crest{width:22px;height:22px;font-size:8px}
+.hx-scard .tr b{font-family:var(--mono);font-weight:700;font-size:13px}
+.hx-scard.fx{width:104px}
+.hx-scard.fx .p{display:flex;align-items:baseline;gap:4px}
+.hx-scard.fx .p b{font-size:12px}
+.hx-scard.fx .p .o{font-family:var(--mono);font-size:9px;color:var(--txt-3)}
+.hx-scard.fx .drw{font-family:var(--mono);font-size:8.5px;color:var(--txt-3);text-align:center;border-top:1px solid var(--line-3);padding-top:3px;margin-top:1px;white-space:nowrap}
 .hx-strip-foot{text-align:right;margin-top:6px}
 .hx-strip-foot a{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--qualify);text-decoration:none}
 /* C: rotating league table · E: synced title-odds board */
@@ -3769,21 +3775,21 @@ if (_isPower && window.POWER_DATA) {
 .hx-tbl td{padding:5px 6px;border-bottom:1px solid var(--line)}
 .hx-tbl tr:last-child td{border-bottom:none}
 .hx-tbl td.tm{display:flex;align-items:center;gap:7px;font-weight:600}
-.hx-tbl td.tm img{width:17px;height:17px;object-fit:contain}
+.hx-tbl td.tm .crest{width:20px;height:20px;font-size:7.5px}
 .hx-tbl td.r{font-family:var(--mono)}
 .hx-tbl td.pct b{color:var(--qualify)}
 .hx-dots{display:flex;gap:5px;align-items:center;justify-content:center;margin-top:10px}
 .hx-dots i{width:6px;height:6px;border-radius:50%;background:var(--ink-3);cursor:pointer;transition:all .15s}
 .hx-dots i.on{background:var(--txt-1);width:16px;border-radius:3px}
-.hx-erow{display:flex;align-items:center;gap:9px;padding:8px 8px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;border-radius:var(--r-sm);cursor:pointer}
+.hx-erow{display:flex;align-items:center;gap:9px;padding:5px 8px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;border-radius:var(--r-sm);cursor:pointer}
 .hx-erow:last-child{border-bottom:none}
 .hx-erow:hover{background:var(--ink-2)}
 .hx-erow.on{background:var(--ink-2);box-shadow:inset 2px 0 0 var(--qualify)}
-.hx-erow .lg{font-family:var(--mono);font-size:9.5px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;width:92px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hx-erow img{width:18px;height:18px;object-fit:contain}
+.hx-erow .lg{font-family:var(--mono);font-size:9.5px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;width:58px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-erow .crest{width:22px;height:22px;font-size:8px}
 .hx-erow .nm{flex:1;font-size:12.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hx-erow b{font-family:var(--mono);font-size:13.5px}
-.hx-erow .lab{font-size:9px;color:var(--txt-3)}
+.hx-erow b{font-family:var(--mono);font-size:13px}
+.hx-erow .nm.soon{font-weight:500;font-size:11px;color:var(--txt-3);font-style:italic}
 /* D: personalized stories + on-ramp */
 .hx-onramp{display:flex;align-items:center;gap:10px;border:1px solid var(--qualify);background:rgba(61,220,132,.07);border-radius:var(--r-md);padding:9px 13px;margin:8px 0 4px;font-size:12.5px;line-height:1.45}
 .hx-onramp a{color:var(--qualify);font-weight:700}
@@ -3799,23 +3805,14 @@ if (_isPower && window.POWER_DATA) {
 .hx-caro-head b{font-size:14.5px}
 .hx-caro-head span{font-size:10.5px;color:var(--txt-3)}
 .hx-caro{display:flex;gap:12px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
-.hx-fixcard{flex:none;width:216px;border:1px solid var(--line-2);border-radius:var(--r-md);background:var(--ink-1);padding:10px 11px;text-decoration:none;color:inherit}
-.hx-fixcard:hover{border-color:var(--line-3)}
-.hx-fixcard .t{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;flex-wrap:wrap}
-.hx-fixcard .t img{width:16px;height:16px;object-fit:contain}
-.hx-fixcard .t .vs{color:var(--txt-3);font-weight:400;font-size:10.5px}
-.hx-fixcard .cbar{margin-top:7px}
-.hx-fix-odds{display:flex;justify-content:space-between;margin-top:4px;font-family:var(--mono);font-size:10px;color:var(--txt-3)}
-.hx-fixcard .m{font-size:10px;color:var(--txt-3);margin-top:5px;font-family:var(--mono)}
 /* J: broad news band */
 .hx-newsband{display:grid;grid-template-columns:repeat(3,1fr);gap:0 24px;margin-top:2px}
 @media(max-width:900px){
   .hx-wrap{grid-template-columns:minmax(0,1fr);column-gap:0;
-    grid-template-areas:"odds" "table" "b" "fix" "movers" "news"}
+    grid-template-areas:"tag" "odds" "table" "b" "fix" "movers" "news"}
   .hx-stories{display:none}  /* D lives behind the News tab on mobile */
   .hx-cols,.hx-newsband{grid-template-columns:1fr}
-  .hx-erow .lg{width:70px}
-  .hx-promise h1{font-size:18px}
+  .hx-tag h1{font-size:19.5px}
 }
 .eb-row{padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer}
 .eb-row:hover{background:var(--ink-2)}
@@ -3853,6 +3850,22 @@ if (_isPower && window.POWER_DATA) {
 .cal-row .t img{width:15px;height:15px;object-fit:contain;flex:none}
 .cal-row .sc{font-family:var(--mono);font-weight:700;font-size:12.5px;flex:none;width:36px;text-align:center}
 @media(min-width:901px){.cal-box{width:74px;padding:10px 6px}.cal-num{font-size:20px}}
+/* Matches-tab match cards (2026-07-19): home-tab card format + team names —
+   league subheader groups, kickoff time above each match. */
+.mx-lg{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);margin:14px 0 6px;border-bottom:1px solid var(--line-3);padding-bottom:4px}
+.mx-cards{display:flex;flex-direction:column;gap:6px}
+.mxcard{width:100%;max-width:520px;background:var(--ink-2);border-radius:var(--r-md);padding:5px 10px 4px;text-decoration:none;color:inherit}
+.mxcard:hover{background:var(--ink-3)}
+.mxcard .ko{font-family:var(--mono);font-size:8.5px;letter-spacing:.04em;color:var(--txt-3);text-align:center;text-transform:uppercase;border-bottom:1px solid var(--line-3);padding-bottom:3px;margin-bottom:1px}
+.mxcard .tr{display:flex;align-items:center;gap:6px;padding:3px 0}
+.mxcard .tr+.tr{border-top:1px solid var(--line)}
+.mxcard .tr .crest{width:22px;height:22px;font-size:8px}
+.mxcard .tr .nm{flex:1;min-width:0;font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mxcard .tr .p{display:flex;align-items:baseline;gap:4px}
+.mxcard .tr .p b{font-family:var(--mono);font-weight:700;font-size:12.5px}
+.mxcard .tr .p .o{font-family:var(--mono);font-size:9px;color:var(--txt-3)}
+.mxcard .tr b{font-family:var(--mono);font-weight:700;font-size:12.5px}
+.mxcard .drw{font-family:var(--mono);font-size:8.5px;color:var(--txt-3);text-align:center;border-top:1px solid var(--line-3);padding-top:3px;margin-top:1px;white-space:nowrap}
 </style>
 <script>
 // ── B12: cross-league edge board (pinned sidebar item, the no-?league= landing view).
@@ -4014,25 +4027,28 @@ const _LEAGUE_POP=['epl','la-liga','serie-a','bundesliga','ligue-1','mls','liga-
   'championship','eredivisie','primeira','brazil-serie-a','argentina-primera',
   'scottish-prem','belgian-pro','super-lig','japan-j1','saudi-pro'];
 const _popKey=lid=>{const i=_LEAGUE_POP.indexOf(lid);return i<0?_LEAGUE_POP.length:i;};
-function _koLbl(g){
-  if(g.result!=null) return `${g.hg}–${g.ag}`;
-  if(!g.ko) return 'v';
+// ── Match cards (2026-07-19 redesign): the home tab's stacked card — kickoff
+//    time above the match, then one row per team: crest · name · % + fair
+//    odds (upcoming) or score (played), draw on a slim footer. ──
+function _koTime(g){
+  if(!g.ko){ return g.result!=null?'FT':'TBD'; }
   const d=new Date(g.ko);
-  return isNaN(d)?'v':d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).replace(' ','');
+  if(isNaN(d)) return g.result!=null?'FT':'TBD';
+  const t=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  return g.result!=null?`FT · ${t}`:t;
 }
-function fxRow(g){
-  const upcoming=g.result==null, hasP=g.pH!=null;
-  const edge=window._EDGE_LOOKUP&&window._EDGE_LOOKUP[`${g.league}|${g.home}|${g.away}`];
-  const cap=[g.name,
-    edge&&edge.bet?`<span class="edge">▲ ${edge.bet.edge_pct.toFixed(1)}% edge ${edge.bet.side==='H'?'Home':'Away'}</span>`:null,
-    upcoming&&g.lam!=null&&g.mu!=null?`proj. ${topScorelines(g.lam,g.mu,1).split(' ')[0]}`:null,
-  ].filter(Boolean).join(' · ');
-  return `<div class="fx-row" data-exp="${upcoming&&g.lam!=null?1:''}">
-    <div class="fx-line"><span class="hm">${g.home}</span>${crest(g.home,g.hlogo)}<span class="tm">${_koLbl(g)}</span>${crest(g.away,g.alogo)}<span class="aw">${g.away}</span></div>
-    ${upcoming&&hasP?`<div class="fx-mid">${cbar(g)}<div class="fx-odds"><span>${oddsHTML(g.pH)}</span><span>${oddsHTML(g.pD)}</span><span>${oddsHTML(g.pA)}</span></div></div>`:''}
-    <div class="fx-cap">${cap}</div>
-    ${upcoming&&g.lam!=null&&g.mu!=null?`<div class="fx-expand">Likely scorelines: ${topScorelines(g.lam,g.mu,3)}</div>`:''}
-  </div>`;
+function mxCard(g){
+  const up=g.result==null, hasP=g.pH!=null;
+  const pc=p=>p==null?'—':`${Math.round(p*100)}%`;
+  const line=(team,logo,val,odds)=>`<div class="tr">${crest(team,logo)}<span class="nm">${team}</span>
+    <span class="p"><b>${val}</b>${odds?`<span class="o">${odds}</span>`:''}</span></div>`;
+  const body=up&&hasP
+    ? line(g.home,g.hlogo,pc(g.pH),oddsHTML(g.pH))
+      +line(g.away,g.alogo,pc(g.pA),oddsHTML(g.pA))
+      +`<div class="drw">draw ${pc(g.pD)} · ${oddsHTML(g.pD)}</div>`
+    : line(g.home,g.hlogo,g.hg??'—')+line(g.away,g.alogo,g.ag??'—');
+  return `<a class="mxcard" href="?league=${g.league}" title="${g.home} v ${g.away}">
+    <div class="ko">${_koTime(g)}</div>${body}</a>`;
 }
 function calStripHTML(){
   const CD=window.CALENDAR_DATA;
@@ -4055,13 +4071,22 @@ function calDayListHTML(){
   if(!CD||!calDay) return '';
   const rows=[...(CD.days[calDay]||[])];
   if(!rows.length) return '<div class="eb-empty">No matches this day across active leagues.</div>';
-  // Favorites first (team pin beats league pin), then league popularity, then kickoff.
+  // Day → league groups → chronological by kickoff (2026-07-19 feedback).
+  // League order: favorites first (team pin beats league pin), then popularity.
   const favL=FavStore.leagues(), favT=FavStore.teams();
   const favKey=g=>favT.some(t=>t.league===g.league&&(t.team===g.home||t.team===g.away))?0:favL.has(g.league)?1:2;
-  rows.sort((a,b)=>favKey(a)-favKey(b)||_popKey(a.league)-_popKey(b.league)||String(a.ko||'').localeCompare(String(b.ko||'')));
+  const groups=[];
+  rows.forEach(g=>{
+    let gr=groups.find(x=>x.id===g.league);
+    if(!gr){ gr={id:g.league,name:g.name,fav:2,games:[]}; groups.push(gr); }
+    gr.fav=Math.min(gr.fav,favKey(g)); gr.games.push(g);
+  });
+  groups.sort((a,b)=>a.fav-b.fav||_popKey(a.id)-_popKey(b.id));
+  groups.forEach(gr=>gr.games.sort((a,b)=>String(a.ko||'').localeCompare(String(b.ko||''))));
   const dt=new Date(calDay+'T12:00');
   const lbl=dt.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
-  return `<div class="fxp-day">${lbl}</div>${rows.map(fxRow).join('')}`;
+  return `<div class="fxp-day">${lbl}</div>`+groups.map(gr=>
+    `<div class="mx-lg">${gr.name}</div><div class="mx-cards">${gr.games.map(mxCard).join('')}</div>`).join('');
 }
 if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   const seg=$('#seg'); if(seg) seg.style.display='none';
@@ -4092,7 +4117,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   if(target){
     target.classList.remove('hidden');
     target.innerHTML=`
-    <div class="eb-panel" style="margin-top:var(--s4)"><div class="eb-h">Browse by day · built ${EB.generated}</div>${calStripHTML()}<div id="calList" class="fx-panel">${calDayListHTML()}</div></div>
+    <div class="eb-panel" style="margin-top:var(--s4)">${calStripHTML()}<div id="calList" class="fx-panel">${calDayListHTML()}</div></div>
     <div class="mxp-two">
       <div class="mxp-card">
         <div class="eb-h" style="padding:0 0 8px">Weekly model movement, in your inbox</div>
@@ -4120,12 +4145,6 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
       const activeBox=calStripEl.querySelector('.cal-box.active');
       if(activeBox) calStripEl.scrollLeft=activeBox.offsetLeft-calStripEl.clientWidth/2+activeBox.clientWidth/2;
     }
-    // fixture row click → expand likely scorelines
-    const listEl=$('#calList');
-    if(listEl) listEl.addEventListener('click',e=>{
-      const row=e.target.closest('.fx-row'); if(!row||!row.dataset.exp) return;
-      row.classList.toggle('open'); track('match_expand',{route:'matches'});
-    });
     // ticker rotation — 5s, cross-fade via opacity
     const tk=$('#mxTicker');
     if(tk&&MV.length>1) setInterval(()=>{
@@ -4156,9 +4175,10 @@ if(_isHome && window.HOME_DATA){
     const dLbl=iso=>new Date(iso+'T12:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
     const days=[...byDate.entries()].map(([date,games])=>
       `<div class="hx-day"><div class="hx-dh">${dLbl(date)}</div><div class="hx-cards">${
-        games.map(g=>`<a class="hx-scard" href="?league=${g.league}">
-          <div class="t">${crest(g.home,g.hlogo)}<span class="ft">FT</span>${crest(g.away,g.alogo)}</div>
-          <div class="sc">${g.hg}–${g.ag}</div><div class="lg">${g.name}</div></a>`).join('')}</div></div>`).join('');
+        games.map(g=>`<a class="hx-scard" href="?league=${g.league}" title="${g.home} ${g.hg}–${g.ag} ${g.away}">
+          <div class="lg">${g.name}</div>
+          <div class="tr">${crest(g.home,g.hlogo)}<b>${g.hg}</b></div>
+          <div class="tr">${crest(g.away,g.alogo)}<b>${g.ag}</b></div></a>`).join('')}</div></div>`).join('');
     return `<div class="hx-strip"><div class="hx-strip-scroll">${days}</div>
       <div class="hx-strip-foot"><a href="?league=command">All results →</a></div></div>`;
   };
@@ -4169,19 +4189,38 @@ if(_isHome && window.HOME_DATA){
   const T=H.tables||[];
   let tIdx=0;
   const tableHTML=t=>{
+    const gd=v=>v==null?'—':(v>0?`+${v}`:`${v}`);
     const rows=t.rows.map((r,i)=>`<tr><td class="r" style="color:var(--txt-3)">${i+1}</td>
       <td class="tm">${crest(r.team,r.logo)}${r.team}</td>
       <td class="r">${r.pts??'—'}</td>
+      <td class="r">${gd(r.gd)}</td>
       <td class="r pct"><b>${r.pct}%</b></td></tr>`).join('');
     return `<div class="hx-th"><b>${t.name}</b><span>${t.preseason?'preseason projection':(t.season_label||'auto-rotates')}</span></div>
-      <table class="hx-tbl"><tr><th class="r">#</th><th>Club</th><th class="r">Pts</th><th class="r">${t.metric_label} %</th></tr>${rows}</table>
+      <table class="hx-tbl"><tr><th class="r">#</th><th>Club</th><th class="r">Pts</th><th class="r">GD</th><th class="r">${t.metric_label} %</th></tr>${rows}</table>
       <div class="hx-dots">${T.map((_,i)=>`<i class="${i===tIdx?'on':''}" data-i="${i}"></i>`).join('')}</div>`;
+  };
+  // Board rows drop the metric label after the % (2026-07-19 feedback: "it is
+  // implied to be the title") and gain a UCL row pinned under Ligue 1 — a
+  // plain link, not part of the table rotation. Between seasons ucl_board.pct
+  // is null → "new season odds coming soon" indicator.
+  // Board rows label by country, not league name (2026-07-19 feedback) —
+  // country comes from the leagues.js registry, with two display overrides.
+  const ctry=id=>({mls:'USA',ucl:'UEFA CL'})[id]
+    ||(((window.LEAGUES||[]).find(x=>x.id===id)||{}).country)||id;
+  const uclRowHTML=()=>{
+    const u=H.ucl_board; if(!u) return '';
+    const body=u.pct!=null
+      ?`${crest(u.team,u.logo)}<span class="nm">${u.team}</span><b>${u.pct}%</b>`
+      :`<span class="nm soon">New season odds coming soon</span>`;
+    return `<a class="hx-erow" href="?league=ucl" title="Open ${u.name}">
+      <span class="lg">${ctry('ucl')}</span>${body}</a>`;
   };
   const boardHTML=()=>T.map((t,i)=>{
     const lead=t.rows.reduce((a,b)=>(b.pct>a.pct?b:a),t.rows[0]||{});
     return `<div class="hx-erow${i===tIdx?' on':''}" data-i="${i}" title="Show ${t.name} table">
-      <span class="lg">${t.name}</span>${crest(lead.team,lead.logo)}
-      <span class="nm">${lead.team}</span><b>${lead.pct}%</b><span class="lab">${t.metric_label}</span></div>`;
+      <span class="lg">${ctry(t.league)}</span>${crest(lead.team,lead.logo)}
+      <span class="nm">${lead.team}</span><b>${lead.pct}%</b></div>`
+      +(t.league==='ligue-1'?uclRowHTML():'');
   }).join('');
 
   // ── D: personalized stories (FavStore pins) + World Cup on-ramp. No pins →
@@ -4200,31 +4239,40 @@ if(_isHome && window.HOME_DATA){
     <div><div class="hx-colh">${hasFavs&&pers.length?'★ Your teams & leagues':'⭐ Top stories'}</div>${persCol.map(newsItem).join('')||'<div class="news-empty">No stories yet.</div>'}</div>
     <div><div class="hx-colh">🌍 Around the world</div>${globCol.map(newsItem).join('')||'<div class="news-empty">No stories yet.</div>'}</div></div>`;
 
-  // ── F: full-width fixtures carousel — one league per slide, auto-advances
-  //    every few seconds, pauses on hover, dots jump leagues ──
-  const fxByLg=[];
-  (H.fixtures||[]).forEach(f=>{const g=fxByLg.find(x=>x.id===f.league);
-    g?g.fx.push(f):fxByLg.push({id:f.league,name:f.name,fx:[f]});});
-  let fIdx=0;
-  const fixCard=f=>{const sc=(f.lam!=null&&f.mu!=null)?topScorelines(f.lam,f.mu,1):null;
-    const d=new Date(f.date+'T12:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
-    return `<a class="hx-fixcard" href="?league=${f.league}">
-      <div class="t">${crest(f.home,f.hlogo)}${f.home}<span class="vs">v</span>${crest(f.away,f.alogo)}${f.away}</div>
-      ${cbar(f)}
-      <div class="hx-fix-odds"><span>${oddsHTML(f.pH)}</span><span>${oddsHTML(f.pD)}</span><span>${oddsHTML(f.pA)}</span></div>
-      <div class="m">${d}${sc?` · proj. ${sc.split(' ')[0]}`:''}</div></a>`;};
-  const caroHTML=()=>{
-    if(!fxByLg.length) return '<div class="news-empty">No fixtures modeled in the next 10 days.</div>';
-    const cur=fxByLg[fIdx], nxt=fxByLg[(fIdx+1)%fxByLg.length];
-    return `<div class="hx-caro-head"><b>${cur.name} — upcoming</b>${fxByLg.length>1?`<span>next: ${nxt.name} →</span>`:''}</div>
-      <div class="hx-caro">${cur.fx.map(fixCard).join('')}</div>
-      <div class="hx-dots">${fxByLg.map((_,i)=>`<i class="${i===fIdx?'on':''}" data-i="${i}"></i>`).join('')}</div>`;
+  // ── F: upcoming-matches strip — same day→card format as the results strip
+  //    (2026-07-19 feedback: "format the same way as results"), but each team
+  //    row carries the model's win % + fair odds instead of a score, with the
+  //    draw on a slim footer line. Replaces the one-league-per-slide carousel. ──
+  const pctStr=p=>p==null?'—':`${Math.round(p*100)}%`;
+  const fxCard=f=>`<a class="hx-scard fx" href="?league=${f.league}" title="${f.home} v ${f.away}">
+    <div class="lg">${f.name}</div>
+    <div class="tr">${crest(f.home,f.hlogo)}<span class="p"><b>${pctStr(f.pH)}</b><span class="o">${oddsHTML(f.pH)}</span></span></div>
+    <div class="tr">${crest(f.away,f.alogo)}<span class="p"><b>${pctStr(f.pA)}</b><span class="o">${oddsHTML(f.pA)}</span></span></div>
+    <div class="drw">draw ${pctStr(f.pD)} · ${oddsHTML(f.pD)}</div></a>`;
+  const fxStripHTML=()=>{
+    // Key matches only (2026-07-19 feedback): the board's top leagues, sorted
+    // by date then league prominence. If none of them play in the window
+    // (e.g. deep offseason) fall back to the full modeled slate.
+    const FX_TOP=['epl','la-liga','serie-a','bundesliga','ligue-1','ucl',
+      'mls','liga-mx','brazil-serie-a'];
+    const pool=(H.fixtures||[]).filter(f=>FX_TOP.includes(f.league));
+    const rows=pool.length?pool:(H.fixtures||[]);
+    if(!rows.length) return '<div class="news-empty">No fixtures modeled in the next 10 days.</div>';
+    const lgIdx=l=>{const i=FX_TOP.indexOf(l);return i<0?FX_TOP.length:i;};
+    const byDate=new Map();
+    [...rows].sort((a,b)=>a.date!==b.date?(a.date<b.date?-1:1):lgIdx(a.league)-lgIdx(b.league))
+      .forEach(f=>{ (byDate.get(f.date)||byDate.set(f.date,[]).get(f.date)).push(f); });
+    const dLbl=iso=>new Date(iso+'T12:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
+    const days=[...byDate.entries()].map(([date,fx])=>
+      `<div class="hx-day"><div class="hx-dh">${dLbl(date)}</div><div class="hx-cards">${fx.map(fxCard).join('')}</div></div>`).join('');
+    return `<div class="hx-strip"><div class="hx-strip-scroll">${days}</div>
+      <div class="hx-strip-foot"><a href="?league=command">All matches →</a></div></div>`;
   };
 
   // ── 1.2 "My matchday": this week's matches for pinned teams, closest races
   //    first (closeness = 1-|pH-pA|; the cross-league half of leverageScore,
   //    since the home payload carries no per-league rank map). No pins / no
-  //    matches → the whole panel is omitted. Reuses fixCard for visual parity. ──
+  //    matches → the whole panel is omitted. Reuses fxCard for visual parity. ──
   const _mmPins=FavStore.teams();
   const _mmInWeek=f=>{const dd=(new Date(f.date+'T12:00')-Date.now())/864e5;return dd>-1&&dd<8;};
   const myFx=(H.fixtures||[])
@@ -4233,7 +4281,7 @@ if(_isHome && window.HOME_DATA){
     .slice(0,6);
   const myMatchdayHTML=myFx.length
     ?`<div class="hx-caro-head"><b>★ My matchday</b><span>your pinned clubs · closest races first</span></div>
-      <div class="hx-caro">${myFx.map(fixCard).join('')}</div>`
+      <div class="hx-caro">${myFx.map(fxCard).join('')}</div>`
     :'';
 
   // ── Biggest Movers board (2026-07-13 feedback: "stock up/down of the three
@@ -4262,18 +4310,14 @@ if(_isHome && window.HOME_DATA){
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`
     <div class="hx-wrap">
+    <div class="hx-tag"><h1>Title, qualification and relegation forecasts across world football.</h1></div>
     <div class="hx-b">
-      <div class="hx-promise">
-        <div><h1>Title, qualification and relegation forecasts across world football.</h1>
-        <p>No bookmaker odds in the model — forecasts are built from results, expected goals and team strength. Every call is graded in public, hits and misses alike.</p></div>
-        <a class="cta" href="/weekly/">This week's recap →</a>
-      </div>
       ${stripHTML()}
     </div>
     <div class="hx-table"><div class="ed-sec">League Tables</div><div class="hx-card" id="hxTable">${T.length?tableHTML(T[tIdx]):'<div class="news-empty">League tables arrive with the next data build.</div>'}</div></div>
     <div class="hx-odds"><div class="ed-sec">Title Odds</div><div class="hx-card" id="hxBoard" style="padding:6px 8px">${T.length?boardHTML():'<div class="news-empty">Title odds arrive with the next data build.</div>'}</div></div>
     <div class="hx-stories"><div class="ed-sec">Your Stories</div>${storiesHTML}</div>
-    <div class="hx-fix">${myMatchdayHTML?`<div class="ed-sec">★ My Matchday</div><div class="hx-card" style="margin-bottom:16px" id="myMatchday">${myMatchdayHTML}</div>`:''}<div class="ed-sec">Upcoming Matches</div><div id="hxCaro">${caroHTML()}</div></div>
+    <div class="hx-fix">${myMatchdayHTML?`<div class="ed-sec">★ My Matchday</div><div class="hx-card" style="margin-bottom:16px" id="myMatchday">${myMatchdayHTML}</div>`:''}<div class="ed-sec">Upcoming Matches</div><div id="hxCaro">${fxStripHTML()}</div></div>
     <div class="hx-movers">${moversBody?`<div class="ed-sec">Biggest Movers</div>${moversBody}`:''}</div>
     <div class="hx-news"><div class="ed-sec">Around the Leagues</div><div class="hx-newsband">${(H.news||[]).slice(0,9).map(newsItem).join('')||'<div class="news-empty">No headlines right now.</div>'}</div></div>
   </div>`;
@@ -4300,16 +4344,6 @@ if(_isHome && window.HOME_DATA){
           tGo(+d.dataset.i); track('home_table_jump',{league:T[tIdx].league}); }); });
       if(T.length>1) setInterval(()=>{ if(!tPaused) tGo(tIdx+1); },6000);
     }
-    // ── F rotation: one league per slide, 7s auto-advance, hover pauses ──
-    const caroEl=$('#hxCaro');
-    let fPaused=false;
-    if(caroEl&&fxByLg.length){
-      caroEl.addEventListener('mouseenter',()=>fPaused=true);
-      caroEl.addEventListener('mouseleave',()=>fPaused=false);
-      caroEl.addEventListener('click',e=>{ const d=e.target.closest('.hx-dots [data-i]'); if(!d) return;
-        fIdx=+d.dataset.i; caroEl.innerHTML=caroHTML(); });
-      if(fxByLg.length>1) setInterval(()=>{ if(!fPaused){ fIdx=(fIdx+1)%fxByLg.length; caroEl.innerHTML=caroHTML(); } },7000);
-    }
   }
 }
 
@@ -4328,11 +4362,10 @@ if(_isLeagues){
     const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
     const link=l=>`<a class="lx-lg" href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':dsTag(l)}<span class="lx-star${favs.has(l.id)?' on':''}" data-lid="${l.id}" title="${favs.has(l.id)?'Unpin':'Pin to favorites'}">${favs.has(l.id)?'★':'☆'}</span></a>`;
     const favLg=(window.LEAGUES||[]).filter(l=>favs.has(l.id));
-    // Honest coverage count (launch plan B2): full-forecast leagues are the
-    // headline number; results-only/archive leagues are tracked, not projected.
-    const _all=window.LEAGUES||[], _full=_all.filter(l=>l.status==='live'&&(l.data_status||'full_forecast')==='full_forecast').length;
+    // Headline coverage stat (2026-07-19 feedback): one big brag line.
+    const _all=window.LEAGUES||[];
     let html='<div class="ed-wrap">';
-    html+=`<div style="color:var(--txt-3);font-size:12px;padding:2px 4px 0">${_all.length} competitions tracked · ${_full} with full live forecasts · the rest labeled results-only or archive</div>`;
+    html+=`<div class="lx-brag">${_all.length} competitions tracked</div>`;
     if(favLg.length) html+=`<div class="lx-grp">★ Favorites</div><div class="lx-grid">${favLg.map(link).join('')}</div>`;
     GROUP_ORDER.forEach(([g,flag])=>{ if(!groups[g]||!groups[g].length) return;
       html+=`<div class="lx-grp">${flag} ${g==='Other Europe'?'Europe':g}</div><div class="lx-grid">${groups[g].map(link).join('')}</div>`;});

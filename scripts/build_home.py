@@ -268,12 +268,43 @@ def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
 
 
 # The 8 leagues the redesigned home rotates through (C: table snapshot, E: title
-# odds board, 2026-07-17 redesign): top-5 Europe + Liga MX + MLS + Brasileirão.
+# odds board, 2026-07-17 redesign): top-5 Europe + MLS + Liga MX + Brasileirão.
+# (MLS ahead of Liga MX per 2026-07-19 home feedback.)
 _FEATURED = ["epl", "la-liga", "serie-a", "bundesliga", "ligue-1",
-             "liga-mx", "mls", "brazil-serie-a"]
+             "mls", "liga-mx", "brazil-serie-a"]
 
 
-def build_tables(files: list[tuple[str, dict]], top_n: int = 6) -> list[dict]:
+def build_ucl_board() -> dict:
+    """Title-odds board entry for the UEFA Champions League (2026-07-19 home
+    feedback: UCL belongs on the board under Ligue 1). Cups are excluded from
+    _live_league_files, so read ucl.js directly. Between seasons — completed
+    knockout, no outlook cards — `pct` stays None and the client renders a
+    "new season odds coming soon" indicator instead of a leader row."""
+    entry = {"league": "ucl", "name": "Champions League", "team": None,
+             "logo": None, "metric_label": "Champion", "pct": None,
+             "season_label": ""}
+    d = _load(DATA / "ucl.js")
+    if not d:
+        return entry
+    entry["name"] = (d.get("league") or {}).get("name", entry["name"])
+    outlook = d.get("outlook") or {}
+    entry["season_label"] = outlook.get("season_label", "")
+    cards = outlook.get("cards") or []
+    st = d.get("standings") or []
+    if not cards or not st or d.get("status") == "completed":
+        return entry
+    metric = cards[0]["key"]
+    ranked = sorted(st, key=lambda t: -float(t.get(metric, 0) or 0))
+    top = ranked[0]
+    entry.update({
+        "team": top.get("team"), "logo": top.get("logo"),
+        "metric_label": cards[0].get("label", metric.title()),
+        "pct": round(float(top.get(metric, 0) or 0), 1),
+    })
+    return entry
+
+
+def build_tables(files: list[tuple[str, dict]], top_n: int = 10) -> list[dict]:
     """Standings slice per featured league for the home page's rotating table.
     Rows ordered by actual points (projected headline metric as tiebreak, which
     also covers preseason when everyone is on 0)."""
@@ -300,7 +331,7 @@ def build_tables(files: list[tuple[str, dict]], top_n: int = 6) -> list[dict]:
             "season_label": (d.get("outlook") or {}).get("season_label", ""),
             "rows": [{"team": t.get("team"), "logo": t.get("logo"),
                       "color": t.get("color"), "pts": t.get("pts"),
-                      "gp": t.get("gp"),
+                      "gp": t.get("gp"), "gd": t.get("gd"),
                       "pct": round(float(t.get(metric, 0) or 0), 1)}
                      for t in ranked[:top_n]],
         })
@@ -360,6 +391,7 @@ def main() -> None:
         "movers_board": build_movers_board(files),
         "recent_results": build_recent_results(files),
         "tables": build_tables(files),
+        "ucl_board": build_ucl_board(),
         "fixtures": build_fixtures(files, limit=96, per_league=8),
         "news": build_news(),
     }

@@ -29,7 +29,7 @@
 //   hub replace News + Subscribe in the nav; team pages gated behind Intel.
 // v12 (2026-07-19): email-capture POST, waitlist annual toggle + upsells,
 //   My matchday, shareable scenarios, sparklines, race history (roadmap Phase 1).
-const CACHE = "entenser-shell-v12";
+const CACHE = "entenser-shell-v13";
 const SHELL = [
   "/",
   "/index.html",

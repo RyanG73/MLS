@@ -2,6 +2,64 @@
 
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
+> - 2026-07-19 (6): **Leagues tab (user-directed).** Masthead "Upcoming: N
+>   fixtures projected · N leagues" ticker suppressed on `?league=leagues`
+>   only; the small honest-coverage line ("N competitions tracked · N with
+>   full live forecasts · …", launch plan B2) replaced by a serif brag
+>   headline "56 competitions tracked" (`.lx-brag`, clamp 26px→44px) that
+>   spans the full row (343/343px at 375px). Verified mobile: no ticker, no
+>   overflow, no console errors.
+> - 2026-07-19 (5): **Matches tab redesign (user-directed, continuing the
+>   premium-site mobile sweep).** The PL-style `fxRow` axis rows (+ click-to-
+>   expand scorelines and edge captions) are replaced by `mxCard` — the home
+>   tab's stacked card with team names between crest and %/score, kickoff time
+>   (or FT) above each match, and the draw on a slim footer. Day list now
+>   groups by league (favorites first, then `_LEAGUE_POP`), chronological by
+>   kickoff within a league; cards flow 2-up at 375px (flex-basis 148px),
+>   single-column (full-width, max 520px) so full team names always read —
+>   user follow-up replacing the first-pass 2-up flow. "Browse by day ·
+>   built <timestamp>" header removed.
+>   Verified 375px + desktop, upcoming and played days: zero console errors,
+>   zero overflow.
+> - 2026-07-19 (4): **Home polish round 3.** Crests up again (board 22px, table
+>   20px, result/fixture rows 22px, movers 24px) with the crest img padding
+>   dropped to 0 so logos fill the plate; result/fixture card rows switched
+>   from space-between to left-packed (6px gap) so scores/percentages hug the
+>   crest, cards narrowed 72→64px and 118→104px. Verified 375px: tables at
+>   y=603 (above fold), no overflow, no console errors.
+> - 2026-07-19 (3): **Home polish round 2 (user feedback with screenshots).**
+>   Root-caused the "logos shifted top-left" bug: home CSS sized the `img`
+>   inside `.crest` while the crest img is absolutely positioned `inset:0`, so
+>   shrinking the img pinned it to the corner — selectors now size the `.crest`
+>   box itself (`.hx-erow/.hx-tbl/.hx-scard/.mv-row`), and global crest img
+>   padding went 2px→1px so logos fill their plate. Title Odds labels league →
+>   country (from leagues.js registry; overrides mls→USA, ucl→UEFA CL; label
+>   column 92→58px so full team names fit). Result cards 128→72px and fixture
+>   cards 150→118px wide with tighter gaps (~12 results visible per strip
+>   screen, was ~7). Upcoming Matches now filters to the board's top leagues
+>   (epl/la-liga/serie-a/bundesliga/ligue-1/ucl/mls/liga-mx/brazil-serie-a,
+>   full-slate fallback if none play) sorted date-then-prominence. Tagline is a
+>   signature serif headline balanced across exactly two lines (canvas-measured
+>   19.5px at 375px; `max-width:17.6em` + `text-wrap:balance` keeps the 2-line
+>   break at any width). Verified 375px + desktop: 2-line tagline, League
+>   Tables at y=575, zero console errors, zero overflow.
+> - 2026-07-19 (2): **Home page overhaul (user-directed mobile review, first page
+>   of the premium-site sweep).** Ticker → "Upcoming: N fixtures projected · N
+>   leagues" (one line at 375px). Title Odds board: metric labels after the %
+>   dropped, MLS above Liga MX, tighter rows, and a UCL row pinned under Ligue 1
+>   (`build_home.py build_ucl_board()` → `ucl_board` payload key; between seasons
+>   pct=null renders "New season odds coming soon"). League Tables: top-10 rows +
+>   GD column (`build_tables` top_n 6→10, gd in rows). The promise block is gone —
+>   h1 lives on as a slim muted tagline above Title Odds (`.hx-tag` grid area,
+>   both breakpoints), pitch paragraph + "This week's recap →" CTA removed
+>   (/weekly/ pages still exist, just unlinked from home). Results strip cards
+>   rebuilt to the user's sketch: league-name header, then crest|score row per
+>   team. Upcoming Matches: one-league-per-slide carousel replaced by the same
+>   day→card strip, team rows show win% + fair odds with a slim draw footer
+>   (missing crests now fall back to monograms via `crest()`, fixing the white-box
+>   look). sw.js shell cache v12→v13. Verified in-browser at 375px and desktop:
+>   League Tables header at y=625 (above the fold as requested), zero console
+>   errors, zero horizontal overflow.
 > - 2026-07-19: **E2/E3/E4 email capture BUILT (roadmap Phase-1 buildout).** `server/subscribe.py`
 >   + `api/public/subscribe.py` expose `POST /public/subscribe`: KV-durable capture that mirrors to
 >   Resend Contacts only when the key exists, so it deploys inert today and activates the moment E1
