@@ -6,9 +6,9 @@ Date: 2026-07-11
 
 - Refreshed MLS champion report Brier: 0.6331. Previous checkpoint was 0.632977, so this is flat/slightly worse by +0.000106 and not a model improvement.
 - MLS significant underdogs: 24.2% predicted vs 24.8% observed, n=1358.
-- Edge-board 7-day slate: 79 matches across 9 leagues.
-- Current risk flags: away_model_underdog=13, draw_heavy=1, home_model_underdog=1, no_line=21.
-- Tier-family row-level market buckets: 6 buckets; market status ok.
+- Edge-board 7-day slate: 135 matches across 12 leagues.
+- Current risk flags: away_model_underdog=6, draw_heavy=8, low_total_draw_setup=9, no_line=13.
+- Tier-family row-level market buckets: 0 buckets; market status no_market.
 
 ## 18-Step Execution Status
 
@@ -18,9 +18,9 @@ Date: 2026-07-11
    - 6-15: seeded 0.6414, league 0.6408, decay8 0.6409.
    - 16+: seeded 0.6276, league 0.6277, decay8 0.6277.
 3. Historical Draw Calibration by Goal Total — Completed for played rows carrying `lam`/`mu`; surfaced by family in `model-slices.js`.
-   - low total: draw 30.1% predicted vs 35.5% observed, played_n=245.
-   - middle total: draw 26.4% predicted vs 30.1% observed, played_n=256.
-   - high total: draw 22.0% predicted vs 18.3% observed, played_n=115.
+   - low total: draw 30.2% predicted vs pending observed, played_n=0.
+   - middle total: draw 25.9% predicted vs pending observed, played_n=0.
+   - high total: draw 21.0% predicted vs pending observed, played_n=0.
 4. Trust UI: Market Disagreement Card — Completed as a conditional evidence tape. It appears only when row-level market buckets exist.
 5. Trust UI: Promoted/Relegated Caution Card — Completed for the Europe tiers family using early-window replay results.
 6. Draw-Side Policy Gate — Completed as policy: draw recommendations remain suppressed; draw rows are diagnostics only until a future gate explicitly promotes them.
