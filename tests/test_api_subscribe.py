@@ -1,4 +1,4 @@
-"""Round-trip tests through api/public/subscribe.handle (pattern: test_api_auth_flow)."""
+"""Round-trip tests through api/pub/subscribe.handle (pattern: test_api_auth_flow)."""
 import json
 
 import pytest
@@ -14,7 +14,7 @@ def _fresh_kv():
 
 
 def _post(payload, ip="1.2.3.4"):
-    from api.public import subscribe
+    from api.pub import subscribe
     return subscribe.handle(
         "POST", {"X-Forwarded-For": ip}, json.dumps(payload).encode())
 
@@ -27,7 +27,7 @@ def test_post_valid_email_returns_ok():
 
 
 def test_get_is_rejected():
-    from api.public import subscribe
+    from api.pub import subscribe
     status, _, _ = subscribe.handle("GET", {}, b"")
     assert status == 405
 

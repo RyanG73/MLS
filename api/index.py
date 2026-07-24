@@ -12,10 +12,10 @@ from api.intel import (
     analytics, ask, briefing, cards, events, export, journal, me, preferences, scenario, team, workspaces,
 )
 from api.admin import open_access as admin_open_access
-from api.public import card as public_card
-from api.public import config as public_config
-from api.public import subscribe as public_subscribe
-from api.public import unsubscribe as public_unsubscribe
+from api.pub import card as public_card
+from api.pub import config as public_config
+from api.pub import subscribe as public_subscribe
+from api.pub import unsubscribe as public_unsubscribe
 from api.resend import webhook as resend_webhook
 from api.stripe import webhook as stripe_webhook
 

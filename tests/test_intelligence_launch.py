@@ -6,7 +6,7 @@ import pytest
 from PIL import Image
 
 from api.intel import team as team_api
-from api.public import card as public_card_api
+from api.pub import card as public_card_api
 from scripts.intelligence.builder import _hydrate_fixture_ids
 from scripts.send_intelligence_notifications import render_alert
 from server.conversation_card import HEIGHT, WIDTH, render_card_png

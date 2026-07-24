@@ -127,3 +127,5 @@ webapp/exports/
 webapp/after-the-world-cup/
 .vercel
 .env*
+/build/
+uv.lock

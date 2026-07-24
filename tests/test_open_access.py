@@ -198,7 +198,7 @@ def test_admin_endpoint_refuses_a_blank_admin_token(monkeypatch):
 
 def test_public_config_advertises_the_promo():
     """The client needs this to drop lock chrome; it must leak nothing else."""
-    from api.public import config
+    from api.pub import config
     status, _, body = config.handle("GET", {})
     assert status == 200
     assert json.loads(body)["open_access"]["active"] is False
