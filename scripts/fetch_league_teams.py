@@ -62,6 +62,18 @@ LEAGUE_INFO = {
     "uruguay-primera": ("Uruguay", 1), "peru-liga1": ("Peru", 1),
     "thai-league-1": ("Thailand", 1), "k-league-1": ("South Korea", 1),
     "eerste-divisie": ("Netherlands", 2),
+    # Round 6 (2026-07-24)
+    "brazil-serie-b": ("Brazil", 2), "argentina-nacional": ("Argentina", 2),
+    "ecuador-ligapro": ("Ecuador", 1), "paraguay-primera": ("Paraguay", 1),
+    "bolivia-profesional": ("Bolivia", 1), "venezuela-primera": ("Venezuela", 1),
+    "liga-expansion-mx": ("Mexico", 2), "usl-league-one": ("United States", 3),
+    "costa-rica-primera": ("Costa Rica", 1), "honduras-liga": ("Honduras", 1),
+    "guatemala-liga": ("Guatemala", 1), "elsalvador-primera": ("El Salvador", 1),
+    "south-africa-psl": ("South Africa", 1), "india-isl": ("India", 1),
+    "liga-f": ("Spain", 1), "france-premiere-ligue": ("France", 1),
+    "vrouwen-eredivisie": ("Netherlands", 1),
+    "australia-aleague-women": ("Australia", 1),
+    "northern-super-league": ("Canada", 1), "usl-super-league": ("United States", 1),
     "ucl": ("Europe", None), "europa": ("Europe", None), "conference": ("Europe", None),
 }
 
@@ -140,6 +152,36 @@ REGISTRY = [
     # No confirmed ESPN slug (kor.1/kor.k1/k.league.1 all return 0 teams) —
     # results-only via API-Football, same as canadian-pl above.
     ("k-league-1",          "K League 1",                None,               "AFC", "live", "Asia"),
+    # Round 6 (2026-07-24): the rest of ESPN's catalog that fits the single-table
+    # model — see docs/league-expansion-report.md § round 6. All ESPN goals-only,
+    # so all projections-only (no odds backbone → no edge product).
+    ("brazil-serie-b",      "Brasileirão Série B",       "bra.2",            "CONMEBOL", "live", "South America"),
+    ("argentina-nacional",  "Primera Nacional",          "arg.2",            "CONMEBOL", "live", "South America"),
+    ("ecuador-ligapro",     "LigaPro Serie A",           "ecu.1",            "CONMEBOL", "live", "South America"),
+    ("paraguay-primera",    "División de Honor",         "par.1",            "CONMEBOL", "live", "South America"),
+    ("bolivia-profesional", "División Profesional",      "bol.1",            "CONMEBOL", "live", "South America"),
+    ("venezuela-primera",   "Liga FUTVE",                "ven.1",            "CONMEBOL", "live", "South America"),
+    ("liga-expansion-mx",   "Liga de Expansión MX",      "mex.2",            "Concacaf", "live", "Americas"),
+    ("usl-league-one",      "USL League One",            "usa.usl.l1",       "Concacaf", "live", "Americas"),
+    ("costa-rica-primera",  "Liga Promerica",            "crc.1",            "Concacaf", "live", "Americas"),
+    ("honduras-liga",       "Liga Nacional (Honduras)",  "hon.1",            "Concacaf", "live", "Americas"),
+    ("guatemala-liga",      "Liga Nacional (Guatemala)", "gua.1",            "Concacaf", "live", "Americas"),
+    ("elsalvador-primera",  "Primera División (El Salvador)", "slv.1",       "Concacaf", "live", "Americas"),
+    ("india-isl",           "Indian Super League",       "ind.1",            "AFC", "live", "Asia"),
+    # First CAF league on the platform — "Africa" is the one genuinely new group
+    # this round (it must also exist in index.html's GROUP_ORDER / MAST_GROUPS
+    # and build_static_pages.py, or the league renders in no menu at all;
+    # tests/test_fetch_league_teams.py::test_every_entry_has_a_valid_group guards this).
+    ("south-africa-psl",    "Betway Premiership",        "rsa.1",            "CAF", "live", "Africa"),
+    # Women's leagues — projections-only. Grouped GEOGRAPHICALLY, following the
+    # existing nwsl (Americas) / wsl (England) precedent rather than adding a
+    # parallel "Women" section that would leave those two stranded outside it.
+    ("liga-f",              "Liga F",                    "esp.w.1",          "UEFA", "live", "Spain"),
+    ("france-premiere-ligue", "Première Ligue",          "fra.w.1",          "UEFA", "live", "France"),
+    ("vrouwen-eredivisie",  "Vrouwen Eredivisie",        "ned.w.1",          "UEFA", "live", "Other Europe"),
+    ("australia-aleague-women", "A-League Women",        "aus.w.1",          "AFC", "live", "Asia"),
+    ("northern-super-league", "Northern Super League",   "can.w.nsl",        "Concacaf", "live", "Americas"),
+    ("usl-super-league",    "USL Super League",          "usa.w.usl.1",      "Concacaf", "live", "Americas"),
     # UEFA — continental cups
     ("ucl",                 "UEFA Champions League",    "uefa.champions",   "UEFA", "live", "Cups"),
     ("europa",              "UEFA Europa League",       "uefa.europa",      "UEFA", "live", "Cups"),
@@ -159,6 +201,13 @@ DATA_STATUS = {
     "k-league-1": "historical",              # API-Football free plan: 2022–2024 only
     "poland-ekstraklasa": "results_only",    # no ESPN slug — no forward fixtures
     "finland-veikkausliiga": "results_only",  # no ESPN slug — no forward fixtures
+    # Round 6: calendar-year league sitting MID-season (116 of ~230 matches played)
+    # with zero scheduled fixtures in ESPN's feed — the Jul-Dec half has not been
+    # published. Unlike the Aug-May straddles added this round, which are simply
+    # between seasons and correctly report status="completed", a half-finished
+    # season with no remaining fixtures cannot honestly claim a forward forecast.
+    # Re-check after ESPN publishes; drop this line to restore full_forecast.
+    "venezuela-primera": "results_only",
 }
 
 

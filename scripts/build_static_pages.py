@@ -450,7 +450,7 @@ def hub_page(registry: list[dict], site: str) -> str:
     for lg in with_pages:
         groups.setdefault(lg.get("group") or "Other", []).append(lg)
     for grp in ["England", "Spain", "Italy", "Germany", "France", "Americas",
-                "South America", "Other Europe", "Asia", "Cups"]:
+                "South America", "Other Europe", "Asia", "Africa", "Cups"]:
         if grp not in groups:
             continue
         parts.append(f'<div class="grp">{E(grp)}</div><ul class="lgs">')

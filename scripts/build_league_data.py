@@ -409,6 +409,26 @@ _LIGUILLA = lambda: [
 # qualification zone / Relegation) rather than modeling each competition's
 # real qualification structure, which varies by country and — for
 # Argentina — by season; see each league's `rules` string for the caveat.
+# Direct promotion, no playoff (round 6, 2026-07-24). `_PROMO` always emits a
+# "playoff" bucket with a `band`, which `_bucket_idx` would read as None for a
+# league that promotes purely off the table (Brazil Série B: top 4 up, bottom 4
+# down, 38-round double round-robin, no post-season). Kept separate rather than
+# making `play` optional inside `_PROMO` so the promotion-playoff sim path
+# (`_promo_playoff_winner`) is never reachable for these leagues.
+_PROMO_DIRECT = lambda promo, rel=0: [
+    {"key": "promo", "label": "Promotion", "col": "Promoted", "top": promo}] + (
+    [{"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}] if rel else [])
+# Regular season + post-season bracket (round 6, 2026-07-24). The shape shared by
+# Central America's Apertura/Clausura leagues, USL League One, the Indian Super
+# League and the women's leagues added this round: the TABLE decides only who
+# reaches the playoff, and the championship is settled in a bracket this sim does
+# not play (unlike the *promotion* playoff, which `_promo_playoff_winner` does
+# simulate). Same presentation as australia-aleague / canadian-pl, generalised.
+# `best` = the regular-season-winner bucket, `play` = playoff berths.
+_PLAYOFFS = lambda play, best_label="Best Record", rel=0: [
+    {"key": "premiers", "label": best_label, "col": "Best", "top": 1},
+    {"key": "playoffs", "label": "Playoffs", "col": "Playoffs", "top": play}] + (
+    [{"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}] if rel else [])
 _CONTINENTAL = lambda label, top, rel=0: [
     {"key": "title", "label": "Champion", "col": "Champ", "top": 1},
     {"key": "continental", "label": label, "col": "Continental", "top": top}] + (
@@ -705,6 +725,129 @@ OUTLOOK = {
                    "buckets": _CONTINENTAL("AFC Champions League", 3, 1),
                    "green_line": 3, "red_line": 1, "eval_seasons": None,
                    "rules": "Champion, runner-up, and 3rd reach the AFC Champions League Elite/Two (approximate — a Korea Cup wildcard berth isn't modeled) · bottom club (12th) relegated automatically; 10th-11th enter a relegation playoff vs K League 2 sides (not modeled) · the real format splits into a Championship Round (top 6) / Relegation Round (bottom 6) after 33 rounds — not modeled here, this is the plain full-season table · results-only: no ESPN schedule source and the API-Football free plan only serves 2022-2024 (no current-season fixtures) · no odds source"},
+    # ── Round 6 (2026-07-24) ─────────────────────────────────────────────────
+    # Everything below is ESPN goals-only (source="espn", the Saudi/A-League/WSL
+    # /round-5 family): no xG source and no football-data odds backbone, so these
+    # are projections-only — no edge product. eval_seasons=None → advisory only.
+    # CONMEBOL second tier. The cleanest add of the round: a plain 20-team double
+    # round-robin with no Apertura/Clausura split, so unlike the round-5 South
+    # American top flights there is no combined-table approximation to caveat.
+    "brazil-serie-b": {"name": "Brasileirão Série B", "source": "espn", "n": 20,
+                       "confederation": "CONMEBOL",
+                       "buckets": _PROMO_DIRECT(4, 4), "green_line": 4, "red_line": 4,
+                       "rules": "Top 4 promoted to Série A · bottom 4 relegated to Série C · single 38-round double round-robin, no playoff · calendar-year season · goals-only (no xG source for this tier)"},
+    # CONMEBOL remaining top flights. All four split into Apertura/Clausura (or
+    # multi-stage) tournaments and relegate on multi-year rolling averages — the
+    # round-5 precedent applies unchanged: a single combined-season table with
+    # the REAL qualification/relegation counts, format mechanics caveated in
+    # `rules` rather than silently approximated away.
+    "ecuador-ligapro": {"name": "LigaPro Serie A", "source": "espn", "n": 16,
+                        "confederation": "CONMEBOL",
+                        "buckets": _CONTINENTAL("Copa Libertadores / Sudamericana", 7, 2),
+                        "green_line": 7, "red_line": 2, "eval_seasons": None,
+                        "rules": "The real 2026 format is a 30-round first stage followed by two hexagonals and a quadrangular that decide the title, 3 Copa Libertadores berths and 4 Copa Sudamericana berths (not modeled here — this is the combined single-season table, with the real berth count as the cut line) · bottom 2 relegated · calendar-year season"},
+    "paraguay-primera": {"name": "División de Honor", "source": "espn", "n": 12,
+                         "confederation": "CONMEBOL",
+                         "buckets": _CONTINENTAL("Copa Libertadores / Sudamericana", 8, 2),
+                         "green_line": 8, "red_line": 2, "eval_seasons": None,
+                         "rules": "Paraguay holds 4 Copa Libertadores and 4 Copa Sudamericana berths — 8 of 12 clubs qualify for continental football, so the green line sits unusually deep · the Apertura and Clausura champions take the two automatic Libertadores places, the rest come off the aggregate table (not modeled here — this is a plain combined-season table) · bottom 2 relegated on a 3-year rolling average (not modeled) · calendar-year season"},
+    "bolivia-profesional": {"name": "División Profesional", "source": "espn", "n": 16,
+                            "confederation": "CONMEBOL",
+                            "buckets": _CONTINENTAL("Copa Libertadores / Sudamericana", 6, 2),
+                            "green_line": 6, "red_line": 2, "eval_seasons": None,
+                            "rules": "Champion plus the next 3 reach the Copa Libertadores or its qualifying rounds, the following places reach the Copa Sudamericana (approximate) · bottom 2 relegated · the season splits into Apertura/Clausura tournaments (not modeled here — this is the combined single-season table) · calendar-year season"},
+    "venezuela-primera": {"name": "Liga FUTVE", "source": "espn", "n": 14,
+                          "confederation": "CONMEBOL",
+                          "buckets": _CONTINENTAL("Copa Libertadores / Sudamericana", 6, 2),
+                          "green_line": 6, "red_line": 2, "eval_seasons": None,
+                          "rules": "Top sides reach the Copa Libertadores and Copa Sudamericana (approximate — the real berths come out of an Apertura/Clausura + final-series format not modeled here) · bottom 2 relegated · calendar-year season"},
+    # Argentina tier 2. WEAKEST-MODELED LEAGUE OF THIS ROUND, deliberately shipped
+    # with the caveat rather than silently: the real competition is TWO ZONES of 18
+    # that mostly do not play each other, so a combined 36-team table compares
+    # teams on non-comparable schedules. Per-match probabilities are unaffected
+    # (they come from the pairing matrix, not the table); the standings column is
+    # the part to read with suspicion.
+    "argentina-nacional": {"name": "Primera Nacional", "source": "espn", "n": 36,
+                           "confederation": "CONMEBOL",
+                           "buckets": _PROMO_DIRECT(2, 4), "green_line": 2, "red_line": 4,
+                           "rules": "WARNING — the real format splits 36 clubs into two zones of 18 that play almost exclusively within their own zone; this page combines them into ONE table, so ranks compare teams that did not play the same schedule · in reality the two zone winners meet for the first promotion spot and 2nd-8th in each zone enter the Torneo Reducido for the second (neither is modeled) · the bottom 2 of each zone are relegated (shown here as the bottom 4 of the combined table) · calendar-year season"},
+    # Concacaf second tiers.
+    "liga-expansion-mx": {"name": "Liga de Expansión MX", "source": "espn", "n": 16,
+                          "confederation": "Concacaf",
+                          "buckets": _LIGUILLA(), "green_line": 8, "red_line": None,
+                          "eval_seasons": None,
+                          "rules": "Top 8 reach the Liguilla (championship playoff, not modeled — the table only decides who qualifies) · promotion to Liga MX returns from 2026-27 following the CAS ruling, but is won in the Liguilla and remains conditional on stadium/financial certification, so no promotion bucket is shown · no relegation · Apertura/Clausura season combined into one table"},
+    "usl-league-one": {"name": "USL League One", "source": "espn", "n": 17,
+                       "confederation": "Concacaf",
+                       "buckets": _PLAYOFFS(8), "green_line": 8, "red_line": None,
+                       "eval_seasons": None,
+                       "rules": "32-game full-table regular season · top 8 reach the playoffs, a single-elimination fixed bracket where the higher seed hosts (the championship is decided there, not by the table) · no promotion or relegation yet — USL has announced it from 2028 · calendar-year season"},
+    # Central America. All four run Apertura (Aug-Dec) + Clausura (Jan-May) with
+    # their own playoffs; the default Jul-Jun window combines both into one season
+    # table, the same simplification used for the South American top flights.
+    "costa-rica-primera": {"name": "Liga Promerica", "source": "espn", "n": 10,
+                           "confederation": "Concacaf",
+                           "buckets": _PLAYOFFS(4), "green_line": 4, "red_line": None,
+                           "eval_seasons": None,
+                           "rules": "Top 4 of each tournament reach the semifinals (the title is decided there, not by the table) · Apertura and Clausura are combined into a single table here · the 2026 Apertura fields only 10 clubs after three licences were revoked · relegation is decided on a multi-season average and is not modeled"},
+    "honduras-liga": {"name": "Liga Nacional", "source": "espn", "n": 12,
+                      "confederation": "Concacaf",
+                      "buckets": _PLAYOFFS(6), "green_line": 6, "red_line": None,
+                      "eval_seasons": None,
+                      "rules": "Apertura and Clausura combined into a single table here · from 2026-27 the 12 clubs are drawn into two geographic groups (North/Centre) over a 16-round regular phase — that grouping is NOT modeled, this is one combined table · the title is decided in a playoff the sim does not play · relegation decided on a multi-season average, not modeled"},
+    "guatemala-liga": {"name": "Liga Nacional", "source": "espn", "n": 12,
+                       "confederation": "Concacaf",
+                       "buckets": _PLAYOFFS(6, rel=1), "green_line": 6, "red_line": 1,
+                       "eval_seasons": None,
+                       "rules": "Top 6 reach the playoff under the 2026 format (the title is decided there, not by the table) · Apertura and Clausura are combined into a single table here · bottom club relegated on the aggregate season table (approximate)"},
+    "elsalvador-primera": {"name": "Primera División", "source": "espn", "n": 12,
+                           "confederation": "Concacaf",
+                           "buckets": _PLAYOFFS(6, rel=1), "green_line": 6, "red_line": 1,
+                           "eval_seasons": None,
+                           "rules": "Apertura and Clausura combined into a single table here · the title is decided in a playoff the sim does not play · bottom club relegated (approximate — the real relegation uses an aggregate of both tournaments)"},
+    # CAF / AFC.
+    "south-africa-psl": {"name": "Betway Premiership", "source": "espn", "n": 16,
+                         "confederation": "CAF",
+                         "buckets": _CONTINENTAL("CAF Champions League / Confederation Cup", 4, 2),
+                         "green_line": 4, "red_line": 2, "eval_seasons": None,
+                         "rules": "Top 2 reach the CAF Champions League and the next 2 the CAF Confederation Cup (approximate — one Confederation Cup berth actually goes to the Nedbank Cup winner, which isn't modeled) · bottom club relegated directly, 15th enters a promotion/relegation playoff (shown together as the bottom 2) · 30-round double round-robin, Aug-May"},
+    "india-isl": {"name": "Indian Super League", "source": "espn", "n": 14,
+                  "confederation": "AFC",
+                  "buckets": _PLAYOFFS(6, best_label="Shield"),
+                  "green_line": 6, "red_line": None, "eval_seasons": None,
+                  "rules": "League Shield = best regular-season record · top 6 reach the playoffs (the championship is decided there, not by the table) · no relegation (franchise league) · the 2025-26 edition was cut to a three-month Feb-May campaign by the AIFF administrative dispute, so recent history is thinner than the match counts suggest; the 2026-27 season returns to a full Sep-Apr calendar"},
+    # Women's leagues — projections-only family (the wsl/nwsl precedent): no xG
+    # source, no odds source, thin markets. Shipped for coverage, not for edge.
+    "liga-f": {"name": "Liga F", "source": "espn", "n": 16,
+               "confederation": "UEFA",
+               "buckets": _CONTINENTAL("Women's Champions League", 3, 2),
+               "green_line": 3, "red_line": 2, "eval_seasons": None,
+               "rules": "Champion enters the UEFA Women's Champions League proper; 2nd and 3rd enter its qualifying rounds · bottom 2 relegated to Primera Federación · goals-only (no xG source for this league)"},
+    "france-premiere-ligue": {"name": "Première Ligue", "source": "espn", "n": 12,
+                              "confederation": "UEFA",
+                              "buckets": _CONTINENTAL("Women's Champions League", 2, 2),
+                              "green_line": 2, "red_line": 2, "eval_seasons": None,
+                              "rules": "22-round double round-robin · top 2 qualify for the UEFA Women's Champions League · the top 4 then contest a title playoff the sim does not play (the table shown is the regular season) · bottom 2 relegated · goals-only (no xG source for this league)"},
+    "vrouwen-eredivisie": {"name": "Vrouwen Eredivisie", "source": "espn", "n": 10,
+                           "confederation": "UEFA",
+                           "buckets": _CONTINENTAL("Women's Champions League", 1),
+                           "green_line": 1, "red_line": None, "eval_seasons": None,
+                           "rules": "Champion qualifies for the UEFA Women's Champions League · from 2026-27 the 10 clubs play each other three times (the venue of the third meeting depends on the standings after 18 rounds) with no playoff · no automatic relegation (licence-based) · goals-only (no xG source for this league)"},
+    "australia-aleague-women": {"name": "A-League Women", "source": "espn", "n": 11,
+                                "confederation": "AFC",
+                                "buckets": _PLAYOFFS(6, best_label="Premiers Plate"),
+                                "green_line": 6, "red_line": None, "eval_seasons": None,
+                                "rules": "Premiers Plate = best regular-season record · top 6 reach the finals series (the championship is decided there, not by the table) · no relegation (closed league) · runs Nov-May, mirroring the men's A-League · goals-only (no xG source for this league)"},
+    "northern-super-league": {"name": "Northern Super League", "source": "espn", "n": 6,
+                              "confederation": "Concacaf",
+                              "buckets": _PLAYOFFS(4), "green_line": 4, "red_line": None,
+                              "eval_seasons": None,
+                              "rules": "Canada's women's first division, founded 2025 · single table of 6 clubs; top 4 reach the playoffs (two-legged semifinals then a final at a neutral host — not modeled) · no relegation · calendar-year season · only two seasons of history exist, so ELO priors are thin"},
+    "usl-super-league": {"name": "USL Super League", "source": "espn", "n": 8,
+                         "confederation": "Concacaf",
+                         "buckets": _PLAYOFFS(6), "green_line": 6, "red_line": None,
+                         "eval_seasons": None,
+                         "rules": "US women's Division One, founded 2024 · top sides reach the playoffs (the championship is decided there, not by the table) · no relegation · Aug-May season · only two completed seasons of history exist, so ELO priors are thin"},
 }
 
 # football-data team name → ESPN displayName (for crest/display on goals-only

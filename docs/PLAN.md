@@ -1,5 +1,34 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-24 — League expansion round 6: +20 leagues, registry 56 → 76.** Exhausted ESPN's
+> soccer catalog for the single-table model: diffed all 220 slugs from
+> `sports.core.api.espn.com/v2/sports/soccer/leagues` against the 50 already wired, probed the
+> survivors live for team counts and fixture availability, and shipped every candidate that fits.
+> Added — **CONMEBOL**: `brazil-serie-b`, `argentina-nacional`, `ecuador-ligapro`,
+> `paraguay-primera`, `bolivia-profesional`, `venezuela-primera`; **Concacaf**: `liga-expansion-mx`,
+> `usl-league-one`, `costa-rica-primera`, `honduras-liga`, `guatemala-liga`, `elsalvador-primera`;
+> **CAF** (first African league, and the new `Africa` UI group): `south-africa-psl`; **AFC**:
+> `india-isl`; **women's** (projections-only, the wsl/nwsl precedent, grouped geographically):
+> `liga-f`, `france-premiere-ligue`, `vrouwen-eredivisie`, `australia-aleague-women`,
+> `northern-super-league`, `usl-super-league`. All `source="espn"` goals-only → projections-only,
+> no odds backbone, none reach the edge board. 9 shipped mid-season with live forecasts, 10 are
+> Aug–May straddles currently `status="completed"` between seasons (the same state
+> `saudi-pro`/`australia-aleague`/`wsl` are in today), 1 (`venezuela-primera`) is `results_only` —
+> mid-season with no published forward fixtures. Season shape was classified per league from a
+> **monthly event histogram**, not a date span (round-5 Gotcha #1); 8 landed in
+> `CALENDAR_YEAR_LEAGUES`. New `_PROMO_DIRECT` (promotion with no playoff — `_PROMO` always emits a
+> `band` that `_bucket_idx` would read as `None`) and `_PLAYOFFS` (table decides playoff berths,
+> bracket not simulated) bucket helpers. **Not shipped: the 4 continental cups** (Libertadores,
+> Sudamericana, AFC/CAF Champions) — `coefficients.py` and `cross_league._CONF_CONST` only carry
+> calibrated strength scales for UEFA and Concacaf, so every CONMEBOL/AFC/CAF club would fall back
+> to offset `0.0` and a Bolivian side would be baselined level with a Brazilian one. That is a
+> calibration project, not a registration one. **Two pre-existing bugs fixed in passing:**
+> `refresh-leagues.yml`'s hardcoded league list had drifted to 21 of 70 — and since it is the only
+> job that flips an off-season league back to `live`, everything from rounds 4–6 could never have
+> returned from its off-season; it now derives the list from `OUTLOOK`. `build_all.sh` was likewise
+> missing all of round 5. `tests/test_fetch_league_teams.py` allowed a `"Women"` group that
+> `GROUP_ORDER` never rendered. 77/77 payloads valid, 1396 passed / 15 skipped.
+>
 > **2026-07-19 — Roadmap Phase-1 buildout: shipped every buildable undeployed item from
 > `docs/product-roadmap-2026-07.md`.** In owner-priority order: E2/E3/E4 email capture
 > (`server/subscribe.py` + `api/public/subscribe.py` → `POST /public/subscribe`; KV-durable,

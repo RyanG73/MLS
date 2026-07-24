@@ -2,6 +2,80 @@
 
 *2026-07-09 · prepared for UI feedback round 3 ("write a report of all leagues around the world we should consider expanding to — rank by feasibility")*
 
+> **2026-07-24 update — Round 6: ESPN's catalog is now exhausted. +20 leagues, registry 56 → 76.**
+> User decision: "add them all to whatever extent possible… projections only is ok."
+>
+> **Method change from earlier rounds — candidates were enumerated, not guessed.** Previous rounds
+> probed plausible slugs one at a time (round 5 burned four guesses proving K League 1 has none).
+> This round pulled ESPN's own league index —
+> `sports.core.api.espn.com/v2/sports/soccer/leagues?limit=1000`, **220 entries** — and diffed it
+> against the 50 slugs already wired across `espn_fixtures.SLUGS` and `espn_continental.SLUGS`.
+> That is the definitive frontier: anything absent from those 220 is not on ESPN at any slug.
+>
+> **Shipped (20).** CONMEBOL: `brazil-serie-b` (bra.2), `argentina-nacional` (arg.2),
+> `ecuador-ligapro` (ecu.1), `paraguay-primera` (par.1), `bolivia-profesional` (bol.1),
+> `venezuela-primera` (ven.1). Concacaf: `liga-expansion-mx` (mex.2), `usl-league-one` (usa.usl.l1),
+> `costa-rica-primera` (crc.1), `honduras-liga` (hon.1), `guatemala-liga` (gua.1),
+> `elsalvador-primera` (slv.1). CAF: `south-africa-psl` (rsa.1). AFC: `india-isl` (ind.1).
+> Women's: `liga-f` (esp.w.1), `france-premiere-ligue` (fra.w.1), `vrouwen-eredivisie` (ned.w.1),
+> `australia-aleague-women` (aus.w.1), `northern-super-league` (can.w.nsl), `usl-super-league`
+> (usa.w.usl.1). All `source="espn"` goals-only → projections-only, no odds, no edge product.
+>
+> **Season shape, again the trap.** Round-5 Gotcha #1 applied at scale: every candidate was
+> classified from a **monthly event histogram over 2025**, not a first/last-date span. Eight are
+> genuinely calendar-year; twelve are Aug–May straddles with an off-season gap the span check would
+> have missed. Central America's gap is only ONE month (June) because Apertura starts late July and
+> Clausura ends May — a naive span check calls those calendar-year and slices both tournaments in half.
+>
+> **Gotcha — `_PROMO(promo, play, rel)` cannot express direct promotion.** It always emits a
+> `{"band": play}` playoff bucket, and `_bucket_idx` would read `band: None` for a league that
+> promotes straight off the table. Brazil Série B (top 4 up, bottom 4 down, 38-round double
+> round-robin, no post-season) needed the new `_PROMO_DIRECT`. Kept as a separate helper rather than
+> making `play` optional so the promotion-playoff sim (`_promo_playoff_winner`) stays unreachable for
+> these leagues. A second new helper, `_PLAYOFFS`, covers the far more common round-6 shape where the
+> table only decides playoff berths and the championship bracket is not simulated.
+>
+> **Deliberately NOT shipped — the 4 continental cups.** `conmebol.libertadores`,
+> `conmebol.sudamericana`, `afc.champions` and `caf.champions` all resolve live with real fixtures,
+> and `build_continental_data.py` already handles bracket formats. The blocker is strength
+> calibration, not plumbing: `coefficients.py` carries `_LEAGUE_COEFF` (UEFA) and
+> `_CONCACAF_OFFSET` (Concacaf) only, and `cross_league._CONF_CONST` has goal-rate/home-advantage
+> constants only for those same two confederations. `team_strength` returns offset `0.0` for any
+> other league, so a Libertadores tie would baseline a Bolivian club level with a Brazilian one and
+> emit confident, wrong probabilities. Prerequisites: a calibrated CONMEBOL/AFC/CAF league-offset
+> scale, per-confederation `_CONF_CONST` entries, `_ESPN_ROUND` labels for CONMEBOL group stages,
+> and name resolution across ~12 domestic frames (cheap — both sides are ESPN displayNames, so an
+> exact-string join against the domestic ELO caches should resolve most clubs automatically, the way
+> the Concacaf branch of `_resolve_one` already does).
+>
+> **Weakest-modeled league of the round, shipped with the caveat visible rather than silently:**
+> `argentina-nacional`. The real Primera Nacional splits 36 clubs into two zones of 18 that play
+> almost exclusively within their own zone; a combined table ranks teams on non-comparable
+> schedules. Its `rules` string opens with a plain-language WARNING, rendered on the page. Match
+> probabilities come from the pairing matrix and are unaffected; only the standings column is soft.
+> Its in-season Brier (0.6442) is worse than the naive baseline (0.6376) — the honest tell.
+>
+> **Not on ESPN at all** (checked against all 220 slugs, so these need a paid API-Football plan, not
+> more guessing): Poland, Finland, South Korea and Canada's CPL — confirming why the four existing
+> partial leagues cannot be upgraded — plus Czechia, Croatia, Serbia, Ukraine, Israel, Hungary,
+> Bulgaria, Slovakia, Slovenia, Iceland, Cyprus, Egypt, Morocco, UAE, Qatar, Indonesia, Vietnam,
+> Malaysia and Japan's J2.
+>
+> **Two pre-existing bugs found and fixed in passing.** (1) `refresh-leagues.yml`'s hardcoded league
+> list had drifted to 21 of 70 leagues. Because it is the *only* job that flips an off-season league
+> from `status="completed"` back to `live` (`refresh-daily.yml` builds only leagues already live),
+> nothing added since round 3 — `saudi-pro`, `australia-aleague`, `wsl`, all of round 5 — could ever
+> have come back from its off-season. Now derived from `OUTLOOK`. (2) `build_all.sh` was missing all
+> seven round-5 leagues. Also dropped a `"Women"` entry from `tests/test_fetch_league_teams.py`'s
+> `_VALID_GROUPS` that `GROUP_ORDER` never rendered — the test would have passed a league into a
+> group the UI drops.
+>
+> **State on ship:** 9 leagues live with active forecasts, 10 `status="completed"` between seasons
+> (identical to where `saudi-pro`/`australia-aleague`/`wsl` sit today; they flip on the weekly job
+> once ESPN publishes 2026-27 fixtures), 1 (`venezuela-primera`) tagged `results_only` — mid-season
+> with no published forward fixtures. 77/77 payloads valid, 1396 passed / 15 skipped, 76 static
+> pages + sitemap regenerated, all 76 leagues verified rendering in-browser across 11 groups.
+
 > **2026-07-14 update — Round 5: South America + more Asia + Eerste Divisie, all 7 candidates shipped.**
 > User decision: Chile/Colombia/Uruguay/Peru Primera División (CONMEBOL top flights), K League 1
 > (South Korea), Thai League 1, and Eerste Divisie (Netherlands tier 2). Follow-up: "complete item 7"

@@ -97,6 +97,35 @@ for L in scottish-champ scottish-league-one scottish-league-two \
     || echo "  [WARN] $L build failed (non-fatal)"
 done
 
+# ── 4e. League expansion round 5, 2026-07-14 ────────────────────────────────
+# NOTE: round 5 shipped without a build_all.sh entry — the GitHub Actions daily
+# job auto-detects live payloads so the site stayed current, but the local full
+# rebuild silently skipped these seven. Added retroactively 2026-07-24.
+for L in chile-primera colombia-primera-a uruguay-primera peru-liga1 \
+        thai-league-1 eerste-divisie k-league-1; do
+  echo "--- $L ---"
+  PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league "$L" \
+    && echo "  [OK] $L" \
+    || echo "  [WARN] $L build failed (non-fatal)"
+done
+
+# ── 4f. League expansion round 6, 2026-07-24 ────────────────────────────────
+# The remainder of ESPN's catalog that fits the single-table model: CONMEBOL
+# top flights + second tiers, Concacaf second tiers + Central America, the
+# first CAF league, and six women's leagues. All source="espn" goals-only, so
+# all projections-only (no odds backbone → they never reach the edge board).
+for L in brazil-serie-b argentina-nacional ecuador-ligapro paraguay-primera \
+        bolivia-profesional venezuela-primera liga-expansion-mx usl-league-one \
+        costa-rica-primera honduras-liga guatemala-liga elsalvador-primera \
+        south-africa-psl india-isl liga-f france-premiere-ligue \
+        vrouwen-eredivisie australia-aleague-women northern-super-league \
+        usl-super-league; do
+  echo "--- $L ---"
+  PYTHONPATH="$REPO_DIR" "$PY" scripts/build_league_data.py --league "$L" \
+    && echo "  [OK] $L" \
+    || echo "  [WARN] $L build failed (non-fatal)"
+done
+
 # ── 5. Continental competitions ───────────────────────────────────────────────
 # For each comp: (a) merge-refresh the current season's ESPN cache,
 #               (b) rebuild the .js (auto-detects concluded vs. in-progress).

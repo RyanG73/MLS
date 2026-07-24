@@ -44,6 +44,32 @@ definitions, data sources, and run commands. Update it when any of these change.
   plain-table approximations (caveat in each `rules`). Adding a league: follow the strict
   fetch_league_teams ordering (see the league-build-workflow memory) — flip REGISTRY to `live`
   before any later fetch or built data gets clobbered back to a stub.
+- Expansion round 6 (2026-07-24): **+20 leagues, registry 56 → 76**, exhausting ESPN's soccer
+  catalog for the single-table model (all 220 slugs diffed against the wired set, survivors
+  probed live). All `source="espn"` goals-only → **projections-only, no odds, never on the edge
+  board**. CONMEBOL `brazil-serie-b` `argentina-nacional` `ecuador-ligapro` `paraguay-primera`
+  `bolivia-profesional` `venezuela-primera`; Concacaf `liga-expansion-mx` `usl-league-one`
+  `costa-rica-primera` `honduras-liga` `guatemala-liga` `elsalvador-primera`; CAF
+  `south-africa-psl` (first African league → new `Africa` group, which must exist in
+  `index.html` GROUP_ORDER + MAST_GROUPS *and* `build_static_pages.py` or the league renders
+  nowhere); AFC `india-isl`; women's `liga-f` `france-premiere-ligue` `vrouwen-eredivisie`
+  `australia-aleague-women` `northern-super-league` `usl-super-league` — grouped **geographically**,
+  following the existing nwsl/wsl precedent rather than a separate "Women" section.
+  New bucket helpers: `_PROMO_DIRECT` (promotion with no playoff; `_PROMO` always emits a `band`
+  that `_bucket_idx` reads as `None`) and `_PLAYOFFS` (table sets playoff berths, bracket unplayed).
+  Weakest-modeled: `argentina-nacional` — two real zones of 18 flattened into one 36-team table,
+  caveated in its `rules` string; its per-match probabilities are fine, its ranks are not.
+- **Continental cups beyond UEFA/Concacaf are blocked, not forgotten.** Libertadores,
+  Sudamericana, AFC and CAF Champions all have working ESPN slugs and live fixtures, but
+  `data_pipeline/coefficients.py` (`_LEAGUE_COEFF`, `_CONCACAF_OFFSET`) and
+  `scripts/eval/cross_league.py` (`_CONF_CONST`) only carry calibrated strength scales for UEFA
+  and Concacaf. An unknown league falls back to offset `0.0`, which would baseline a Bolivian
+  club level with a Brazilian one in Libertadores. Shipping needs a calibrated CONMEBOL/AFC/CAF
+  league-offset scale plus per-confederation goal/home-advantage constants first.
+- **`refresh-leagues.yml` is the only job that flips an off-season league back to `live`**
+  (`refresh-daily.yml` rebuilds only leagues already live). Its league list is now derived from
+  `build_league_data.OUTLOOK`; it had been hardcoded and drifted to 21 of 70, which meant no
+  league added after round 3 could ever have returned from its off-season.
 - Expansion round 4 Phase 3 (2026-07-11, +2 → 14 total): `data_pipeline/api_football.py` adapter
   (env/`.env` `API_FOOTBALL_KEY`). The free api-sports.io plan only serves seasons 2022–2024, so:
   Finland Veikkausliiga ships **results-only off current football-data** (2026 season, like Poland

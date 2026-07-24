@@ -78,6 +78,26 @@ SLUGS = {
     "chile-primera": "chi.1", "colombia-primera-a": "col.1",
     "uruguay-primera": "uru.1", "peru-liga1": "per.1",
     "thai-league-1": "tha.1", "eerste-divisie": "ned.2",
+    # Round 6 (2026-07-24): the remainder of ESPN's soccer catalog that fits the
+    # single-table model. Every slug below was diffed out of ESPN's own league
+    # index (sports.core.api.espn.com/v2/sports/soccer/leagues?limit=1000, 220
+    # entries) rather than guessed, then probed live for a non-zero team count.
+    # Season shape per league was classified from a MONTHLY event histogram, not
+    # a first/last-date span (round-5 Gotcha #1) — see CALENDAR_YEAR_LEAGUES.
+    # CONMEBOL — remaining top flights + second tiers
+    "ecuador-ligapro": "ecu.1", "paraguay-primera": "par.1",
+    "bolivia-profesional": "bol.1", "venezuela-primera": "ven.1",
+    "brazil-serie-b": "bra.2", "argentina-nacional": "arg.2",
+    # Concacaf — Mexico/US second tiers + Central America
+    "liga-expansion-mx": "mex.2", "usl-league-one": "usa.usl.l1",
+    "costa-rica-primera": "crc.1", "honduras-liga": "hon.1",
+    "guatemala-liga": "gua.1", "elsalvador-primera": "slv.1",
+    # CAF / AFC
+    "south-africa-psl": "rsa.1", "india-isl": "ind.1",
+    # Women's leagues (projections-only family — the wsl/nwsl precedent)
+    "liga-f": "esp.w.1", "france-premiere-ligue": "fra.w.1",
+    "vrouwen-eredivisie": "ned.w.1", "australia-aleague-women": "aus.w.1",
+    "northern-super-league": "can.w.nsl", "usl-super-league": "usa.w.usl.1",
 }
 
 # Leagues whose season is a calendar year (dates window Jan–Dec of `season`)
@@ -101,7 +121,25 @@ CALENDAR_YEAR_LEAGUES = {"nwsl", "usl-championship",
                          # are Aug–May straddles (probe showed a May–Aug gap for
                          # both) — intentionally NOT in this set.
                          "chile-primera", "colombia-primera-a",
-                         "uruguay-primera", "peru-liga1"}
+                         "uruguay-primera", "peru-liga1",
+                         # Round 6 (2026-07-24): classified from a monthly event
+                         # histogram over 2025 (round-5 Gotcha #1 — a first/last
+                         # date span misclassifies straddles). Continuous through
+                         # the year with no Jun–Jul off-season gap:
+                         #   ecu Feb–Dec · par Jan–Nov · bol Mar–Dec · ven Jan–Dec
+                         #   bra.2 Apr–Nov · arg.2 Feb–Nov · usl-l1 Mar–Nov
+                         #   can.w.nsl Apr–Nov
+                         "ecuador-ligapro", "paraguay-primera",
+                         "bolivia-profesional", "venezuela-primera",
+                         "brazil-serie-b", "argentina-nacional",
+                         "usl-league-one", "northern-super-league"}
+# Deliberately NOT calendar-year (the histogram showed a clear off-season gap, so
+# the default Jul–Jun window is correct): liga-expansion-mx (Jul gap — Apertura
+# +Clausura, the liga-mx shape), costa-rica-primera / honduras-liga /
+# guatemala-liga / elsalvador-primera (Jun gap — Apertura Aug–Dec + Clausura
+# Jan–May), south-africa-psl (Jun–Jul), india-isl, liga-f (Jun–Jul),
+# france-premiere-ligue / vrouwen-eredivisie (Jun–Aug), australia-aleague-women
+# (Jun–Sep, matching the men's A-League), usl-super-league (Aug–May).
 
 # ESPN displayName → Understat team key, per league.
 # Only names that DIFFER between the two sources need an entry.

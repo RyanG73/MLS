@@ -11,8 +11,12 @@ _NON_LEAGUE_STEMS = {name.removesuffix(".js") for name in _NON_PAYLOAD} | {"powe
 # Must track webapp/index.html's GROUP_ORDER exactly — a group here with no
 # sidebar entry there silently vanishes from the UI (found 2026-07-10 shipping
 # the Tier-1 South America/Asia leagues).
-_VALID_GROUPS = {"Americas", "South America", "Asia", "England", "Spain", "Italy",
-                 "Germany", "France", "Other Europe", "Women", "Cups"}
+# "Women" was in this set but never in GROUP_ORDER — drift that would have let a
+# women's league ship into a group the UI does not render. Dropped 2026-07-24;
+# the women's leagues are grouped geographically instead (the nwsl/wsl precedent).
+# "Africa" added the same day with south-africa-psl, the first CAF league.
+_VALID_GROUPS = {"Americas", "South America", "Asia", "Africa", "England", "Spain",
+                 "Italy", "Germany", "France", "Other Europe", "Cups"}
 
 
 def test_every_entry_has_a_valid_group():

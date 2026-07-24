@@ -1218,6 +1218,11 @@ function teamGateCardHTML(team){
     'Japan':'\u{1F1EF}\u{1F1F5}','Chile':'\u{1F1E8}\u{1F1F1}','Colombia':'\u{1F1E8}\u{1F1F4}',
     'Uruguay':'\u{1F1FA}\u{1F1FE}','Peru':'\u{1F1F5}\u{1F1EA}','Thailand':'\u{1F1F9}\u{1F1ED}',
     'South Korea':'\u{1F1F0}\u{1F1F7}','North America':NORTH_AMERICA_ICON,'Europe':EUROPE_ICON,
+    // Round 6 (2026-07-24)
+    'Ecuador':'\u{1F1EA}\u{1F1E8}','Paraguay':'\u{1F1F5}\u{1F1FE}','Bolivia':'\u{1F1E7}\u{1F1F4}',
+    'Venezuela':'\u{1F1FB}\u{1F1EA}','Costa Rica':'\u{1F1E8}\u{1F1F7}','Honduras':'\u{1F1ED}\u{1F1F3}',
+    'Guatemala':'\u{1F1EC}\u{1F1F9}','El Salvador':'\u{1F1F8}\u{1F1FB}',
+    'South Africa':'\u{1F1FF}\u{1F1E6}','India':'\u{1F1EE}\u{1F1F3}',
   };
   const groups={};
   (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
@@ -1234,11 +1239,13 @@ function teamGateCardHTML(team){
       [...(groups['MLS']||[]),...(groups['Americas']||[]),...(groups['South America']||[]),..._amCups]],
     ['Europe',EUROPE_ICON,'Europe',[...(groups['Other Europe']||[]),..._euroCups]],
     ['Asia',ASIA_ICON,'Asia',groups['Asia']||[]],
+    // Round 6 (2026-07-24): first CAF league on the platform.
+    ['Africa','\u{1F30D}','Africa',groups['Africa']||[]],
   ];
   // Which nav item highlights for the current league page.
   const _NAV_OF_GROUP={'England':'England','Spain':'Spain','Italy':'Italy','Germany':'Germany',
     'France':'France','MLS':'Americas','Americas':'Americas','South America':'Americas',
-    'Other Europe':'Europe','Asia':'Asia'};
+    'Other Europe':'Europe','Asia':'Asia','Africa':'Africa'};
   const navKeyFor=l=>l.group==='Cups'?(_EURO_CUPS.has(l.id)?'Europe':'Americas'):(_NAV_OF_GROUP[l.group]||'Europe');
   const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
   const menuLink=l=>{const flag=COUNTRY_FLAG[l.country]||'';
@@ -4497,7 +4504,7 @@ if(_isLeagues){
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   document.title="Leagues · Entenser";
   const GROUP_ORDER=[['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}'],['MLS','\u{1F1FA}\u{1F1F8}\u{1F1E8}\u{1F1E6}'],['Spain','\u{1F1EA}\u{1F1F8}'],['Italy','\u{1F1EE}\u{1F1F9}'],['Germany','\u{1F1E9}\u{1F1EA}'],['France','\u{1F1EB}\u{1F1F7}'],
-    ['Americas','\u{1F30E}'],['South America',SOUTH_AMERICA_ICON],['Other Europe','\u{1F1EA}\u{1F1FA}'],['Asia','\u{1F30F}'],['Cups','\u{1F3C6}']];
+    ['Americas','\u{1F30E}'],['South America',SOUTH_AMERICA_ICON],['Other Europe','\u{1F1EA}\u{1F1FA}'],['Asia','\u{1F30F}'],['Africa','\u{1F30D}'],['Cups','\u{1F3C6}']];
   const groups={};
   (window.LEAGUES||[]).forEach(l=>{(groups[l.group||'Other Europe']=groups[l.group||'Other Europe']||[]).push(l);});
   const render=()=>{
