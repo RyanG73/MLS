@@ -90,7 +90,15 @@ def _fetch_events(year: int, start_mmdd: str, end_mmdd: str) -> list[dict]:
 
 
 def _parse_events(events: list[dict], sid: int) -> list[dict]:
-    """Extract completed regular-season matches. Liguilla/playoff slugs are skipped."""
+    """Extract regular-season matches, played and scheduled.
+
+    Liguilla/playoff slugs are skipped. Not-yet-played fixtures come back with
+    NaN goals and is_result=False — the same shape `_coerce` already pins for
+    upcoming fixtures — so the builder has a forward-fixture list to project.
+    Dropping them (as this did before 2026-07-24) left liga-mx with zero
+    upcoming matches, which pinned every torneo to "completed" and crowned a
+    champion after one matchday.
+    """
     rows = []
     for e in events:
         slug = e.get("season", {}).get("slug", "")
@@ -100,8 +108,10 @@ def _parse_events(events: list[dict], sid: int) -> list[dict]:
         if not comps:
             continue
         comp = comps[0]
-        if not comp.get("status", {}).get("type", {}).get("completed"):
-            continue
+        _st = comp.get("status", {}).get("type", {})
+        completed = bool(_st.get("completed"))
+        if not completed and _st.get("state") not in (None, "pre", "in"):
+            continue  # cancelled/postponed with no date to project
         competitors = comp.get("competitors", [])
         if len(competitors) != 2:
             continue
@@ -113,11 +123,16 @@ def _parse_events(events: list[dict], sid: int) -> list[dict]:
         at = away.get("team", {}).get("displayName", "")
         if not ht or not at:
             continue
-        try:
-            hg = int(float(home.get("score") or 0))
-            ag = int(float(away.get("score") or 0))
-        except (ValueError, TypeError):
-            continue
+        if completed:
+            try:
+                hg = int(float(home.get("score") or 0))
+                ag = int(float(away.get("score") or 0))
+            except (ValueError, TypeError):
+                continue
+            label = 0 if hg > ag else (1 if hg == ag else 2)
+        else:
+            hg = ag = np.nan
+            label = np.nan
         dt = pd.to_datetime(e.get("date"), utc=True, errors="coerce")
         if pd.isna(dt):
             continue
@@ -127,8 +142,8 @@ def _parse_events(events: list[dict], sid: int) -> list[dict]:
             "season": sid, "home_team": ht, "away_team": at,
             "home_goals": hg, "away_goals": ag,
             "home_xg": np.nan, "away_xg": np.nan,
-            "label_result": 0 if hg > ag else (1 if hg == ag else 2),
-            "is_result": True, "is_playoff": 0,
+            "label_result": label,
+            "is_result": completed, "is_playoff": 0,
         })
     return rows
 
@@ -144,6 +159,11 @@ def liga_mx_frame(use_cache: bool = True, refresh_latest: bool = True) -> pd.Dat
     cached = (pd.read_parquet(cache_path)
               if use_cache and cache_path.exists() else pd.DataFrame(columns=_COLS))
     have: set[int] = set(cached["season"].unique().tolist()) if not cached.empty else set()
+    # A torneo holding unplayed fixtures is never "done" — always refetch it, so
+    # scheduled rows turn into results even after _LIGA_MX_WINDOWS grows a newer
+    # entry and `is_latest` moves on.
+    pending: set[int] = (set(cached[~cached["is_result"].astype(bool)]["season"]
+                             .unique().tolist()) if not cached.empty else set())
 
     last_window = _LIGA_MX_WINDOWS[-1]
     last_sid = season_id(last_window[0], last_window[3])
@@ -153,7 +173,7 @@ def liga_mx_frame(use_cache: bool = True, refresh_latest: bool = True) -> pd.Dat
     for year, start_mmdd, end_mmdd, is_cl in _LIGA_MX_WINDOWS:
         sid = season_id(year, is_cl)
         is_latest = (sid == last_sid)
-        if sid in have and not (refresh_latest and is_latest):
+        if sid in have and sid not in pending and not (refresh_latest and is_latest):
             continue
         events = _fetch_events(year, start_mmdd, end_mmdd)
         rows = _parse_events(events, sid)

@@ -139,6 +139,11 @@ def pct(v) -> str:
     return f"{r:.0f}%" if r == int(r) else f"{r:.1f}%"
 
 
+def pctH(v) -> str:
+    """pct() for direct interpolation into HTML text — escapes the `<1%` case."""
+    return E(pct(v))
+
+
 def _fmt_date(iso: str | None) -> str:
     if not iso:
         return ""
@@ -164,6 +169,26 @@ def _columns(d: dict) -> list[tuple[str, str]]:
         return _MLS_COLS
     return [(c["key"], c.get("col", c.get("label", c["key"])))
             for c in (d.get("outlook") or {}).get("columns", [])]
+
+
+# What topping the final table actually wins. Leagues whose championship is
+# decided in a playoff/final must NOT be captioned "Champions: <table leader>" —
+# Cavalry FC led the 2024 CPL table but Forge won the final. Keyed on the
+# payload's first probability column, which already encodes what the table decides.
+_TABLE_PRIZE = {
+    "premiers": "Best regular-season record",
+    "liguilla": "Top of the table",
+    "shield": "Supporters' Shield",
+    "playoff": "Top of the table",
+    "playoffs": "Top of the table",
+    "finals": "Premiers",
+    "promo": "Champions",
+    "title": "Champions",
+}
+
+
+def _top_row_label(cols: list[tuple[str, str]]) -> str:
+    return _TABLE_PRIZE.get(cols[0][0], "Top of the table") if cols else "Top of the table"
 
 
 def _upcoming(d: dict, n: int = 8) -> list[dict]:
@@ -232,18 +257,34 @@ def _standings_table(d: dict, cols: list[tuple[str, str]], completed: bool) -> s
                 f'<th class="tm">Club</th>{heads}</tr></thead>'
                 f'<tbody>{body}</tbody></table></div>')
     heads = "".join(f"<th>{E(lbl)}</th>" for _, lbl in cols)
-    srt = sorted(rows, key=lambda r: (r.get("proj_rank") or 99,
-                                      -(r.get("proj_pts") or 0)))
-    body = "".join(
-        f'<tr><td>{i + 1}</td><td class="tm">{E(r.get("team", ""))}</td>'
-        f'<td>{r.get("pts", "–")}</td>'
-        f'<td>{r.get("proj_pts", "–")}</td>'
-        + "".join(f"<td>{pct(r.get(k))}</td>" for k, _ in cols)
-        + "</tr>"
-        for i, r in enumerate(srt))
-    return (f'<div class="tblwrap"><table><thead><tr><th>#</th>'
-            f'<th class="tm">Club</th><th>Pts</th><th>Proj</th>{heads}</tr>'
-            f'</thead><tbody>{body}</tbody></table></div>')
+
+    def _rank_sort(rs):
+        return sorted(rs, key=lambda r: (r.get("proj_rank") or 99,
+                                         -(r.get("proj_pts") or 0)))
+
+    def _body(rs):
+        return "".join(
+            f'<tr><td>{i + 1}</td><td class="tm">{E(r.get("team", ""))}</td>'
+            f'<td>{r.get("pts", "–")}</td>'
+            f'<td>{r.get("proj_pts", "–")}</td>'
+            + "".join(f"<td>{pctH(r.get(k))}</td>" for k, _ in cols)
+            + "</tr>"
+            for i, r in enumerate(_rank_sort(rs)))
+
+    def _tbl(rs):
+        return (f'<div class="tblwrap"><table><thead><tr><th>#</th>'
+                f'<th class="tm">Club</th><th>Pts</th><th>Proj</th>{heads}</tr>'
+                f'</thead><tbody>{_body(rs)}</tbody></table></div>')
+
+    # Conference leagues (MLS) qualify per conference, so a single merged table
+    # shows playoff odds that jump around relative to projected points. Split it.
+    confs = [c for c in dict.fromkeys(r.get("conf") for r in rows)
+             if isinstance(c, str) and c]
+    if len(confs) > 1:
+        return "".join(f'<h3 class="grp">{E(c)}</h3>'
+                       + _tbl([r for r in rows if r.get("conf") == c])
+                       for c in confs)
+    return _tbl(rows)
 
 
 def _callouts(d: dict, cols: list[tuple[str, str]]) -> str:
@@ -257,7 +298,7 @@ def _callouts(d: dict, cols: list[tuple[str, str]]) -> str:
         if (r.get(key0) or 0) <= 0:
             continue
         out.append(f'<div class="callout"><div class="k">{E(lbl0)}</div>'
-                   f'<div class="v">{pct(r.get(key0))}</div>'
+                   f'<div class="v">{pctH(r.get(key0))}</div>'
                    f'<div class="t">{E(r.get("team", ""))}</div></div>')
     rel = next(((k, l) for k, l in cols if k == "releg"), None)
     if rel:
@@ -266,7 +307,7 @@ def _callouts(d: dict, cols: list[tuple[str, str]]) -> str:
             if (r.get("releg") or 0) <= 0:
                 continue
             out.append(f'<div class="callout"><div class="k">Relegation</div>'
-                       f'<div class="v">{pct(r.get("releg"))}</div>'
+                       f'<div class="v">{pctH(r.get("releg"))}</div>'
                        f'<div class="t">{E(r.get("team", ""))}</div></div>')
     return f'<div class="callouts">{"".join(out)}</div>' if out else ""
 
@@ -277,9 +318,9 @@ def _fixtures(fx: list[dict]) -> str:
     rows = "".join(
         f'<div class="fxrow"><span class="d">{E(_fmt_date(g.get("date")))}</span>'
         f'<span class="t">{E(g.get("home", ""))} vs {E(g.get("away", ""))}</span>'
-        f'<span class="p">{pct((g.get("pH") or 0) * 100)} W · '
-        f'{pct((g.get("pD") or 0) * 100)} D · '
-        f'{pct((g.get("pA") or 0) * 100)} L</span></div>'
+        f'<span class="p">{pctH((g.get("pH") or 0) * 100)} W · '
+        f'{pctH((g.get("pD") or 0) * 100)} D · '
+        f'{pctH((g.get("pA") or 0) * 100)} L</span></div>'
         for g in fx)
     return f'<h2>Upcoming matches — win probabilities</h2><div class="fx">{rows}</div>'
 
@@ -380,11 +421,12 @@ def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
         if pct_done is not None:
             sub.append(f"{pct_done}% of the season played")
     elif completed:
-        champ = ((d.get("outlook") or {}).get("champion")
-                 or (max(rows, key=lambda r: (r.get("pts") or 0))["team"]
-                     if rows else None))
+        champ = (d.get("outlook") or {}).get("champion")
         if champ:
             sub.append(f"Champions: {champ}")
+        elif rows:
+            top = max(rows, key=lambda r: (r.get("pts") or 0))["team"]
+            sub.append(f"{_top_row_label(cols)}: {top}")
     sub.append(f"updated {generated[:10]}")
     parts.append(f'<div class="sub">{E(" · ".join(sub))}</div>')
 
@@ -631,14 +673,27 @@ def league_csv(d: dict, cols: list[tuple[str, str]]) -> str:
     """Projected table as CSV: one row per team, probabilities as columns."""
     rows = d.get("standings") or []
     buf = io.StringIO()
-    fields = ["rank", "team", "played", "points", "proj_points"] + [k for k, _ in cols]
+    # MLS-style payloads qualify per conference; without this column the
+    # probability columns are unreadable in a flat merged file.
+    has_conf = any(isinstance(r.get("conf"), str) and r["conf"] for r in rows)
+    fields = (["rank", "team"] + (["conference"] if has_conf else [])
+              + ["played", "points", "proj_points"] + [k for k, _ in cols])
     w = csv.writer(buf)
     w.writerow(fields)
-    srt = sorted(rows, key=lambda r: (r.get("proj_rank") or 99,
+
+    def _grp(r):
+        return (r.get("conf") or "") if has_conf else ""
+
+    srt = sorted(rows, key=lambda r: (_grp(r), r.get("proj_rank") or 99,
                                       -(r.get("proj_pts") or 0)))
-    for i, r in enumerate(srt, 1):
-        w.writerow([i, r.get("team", ""), r.get("gp", ""), r.get("pts", ""),
-                    r.get("proj_pts", "")] + [r.get(k, "") for k, _ in cols])
+    rank = {}
+    for r in srt:
+        grp = _grp(r)
+        rank[grp] = i = rank.get(grp, 0) + 1  # rank is within-conference
+        w.writerow([i, r.get("team", "")]
+                   + ([r.get("conf", "")] if has_conf else [])
+                   + [r.get("gp", ""), r.get("pts", ""), r.get("proj_pts", "")]
+                   + [r.get(k, "") for k, _ in cols])
     return buf.getvalue()
 
 

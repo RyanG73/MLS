@@ -1598,8 +1598,14 @@ def main():
                                "hcolor": tmeta(h).get("color"), "acolor": tmeta(a).get("color")})
         remaining.append((h, a))
 
-    # universe = teams that appear in this season's results or remaining fixtures
-    tids = sorted({t for t in pts} | {t for fx in remaining for t in fx})
+    # universe = teams that appear in this season's results or remaining fixtures.
+    # Key off `gp` (incremented for both sides of every played match), NOT `pts`
+    # — `pts` only has an entry once a team wins or draws, so a still-winless club
+    # with no remaining fixture in the feed would vanish from the table entirely.
+    # Invisible while the fixture feed is healthy; it silently truncated liga-mx
+    # to the 10 clubs with points when Apertura 2026 shipped with no forward
+    # fixtures (found in the 2026-07-24 league QA audit).
+    tids = sorted(set(gp) | {t for fx in remaining for t in fx})
     idx = {t: i for i, t in enumerate(tids)}; nT = len(tids)
     base_pts = np.array([pts.get(t, 0) for t in tids], dtype=float)
     base_gd = np.array([gf.get(t, 0) - ga.get(t, 0) for t in tids], dtype=float)
@@ -2108,7 +2114,13 @@ def main():
 
     pct = round(len([g for g in games if g["result"]]) / max(1, len(games)) * 100)
     _sstate = season_state(len(played), len(upcoming))
-    _season_label = f"{ts}-{str(ts + 1)[2:]}" if is_preseason else None
+    # liga-mx's `ts` is a sequential torneo index, not a calendar year — without
+    # this the SEO page falls back to `season` and renders "Liga MX 20" (and the
+    # pre-season branch would render "20-1"). Decode it to "Ap.2026"/"Cl.2026".
+    if lid == "liga-mx":
+        _season_label = liga_mx_label(ts)
+    else:
+        _season_label = f"{ts}-{str(ts + 1)[2:]}" if is_preseason else None
     # Top-level route state (see docs/CURRENT_STATE.md § Route State Taxonomy).
     # Derived from the same match-count classification used for `in_season`, so the
     # webapp can branch on one canonical field instead of inferring from outlook.*.
