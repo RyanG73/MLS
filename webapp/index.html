@@ -111,11 +111,16 @@ if('serviceWorker' in navigator && location.hostname!=='localhost' && location.p
 :root{
   --ink-0:#070809; --ink-1:#0a0d0b; --ink-2:#0c100d; --ink-3:#121a14;
   --line:#131b14; --line-2:#18211a; --line-3:#243026;
-  /* txt-3 lifted #54665b→#6b7d71 (2026-07-23): the old value scored 3.27:1 on
-     --ink-0 and carries real data (odds prices, league names, kickoff dates),
-     not just chrome. #6b7d71 is 4.58:1 — clears WCAG AA at the same hue.
+  /* txt-3 lifted #54665b→#6b7d71 (2026-07-23), then →#738579 (2026-07-24).
+     The 2026-07-23 pass measured #6b7d71 against --ink-0 only (4.58:1) and
+     called it AA-clear. It is not: txt-3 is used 200+ times and almost always
+     sits on a panel, not the canvas — #6b7d71 scores 4.46 on --ink-1, 4.38 on
+     --ink-2 and 4.05 on --ink-3, so it failed AA on every surface except the
+     one it was checked against (172 of 175 Home failures at 375px were this
+     token alone). #738579 is solved against --ink-3, the lightest surface it
+     lands on, so it clears 4.5:1 on all four: 4.85/4.72/4.64/4.53.
      txt-4 keeps the old value for genuinely decorative marks only. */
-  --txt-1:#e3e9e4; --txt-2:#9fb0a3; --txt-3:#6b7d71; --txt-4:#54665b;
+  --txt-1:#e3e9e4; --txt-2:#9fb0a3; --txt-3:#738579; --txt-4:#54665b;
   --win:#f4b740; --qualify:#3ddc84; --europa:#4aa3ff; --drop:#ff5d5d; --draw:#5a6b7a;
   /* legacy aliases kept so not-yet-restyled code keeps working until its task lands */
   --floodlight:#3ddc84; --west:#f4b740; --hfa:#f4b740; --shield:#d7deea; --spoon:#bd7d4e;
@@ -138,7 +143,7 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .panel-h{display:flex;align-items:center;gap:8px;padding:9px var(--s3);border-bottom:1px solid var(--line-2);background:var(--ink-2)}
 .panel-h .dot{width:7px;height:7px;border-radius:50%;background:var(--qualify);box-shadow:0 0 8px var(--qualify);flex:none}
 .panel-h h2{font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;color:var(--txt-1);text-transform:uppercase}
-.panel-h .meta{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--txt-3)}
+.panel-h .meta{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--txt-3)}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
 /* ── NYT-style masthead (site-wide chrome) ── */
@@ -157,8 +162,12 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .odds-toggle button:first-child{border-left:0}
 .odds-toggle button:hover{color:var(--txt-1);background:var(--ink-3)}
 .odds-toggle button.on{color:var(--txt-1);background:var(--ink-3)}
-.mast-search{position:relative;width:210px}
-.mast-search input{width:100%;background:var(--ink-1);border:1px solid var(--line-3);border-radius:999px;color:var(--txt-1);font-size:12px;padding:6px 12px;outline:none}
+.mast-search{position:relative;width:240px}
+/* font-size MUST stay >=16px: Mobile Safari zooms the whole page on focus for
+   anything smaller, and it does not zoom back out on blur — at 12px that left
+   the page scaled past the viewport with the Account tab pushed off the bottom
+   bar entirely. min-height keeps the 44px tap target. (2026-07-24) */
+.mast-search input{width:100%;background:var(--ink-1);border:1px solid var(--line-3);border-radius:999px;color:var(--txt-1);font-size:16px;min-height:44px;padding:6px 14px;outline:none}
 .mast-search input:focus{border-color:var(--txt-3)}
 .ms-results{display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:80;width:280px;background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);box-shadow:0 12px 30px rgba(0,0,0,.55);max-height:55vh;overflow-y:auto;padding:4px 0}
 .ms-results.open{display:block}
@@ -167,7 +176,7 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .ms-k{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px;flex:none}
 .ms-empty{padding:9px 12px;font-size:12px;color:var(--txt-3)}
 .mb-nm{display:flex;flex-direction:column;line-height:1.25;min-width:0}
-.mb-nm em{font-style:normal;font-size:10px;color:var(--txt-3)}
+.mb-nm em{font-style:normal;font-size:11px;color:var(--txt-3)}
 .mast-bar{display:flex;justify-content:center;gap:2px;border-top:1px solid var(--line-2);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:0 var(--s4)}
 .mast-bar::-webkit-scrollbar{display:none}
 .mb-item{position:relative;flex:none}
@@ -195,7 +204,7 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mb-portal a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
 .mb-portal a:hover{background:var(--ink-2);color:var(--txt-1)}
 .mb-portal a .mb-flag{min-width:16px;flex:none;text-align:center;font-size:15px;line-height:1}
-.mb-portal a .soon-tag{margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
+.mb-portal a .soon-tag{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
 .mast-live{display:flex;align-items:center;gap:8px;justify-content:center;padding:6px var(--s4);border-top:1px solid var(--line-2);font-size:11.5px;color:var(--txt-2)}
 .mast-live .dot{width:7px;height:7px;border-radius:50%;background:var(--drop);animation:pulse 1.6s infinite}
 @keyframes pulse{50%{opacity:.35}}
@@ -221,7 +230,7 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
   body{padding-bottom:84px}
   .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:70;
     background:rgba(10,13,11,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line-3);padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
-  .bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:600;color:var(--txt-3);text-decoration:none;margin:0 6px;padding:4px 0 3px;border-radius:10px}
+  .bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--txt-3);text-decoration:none;margin:0 6px;padding:4px 0 3px;border-radius:10px}
   .bnav a .ico{font-size:19px;line-height:1}
   /* current tab is "lit": soft green wash + icon glow (2026-07-19) */
   .bnav a.active{color:var(--txt-1);background:rgba(61,220,132,.10);box-shadow:inset 0 0 12px rgba(61,220,132,.08)}
@@ -274,7 +283,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .acc-trk .acc-cells{display:flex;gap:7px}
 .acc-trk .yr{display:flex;flex-direction:column;font-family:var(--mono);font-size:10.5px;font-weight:700;align-items:center;gap:1px;width:46px}
 .acc-trk .yr .blank{color:var(--txt-3);opacity:.4}
-.acc-trk .yr b{font-family:var(--mono);color:var(--txt-3);font-weight:700;font-size:8.5px;letter-spacing:.02em}
+.acc-trk .yr b{font-family:var(--mono);color:var(--txt-3);font-weight:700;font-size:11px;letter-spacing:.02em}
 .soon-badge{font-size:11px;color:var(--txt-3);border:1px dashed var(--line-3);border-radius:var(--r-sm);padding:6px 12px}
 /* coming-soon league view */
 .soon-view{margin-top:var(--s4)}
@@ -323,7 +332,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .race{border:1px solid var(--line-2);border-radius:9px;background:var(--ink-2);padding:10px 11px;position:relative;overflow:hidden;max-width:460px;justify-self:stretch}
 .race::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
 .race.t::before{background:var(--win)}.race.u::before{background:var(--qualify)}.race.e::before{background:var(--europa)}.race.r::before{background:var(--drop)}.race.s::before{background:var(--shield)}
-.race .rk{font-size:8.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-2);display:flex;justify-content:space-between;gap:6px}
+.race .rk{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-2);display:flex;justify-content:space-between;gap:6px}
 .race .rk em{font-style:normal;color:var(--txt-3);font-weight:700}
 .race .lead{display:flex;align-items:center;gap:8px;margin:8px 0 9px}
 .race .lead .crest{width:22px;height:22px}
@@ -338,9 +347,9 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .race.t .cv{color:var(--win)}.race.u .cv{color:var(--qualify)}.race.e .cv{color:var(--europa)}.race.r .cv{color:var(--drop)}.race.s .cv{color:var(--shield)}
 /* U2: "since last build" delta + why-changed cause, neutral styling (no betting green/red) */
 .race .rdelta{display:flex;align-items:center;gap:6px;margin-top:9px;padding-top:7px;border-top:1px solid var(--line);font-size:10px;color:var(--txt-3)}
-.race .rdelta .rd-a{font-size:9px;color:var(--txt-2)}
+.race .rdelta .rd-a{font-size:11px;color:var(--txt-2)}
 .race .rdelta .rd-v{font-weight:700;color:var(--txt-2);font-variant-numeric:tabular-nums}
-.race .rdelta .rd-c{margin-left:auto;letter-spacing:.02em;text-transform:uppercase;font-size:8.5px}
+.race .rdelta .rd-c{margin-left:auto;letter-spacing:.02em;text-transform:uppercase;font-size:11px}
 .race .rdelta.res .rd-a,.race .rdelta.res .rd-v{color:var(--txt-1)}
 
 /* ladders */
@@ -380,14 +389,16 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
    via --tgrid so the club column stays tight regardless of how many outcome cols. */
 .tlad .thead,.tlad .trow{display:grid;grid-template-columns:var(--tgrid,18px minmax(90px,1fr) 36px 34px 34px 34px 34px);align-items:center;gap:5px;padding:6px var(--s3)}
 .tlad .thead{font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3);border-bottom:1px solid var(--line)}
-.tlad .thead .c{text-align:center;line-height:1.1}
+/* letter-spacing:0 here reclaims the ~2px that made "Europa" clip inside the
+   fixed 34px outcome column (pre-existing on production). (2026-07-24) */
+.tlad .thead .c{text-align:center;line-height:1.1;letter-spacing:0}
 .tlad .trow{border-bottom:1px solid var(--line);position:relative;transition:background .12s}
 .tlad .trow:last-child{border-bottom:none}
 .tlad .trow:hover{background:var(--ink-2)}
 .tlad .trow.ucl{box-shadow:inset 3px 0 0 var(--qualify)}
 .tlad .trow.rz{box-shadow:inset 3px 0 0 var(--drop)}
 .tlad .rank,.tlad .pts,.tlad .projc,.tlad .eloc{font-family:var(--mono)}
-.ucl-line,.rz-line{font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:3px var(--s3);font-weight:700;font-family:var(--mono)}
+.ucl-line,.rz-line{font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:3px var(--s3);font-weight:700;font-family:var(--mono)}
 .ucl-line{color:var(--qualify);border-top:1px dashed rgba(61,220,132,.35)}
 .rz-line{color:var(--drop);border-top:1px dashed rgba(255,93,93,.35)}
 @media(max-width:620px){.tlad .thead .c-elo,.tlad .trow .eloc{display:none}}
@@ -396,7 +407,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 /* axis mirrors .frow's 104px-name + 9px-gap grid so ticks sit exactly over the bar
    track; each tick is absolutely positioned with the same pos() mapping as the bars
    (the old full-width space-between flex left every tick ~113px left of the bars). */
-.plot .faxis{display:grid;grid-template-columns:104px 1fr;gap:9px;font-family:var(--mono);font-size:9px;color:var(--txt-3);padding:0 0 7px;border-bottom:1px solid var(--line);margin-bottom:5px}
+.plot .faxis{display:grid;grid-template-columns:104px 1fr;gap:9px;font-family:var(--mono);font-size:11px;color:var(--txt-3);padding:0 0 7px;border-bottom:1px solid var(--line);margin-bottom:5px}
 .plot .faxis .fax{position:relative;height:11px}
 .plot .faxis .fax span{position:absolute;top:0;transform:translateX(-50%)}
 .plot .faxis .fax span:first-child{transform:none}
@@ -408,7 +419,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .plot .ftrack{position:relative;height:14px}
 .plot .rangebar{position:absolute;top:4px;height:6px;border-radius:3px;opacity:.42}
 .plot .fmed{position:absolute;top:2px;width:3px;height:10px;border-radius:1px}
-.plot .fleg{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;font-size:10px;color:var(--txt-3)}
+.plot .fleg{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;font-size:11px;color:var(--txt-3)}
 .plot .fconf-h{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-3);padding:9px 0 4px;border-top:1px solid var(--line)}
 .plot .fconf-h:first-of-type{border-top:none;padding-top:0}
 /* run-in difficulty rows (G1, 2026-07-09) — same 104px name gutter as .frow */
@@ -420,7 +431,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .ri-track>span{display:block;height:100%;border-radius:4px;opacity:.75}
 .ri-v{font-family:var(--mono);font-weight:700;font-size:11px;text-align:right;color:var(--txt-2)}
 .ri-next{display:flex;gap:3px;justify-content:flex-end}
-.ri-chip{font-family:var(--mono);font-size:8.5px;font-weight:700;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 3px;white-space:nowrap}
+.ri-chip{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 3px;white-space:nowrap}
 .plot .fleg span{display:inline-flex;align-items:center;gap:5px}
 .plot .fleg i{width:9px;height:9px;border-radius:2px;display:inline-block}
 /* ── knockout-view sub-tabs (UEFA Champions League etc.) ── */
@@ -689,7 +700,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .cal-top button:disabled{opacity:.35;cursor:not-allowed}
 .cal-title{font-family:var(--mono);font-size:11px;font-weight:800;color:var(--txt-2);text-transform:uppercase;letter-spacing:.06em}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-.cal-dow{font-family:var(--mono);font-size:8px;text-align:center;color:var(--txt-3);text-transform:uppercase}
+.cal-dow{font-family:var(--mono);font-size:11px;text-align:center;color:var(--txt-3);text-transform:uppercase}
 .cal-day{height:28px;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--txt-3);font-family:var(--mono);font-size:10px;cursor:default}
 .cal-day.has{background:var(--ink-1);border-color:var(--line-2);color:var(--txt-2);cursor:pointer}
 .cal-day.has:hover{background:var(--ink-3);color:var(--txt-1)}
@@ -868,7 +879,7 @@ footer a:hover{color:var(--txt-2)}
 @media(max-width:480px){
   .col-head .c-proj,.row .projc{display:none}
   .col-head,.row{grid-template-columns:16px minmax(var(--clubw,90px),1fr) 22px 26px 26px 27px 27px 24px 40px;gap:3px}
-  .heat{font-size:10px;padding:4px 0}
+  .heat{font-size:11px;padding:4px 0}
   .g-side .tn{font-size:12.5px}
   .acc .bars{display:none}
   .fav .team{font-size:13.5px} .fav .pct{font-size:22px}
@@ -895,13 +906,14 @@ footer a:hover{color:var(--txt-2)}
     width:28px;min-width:28px;height:28px;flex:none;
     display:flex;align-items:center;justify-content:center;border-radius:7px}
   .wb-l{display:flex;flex-direction:column;align-items:center;line-height:1.1;
-    font-size:8px;font-weight:700;color:var(--txt-2);pointer-events:none}
+    font-size:11px;font-weight:700;color:var(--txt-2);pointer-events:none}
   .wbox.w .wb-l,.wbox.d .wb-l,.wbox.l .wb-l{color:#06121d}
 }
 </style>
 <link rel="stylesheet" href="intelligence.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to main content</a>
 <div id="mast"></div>
 <header>
   <div class="wrap head-in">
@@ -913,7 +925,7 @@ footer a:hover{color:var(--txt-2)}
   </div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="main">
   <div class="seg" role="tablist" id="seg">
     <button role="tab" aria-selected="true" data-view="outlook">League Projections</button>
     <button role="tab" aria-selected="false" data-view="matches">Match Projections</button>
@@ -1283,7 +1295,7 @@ function teamGateCardHTML(team){
       <div class="mast-date">${dstr}${H?`<span>Updated ${H.generated}</span>`:''}</div>
       <a class="mast-wordmark" href="${location.pathname}"><img class="mast-moose" src="assets/branding/entenser-icon-light.png" alt="">Entenser</a>
       <div class="mast-right">
-        <div class="mast-search"><input id="msq" type="search" placeholder="Search leagues & teams…" autocomplete="off" spellcheck="false"><div class="ms-results" id="msr"></div></div>
+        <div class="mast-search"><input id="msq" type="search" aria-label="Search leagues and teams" placeholder="Search leagues & teams…" autocomplete="off" spellcheck="false"><div class="ms-results" id="msr"></div></div>
         <span class="odds-lbl">Odds Format</span><div class="odds-toggle" title="Odds display format">${
           [['american','US'],['decimal','Dec'],['fractional','Frac']].map(([f,lbl])=>
             `<button type="button" data-oddsfmt="${f}" class="${window.ODDS_FMT===f?'on':''}">${lbl}</button>`).join('')}</div>
@@ -2625,16 +2637,21 @@ function renderHealth(){
   if(osk&&Object.keys(osk).length){
     const CP_LABEL={cp0:'Preseason','cp0.25':'25% played','cp0.5':'50% played','cp0.75':'75% played'};
     const keys=[...new Set(Object.values(osk).flatMap(o=>Object.keys(o)))];
-    const head=`<tr><th style="text-align:left">Checkpoint</th>${keys.map(k=>`<th>${k}</th>`).join('')}</tr>`;
+    // These were rendering the raw internal metric keys ("releg", "ucl", "conf")
+    // as user-facing column headers. Same label vocabulary as MOVERS_DATA. (2026-07-24)
+    const OSK_LABEL={conf:'Conference',europa:'Europa',releg:'Relegation',title:'Title',
+      ucl:'UCL',promo:'Promotion',playoff:'Playoffs',shield:'Shield',cup:'Cup'};
+    const oskLbl=k=>OSK_LABEL[k]||k;
+    const head=`<tr><th scope="col" style="text-align:left">Checkpoint</th>${keys.map(k=>`<th scope="col">${oskLbl(k)}</th>`).join('')}</tr>`;
     const rows=Object.keys(CP_LABEL).filter(cp=>osk[cp]).map(cp=>
-      `<tr><td style="text-align:left">${CP_LABEL[cp]}</td>`+keys.map(k=>{
+      `<tr><th scope="row" style="text-align:left;font-weight:400">${CP_LABEL[cp]}</th>`+keys.map(k=>{
         const m=osk[cp][k];
         if(!m||m.skill==null)return '<td class="hnote">—</td>';
         const c=m.skill<=0.05?'#e25f4f':(m.skill<0.25?'var(--ink-dim,#8a93a6)':'var(--qualify,#41d18c)');
         return `<td style="color:${c}">${m.skill.toFixed(2)}</td>`;
       }).join('')+'</tr>').join('');
-    oskBlock=`<div class="hcard2"><h3>Season-outcome skill — when to trust the odds</h3>
-      <table class="osk-table" style="width:100%;border-collapse:collapse;font-size:12px;text-align:center">${head}${rows}</table>
+    oskBlock=`<div class="hcard2"><h3 id="oskHead">Season-outcome skill — when to trust the odds</h3>
+      <table class="osk-table" aria-labelledby="oskHead" style="width:100%;border-collapse:collapse;font-size:12px;text-align:center">${head}${rows}</table>
       <div class="hnote">Skill vs always quoting historical base rates (1 = perfect, 0 = none, red = little/none).
       Preseason relegation/promotion odds carry little skill — they sharpen by ~25% of the season.
       Measured on 2018–2025 replays (<code>season-outcomes-baseline</code>).</div></div>`;
@@ -3621,7 +3638,7 @@ if (_isPower && window.POWER_DATA) {
 .mxt .was{font-family:var(--mono);font-size:12px;color:var(--txt-3);text-decoration:line-through}
 .mxt .now{font-family:var(--mono);font-size:19px;font-weight:800;color:var(--qualify)}
 .mxt .now.dn{color:#e25f4f}
-.mxt .d{font-size:10px;font-weight:700}
+.mxt .d{font-size:11px;font-weight:700}
 #mxTicker{transition:opacity .25s}
 /* ── Subscribe page (2026-07-17): pitch → email + favorites picker → sample
    weekly → supporter waitlist ── */
@@ -3780,8 +3797,12 @@ if (_isPower && window.POWER_DATA) {
 .lx-lg{display:flex;align-items:center;gap:9px;padding:9px 4px;font-size:13.5px;color:var(--txt-2);text-decoration:none;border-bottom:1px solid var(--line)}
 .lx-lg:hover{color:var(--txt-1);background:var(--ink-1)}
 .lx-lg img{width:20px;height:20px;object-fit:contain;flex:none}
-.lx-lg .soon-tag{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
-.lx-star{margin-left:auto;color:var(--txt-3);font-size:15px;cursor:pointer;padding:2px 4px}
+.lx-lg .soon-tag{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);border:1px solid var(--line-2);border-radius:4px;padding:1px 4px}
+/* 44px hit area without growing the row: the negative block margins cancel the
+   extra height so the star still contributes ~24px to layout (it was 25px), and
+   the league row stays at its original 48px. */
+.lx-star{margin-left:auto;margin-top:-10px;margin-bottom:-10px;color:var(--txt-3);font-size:15px;cursor:pointer;min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.lx-star:focus-visible{outline:2px solid var(--qualify);outline-offset:-4px;border-radius:var(--r-sm)}
 .lx-star.on,.lx-star:hover{color:#e2b04f}
 /* ── Favorites page ── */
 .fv-empty{padding:var(--s5) 0;color:var(--txt-2);font-size:14px}
@@ -3804,18 +3825,18 @@ if (_isPower && window.POWER_DATA) {
    region filter — distinct from the "More movement" narrative story cards. ── */
 .mv-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .mv-pills{display:flex;gap:6px;flex-wrap:wrap}
-.mv-pill{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.03em;padding:4px 10px;border-radius:99px;border:1px solid var(--line-2);color:var(--txt-3);cursor:pointer;background:none}
+.mv-pill{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.03em;padding:4px 10px;border-radius:99px;border:1px solid var(--line-2);color:var(--txt-3);cursor:pointer;background:none}
 .mv-pill:hover{color:var(--txt-1)}
 .mv-pill.on{background:var(--txt-1);color:var(--ink-0);border-color:var(--txt-1)}
 .mv-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.mv-col-h{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.mv-col-h{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
 .mv-col-h.up{color:var(--qualify)}
 .mv-col-h.down{color:#e25f4f}
 .mv-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-3)}
 .mv-row .crest{width:24px;height:24px;font-size:8.5px}
 .mv-row .nm{flex:1;min-width:0}
 .mv-row .nm b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mv-row .nm span{display:block;font-size:10.5px;color:var(--txt-3)}
+.mv-row .nm span{display:block;font-size:11px;color:var(--txt-3)}
 .mv-row .d{font-family:var(--mono);font-weight:700;font-size:13px;flex:none}
 .mv-row .d.up{color:var(--qualify)}
 .mv-row .d.down{color:#e25f4f}
@@ -3837,6 +3858,9 @@ if (_isPower && window.POWER_DATA) {
    already pay for it. The h1 now states what changed; the tagline survives as
    a sub-line so crawlers and first-time visitors still get the promise. */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Keyboard skip-link: off-screen until focused, then pinned top-left. (2026-07-24) */
+.skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--ink-3);color:var(--txt-1);border:1px solid var(--qualify);border-radius:var(--r-sm);padding:10px 16px;font-size:14px;text-decoration:none}
+.skip-link:focus{left:8px;top:8px}
 .hx-live{padding:2px 2px 0}
 .hx-live-r{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
 .hx-live-r+.hx-live-r{margin-top:5px}
@@ -3846,7 +3870,9 @@ if (_isPower && window.POWER_DATA) {
 .hx-live-r.mv .n{white-space:normal;font-size:13.5px;font-weight:600;color:var(--txt-2)}
 .hx-live-r.mv .n b{font-weight:700;color:var(--txt-1)}
 .hx-live-r.mv .n em{font-style:normal;color:var(--win)}
-.hx-live .sep{color:var(--txt-4)}
+/* txt-4 is the decorative-only token (3.27:1); this separator sits inline in a
+   16px trust-tape line and is read as content, so it uses txt-3. (2026-07-24) */
+.hx-live .sep{color:var(--txt-3)}
 .hx-sub{font-size:12px;line-height:1.45;color:var(--txt-2);margin:7px 0 0;padding:0 2px;max-width:34em}
 .hx-strip{position:relative;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 8px;margin-top:10px}
 /* Edge fade (2026-07-23): this strip runs ~4200px inside a 317px viewport on
@@ -3860,7 +3886,7 @@ if (_isPower && window.POWER_DATA) {
 .hx-strip-scroll{display:flex;gap:10px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px;scroll-snap-type:x proximity}
 .hx-strip-scroll>*{scroll-snap-align:start}
 .hx-day{flex:none}
-.hx-dh{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);border-bottom:1px solid var(--line-3);padding-bottom:5px;margin-bottom:8px;white-space:nowrap}
+.hx-dh{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);border-bottom:1px solid var(--line-3);padding-bottom:5px;margin-bottom:8px;white-space:nowrap}
 .hx-cards{display:flex;gap:6px}
 /* Result / fixture cards (2026-07-19 sketch): league-name header, then one
    row per team — crest left, score (or win% + fair odds) tight beside it. */
@@ -3879,14 +3905,14 @@ if (_isPower && window.POWER_DATA) {
 .hx-scard.fx .p .o{font-family:var(--mono);font-size:11px;color:var(--txt-3)}
 .hx-scard.fx .drw{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:center;border-top:1px solid var(--line-3);padding-top:3px;margin-top:1px;white-space:nowrap}
 .hx-strip-foot{text-align:right;margin-top:6px}
-.hx-strip-foot a{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--qualify);text-decoration:none}
+.hx-strip-foot a{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--qualify);text-decoration:none}
 /* C: rotating league table · E: synced title-odds board */
 .hx-card{border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--ink-1);padding:12px 14px;margin-top:8px}
 .hx-th{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
 .hx-th b{font-size:14.5px}
-.hx-th span{font-size:10.5px;color:var(--txt-3)}
+.hx-th span{font-size:11px;color:var(--txt-3)}
 .hx-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
-.hx-tbl th{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);text-align:left;padding:3px 6px;border-bottom:1px solid var(--line-2)}
+.hx-tbl th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt-3);text-align:left;padding:3px 6px;border-bottom:1px solid var(--line-2)}
 .hx-tbl th.r,.hx-tbl td.r{text-align:right}
 .hx-tbl td{padding:5px 6px;border-bottom:1px solid var(--line)}
 .hx-tbl tr:last-child td{border-bottom:none}
@@ -3901,7 +3927,7 @@ if (_isPower && window.POWER_DATA) {
 .hx-erow:last-child{border-bottom:none}
 .hx-erow:hover{background:var(--ink-2)}
 .hx-erow.on{background:var(--ink-2);box-shadow:inset 2px 0 0 var(--qualify)}
-.hx-erow .lg{font-family:var(--mono);font-size:9.5px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;width:58px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-erow .lg{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;width:66px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hx-erow .crest{width:22px;height:22px;font-size:8px}
 .hx-erow .nm{flex:1;font-size:12.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hx-erow b{font-family:var(--mono);font-size:13px}
@@ -3915,7 +3941,7 @@ if (_isPower && window.POWER_DATA) {
 .hx-news-item:last-child{border-bottom:none}
 .hx-news-item h4{font-family:var(--serif);font-size:14px;font-weight:700;line-height:1.3;margin:0 0 3px}
 .hx-news-item:hover h4{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
-.hx-news-item .m{font-size:10.5px;color:var(--txt-3)}
+.hx-news-item .m{font-size:11px;color:var(--txt-3)}
 /* F: one-league-at-a-time fixtures carousel */
 .hx-caro-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:8px 0 8px}
 .hx-caro-head b{font-size:14.5px}
@@ -3955,10 +3981,10 @@ if (_isPower && window.POWER_DATA) {
 .cal-box.today{border-color:var(--hfa)}
 .cal-box.active{background:var(--txt-1);border-color:var(--txt-1)}
 .cal-box.active .cal-dow,.cal-box.active .cal-num,.cal-box.active .cal-mon{color:var(--ink-0)}
-.cal-dow{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-3)}
+.cal-dow{font-family:var(--mono);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-3)}
 .cal-num{font-family:var(--mono);font-size:17px;font-weight:700;line-height:1.1}
-.cal-mon{font-size:9px;color:var(--txt-3)}
-.cal-count{font-size:9px;font-family:var(--mono);color:var(--qualify)}
+.cal-mon{font-size:11px;color:var(--txt-3)}
+.cal-count{font-size:11px;font-family:var(--mono);color:var(--qualify)}
 .cal-box.active .cal-count{color:var(--ink-0)}
 .cal-box.empty .cal-count{visibility:hidden}
 .cal-day-h{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-2);padding:10px 14px 4px}
@@ -3971,20 +3997,20 @@ if (_isPower && window.POWER_DATA) {
 @media(min-width:901px){.cal-box{width:74px;padding:10px 6px}.cal-num{font-size:20px}}
 /* Matches-tab match cards (2026-07-19): home-tab card format + team names —
    league subheader groups, kickoff time above each match. */
-.mx-lg{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);margin:14px 0 6px;border-bottom:1px solid var(--line-3);padding-bottom:4px}
+.mx-lg{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);margin:14px 0 6px;border-bottom:1px solid var(--line-3);padding-bottom:4px}
 .mx-cards{display:flex;flex-direction:column;gap:6px}
 .mxcard{width:100%;max-width:520px;background:var(--ink-2);border-radius:var(--r-md);padding:5px 10px 4px;text-decoration:none;color:inherit}
 .mxcard:hover{background:var(--ink-3)}
-.mxcard .ko{font-family:var(--mono);font-size:8.5px;letter-spacing:.04em;color:var(--txt-3);text-align:center;text-transform:uppercase;border-bottom:1px solid var(--line-3);padding-bottom:3px;margin-bottom:1px}
+.mxcard .ko{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--txt-3);text-align:center;text-transform:uppercase;border-bottom:1px solid var(--line-3);padding-bottom:3px;margin-bottom:1px}
 .mxcard .tr{display:flex;align-items:center;gap:6px;padding:3px 0}
 .mxcard .tr+.tr{border-top:1px solid var(--line)}
 .mxcard .tr .crest{width:22px;height:22px;font-size:8px}
 .mxcard .tr .nm{flex:1;min-width:0;font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mxcard .tr .p{display:flex;align-items:baseline;gap:4px}
 .mxcard .tr .p b{font-family:var(--mono);font-weight:700;font-size:12.5px}
-.mxcard .tr .p .o{font-family:var(--mono);font-size:9px;color:var(--txt-3)}
+.mxcard .tr .p .o{font-family:var(--mono);font-size:11px;color:var(--txt-3)}
 .mxcard .tr b{font-family:var(--mono);font-weight:700;font-size:12.5px}
-.mxcard .drw{font-family:var(--mono);font-size:8.5px;color:var(--txt-3);text-align:center;border-top:1px solid var(--line-3);padding-top:3px;margin-top:1px;white-space:nowrap}
+.mxcard .drw{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:center;border-top:1px solid var(--line-3);padding-top:3px;margin-top:1px;white-space:nowrap}
 </style>
 <script>
 // ── B12: cross-league edge board (pinned sidebar item, the no-?league= landing view).
@@ -4410,7 +4436,20 @@ if(_isHome && window.HOME_DATA){
   const MVB=H.movers_board||{movers:[]};
   const MV_REGIONS=['Overall','Europe','North America','South America','Asia'];
   let mvRegion='Overall';
-  const moversRow=m=>`<div class="mv-row">${crest(m.team,m.logo)}<span class="nm"><b>${m.team}</b><span>${nm(m.league)} · ${m.metric_label}</span></span><span class="d ${m.delta>=0?'up':'down'}">${m.delta>=0?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</span></div>`;
+  // Colour is keyed to what the movement MEANS, not which way it points. Every
+  // metric here (Title, Promotion, Playoffs, Europa, UCL, Shield, Cup) is an
+  // outcome a club wants, so rising = good — except Relegation, where a rising
+  // probability is danger. Colouring on delta sign alone rendered "FC Botosani
+  // · Relegation ▲100.0" in qualification green, which system.md forbids
+  // ("Positive validated signal: floodlit pitch green"; "Relegation/danger/
+  // errors: restrained red"). The arrow still tracks the raw direction, so
+  // direction and valence are both legible and colour is never carrying the
+  // meaning alone. (2026-07-24)
+  const MV_BAD_UP=/relegat/i;
+  const moversRow=m=>{
+    const good=MV_BAD_UP.test(m.metric_label||'')?m.delta<0:m.delta>=0;
+    return `<div class="mv-row">${crest(m.team,m.logo)}<span class="nm"><b>${m.team}</b><span>${nm(m.league)} · ${m.metric_label}</span></span><span class="d ${good?'up':'down'}">${m.delta>=0?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</span></div>`;
+  };
   const moversBoardBody=()=>{
     const pool=(mvRegion==='Overall'?MVB.movers:(MVB.movers||[]).filter(m=>m.region===mvRegion))||[];
     const up=[...pool].filter(m=>m.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,3);
@@ -4463,12 +4502,12 @@ if(_isHome && window.HOME_DATA){
     <div class="hx-b">
       ${stripHTML()}
     </div>
-    <div class="hx-table"><div class="ed-sec">League Tables</div><div class="hx-card" id="hxTable">${T.length?tableHTML(T[tIdx]):'<div class="news-empty">League tables arrive with the next data build.</div>'}</div></div>
-    <div class="hx-odds"><div class="ed-sec">Title Odds</div><div class="hx-card" id="hxBoard" style="padding:6px 8px">${T.length?boardHTML():'<div class="news-empty">Title odds arrive with the next data build.</div>'}</div></div>
-    <div class="hx-stories"><div class="ed-sec">Your Stories</div>${storiesHTML}</div>
-    <div class="hx-fix">${myMatchdayHTML?`<div class="ed-sec">★ My Matchday</div><div class="hx-card" style="margin-bottom:16px" id="myMatchday">${myMatchdayHTML}</div>`:''}<div class="ed-sec">Upcoming Matches</div><div id="hxCaro">${fxStripHTML()}</div></div>
-    <div class="hx-movers">${moversBody?`<div class="ed-sec">Biggest Movers</div>${moversBody}`:''}</div>
-    <div class="hx-news"><div class="ed-sec">Around the Leagues</div><div class="hx-newsband">${(H.news||[]).slice(0,9).map(newsItem).join('')||'<div class="news-empty">No headlines right now.</div>'}</div></div>
+    <div class="hx-table"><h2 class="ed-sec">League Tables</h2><div class="hx-card" id="hxTable">${T.length?tableHTML(T[tIdx]):'<div class="news-empty">League tables arrive with the next data build.</div>'}</div></div>
+    <div class="hx-odds"><h2 class="ed-sec">Title Odds</h2><div class="hx-card" id="hxBoard" style="padding:6px 8px">${T.length?boardHTML():'<div class="news-empty">Title odds arrive with the next data build.</div>'}</div></div>
+    <div class="hx-stories"><h2 class="ed-sec">Your Stories</h2>${storiesHTML}</div>
+    <div class="hx-fix">${myMatchdayHTML?`<h2 class="ed-sec">★ My Matchday</h2><div class="hx-card" style="margin-bottom:16px" id="myMatchday">${myMatchdayHTML}</div>`:''}<h2 class="ed-sec">Upcoming Matches</h2><div id="hxCaro">${fxStripHTML()}</div></div>
+    <div class="hx-movers">${moversBody?`<h2 class="ed-sec">Biggest Movers</h2>${moversBody}`:''}</div>
+    <div class="hx-news"><h2 class="ed-sec">Around the Leagues</h2><div class="hx-newsband">${(H.news||[]).slice(0,9).map(newsItem).join('')||'<div class="news-empty">No headlines right now.</div>'}</div></div>
   </div>`;
     // region-pill filter for the movers board (re-renders just #mvBody, no reload)
     // Retract each strip's edge fade once it is scrolled to the end, and skip it
@@ -4520,7 +4559,7 @@ if(_isLeagues){
   const render=()=>{
     const favs=FavStore.leagues();
     const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
-    const link=l=>`<a class="lx-lg" href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':dsTag(l)}<span class="lx-star${favs.has(l.id)?' on':''}" data-lid="${l.id}" title="${favs.has(l.id)?'Unpin':'Pin to favorites'}">${favs.has(l.id)?'★':'☆'}</span></a>`;
+    const link=l=>`<a class="lx-lg" href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':dsTag(l)}<span class="lx-star${favs.has(l.id)?' on':''}" data-lid="${l.id}" role="button" tabindex="0" aria-pressed="${favs.has(l.id)}" aria-label="${favs.has(l.id)?'Unpin':'Pin'} ${commandEsc(l.name)} ${favs.has(l.id)?'from':'to'} favorites" title="${favs.has(l.id)?'Unpin':'Pin to favorites'}">${favs.has(l.id)?'★':'☆'}</span></a>`;
     const favLg=(window.LEAGUES||[]).filter(l=>favs.has(l.id));
     // Headline coverage stat (2026-07-19 feedback): one big brag line.
     const _all=window.LEAGUES||[];
@@ -4532,7 +4571,15 @@ if(_isLeagues){
     html+='</div>';
     const target=$('#view-outlook'); if(!target) return;
     target.classList.remove('hidden'); target.innerHTML=html;
-    target.querySelectorAll('.lx-star').forEach(s=>s.onclick=e=>{e.preventDefault();e.stopPropagation();FavStore.toggleLeague(s.dataset.lid);render();});
+    // The star lives inside the league <a>, so it needs its own key handling:
+    // without this it was unreachable by keyboard entirely (no tabindex, no
+    // role), and tabbing to the row and pressing Enter navigated instead of
+    // pinning — 78 dead controls for keyboard users. (2026-07-24)
+    target.querySelectorAll('.lx-star').forEach(s=>{
+      const toggle=e=>{e.preventDefault();e.stopPropagation();FavStore.toggleLeague(s.dataset.lid);render();};
+      s.onclick=toggle;
+      s.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '||e.key==='Spacebar') toggle(e); };
+    });
   };
   render();
   const _fl=$('#foot'); if(_fl && !_fl.innerHTML.trim()) _fl.innerHTML=FOOT_HTML;
@@ -4558,13 +4605,13 @@ if(_isFavs){
     if(!target) return;
     target.classList.remove('hidden');
     if(!favLg.length&&!favTm.length){
-      target.innerHTML=`<div class="ed-wrap"><div class="ed-sec">★ Favorites</div>
+      target.innerHTML=`<div class="ed-wrap"><h2 class="ed-sec">★ Favorites</h2>
         <div class="fv-empty">Nothing pinned yet. Star a league on the <a href="?league=leagues">Leagues page</a>, or star a club from its team profile, and it will live here.</div></div>`;
       return;
     }
     let html='<div class="ed-wrap">';
-    if(favLg.length) html+=`<div class="ed-sec">★ Leagues</div>${favLg.map(leagueRow).join('')}`;
-    html+=favTm.length?`<div class="ed-sec">★ Clubs</div><div id="fvTeams"><div class="fv-empty">Loading club data…</div></div>`:'';
+    if(favLg.length) html+=`<h2 class="ed-sec">★ Leagues</h2>${favLg.map(leagueRow).join('')}`;
+    html+=favTm.length?`<h2 class="ed-sec">★ Clubs</h2><div id="fvTeams"><div class="fv-empty">Loading club data…</div></div>`:'';
     html+='</div>';
     target.innerHTML=html;
     if(!favTm.length) return;
@@ -4617,8 +4664,8 @@ if(_isNews){
   if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="ed-wrap">
     <div class="hx-onramp"><span>🏆</span><span><b>New to club soccer after the World Cup?</b>
       <a href="/after-the-world-cup/">Start here</a> — or <a href="?league=account">pick a team to follow</a> and this page leads with their news.</span></div>
-    ${pers.length?`<div class="ed-sec">★ Your teams &amp; leagues</div><div class="hx-cols"><div>${pers.filter((_,i)=>i%2===0).map(item).join('')}</div><div>${pers.filter((_,i)=>i%2===1).map(item).join('')}</div></div>`:''}
-    <div class="ed-sec">🌍 Around the leagues</div>
+    ${pers.length?`<h2 class="ed-sec">★ Your teams &amp; leagues</h2><div class="hx-cols"><div>${pers.filter((_,i)=>i%2===0).map(item).join('')}</div><div>${pers.filter((_,i)=>i%2===1).map(item).join('')}</div></div>`:''}
+    <h2 class="ed-sec">🌍 Around the leagues</h2>
     <div class="hx-cols"><div>${rest.filter((_,i)=>i%2===0).map(item).join('')}</div><div>${rest.filter((_,i)=>i%2===1).map(item).join('')}</div></div>
     ${rest.length?'':'<div class="news-empty">No headlines right now — check back after the next build.</div>'}
   </div>`; }

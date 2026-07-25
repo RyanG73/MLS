@@ -1,5 +1,27 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-25 — Full site UX review (mobile + desktop, Chromium + real iOS WebKit).**
+> Ran `docs/site-ux-audit-prompt.md` over Home, the edge board, the leagues index and league detail
+> (epl/mls/libertadores/poland), every surface treated as unreviewed. Plan file:
+> `docs/superpowers/plans/site-ux-audit-2026-07-25.md`. **Two token/rule-level fixes account for
+> almost all of it.** (1) `--txt-3` was `#6b7d71`, set by the 2026-07-23 pass with the note
+> "4.58:1 — clears WCAG AA" — but that was measured against `--ink-0` alone, and the token is used
+> 207× almost always on panels, where it scores 4.46/4.38/4.05. 172 of 175 Home failures at 375px
+> were this one variable; `#738579` is solved against `--ink-3` and clears AA on all four surfaces,
+> taking **11 of 12 routes to zero contrast failures**. (2) The type floor: 8.5–10px was being used
+> for real content, worst on the edge board where **87 odds prices, 29 kickoff times and 29 draw
+> probabilities all rendered under 11px**; ~30 rules raised (248→16 there, 319→24 on epl,
+> 117→66 on Home), with two bumps reverted after measuring that 11px clipped in fixed-width grid
+> columns. **Two functional bugs:** the masthead search was `font-size:12px`, so Mobile Safari
+> zoomed the page on focus and never restored it — leaving the Account tab off the bottom bar
+> entirely; and 78 league pin stars were `<span>`s outside the tab order, so pinning was impossible
+> without a mouse. Also fixed: movers coloured "Relegation ▲100.0" in qualification green (now keyed
+> on valence, arrow keeps direction); section headings were `<div>`s (H1→H4 outline); the
+> season-outcome table exposed raw metric keys (`releg`, `ucl`) as column headers with no `scope`.
+> **Not shipped, needs a call:** desktop still buries Upcoming Matches at y=1266 below reference
+> tables (mobile was fixed for this, desktop was not) — an IA change, so a proposal; the 768–900px
+> tablet dead zone; and the remaining 105 sub-11px declarations as one type-scale decision.
+
 > **2026-07-25 — League QA audit: 78 leagues reviewed one at a time; nine source bugs fixed.**
 > Ran `docs/league-qa-audit-prompt.md` across the whole registry (odds gut check, presentation,
 > competition rules). Full write-up in `docs/league-qa-audit-findings.md`. **The two publishing
