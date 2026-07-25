@@ -33,6 +33,7 @@ import json
 import re
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 import pandas as pd
@@ -43,6 +44,7 @@ REPO_ROOT = Path(__file__).parent.parent.resolve()
 _DATA = REPO_ROOT / "webapp" / "data"
 _OUT = REPO_ROOT / "data" / "odds_history.parquet"
 _MATCH_OUT = REPO_ROOT / "data" / "match_prob_history.parquet"
+_COVERAGE_OUT = REPO_ROOT / "data" / "snapshot_coverage.json"
 _CHAMPION = REPO_ROOT / "experiments" / "champion.json"
 
 # Same exclusion as validate_payloads / test_payload_contract.
@@ -220,9 +222,61 @@ def append_snapshot(rows: list[dict], path: Path,
     return len(combined) - n_old
 
 
+def record_coverage(snapshot_date: str, archived: list[str], live: list[str],
+                    path: Path | None = None) -> dict:
+    """Record which leagues this snapshot actually captured, out of how many
+    were live.
+
+    Without this the archive cannot distinguish "this league had no upcoming
+    fixtures" from "this league was never built that day" -- the row count
+    alone is ambiguous, because it moves with league count *and* with fixtures
+    remaining. A paying customer is owed the difference: a day at partial
+    coverage is a hole in something they bought, and the product can only be
+    honest about its own gaps if it wrote them down at the time.
+    """
+    path = path or _COVERAGE_OUT
+    # `complete` means "no live league is absent", NOT a count comparison:
+    # more leagues get archived than are flagged live (a preseason league with
+    # published fixtures still yields rows), so n_archived >= n_live can hold
+    # while a live league is silently missing. That is the exact ambiguity this
+    # manifest exists to remove.
+    missing = sorted(set(live) - set(archived))
+    record = {
+        "snapshot_date": snapshot_date,
+        "leagues_archived": sorted(archived),
+        "leagues_live": sorted(live),
+        "n_archived": len(archived),
+        "n_live": len(live),
+        "complete": not missing and len(live) > 0,
+        "missing": missing,
+    }
+    history = {}
+    if path.exists():
+        try:
+            history = json.loads(path.read_text())
+        except (ValueError, OSError):
+            history = {}
+    # Re-running the same day merges rather than overwrites, so an ad-hoc local
+    # build after the nightly run can only ever improve a day's coverage.
+    prior = history.get(snapshot_date)
+    if prior:
+        merged = sorted(set(prior.get("leagues_archived", [])) | set(record["leagues_archived"]))
+        record["leagues_archived"] = merged
+        record["n_archived"] = len(merged)
+        record["missing"] = sorted(set(record["leagues_live"]) - set(merged))
+        record["complete"] = not record["missing"] and record["n_live"] > 0
+    history[snapshot_date] = record
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(dict(sorted(history.items())), indent=2) + "\n")
+    return record
+
+
 def main() -> int:
     total_before = len(pd.read_parquet(_OUT)) if _OUT.exists() else 0
     match_before = len(pd.read_parquet(_MATCH_OUT)) if _MATCH_OUT.exists() else 0
+    archived_leagues: list[str] = []
+    live_leagues: list[str] = []
+    snapshot_dates: list[str] = []
     for p in sorted(_DATA.glob("*.js")):
         if p.name in _NON_PAYLOAD:
             continue
@@ -239,14 +293,30 @@ def main() -> int:
             continue
         if payload.get("status") == "placeholder":
             continue
+        if payload.get("status") == "live":
+            live_leagues.append(p.stem)
         append_snapshot(snapshot_rows(p.stem, payload), _OUT)
-        append_snapshot(match_prob_rows(p.stem, payload), _MATCH_OUT, _MATCH_DEDUP_KEYS)
+        match_rows = match_prob_rows(p.stem, payload)
+        append_snapshot(match_rows, _MATCH_OUT, _MATCH_DEDUP_KEYS)
+        if match_rows:
+            archived_leagues.append(p.stem)
+            snapshot_dates.append(match_rows[0]["snapshot_date"])
     total_after = len(pd.read_parquet(_OUT)) if _OUT.exists() else 0
     match_after = len(pd.read_parquet(_MATCH_OUT)) if _MATCH_OUT.exists() else 0
     print(f"[archive] odds_history.parquet: {total_before} → {total_after} rows "
           f"(+{total_after - total_before})")
     print(f"[archive] match_prob_history.parquet: {match_before} → {match_after} rows "
           f"(+{match_after - match_before})")
+    if snapshot_dates:
+        # Most builds share one generated date; use the most common so an
+        # occasional stale payload doesn't misfile the whole run's coverage.
+        snapshot_date = Counter(snapshot_dates).most_common(1)[0][0]
+        coverage = record_coverage(snapshot_date, archived_leagues, live_leagues)
+        status = "complete" if coverage["complete"] else "PARTIAL"
+        print(f"[archive] coverage {snapshot_date}: {coverage['n_archived']}/"
+              f"{coverage['n_live']} live leagues — {status}")
+        if coverage["missing"]:
+            print(f"[archive] missing: {', '.join(coverage['missing'])}")
     return 0
 
 
