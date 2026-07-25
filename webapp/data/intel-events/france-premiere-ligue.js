@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"OL Lyonnes":[],"Paris FC":[],"Paris Saint-Germain":[],"Nantes":[],"FC Fleury 91":[],"Dijon":[],"Strasbourg":[],"Le Havre AC":[],"Marseille":[],"Lens":[],"Montpellier":[],"Saint-\u00c9tienne":[]}};

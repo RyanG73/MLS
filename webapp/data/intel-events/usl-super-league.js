@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Lexington SC":[],"Sporting Jax":[],"Carolina Ascent FC":[],"Dallas Trinity FC":[],"Spokane Zephyr FC":[],"DC Power FC":[],"Brooklyn FC":[],"Tampa Bay Sun FC":[],"Fort Lauderdale United FC":[]}};

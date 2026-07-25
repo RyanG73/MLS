@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"East Kilbride":[],"Spartans FC":[],"Clyde":[],"Forfar Athletic":[],"Stranraer":[],"Elgin City":[],"Annan Athletic":[],"Dumbarton":[],"Edinburgh City":[],"Stirling Albion":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"East Kilbride":[],"Spartans FC":[],"Clyde":[],"Forfar Athletic":[],"Stranraer":[],"Elgin City":[],"Annan Athletic":[],"Dumbarton":[],"Edinburgh City":[],"Stirling Albion":[]}};

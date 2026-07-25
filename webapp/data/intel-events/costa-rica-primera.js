@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Saprissa":[],"Herediano":[],"Puntarenas FC":[],"Alajuelense":[],"Cartagin\u00e9s":[],"Escorpiones Bel\u00e9n":[],"Inter de San Carlos":[],"Sporting San Jos\u00e9":[],"AD San Carlos":[],"P\u00e9rez Zeled\u00f3n":[]}};

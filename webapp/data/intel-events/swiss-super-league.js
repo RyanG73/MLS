@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"FC Thun":[],"St. Gallen":[],"FC Lugano":[],"FC Sion":[],"FC Basel":[],"Young Boys":[],"FC Luzern":[],"Servette":[],"Lausanne Sports":[],"FC Z\u00fcrich":[],"Grasshoppers":[],"Winterthur":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"FC Thun":[],"St. Gallen":[],"FC Lugano":[],"FC Sion":[],"FC Basel":[],"Young Boys":[],"FC Luzern":[],"Servette":[],"Lausanne Sports":[],"FC Z\u00fcrich":[],"Grasshoppers":[],"Winterthur":[]}};

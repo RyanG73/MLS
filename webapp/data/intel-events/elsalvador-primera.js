@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"CD FAS":[],"Luis \u00c1ngel Firpo":[],"Alianza FC":[],"\u00c1guila":[],"CD Municipal Lime\u00f1o":[],"Isidro Metap\u00e1n":[],"Cacahuatique":[],"Internacional Santa Tecla":[],"C.D. Platense":[],"C.D. H\u00e9rcules":[],"Fuerte San Francisco":[],"Zacatecoluca FC":[]}};

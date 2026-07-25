@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Club Olimpia":[],"Nacional Asunci\u00f3n":[],"Cerro Porte\u00f1o":[],"Sportivo Trinidense":[],"Sportivo Ameliano":[],"Libertad":[],"Guaran\u00ed":[],"Deportivo Recoleta":[],"2 de Mayo":[],"Rubio \u00d1\u00fa":[],"Sportivo Luque\u00f1o":[],"Sportivo San Lorenzo":[]}};

@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-24 01:34 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Buriram United":[],"Ratchaburi FC":[],"Port FC":[],"BG Pathum United":[],"Bangkok United":[],"PT Prachuap FC":[],"Chiangrai United":[],"Chonburi FC":[],"Rayong FC":[],"Ayutthaya United":[],"Uthai Thani FC":[],"Lamphun Warriors":[],"Sukhothai FC":[],"Muangthong United":[],"Nakhon Ratchasima FC":[],"Kanchanaburi Power FC":[]}};

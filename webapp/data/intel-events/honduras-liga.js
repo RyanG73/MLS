@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Club Deportivo Olimpia":[],"FC Motagua":[],"Club Deportivo Marath\u00f3n":[],"Real Espa\u00f1a":[],"Olancho FC":[],"Platense":[],"UPNFM":[],"Juticalpa FC":[],"G\u00e9nesis PN":[],"CD Choloma":[],"Club Deportivo Victoria":[]}};

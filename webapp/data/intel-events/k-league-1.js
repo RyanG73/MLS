@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-24 01:34 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Ulsan Hyundai FC":[],"Gangwon FC":[],"Gimcheon Sangmu FC":[],"FC Seoul":[],"Pohang Steelers":[],"Suwon City FC":[],"Jeju United FC":[],"Daejeon Citizen":[],"Gwangju FC":[],"Jeonbuk Motors":[],"Daegu FC":[],"Incheon United":[]}};

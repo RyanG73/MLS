@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-07-24 01:34 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"ADO Den Haag":[],"SC Cambuur":[],"Willem II":[],"De Graafschap":[],"Almere City":[],"RKC Waalwijk":[],"Vitesse":[],"Jong PSV":[],"Roda JC Kerkrade":[],"FC Den Bosch":[],"FC Dordrecht":[],"FC Eindhoven":[],"Jong FC Utrecht":[],"VVV-Venlo":[],"FC Emmen":[],"TOP Oss":[],"Jong AZ":[],"Helmond Sport":[],"MVV Maastricht":[],"Jong Ajax":[]}};

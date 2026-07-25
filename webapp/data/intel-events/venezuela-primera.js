@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Deportivo La Guaira":[],"Metropolitanos":[],"Deportivo T\u00e1chira":[],"UCV FC":[],"Portuguesa":[],"Estudiantes de M\u00e9rida":[],"Carabobo":[],"Academia Puerto Cabello":[],"Zamora FC":[],"Caracas FC":[],"Rayo Zuliano":[],"Monagas SC":[],"Anzo\u00e1tegui FC":[],"Trujillanos":[]}};

@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-24 01:34 UTC","teams":{"Cruz Azul":[],"Pachuca":[],"Tijuana":[],"Am\u00e9rica":[],"Atlas":[],"Monterrey":[],"Necaxa":[],"Toluca":[],"Puebla":[],"Pumas UNAM":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Tijuana":[],"Cruz Azul":[],"Am\u00e9rica":[],"Pachuca":[],"Toluca":[],"Atlas":[],"Monterrey":[],"Necaxa":[],"Puebla":[],"Pumas UNAM":[],"Atlante":[],"Atl\u00e9tico de San Luis":[],"Quer\u00e9taro":[],"FC Juarez":[],"Santos":[],"Guadalajara":[],"Tigres UANL":[],"Le\u00f3n":[]}};
