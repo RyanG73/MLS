@@ -1,5 +1,33 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-25 — League QA audit: 78 leagues reviewed one at a time; nine source bugs fixed.**
+> Ran `docs/league-qa-audit-prompt.md` across the whole registry (odds gut check, presentation,
+> competition rules). Full write-up in `docs/league-qa-audit-findings.md`. **The two publishing
+> failures were both season-boundary bugs.** (1) `espn_soccer._parse_events` skipped every
+> non-completed event, so `liga_mx_frame` could never hold a scheduled fixture — with `upcoming == 0`
+> `season_state` pinned every torneo to CONCLUDED and the live site published *"Liga MX 20 results ·
+> final · Champions: Cruz Azul"* two matchdays into Apertura 2026, off a table missing 8 of 18 clubs.
+> ESPN had all 153 fixtures the whole time. (2) `romania-liga1` shipped the same headline off ONE
+> matchday. The missing-clubs half was a second bug: the team universe was keyed on `pts`, which only
+> gains an entry once a club wins or draws, so winless clubs with no remaining fixture vanished —
+> now keyed on `gp`. A `season_state` guard holds a season at in-progress until some club completes a
+> full round robin, blanks `pct_complete`, and sets a new `no_fixture_feed` flag that both surfaces
+> render as an explicit "this is not a forecast" note; of 27 completed table leagues only romania
+> flips. **Playoff results were counted into league tables across 10 leagues** — `espn_fixtures`
+> hard-coded `is_playoff=0`, making the standings filter a no-op, so Honduras read 40–52 GP across 11
+> clubs. `is_playoff_slug()` now classifies ESPN's `season.slug` from a live census of all 31
+> ESPN-sourced leagues; every completed league now has uniform GP. This was not cosmetic: with the
+> Apertura semi-finals removed, **Venezuela's table leader changes from Deportivo Táchira to
+> Deportivo La Guaira**. Also: a concluded season captioned its points leader "Champions" even where
+> a playoff decides the title (Cavalry FC led the 2024 CPL table; Forge won the final); `pct()` emitted
+> raw `<1%` into `<td>` on 42 pages; MLS rendered one merged table while playoff odds are per
+> conference; `leagues-cup`/`concacaf-champions` were the only comps with null `rules`; the Greek
+> rules text described a top-6 playoff the pairing graph says has been 4/4/6 since 2024-25; six
+> leagues stored ESPN's placeholder crest as their league logo. **Model untouched** — no config,
+> feature or metric change. Seven items flagged for upstream rather than patched, incl. degenerate
+> 0/100 columns when a season has no schedule, and the relegation barrage being modelled at 100% for
+> the top-flight club and 33% for its second-tier opponent in the same tie.
+
 > **2026-07-24 — CONMEBOL cross-league calibration: Libertadores + Sudamericana ship (registry 76 → 78).**
 > Round 6 held the continental cups back because `coefficients.league_offset` returned 0.0 for every
 > non-UEFA/Concacaf league. This is the calibration that fixes it. New
