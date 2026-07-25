@@ -107,6 +107,18 @@ def test_stripe_creator_lifecycle_is_webhook_authoritative():
             "metadata": {"user_id": "user-1", "plan": "creator"},
         }},
     })
+    # `past_due` is a grace state, not a revocation (launch audit 2026-07-25).
+    # Stripe retries a declined renewal for ~3 weeks before giving up; cutting
+    # access on the first decline punishes a customer whose card just expired.
+    assert export_user_data(kv, "user-1")["plan"] == "creator"
+    handle_event(kv, {
+        "id": "evt_unpaid", "type": "customer.subscription.updated",
+        "data": {"object": {
+            "status": "unpaid",
+            "metadata": {"user_id": "user-1", "plan": "creator"},
+        }},
+    })
+    # `unpaid` is where Stripe itself has given up, so that is where access ends.
     assert export_user_data(kv, "user-1")["plan"] == "canceled"
 
 

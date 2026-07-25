@@ -1,14 +1,14 @@
 """GET/DELETE /api/account/data for complete user lifecycle."""
 from __future__ import annotations
 
-from server.api_support import ApiError, bearer_user, body_json, guarded, response
+from server.api_support import ApiError, account_user, body_json, guarded, response
 from server.intel_store import delete_user_data, export_user_data
 from server.kv_client import get_kv
 
 
 def handle(method: str, headers: dict, body: bytes = b"{}"):
     def run():
-        user_id = bearer_user(headers, "free")
+        user_id = account_user(headers)
         if method == "GET":
             record = export_user_data(get_kv(), user_id)
             if record is None:

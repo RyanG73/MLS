@@ -18,9 +18,15 @@ def _webhook_secret() -> str:
 def handle(method: str, headers: dict, body: bytes) -> tuple[int, dict, bytes]:
     if method != "POST":
         return 405, {}, b'{"error":"method not allowed"}'
+    secret = _webhook_secret()
+    if not secret:
+        # Fail CLOSED. HMAC over an empty key still verifies, so an unset
+        # secret would let anyone forge checkout.session.completed and grant
+        # themselves a paid entitlement. Refuse to process instead.
+        return 503, {}, b'{"error":"webhook signing secret is not configured"}'
     sig_header = headers.get("Stripe-Signature", "")
     try:
-        verify_stripe_signature(body, sig_header, _webhook_secret())
+        verify_stripe_signature(body, sig_header, secret)
     except InvalidWebhookSignature as e:
         return 400, {}, json.dumps({"error": str(e)}).encode()
     event = json.loads(body)

@@ -63,6 +63,27 @@ def bearer_user(headers: dict, required_plan: str = "intel") -> str:
         raise ApiError(401, str(exc)) from exc
 
 
+def account_user(headers: dict) -> str:
+    """Resolve the caller for self-service account management, with no plan floor.
+
+    `bearer_user` deliberately keeps a `canceled` account out of Intel features
+    (rank -1, below free). That must not extend to someone's own records: a
+    customer who cancelled still needs their invoices, their billing portal,
+    their data export and their right to erasure. Losing access to the product
+    is not the same as losing access to your own data -- and the people most
+    likely to exercise those rights are exactly the ones who just left.
+
+    The token check is unchanged: a missing, forged or expired token still 401s.
+    """
+    authorization = headers.get("Authorization", "")
+    if not authorization.startswith("Bearer "):
+        raise ApiError(401, "missing bearer token")
+    try:
+        return verify_access_token(access_token_secret(), authorization[7:])["sub"]
+    except (InvalidToken, KeyError) as exc:
+        raise ApiError(401, str(exc)) from exc
+
+
 def guarded(call):
     try:
         return call()

@@ -68,7 +68,7 @@ def test_auth_request_is_rate_limited():
     assert status == 429
 
 
-def test_refresh_then_me_reflects_current_plan_after_stripe_upgrade():
+def test_refresh_then_me_reflects_current_plan_after_stripe_upgrade(monkeypatch):
     from api.auth import callback, refresh as auth_refresh, request as auth_request
     from api.intel import me
     from api.stripe import webhook as stripe_webhook
@@ -83,6 +83,7 @@ def test_refresh_then_me_reflects_current_plan_after_stripe_upgrade():
     _, _, me_body = me.handle("GET", {"Authorization": f"Bearer {tokens['access_token']}"})
     user_id = json.loads(me_body)["user_id"]
 
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_test")
     payload = json.dumps({
         "id": "evt_test_1", "type": "checkout.session.completed",
         "data": {"object": {"metadata": {"user_id": user_id}}},
@@ -102,7 +103,25 @@ def test_refresh_then_me_reflects_current_plan_after_stripe_upgrade():
     assert json.loads(me_body2)["plan"] == "intel"
 
 
-def test_stripe_webhook_rejects_bad_signature():
+def test_stripe_webhook_rejects_bad_signature(monkeypatch):
     from api.stripe import webhook as stripe_webhook
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_test")
     status, _, _ = stripe_webhook.handle("POST", {"Stripe-Signature": "t=1,v1=bad"}, b"{}")
     assert status == 400
+
+
+def test_stripe_webhook_fails_closed_when_secret_is_unset(monkeypatch):
+    """An empty signing secret must not be usable. HMAC over an empty key
+    verifies fine, so accepting one would let anyone forge an entitlement."""
+    from api.stripe import webhook as stripe_webhook
+    monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
+    monkeypatch.delenv("ENTENSER_ENV", raising=False)
+    payload = json.dumps({
+        "id": "evt_forged", "type": "checkout.session.completed",
+        "data": {"object": {"metadata": {"user_id": "attacker", "plan": "creator"}}},
+    }).encode()
+    now = int(time.time())
+    forged = hmac.new(b"", f"{now}.".encode() + payload, hashlib.sha256).hexdigest()
+    status, _, _ = stripe_webhook.handle(
+        "POST", {"Stripe-Signature": f"t={now},v1={forged}"}, payload)
+    assert status == 503

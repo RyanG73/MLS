@@ -64,6 +64,36 @@ def set_plan(kv: KVStore, user_id: str, plan: str) -> dict:
     return update_preferences(kv, user_id, plan=plan)
 
 
+def set_stripe_customer(kv: KVStore, user_id: str, customer_id: str) -> dict:
+    """Link a user to their Stripe customer, and index the reverse direction.
+
+    The reverse index is what makes Stripe the recoverable source of truth: it
+    lets an entitlement be rebuilt from a Stripe object that only knows the
+    customer id, and it is required to open a hosted billing portal session.
+    """
+    kv.set(f"stripe_customer:{customer_id}", user_id)
+    return update_preferences(kv, user_id, stripe_customer_id=customer_id)
+
+
+def user_for_stripe_customer(kv: KVStore, customer_id: str) -> str | None:
+    """Resolve a Stripe customer id back to our user, via the reverse index.
+
+    Refund and charge events carry a customer but no metadata, so this is the
+    only link back to an entitlement -- and the same lookup is what makes an
+    entitlement rebuildable from Stripe if the KV store is ever lost.
+    """
+    if not customer_id:
+        return None
+    return kv.get(f"stripe_customer:{customer_id}")
+
+
+def get_stripe_customer(kv: KVStore, user_id: str) -> str | None:
+    raw = kv.get(_key(user_id))
+    if raw is None:
+        return None
+    return json.loads(raw).get("stripe_customer_id")
+
+
 def get_plan(kv: KVStore, user_id: str) -> str:
     """The authoritative current plan lookup intel_auth.require_entitlement
     calls on every request — never a cached/token-embedded value."""
