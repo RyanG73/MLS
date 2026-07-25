@@ -121,7 +121,11 @@ if('serviceWorker' in navigator && location.hostname!=='localhost' && location.p
      lands on, so it clears 4.5:1 on all four: 4.85/4.72/4.64/4.53.
      txt-4 keeps the old value for genuinely decorative marks only. */
   --txt-1:#e3e9e4; --txt-2:#9fb0a3; --txt-3:#738579; --txt-4:#54665b;
-  --win:#f4b740; --qualify:#3ddc84; --europa:#4aa3ff; --drop:#ff5d5d; --draw:#5a6b7a;
+  /* draw lifted #5a6b7a→#728392 (2026-07-24): same gray-blue hue, but the old
+     value carried real text (ELO ratings, draw probabilities, "no line yet")
+     at 3.64/3.55/3.49/3.23 on ink-0..3 — failing AA on every surface, same
+     failure mode as txt-3. Solved against --ink-3: 5.13/5.00/4.91/4.54. */
+  --win:#f4b740; --qualify:#3ddc84; --europa:#4aa3ff; --drop:#ff5d5d; --draw:#728392;
   /* legacy aliases kept so not-yet-restyled code keeps working until its task lands */
   --floodlight:#3ddc84; --west:#f4b740; --hfa:#f4b740; --shield:#d7deea; --spoon:#bd7d4e;
   --mono:"Spline Sans Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -1402,8 +1406,17 @@ function clubColWidth(names){
 /* visibility-safe team color on dark band */
 function hexrgb(h){h=(h||'#888').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 const lum=([r,g,b])=>(0.2126*r+0.7152*g+0.0722*b)/255;
-function vis(hex){let c=hexrgb(hex);if(lum(c)<0.20){c=c.map(x=>Math.round(x+(255-x)*0.5));}return `rgb(${c.join(',')})`;}
-const txtOn=hex=>lum(hexrgb(hex))>0.6?'#06121d':'#fff';
+function visRGB(hex){let c=hexrgb(hex);if(lum(c)<0.20){c=c.map(x=>Math.round(x+(255-x)*0.5));}return c;}
+function vis(hex){return `rgb(${visRGB(hex).join(',')})`;}
+/* txtOn used to measure the ORIGINAL team hex while vis() painted a lightened
+   one, so a dark club colour got brightened to a pale swatch and still took
+   white text — e.g. rgb(179,135,155) + #fff at 2.6:1. It also used a flat
+   average rather than WCAG relative luminance. Now it measures the colour we
+   actually paint and picks whichever of ink/white scores higher. (2026-07-24) */
+const _sr=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4;};
+const wlum=([r,g,b])=>0.2126*_sr(r)+0.7152*_sr(g)+0.0722*_sr(b);
+const txtOn=hex=>{const L=wlum(visRGB(hex));
+  return (1.05/(L+0.05)) >= ((L+0.05)/0.0555) ? '#fff' : '#06121d';};
 const cbar=g=>{const S=[[g.pH,vis(g.hcolor),txtOn(g.hcolor)],[g.pD,'var(--draw)','#0a111e'],[g.pA,vis(g.acolor),txtOn(g.acolor)]];
   return `<span class="cbar">`+S.map(([p,bg,fg])=>{const w=p*100;
     return `<span style="width:${w.toFixed(1)}%;background:${bg};color:${fg}">${w>=12?w.toFixed(0)+'%':''}</span>`;}).join('')+`</span>`;};
@@ -3074,7 +3087,9 @@ const eloTip=el('div','elo-tip'); document.body.appendChild(eloTip);
 const _allElo=Object.values(D.elo_history||{}).flat().map(p=>p[1]).sort((a,b)=>a-b);
 const _eloQ=q=>_allElo.length?_allElo[Math.floor(_allElo.length*q)]:1500;
 const ELO_HI=_eloQ(0.75), ELO_LO=_eloQ(0.25);   // top-25% / bottom-25% thresholds
-const ELO_GREEN='#3ddc84', ELO_RED='#ff5d5d', ELO_NEU='#5a6b7a';
+// Literal hex is required here (SVG stop-color attributes do not resolve CSS
+// var()). Keep these in lockstep with --qualify / --drop / --draw. (2026-07-24)
+const ELO_GREEN='#3ddc84', ELO_RED='#ff5d5d', ELO_NEU='#728392';
 // current-standing tier (for the card's ELO number)
 function eloTier(elo){return elo>=ELO_HI?ELO_GREEN:elo<=ELO_LO?ELO_RED:ELO_NEU;}
 let _gradId=0;
@@ -3118,7 +3133,7 @@ function eloChartSVG(team,W,H,big){
 const _eloVals=D.standings.map(s=>s.elo||1500).sort((a,b)=>a-b);
 function eloTier(elo){const n=_eloVals.length;if(!n)return 'var(--floodlight)';
   const q1=_eloVals[Math.floor(n*0.25)], q3=_eloVals[Math.floor(n*0.75)];
-  return elo>=q3?'var(--qualify)':elo<=q1?'var(--drop)':'#5a6b7a';}
+  return elo>=q3?'var(--qualify)':elo<=q1?'var(--drop)':'var(--draw)';}
 
 let _selTeam=null;
 // B9: full model-input panel — every feat_base suffix, family-grouped, explicit
@@ -3512,7 +3527,18 @@ function openTeam(team){$('#seg button[data-view="teams"]').click();renderProfil
 //    #seg click handler below is attached, so the tab switch actually fires. ──
 if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
   const _teamParam=new URLSearchParams(location.search).get('team');
-  if(_teamParam && (D.standings||[]).some(s=>s.team===_teamParam)) openTeam(_teamParam);
+  // Deferred to DOMContentLoaded on purpose. renderProfile() -> trajCardHTML()
+  // calls upsellHTML(), which is declared in a LATER <script> block (~line 4062).
+  // Function declarations only hoist within their own block, so running this
+  // inline threw "upsellHTML is not defined" — and because it is the last
+  // statement in the block, nothing visible broke: the Teams tab still switched
+  // and the ELO card still highlighted, so the page looked fine while the team
+  // profile silently never rendered. Clicking a team always worked (all blocks
+  // have parsed by then), so only the shared/deep link was broken. Deferring
+  // guarantees every helper exists. (2026-07-24)
+  if(_teamParam && (D.standings||[]).some(s=>s.team===_teamParam)){
+    document.addEventListener('DOMContentLoaded',()=>openTeam(_teamParam));
+  }
 }
 }  /* end full-app (non-soon) block */
 </script>
@@ -3523,14 +3549,14 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
 @media(max-width:880px){.pr-grid{grid-template-columns:1fr}}
 .pr-panel{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden}
 .pr-h{padding:9px 14px;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--line-2);background:var(--ink-2);display:flex;align-items:baseline;gap:8px}
-.pr-anchor{font-size:10px;color:var(--txt-3);font-weight:400;font-family:var(--mono);text-transform:none;letter-spacing:0}
+.pr-anchor{font-size:11px;color:var(--txt-3);font-weight:400;font-family:var(--mono);text-transform:none;letter-spacing:0}
 .pr-list{padding:4px 0;max-height:680px;overflow-y:auto}
 .pr-row{display:flex;align-items:center;gap:10px;padding:5px 14px}
 .pr-row:hover{background:var(--ink-2)}
 .pr-rank{width:22px;text-align:right;color:var(--txt-3);font-size:12px;font-family:var(--mono)}
 .pr-team{display:flex;flex-direction:column;min-width:128px}
 .pr-name{font-size:13px;color:var(--txt-1)}
-.pr-lg{font-size:10px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.04em}
+.pr-lg{font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.04em}
 .pr-barwrap{flex:1;height:7px;background:var(--ink-3);border-radius:4px;overflow:hidden;min-width:40px}
 .pr-bar{display:block;height:100%;border-radius:4px;opacity:.9}
 .pr-str{width:42px;text-align:right;font-weight:700;font-size:13px;font-family:var(--mono)}
