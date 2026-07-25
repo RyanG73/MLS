@@ -36,6 +36,19 @@ jobs:
       # canonical league pages would orphan every indexed /leagues/ URL.
       - name: Build static league pages + sitemap
         run: python3 scripts/build_static_pages.py
+      # Stamp the service-worker cache with the deploy SHA. webapp/sw.js caches
+      # /index.html -- the file carrying the pricing UI and checkout button --
+      # behind a hand-maintained version string. Forgetting to bump it ships a
+      # deploy that returning visitors and installed-PWA users never see (it has
+      # happened before; see sw.js's v2 comment). Deriving it from the commit
+      # makes staleness structurally impossible rather than a thing to remember.
+      - name: Stamp service-worker cache version
+        run: |
+          set -euo pipefail
+          test -f webapp/sw.js
+          grep -q 'const CACHE = "entenser-shell-' webapp/sw.js
+          sed -i "s/const CACHE = \"entenser-shell-[^\"]*\"/const CACHE = \"entenser-shell-${GITHUB_SHA::12}\"/" webapp/sw.js
+          grep -n 'const CACHE' webapp/sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
