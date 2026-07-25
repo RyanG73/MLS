@@ -1257,7 +1257,12 @@ def _stub_league_logo(league_id: str) -> str | None:
         return None
     txt = stub.read_text()
     payload = json.loads(txt[txt.index("=") + 1:].rstrip().rstrip(";"))
-    return (payload.get("league") or {}).get("logo")
+    logo = (payload.get("league") or {}).get("logo")
+    # This reads the previous build's own value back, so a placeholder stored
+    # once would live forever. Drop ESPN's generic grey-shirt crest here too —
+    # see fetch_league_teams._league_logo, which stops it entering the registry.
+    from scripts.fetch_league_teams import _DEFAULT_LOGO_MARK
+    return None if logo and _DEFAULT_LOGO_MARK in logo else logo
 
 
 def main():

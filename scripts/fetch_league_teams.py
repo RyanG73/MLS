@@ -222,10 +222,20 @@ def _get(url):
     return requests.get(url, headers=_HDR, verify=False, timeout=25).json()
 
 
+# ESPN hands back its generic grey-shirt crest for leagues it has no logo for.
+# Storing that URL renders a broken-looking placeholder next to the league name;
+# None renders nothing, which is what the 8 leagues ESPN returns null for already
+# do. Normalise the two to the same thing (2026-07-24 league QA audit).
+# Mirrored by _stub_league_logo in build_league_data.py, which reads this back
+# out of the payload and would otherwise keep a stored placeholder alive forever.
+_DEFAULT_LOGO_MARK = "default-team-logo"
+
+
 def _league_logo(code):
     try:
         L = _get(f"{_ESPN}/{code}/scoreboard").get("leagues", [{}])[0]
-        return (L.get("logos") or [{}])[0].get("href")
+        href = (L.get("logos") or [{}])[0].get("href")
+        return None if href and _DEFAULT_LOGO_MARK in href else href
     except Exception:
         return None
 

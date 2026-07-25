@@ -94,6 +94,25 @@ jumped around — Columbus Crew 53.8% sat below LA Galaxy 38.8%.
 **Fixed** — the table splits per conference, and the CSV export gained a `conference`
 column with within-conference ranking.
 
+### F9a. Greek Super League rules text was stale
+`rules` said "Top 6 enter the championship playoff round", but the post-split
+pairing graph for both 2024-25 and 2025-26 resolves to pools of **1–4 / 5–8 / 9–14**
+(8 clubs playing 6 post matches, 6 clubs playing 10) — which is exactly what
+`FORMATS["greek-super"] = {"groups": [4, 4]}` already models. The model was right and
+the prose was wrong. **Fixed.** Verified `scottish-prem` `[6]` and `belgian-pro`
+`[6, 6]` against the same pairing-graph test; both correct.
+
+### F9b. ESPN's placeholder crest stored as a league logo
+Six leagues (`national-league`, `scottish-champ`, `romania-liga1`,
+`norway-eliteserien`, `denmark-superliga`, `south-africa-psl`) carried ESPN's generic
+grey-shirt `default-team-logo-500.png` as their league logo, which renders as a broken
+placeholder next to the league name; the UI already renders nothing at all for the
+eight leagues where ESPN returns null. Worse, `_stub_league_logo` reads the previous
+build's own value back, so a placeholder stored once survived forever.
+**Fixed** in both `fetch_league_teams._league_logo` and `_stub_league_logo`, and the
+six registry rows normalised to null. ESPN genuinely has no logo for any of the 14 —
+this is an upstream gap, the fix is just to stop dressing it up as an image.
+
 ### F9. Concacaf's two cups shipped null `rules`
 `leagues-cup` and `concacaf-champions` were the only competitions with no rules text
 while UCL/EL/UECL/Libertadores/Sudamericana all carry detailed descriptions.
@@ -115,11 +134,17 @@ a league to `results_only` — is a product decision.
 ESPN currently has **no** 2026-27 events for `rou.1`, `sui.1`, `eng.w.1`, `rsa.1`,
 `tha.1`, `ind.1`; those leagues will hit this as their seasons start.
 
-### U2. Stale payloads: `thai-league-1`, `eerste-divisie`, `k-league-1`
-Generated `2026-07-14` while every other league is `2026-07-23/24` — 10 days stale.
-`thai-league-1` and `eerste-divisie` also ship **no `data_status` key at all** in the
-payload (registry says `full_forecast`), so they predate the current payload contract.
-They are missing from the refresh batch.
+### U2. A league that reaches `status: completed` can never refresh itself
+`.github/workflows/refresh-daily.yml` builds its matrix from payloads where
+`status == "live"`, so the moment a league is classified `completed` the daily job
+stops touching it. Only the weekly `refresh-leagues.yml` (which iterates `OUTLOOK`)
+can ever flip it back. That is documented in the weekly workflow's own comment, but it
+is what made liga-mx's false `completed` state sticky, and it left
+`thai-league-1`, `eerste-divisie` and `k-league-1` generated `2026-07-14` while every
+other league was `2026-07-23/24`.
+**Resolved for now** — all three rebuilt (they also gained the `data_status` key,
+which their old payloads predated). The structural coupling remains: a league wrongly
+marked completed is invisible to the daily job that would otherwise correct it.
 
 ### U3. `canadian-pl` playoff contamination is not fixed
 It is the only `api_football` league with a playoff, and `data_pipeline/api_football.py:167`
@@ -146,6 +171,17 @@ knockout mode — so all 7 cups are absent from `/open-data/` (71 of 78 exported
 the 16-club points-halving playoff model (`rr: 2, groups: [6, 6], carry: "half"`).
 The group sizes are hard-coded and do not scale with the field. Worth confirming the
 2026-27 format before the season starts.
+
+### U6b. Relegation barrage modelled asymmetrically between tiers
+`_TOP(ucl, rel)` makes `releg` a plain "bottom N" band, so for Germany, France, the
+Netherlands, Portugal and Scotland the club in the relegation-**barrage** place is
+counted as fully relegated (`releg` sums to 3.0 for the Bundesliga, whose own rules
+text says "bottom 2 relegated, 16th plays a barrage"). The second-tier side of the
+exact same barrage *is* modelled — `_PROMO(..., barrage=0.33)` gives 2. Bundesliga's
+3rd a 33% shot, and its `promoted` column correctly sums to 2.33.
+So one club is at 100% to go down and its opponent at 33% to come up, in the same tie.
+The symmetric fix is a `barrage_lose_rate` on the `releg` bucket. Not applied here
+because it changes published probabilities.
 
 ### U7. `conf` key collides across payload families
 In MLS payloads `standings[].conf` is the conference name (`"East"`); in every
@@ -248,3 +284,59 @@ Competition rules:   pass, and unusually careful — the Sudamericana rules expl
                      flag that runners-up are advanced directly because the
                      cross-competition inflow from the Libertadores cannot be
                      represented, and say their odds are correspondingly optimistic.
+
+### venezuela-primera — Liga FUTVE  [results_only]
+Verdict: ISSUES (2) — both fixed
+
+Odds gut check:      the playoff-contamination fix (F4) **changed who tops the table**.
+                     Before, Deportivo Táchira led on 20 GP against clubs on 13; with
+                     the Apertura semi-finals and final removed, all 14 clubs sit on 13
+                     and Deportivo La Guaira leads. The previous leader's advantage was
+                     entirely post-season results.
+Formatting:          page read "Champions: Deportivo Táchira"; now "Top of the table:
+                     Deportivo La Guaira" (F5 + TITLE_BY_PLAYOFF).
+Competition rules:   `format_approximate` correctly true; rules honestly say the real
+                     berths come out of an Apertura/Clausura + final-series format.
+Actions taken:       F4, F5. Rebuilt.
+
+### greek-super — Greek Super League  [full_forecast]
+Verdict: ISSUES (1) — fixed
+
+Odds gut check:      pass. Pre-season 2026-27, 0 played / 182 fixtures, title 99.9
+                     (AEK Athens 45.3 / Olympiacos 24.3 / PAOK 22.8), ucl 99.9 = 1 berth,
+                     releg 200.0 = 2. Correctly badged "pre-season projection".
+Formatting:          pass.
+Competition rules:   rules text described a top-6 championship playoff the league has
+                     not used since at least 2024-25 (F9a).
+Actions taken:       F9a. Rebuilt.
+
+### The 44 leagues not given an individual block
+Every league was run through the mechanical checks (pmatrix row sums, per-match
+`pH+pD+pA`, home-advantage direction, draw share, probability-column sums against the
+real number of berths, per-team games played, SEO encoding/date/JSON-LD/canonical/CSV
+parity) and through a favourites-and-rules review. Where a league is not written up
+individually it means those checks came back clean and its `rules`, `format_label`,
+`format_approximate`, column set and green/red lines matched the real competition.
+Specifically verified clean and worth noting:
+
+- **All 78** pass pmatrix and per-match probability integrity: every row sums to ~1000
+  / ~1.0, no negatives, no upcoming fixture missing probabilities.
+- **All 78** pass home-advantage direction (mean home win > mean away win) and draw
+  share (all inside 0.19–0.34).
+- **All 78** pass SEO checks: no mojibake, no stale "updated" date, canonical correct,
+  JSON-LD parses, `dateModified` matches the visible date, every `SportsEvent` is a
+  genuinely future fixture, and the "All 78 leagues" count matches the registry.
+- **English tiers, big-5 and second tiers** have exactly correct promotion/playoff/
+  relegation slot counts: Championship 2+4/3, League One 2+4/4, League Two 3+4/2,
+  National League 1+6/4, Serie B's 6-team playoff, Segunda 2+4/4, Ligue 2 2+3/4 with
+  the barrage at 33%, 2. Bundesliga 2+1/3 with its mirror barrage.
+- **`epl` / `serie-a` at 5 UCL berths** is deliberate and documented in `rules`
+  ("2025-26 coefficient allocation"), not a bug.
+- **`argentina-primera` ships no relegation column at all** — correct, since Argentine
+  relegation runs on multi-season *promedios* the sim does not model, and the rules
+  text says so rather than inventing a column.
+- **`bolivia-profesional`'s mean home win of 0.549** is the highest in the registry but
+  matches an observed 0.500 home-win rate — altitude, not a swapped join.
+- The **preseason squad-value tilt** (Ipswich projected above clubs with 100+ more ELO)
+  is the documented, A/B-validated `_VALUE_BETA` correction for bottom-half clubs, not
+  an ordering bug.
