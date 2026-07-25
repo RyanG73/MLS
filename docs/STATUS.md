@@ -108,7 +108,11 @@ committed and deployed (1397 tests green) — but **the production config is sti
 | Step | State | Evidence |
 |---|---|---|
 | 1. Full `pytest` | ✅ | **1397 passed, 7 skipped, 0 failed** (2026-07-25, after the follow-up pass). Browser tests excluded — `playwright` not installed locally. |
-| 2. Production reachable | ⚠️ Partial | `mls-five.vercel.app/v1/public/config` → **200**. `api.entenser.com` → **NXDOMAIN** — i.e. not reachable at the host the webapp calls. |
+| 2. Production reachable | ⚠️ Partial | `mls-five.vercel.app/v1/public/config` → **200**, now returning `"pricing":{}` (honest fallback, no 503). `api.entenser.com` → **NXDOMAIN** — still not reachable at the host the webapp calls. |
+| 2b. **Header fix confirmed in production** | ✅ | **Post-deploy 2026-07-25 (`7bf77fe`).** `GET /v1/intel/me` with a forged bearer now returns **`{"error":"bad signature"}`** — pre-deploy the identical request returned `{"error":"missing bearer token"}`. The header now *arrives and is parsed*; the token is verified and correctly rejected. This is the single most important verification in the file. |
+| 2c. **Webhook fails closed in production** | ✅ | `POST /v1/stripe/webhook` with a `Stripe-Signature` header → **503 `webhook signing secret is not configured`**. Two facts at once: the header arrived (it reached the secret check rather than dying at header parse), and an unset secret is refused rather than accepted. |
+| 2d. Billing portal route live | ✅ | `POST /v1/billing/portal` → **401** unauthenticated. Route deployed and protected. |
+| 2e. Lock still holds post-deploy | ✅ | `/v1/intel/journal` with no token → **401**. The key works and the lock still works. |
 | 3. CORS | ✅ | Preflight from `Origin: https://entenser.com` → **204**, `access-control-allow-origin: https://entenser.com`. |
 | 4. Gate returns 401 for free users | ✅ | `/intel/journal`, `/intel/workspaces`, `/intel/me`, `/account/data` → **401**. Admin endpoint fails closed → 401. |
 | 5. Magic link end-to-end on prod | ❌ **BLOCKED ON OWNER** | Needs B1+B2. Untestable until deployed. |
