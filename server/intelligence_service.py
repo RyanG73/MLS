@@ -6,6 +6,7 @@ import csv
 import gzip
 import io
 import json
+import os
 import re
 from pathlib import Path
 
@@ -196,7 +197,8 @@ class IntelligenceService:
         if format_name == "png":
             from server.conversation_card import render_card_png
             card = self.public_card_payload(league_id, team_id, template)
-            verification = f"https://api.entenser.com/v1/public/card?preview={record['snapshot_id']}"
+            api_base = os.environ.get("PUBLIC_API_URL", "https://api.entenser.com/v1").rstrip("/")
+            verification = f"{api_base}/public/card?preview={record['snapshot_id']}"
             return "image/png", render_card_png(card, verification)
         if format_name != "csv":
             raise ValueError("format must be csv, json, or png")

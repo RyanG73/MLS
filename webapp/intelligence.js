@@ -40,8 +40,35 @@
     busy: false,
     notice: "",
     error: "",
-    selectedTarget: ""
+    selectedTarget: "",
+    pricing: {}
   };
+
+  // Price quoted to the customer comes from Stripe's own Price object via
+  // /public/config -- never guessed from navigator.language, which is how a
+  // site ends up displaying euros while charging dollars. If Stripe is
+  // unreachable we say nothing rather than quote a number we might not bill.
+  function planPrice(plan) {
+    var record = state.pricing && state.pricing[plan || "intel"];
+    return record && record.display ? record.display : "";
+  }
+
+  function priceSentence(plan) {
+    var price = planPrice(plan);
+    return price
+      ? price + " per " + planInterval(plan) + "."
+      : "The exact price and currency are shown on the secure checkout page before you pay.";
+  }
+
+  function subscribeLabel(plan) {
+    var price = planPrice(plan);
+    return price ? "Subscribe — " + price + " / " + planInterval(plan) : "Subscribe";
+  }
+
+  function planInterval(plan) {
+    var record = state.pricing && state.pricing[plan || "intel"];
+    return record && record.interval ? record.interval : "month";
+  }
 
   function escapeHtml(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
@@ -267,7 +294,7 @@
       }).join("") + "</div></div>";
     return '<section class="intel-locked" aria-label="Locked preview of Intelligence Hub features">' +
       '<div class="intel-locked-head"><div class="intel-eyebrow">Locked preview · sample data</div>' +
-      "<h2>What members see</h2><p>A live version of this workspace — for the teams you follow — unlocks with an account and an Intelligence trial or subscription.</p></div>" +
+      "<h2>What members see</h2><p>A live version of this workspace — for the teams you follow — unlocks with an account and an Intelligence subscription.</p></div>" +
       '<div class="intel-locked-stage"><div class="intel-locked-overlay">' +
       '<button class="intel-action primary" type="button" data-action="focus-signin">🔒 Sign in to unlock</button></div>' +
       '<div class="intel-locked-body" inert aria-hidden="true">' + tabs + trust + brief + tape + leverage + "</div></div>" + more + "</section>";
@@ -275,13 +302,29 @@
 
   function freeView() {
     document.title = "Intelligence Hub · Entenser";
+    // Top of the funnel: this is the pricing surface for a signed-in free
+    // account. Fired once per render so visitor -> checkout -> paid is a
+    // complete, standard GA4 funnel by launch week.
+    track("view_pricing", funnelPayload("intel"));
     root.classList.remove("hidden");
     root.innerHTML = '<div class="ed-wrap intel-app">' +
       commandHeader("Intelligence Hub", "Free account") +
       '<section class="intel-auth"><h2>Start Intelligence access</h2>' +
-      '<p>Your account is active. Current forecasts remain free; monitoring, scenarios, private history, alerts, and saved work require an Intelligence trial or subscription.</p>' +
-      '<button class="intel-action primary" data-action="checkout" data-plan="intel">Start Intelligence</button> ' +
+      '<p>Your account is active. Current forecasts remain free; monitoring, scenarios, private history, alerts, and saved work require an Intelligence subscription.</p>' +
+      // Pre-purchase disclosure. US negative-option rules and EU/UK distance-
+      // selling rules require price, renewal cadence and the cancellation
+      // method to be visible BEFORE the customer commits, not only on Stripe's
+      // page. Keep this adjacent to the button -- never behind a link.
+      '<p class="intel-terms">' + escapeHtml(priceSentence()) + ' Renews automatically every ' +
+      escapeHtml(planInterval()) + ' until cancelled. ' +
+      'Cancel any time in one click from your account. 30-day money-back guarantee.</p>' +
+      // NOTE (launch audit 2026-07-25): the Terms and Refund-policy routes do
+      // not exist yet -- drafts are in docs/legal-copy-draft-2026-07-25.md and
+      // need owner sign-off. Link them here the moment they ship; publishing
+      // paid checkout without them is a Track 6 blocker.
+      '<button class="intel-action primary" data-action="checkout" data-plan="intel">' + escapeHtml(subscribeLabel()) + '</button> ' +
       '<button class="intel-action" data-action="logout">Sign out</button>' +
+      (state.notice ? '<div class="intel-success">' + escapeHtml(state.notice) + "</div>" : "") +
       (state.error ? '<div class="intel-error">' + escapeHtml(state.error) + "</div>" : "") +
       '</section></div>';
   }
@@ -292,6 +335,10 @@
       '<div class="intel-eyebrow">Personal Intelligence Hub</div><h1>' + escapeHtml(title) + "</h1>" +
       '<p>' + escapeHtml(subtitle || "") + '</p></div><div class="intel-command-actions">' +
       '<span class="intel-session"><strong>' + escapeHtml(plan) + '</strong> plan</span>' +
+      // Self-service cancellation must be no harder to find than signup was.
+      (["intel", "creator", "canceled"].indexOf(plan) >= 0
+        ? '<button class="intel-action" data-action="billing-portal">Manage billing</button>'
+        : "") +
       '<button class="intel-action" data-action="refresh">Refresh</button>' +
       '<button class="intel-icon-btn" data-action="logout" title="Sign out" aria-label="Sign out">×</button>' +
       "</div></header>";
@@ -698,8 +745,7 @@
       ? '<div class="intel-toolbar-row" style="margin-top:10px"><button class="intel-action primary" data-action="workspace-save">Save workspace</button><span class="spacer"></span>' +
         '<button class="intel-action" data-action="export" data-format="png">PNG</button><button class="intel-action" data-action="export" data-format="csv">CSV</button>' +
         '<button class="intel-action" data-action="export" data-format="json">JSON</button></div>'
-      : '<div class="intel-toolbar-row" style="margin-top:10px"><span class="intel-assumption-count">Creator entitlement required</span><span class="spacer"></span>' +
-        '<button class="intel-action primary" data-action="checkout" data-plan="creator">Upgrade to Creator</button></div>';
+      : '<div class="intel-toolbar-row" style="margin-top:10px"><span class="intel-assumption-count">Creator entitlement required \u2014 not on sale yet</span></div>';
     var saved = (state.workspaces || []).map(function (workspace) {
       return '<div class="intel-journal-entry"><time>' + shortDate(workspace.updated_at) + '</time><div><b>' + escapeHtml(workspace.name) +
         '</b><div class="notes">' + escapeHtml(workspace.card_template || "workspace") + '</div></div><button class="intel-icon-btn" data-action="workspace-delete" data-id="' +
@@ -975,8 +1021,66 @@
     hubView();
   }
 
+  async function loadPricing() {
+    try {
+      var response = await fetch(API_BASE + "/public/config", {cache: "no-store"});
+      if (!response.ok) return;
+      var config = await response.json();
+      state.pricing = (config && config.pricing) || {};
+    } catch (error) {
+      state.pricing = {};   // quote nothing rather than quote wrong
+    }
+  }
+
+  // Stripe redirects back to /?league=intel&checkout=success|canceled. Without
+  // this the customer lands on an unchanged page and reads a successful payment
+  // as a failed one -- which is a support ticket and often a duplicate charge
+  // attempt. Entitlement arrives by webhook, so a fresh /intel/me is required;
+  // the redirect itself is never treated as proof of payment.
+  function handleCheckoutReturn() {
+    var outcome = params.get("checkout");
+    if (!outcome) return;
+    if (outcome === "success") {
+      state.justPaid = true;
+      setMessage("Payment received — thank you. Your access is being activated; " +
+                 "this can take a few seconds. A receipt is on its way by email.", false);
+      track("purchase_return");
+    } else if (outcome === "canceled") {
+      setMessage("Checkout cancelled — you have not been charged.", false);
+      track("checkout_canceled");
+    }
+    params.delete("checkout");
+    var query = params.toString();
+    history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
+  }
+
+  // Delegate to the host page's track(), which gates on live host + configured
+  // provider and handles Plausible as well as GA4. Calling window.gtag directly
+  // from here would fire events off the live domain and bypass that gating.
+  function track(name, payload) {
+    try {
+      if (typeof window.track === "function") window.track(name, payload || {});
+      else if (typeof window.gtag === "function") window.gtag("event", name, payload || {});
+    } catch (error) { /* analytics must never break checkout */ }
+  }
+
+  // GA4 ecommerce shape, so the Sept 30 conversion read is a standard funnel
+  // report rather than a hand-rolled one. `interval` is carried on every event
+  // because the monthly/annual split is the thing the annual push is testing.
+  function funnelPayload(plan) {
+    var priced = state.pricing && state.pricing[plan || "intel"];
+    return {
+      plan: plan || "intel",
+      interval: planInterval(plan),
+      currency: priced ? String(priced.currency || "").toUpperCase() : undefined,
+      value: priced ? priced.amount / 100 : undefined
+    };
+  }
+
   async function initialize() {
     loading("Opening private workspace");
+    await loadPricing();
+    handleCheckoutReturn();
     var magicToken = params.get("token");
     if (magicToken) {
       try {
@@ -1003,6 +1107,31 @@
       setMessage(error.message, true);
       signInView();
       return;
+    }
+    // Returning from a successful checkout, the entitlement is written by the
+    // Stripe webhook, which races the browser redirect. Showing freeView here
+    // would tell someone who just paid that they haven't -- so poll briefly
+    // before believing it. Always bounded, and always the server's answer.
+    if (state.justPaid && ["intel", "creator"].indexOf(state.me.plan) < 0) {
+      for (var attempt = 0; attempt < 5; attempt++) {
+        await new Promise(function (resolve) { setTimeout(resolve, 1200); });
+        try {
+          state.me = await api("/intel/me");
+        } catch (error) { break; }
+        if (["intel", "creator"].indexOf(state.me.plan) >= 0) break;
+      }
+      if (["intel", "creator"].indexOf(state.me.plan) >= 0) {
+        // Fired only once the SERVER confirms the entitlement, never on the
+        // Stripe redirect alone -- a redirect proves the customer came back
+        // from Stripe, not that money moved. Anything less and launch week's
+        // conversion number is inflated by abandoned and failed payments.
+        track("purchase", funnelPayload(state.me.plan));
+      }
+      if (["intel", "creator"].indexOf(state.me.plan) < 0) {
+        setMessage("Your payment went through, but access hasn't activated yet. " +
+                   "Refresh in a moment — if it persists, contact support and quote your " +
+                   "Stripe receipt; you will not be charged twice.", true);
+      }
     }
     if (["trial", "intel", "creator"].indexOf(state.me.plan) < 0) {
       freeView();
@@ -1087,8 +1216,13 @@
         state.me = null;
         signInView();
       } else if (action === "checkout") {
-        var checkout = await api("/billing/checkout", {method: "POST", body: JSON.stringify({plan: button.getAttribute("data-plan") || "intel"})});
+        var plan = button.getAttribute("data-plan") || "intel";
+        track("begin_checkout", funnelPayload(plan));
+        var checkout = await api("/billing/checkout", {method: "POST", body: JSON.stringify({plan: plan})});
         location.assign(checkout.url);
+      } else if (action === "billing-portal") {
+        var portal = await api("/billing/portal", {method: "POST", body: "{}"});
+        location.assign(portal.url);
       } else if (action === "merge-favorites") {
         var teams = (state.prefs.teams || []).slice();
         var known = {};

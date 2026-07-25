@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from server.conversation_card import render_card_png
@@ -23,7 +24,8 @@ def main() -> int:
 
     payload = IntelligenceService().public_card_payload(
         args.league, args.team_id, args.template)
-    payload["verification_url"] = "https://api.entenser.com/v1/public/card?id=preview"
+    api_base = os.environ.get("PUBLIC_API_URL", "https://api.entenser.com/v1").rstrip("/")
+    payload["verification_url"] = f"{api_base}/public/card?id=preview"
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(render_card_png(payload, payload["verification_url"]))
     args.output.with_suffix(".json").write_text(
