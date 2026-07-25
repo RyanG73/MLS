@@ -129,3 +129,10 @@ webapp/after-the-world-cup/
 .env*
 /build/
 uv.lock
+
+# Build/report output, not source (launch audit 2026-07-25 — tree must be clean
+# before the Aug 15 code freeze; these were the only untracked non-source paths)
+output/
+docs/STATUS.html
+docs/STATUS_files/
+webapp/docs/

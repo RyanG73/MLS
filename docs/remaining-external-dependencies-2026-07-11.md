@@ -1,5 +1,24 @@
 # Remaining External / Decision-Gated Work — 2026-07-11
 
+> **2026-07-25 — CRITICAL PATH CHANGE.** Paid launch moved to **2026-08-17**, so items this ledger
+> recorded as "no deadline" now have one. Newly blocking, with dates:
+>
+> | Item | Was | Now | Cost |
+> |---|---|---|---|
+> | **Legal/compliance review** (terms, refund policy, privacy rewrite) | no deadline | **decide by Aug 8** — drafts in `docs/legal-copy-draft-2026-07-25.md` | $500–2,500 one-time, or owner-authored from the drafts |
+> | **Stripe full activation** (business details, bank, identity) | not tracked | **by Aug 2** — a Checkout Session against an unactivated account fails at the worst moment | free |
+> | **Stripe Price objects** (monthly + annual, final amount/currency) | not tracked | **by Aug 2 — one-way door**, cannot be edited after customer #1 | free |
+> | **Upstash Redis** | "free tier" | **by Jul 26** — there is no entitlement store without it | free tier ok |
+> | **Vercel Pro** | assumed free tier | **by Aug 17 — Hobby is non-commercial**; taking payments on it risks suspension | **$20/mo** |
+> | **Resend Pro** | "3k emails/mo is plenty" | **by Aug 17** — the real ceiling is **100 emails/day** on free, and magic-link auth sends one per signup *and* per sign-in. A good launch day locks new customers out **after** they pay. | **$20/mo** |
+> | **Sales tax / VAT (Stripe Tax)** | not tracked | **decide by Aug 8** — prices render in EUR/GBP, implying EU/UK sales; retroactive if wrong | ~0.5%/txn |
+> | **Support address** (`entenser@gmail.com` → `support@entenser.com`) | not tracked | **by Aug 10** | free |
+>
+> **Unchanged / still deferred:** Odds API tier, paid social test, weekly digest sends (still needs
+> explicit sign-off — standing rule). Full context: `docs/STATUS.md` §2.
+
+
+
 This is the honest accounting of what the public launch still needs that **could not be done
 autonomously in-repo** — because it spends money, stands up an external account, publishes
 outward-facing content, or is a business/legal decision. Everything code-shaped that the two

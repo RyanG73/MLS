@@ -1,5 +1,45 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-25 — Paid launch pulled forward to Aug 17; Oct 31 evidence gate reversed; launch-readiness
+> audit run.** Ran `docs/launch-readiness-audit-prompt.md`, treating every launch claim as unverified.
+> **Three decisions recorded, all owner-directed:** (1) the Phase-2 **Oct 31 evidence gate is dead** —
+> subscriptions must take money on **2026-08-17**, pulling ~3 months of Phase-2 M1 work into a 23-day
+> window and moving legal review, Stripe activation and tax registration onto the critical path.
+> The gate existed to prove demand *before* spending build effort; since the effort is being spent
+> regardless, it is replaced by a **post-launch conversion read on 2026-09-30** with an explicit
+> kill/keep decision, so the discipline survives the schedule change. (2) **No trial ships at launch**
+> — hard annual push plus a **30-day money-back guarantee**; the 14-day trial becomes a post-launch
+> A/B against the no-trial baseline measured in launch week. Trial plumbing (`PLAN_RANK` rank,
+> `trialing`→`trial` webhook mapping) is deliberately retained. (3) **Entenser sells no raw
+> third-party data, ever** — every paid export is Entenser's own model output; recorded as a standing
+> rule in `docs/data-sources.md`. The free-floor ratchet is **unchanged and was not reversed**:
+> current season free, the vault is paid, no shipped free feature ever moves behind the paywall.
+>
+> **The audit found the money path severed at both ends, in production, today.** (a) `api/index.py`
+> handed handlers a plain dict built from raw header items, but Vercel delivers header names
+> lowercased — so `headers.get("Authorization")` and `headers.get("Stripe-Signature")` missed on
+> every request. Proven against production: `/intel/me` with a valid bearer returns
+> `missing bearer token`, and the live Stripe webhook returns `malformed Stripe-Signature header`,
+> the exact symptom a lowercase header reproduces locally. **No authenticated request could succeed
+> and no webhook could be verified** — a customer could not reach checkout, and an entitlement could
+> never be written. A 1,179-test suite missed it because every fixture passed exact-case headers.
+> Fixed with a case-folding `server/http_headers.Headers` at the single boundary. (b) Vercel
+> production has **exactly three env vars** (`RESEND_*`); `STRIPE_SECRET_KEY`, `UPSTASH_*`,
+> `ACCESS_TOKEN_SECRET` and `ENTENSER_ENV` are all absent, so entitlements fall back to an
+> in-memory dict that dies on cold start and tokens are signed with `dev-only-insecure-secret`.
+> **Also fixed:** the Stripe webhook **failed open** with an unset secret (HMAC over an empty key
+> verifies — a forged `checkout.session.completed` was accepted, demonstrated); the dedup key was
+> written *before* the entitlement, so a KV failure turned Stripe's retry into a silent no-op;
+> `past_due` revoked access on the first decline instead of during Stripe's ~3-week dunning;
+> there was **no billing portal at all** and no Stripe customer id stored, so cancellation was
+> impossible and entitlements were unrecoverable; a **canceled user could not export or delete
+> their own data** (GDPR); `/intel/export` required `creator` while CSV downloads are advertised on
+> `intel`; the `creator` plan was purchasable but undefined; `checkout=success` was handled nowhere;
+> and the service-worker cache version was hand-maintained, so a forgotten bump on launch day would
+> serve every returning visitor the pre-monetization page. Suite: **1385 passed, 7 skipped, 0 failed**
+> — including `test_intelligence_state_replay`, which STATUS.md recorded as failing and no longer
+> reproduces (5/5 green). Full findings and the 23-day countdown: `docs/STATUS.md`.
+
 > **2026-07-25 — Full site UX review (mobile + desktop, Chromium + real iOS WebKit).**
 > Ran `docs/site-ux-audit-prompt.md` over Home, the edge board, the leagues index and league detail
 > (epl/mls/libertadores/poland), every surface treated as unreviewed. Plan file:

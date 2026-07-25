@@ -340,3 +340,18 @@ Specifically verified clean and worth noting:
 - The **preseason squad-value tilt** (Ipswich projected above clubs with 100+ more ELO)
   is the documented, A/B-validated `_VALUE_BETA` correction for bottom-half clubs, not
   an ordering bug.
+
+## 2026-07-25 — `romania-liga1` is live with zero upcoming fixtures (from the launch-readiness audit)
+
+Surfaced by the new per-snapshot coverage manifest (`data/snapshot_coverage.json`, written by
+`scripts/archive_odds_snapshot.py`) on its first real run.
+
+- `webapp/data/romania-liga1.js`: `status: "live"`, `generated: 2026-07-25 12:02 UTC`, 8 games,
+  **0 upcoming fixtures with dates**.
+- Consequence: it contributes **zero rows** to `match_prob_history.parquet` while the site
+  advertises it as a live competition. Under the paid tier this is a league a customer can see
+  listed but which has no forecast history accruing at all.
+- Not a launch blocker and not a crash — a silent coverage hole of exactly the class the manifest
+  was added to make visible.
+- **Hand-off:** belongs to `docs/league-qa-audit-prompt.md`. Likely either a fixture-source gap for
+  the new Romanian season or a status flag that should not yet be `live`.

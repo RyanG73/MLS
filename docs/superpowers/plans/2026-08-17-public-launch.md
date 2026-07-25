@@ -1,5 +1,42 @@
 # Public Launch — Monday 2026-08-17
 
+## VERDICTS — launch-readiness audit, 2026-07-25
+
+Ran `docs/launch-readiness-audit-prompt.md` against live systems. This plan was written for a
+**free** launch; Aug 17 is now a **paid** launch. Consequences for this file:
+
+- **The scope changed underneath it.** Paid pulls ~3 months of roadmap Phase-2 M1 into 23 days and
+  moves legal review, Stripe activation and tax registration from "no deadline" onto the critical
+  path. The countdown that supersedes this plan's timeline is `docs/STATUS.md` §6.
+- **VERDICT: the money path was severed at both ends in production and nobody knew.** A header-case
+  bug (Vercel lowercases header names; the router built a plain dict) meant no authenticated request
+  could succeed and no Stripe webhook could be verified — proven live, masked from a 1,179-test
+  suite because every fixture used exact-case headers. Separately, Vercel production holds exactly
+  three env vars, none of them Stripe/Upstash/token-secret. Both fixed in code; **config still
+  outstanding, and nothing is deployed.**
+- **VERDICT: content freeze Aug 14 stands, and now binds more.** Every waitlist CTA on the site
+  says "Nothing is for sale yet" / "launching soon" / "planned". Those must sell or be honestly
+  relabelled by the freeze. Additionally, **check each target community's self-promotion rules
+  before Aug 14** — several football and analytics subreddits treat commercial products differently
+  from free tools, and a launch-day removal costs the channel entirely. This plan's distribution
+  sequencing (Reddit → Show HN → analytics communities) was drafted when nothing was for sale.
+- **VERDICT: add a code freeze.** Content freeze Aug 14; **code freeze Aug 15**, launch-blocking
+  fixes only, owner-approved, one at a time.
+- **VERDICT: the dress rehearsal is the highest-value hour in the plan.** Aug 10, owner, real
+  device, cold session, monthly *and* annual, including a refund request under the guarantee.
+- **VERDICT: launch day is one person and the runbook assumed otherwise.** Ranked watch-list and a
+  rollback trigger ("defects on the money path abort, defects elsewhere fix forward") are in
+  `docs/STATUS.md` §7. If Ryan cannot watch for three uninterrupted hours, **do not post** — the
+  announcements are the only load generator, and delaying them costs nothing.
+- ✅ **Verified still true:** free static site live (200), API deployed (200 on the Vercel host),
+  CORS correct from `entenser.com` (204), trust surfaces ungated, champion config matches
+  CURRENT_STATE (0.632977), suite green (1385 passed).
+- ❌ **Verified NOT true** (previously recorded as done or non-blocking): `api.entenser.com` resolves;
+  the paid stack is "essentially ready"; `test_intelligence_state_replay` fails (it passes 5/5);
+  bug #2 was fixed (only its symptom was).
+
+
+
 > **Verdict log (newest first)** — append a dated verdict here after each completed step.
 >
 > - 2026-07-23 (2): **Nightly refresh fixed — CI had been discarding good data

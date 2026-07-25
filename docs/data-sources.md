@@ -251,6 +251,33 @@ lacks (Championship, League One/Two, Liga MX; C1 leagues when built). Rules:
 
 ---
 
+## Export-scope rule — STANDING CONSTRAINT (settled 2026-07-25)
+
+**Entenser sells no raw third-party data, ever.** Every paid export, every vault surface and every
+future commercial feature ships **Entenser's own model output only** — probabilities, projections,
+Elo, projected points, calibration and accuracy series — plus aggregates derived from it. Not
+shipped, under any circumstance: a supplier's raw rows, scraped tables, redistributed match feeds,
+or third-party crests.
+
+Why this is a standing rule and not a one-off decision: several suppliers in the register below
+mark raw rows as redistribution-restricted (ASA game-by-game is "uncertain, treat as local-only";
+ESPN match ids, team names and score rows are "local/model use only"; ESPN crests need written
+permission), while **derived probability payloads are explicitly OK for every active source**.
+Scoping every export to derived output resolves the licensing question in the safe direction
+permanently, so the next feature that adds an export inherits the answer instead of re-litigating it.
+
+**This does not cancel attribution.** "We don't redistribute your rows" and "credit American Soccer
+Analysis for derived public output" are independent obligations; both hold under a commercial
+product. Every export embeds `source`, `citation` and `methodology` — keep it that way.
+
+Identifiers: prefer Entenser's own stable IDs and public club/competition names over supplier-keyed
+fields. Public names are facts, not licensed data; supplier row ids are not ours to redistribute.
+
+**Audited 2026-07-25** — `api/intel/export.py` → `IntelligenceService.creator_export` emits team,
+league name, season id, generated timestamp, snapshot id, target metric, brief, leverage, race
+context and receipts, all Entenser-derived, plus embedded source/citation/methodology. **Compliant;
+no field required removal.** Re-audit this endpoint whenever a new column is added.
+
 ## Payload Publication Matrix
 
 What can go into `webapp/data/*.js` public payloads:

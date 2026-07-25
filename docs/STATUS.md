@@ -1,159 +1,274 @@
 # Entenser — Consolidated Status
 
-**Last updated:** 2026-07-24 · **Owner:** Ryan · **Launch target:** Monday **2026-08-17**
+**Last updated:** 2026-07-25 · **Owner:** Ryan · **Launch target:** Monday **2026-08-17** (paid)
 
-This is the single hub that reconciles the four planning docs so you don't have to. It
-answers: *where are we, what do I act on, what's broken, what's left to build.* Each row
-points back to the canonical doc — this page is a dashboard, not a replacement.
+This is the single hub that reconciles the planning docs so you don't have to. It answers: *where
+are we, what do I act on, what's broken, what's left to build.* Each row points back to the
+canonical doc — this page is a dashboard, not a replacement.
 
-**Source docs:** [product-roadmap-2026-07.md](product-roadmap-2026-07.md) (feature roadmap) ·
-[superpowers/plans/2026-08-17-public-launch.md](superpowers/plans/2026-08-17-public-launch.md) (launch plan) ·
+> **Committed to `main` 2026-07-25** — `f260df6` headers · `5092f66` billing lifecycle ·
+> `955862e` webapp/pricing · `1660442` CI reliability · `40160fb` coverage manifest.
+> Pushing triggers `deploy.yml` (webapp) and `deploy-api.yml` (`api/**`, `server/**` both changed),
+> so the header fix reaches production on this push. **Nothing becomes purchasable** — there are
+> still no Stripe keys, and the webhook now fails closed rather than open, so the deployed state is
+> strictly safer than before. Post-deploy verification is recorded in §2d.
+
+**Every claim below carries a proof or is marked `UNVERIFIED`.** This file has been wrong before:
+bug #2 sat green for five nights while data was being silently discarded, and the 2026-07-24 edition
+described the paid stack as "essentially ready" when no authenticated request could succeed in
+production. Rows marked ✅ were re-verified on 2026-07-25 by the launch-readiness audit.
+
+**Source docs:** [product-roadmap-2026-07.md](product-roadmap-2026-07.md) (feature roadmap — **partly
+superseded, see its banner**) · [superpowers/plans/2026-08-17-public-launch.md](superpowers/plans/2026-08-17-public-launch.md) (launch plan) ·
+[legal-copy-draft-2026-07-25.md](legal-copy-draft-2026-07-25.md) (ToS/refund/privacy drafts) ·
 [social-media-strategy-2026-08-launch.md](social-media-strategy-2026-08-launch.md) (social) ·
-[remaining-external-dependencies-2026-07-11.md](remaining-external-dependencies-2026-07-11.md) (spend/decision ledger) ·
-[CURRENT_STATE.md](CURRENT_STATE.md) (model config) · [PROJECT_HISTORY.md](PROJECT_HISTORY.md) (narrative history).
+[remaining-external-dependencies-2026-07-11.md](remaining-external-dependencies-2026-07-11.md) (spend ledger) ·
+[data-sources.md](data-sources.md) (supplier register + export-scope rule) ·
+[CURRENT_STATE.md](CURRENT_STATE.md) (model config) · [PROJECT_HISTORY.md](PROJECT_HISTORY.md).
 
 ---
 
 ## 1. Where we are — one paragraph
 
-The **free static product is live and shipping** on entenser.com: 56 leagues, full
-forecasts/tables/trust pages, plus the six roadmap Phase‑1 features that shipped today
-(sparklines, race‑history chart, My matchday, shareable scenarios, waitlist upsells +
-annual toggle, dated weekly pages). The **Intelligence API is deployed and live**
-(2026‑07‑24, `https://mls-five.vercel.app/v1/public/config` → 200 — custom domain
-`api.entenser.com` still needs DNS attached). **Email capture is now fully live**: GA4,
-GSC, and Resend are all set up and wired end‑to‑end — a real `/public/subscribe` call
-against production returned `"resend": true`, confirming the contact actually landed in
-the Resend Audience. **Nothing is monetized and no *broadcast* emails send** (that still
-needs your explicit sign‑off, §2d) but capture itself is live. Launch is **~4 weeks
-out** (Aug 17); the code is essentially ready, the remaining blockers are the custom
-domain, content posting, and a few decisions/spends only you can make.
+The **free static product is live and healthy** on entenser.com (GitHub Pages, HTTP 200 verified):
+77 leagues, forecasts, tables, trust pages, all Phase-1 features. The **Intelligence API is deployed
+and answering** on `mls-five.vercel.app` (`/v1/public/config` → 200). Everything else about the paid
+tier that the previous edition called ready **was not**. The audit found the money path severed at
+both ends in production: a header-case bug meant **no authenticated request could ever succeed and
+no Stripe webhook could ever be verified**, and Vercel production holds **exactly three environment
+variables**, none of them Stripe, Upstash, or the token secret. Both are now fixed,
+committed and deployed (1397 tests green) — but **the production config is still absent**. The honest position:
+**we cannot take money today, and Aug 17 is achievable but only if §2's blockers clear this week.**
 
 ---
 
-## 2. 🔴 What YOU need to act on
+## 2. 💰 The revenue path — can a stranger's card be charged? (NEW — this is the launch's spine)
 
-### 2a. Account setup — ~15 min total, unblocks almost everything
+**Verdict: not yet.** Three things decide it: **DNS**, **environment variables**, and a
+**deployed API**. Everything else in this section is downstream of those three.
 
-Do these three first. Runbook detail in the [launch plan §"Launch runbook"](superpowers/plans/2026-08-17-public-launch.md).
+### 2a. Blockers — launch-day money or trust breaks
 
-| # | Action | Time | Unblocks | How |
+| # | Blocker | Owner | Status / proof | Action |
 |---|---|---|---|---|
-| ~~**A1**~~ | ~~**Google Analytics 4**~~ — ✅ **done 2026‑07‑23.** ID `G-GVSLY1KBHQ` is wired into the SPA *and* the static SEO pages. Google's "install a tag" step needed nothing — the code was already there (A1a). **Remaining: deploy, then confirm GA4 Realtime shows a session** (that's I2). | — | *All* measurement. Gates the Oct 31 paid‑tier decision. | Done in code; verify at analytics.google.com → Reports → Realtime |
-| ~~**A2**~~ | ~~**Google Search Console**~~ — ✅ **done 2026‑07‑23** (domain property verified). **Remaining: submit the sitemap** (C10) at `https://entenser.com/sitemap.xml`, then wait ~1–2 weeks for indexing before judging the 1.7 OG‑cards gate. | — | Sitemap submission (C10) + the 1.7 OG‑cards gate (needs proof leagues are indexing) | search.google.com/search-console → Sitemaps → enter `sitemap.xml` |
-| ~~**E1**~~ | ~~**Resend**~~ — ✅ **fully done and verified live 2026‑07‑24.** Domain/DNS, API key, and Audience all set up; `RESEND_API_KEY`/`RESEND_AUDIENCE_ID`/`RESEND_FROM_EMAIL` are stored as Vercel production env vars. A live `POST /v1/public/subscribe` test (using Resend's `delivered@resend.dev` test address, nothing real emailed) returned `{"ok":true,"resend":true}` — the contact landed in the Resend Audience. `RESEND_WEBHOOK_SECRET` still unset (optional, only needed once a Resend webhook exists). | — | Email capture now mirrors to Resend on every signup. **Broadcast/digest sends still need your explicit sign‑off** (§2d) — capture ≠ sending. | Nothing left to do here. |
+| **B1** | **`api.entenser.com` does not resolve.** `webapp/intelligence.js:13` hardcodes `https://api.entenser.com/v1` as the production API base, so *every* Intel call and checkout fails in the browser. | Ryan | ❌ **CONFIRMED 2026-07-25**: `dig api.entenser.com` → empty; `curl` → `http=000`. API answers only on `mls-five.vercel.app` (200). | Attach the domain in Vercel → Domains, add the CNAME at Namecheap. **~15 min. Unblocks everything.** |
+| **B2** | **Production has no application secrets.** `vercel env ls production` returns exactly `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_FROM_EMAIL`. Missing: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_INTEL_PRICE_ID`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `ACCESS_TOKEN_SECRET`, `ADMIN_TOKEN`, `ENTENSER_ENV`, `UNSUBSCRIBE_SECRET`, `PUBLIC_API_URL`. | Ryan | ❌ **CONFIRMED live 2026-07-25** via `vercel env ls production` (names only). | See §2c. **~45 min total.** |
+| **B3** | **`ENTENSER_ENV` unset disarms every production guard.** `server/config.py` returns dev defaults instead of raising: `ACCESS_TOKEN_SECRET` becomes `dev-only-insecure-secret` (**anyone can forge a paid token**) and `get_kv()` silently falls back to an **in-memory dict that dies on every cold start** — a paid entitlement would evaporate within minutes. | Ryan | ❌ **CONFIRMED**: absent from `vercel env ls`; `/v1/public/config` returns 200 (not the 503 a production-mode missing-KV would raise), proving the silent fallback is active. | Set `ENTENSER_ENV=production` **together with** B2's secrets — setting it alone will 503 the whole API. |
+| **B4** | ~~**Header case broke all auth and all webhooks in production.**~~ ✅ **FIXED 2026-07-25.** Vercel delivers header names lowercased; `api/index.py` built a plain dict from raw items, so `headers.get("Authorization")` and `headers.get("Stripe-Signature")` always missed. | Claude | ✅ Proof: prod `/intel/me` + valid bearer → `missing bearer token`; prod webhook → `malformed Stripe-Signature header`; local reproduces **only** with lowercase headers. Fixed via `server/http_headers.Headers`; verified through the real router (lowercase → 200, forged → 401, none → 401). 9 regression tests. | ✅ **Deployed 2026-07-25** (`f260df6`, via `deploy-api.yml`). |
+| **B5** | ~~**Stripe webhook failed OPEN with the secret unset.**~~ ✅ **FIXED 2026-07-25.** HMAC over an empty key verifies, so a forged `checkout.session.completed` signed with `b""` was **accepted** — a free `creator` entitlement for anyone who knew. Masked by B4; **B4's fix would have unmasked it.** | Claude | ✅ Proof: demonstrated accepted pre-fix; endpoint now returns 503 when unset. Test: `test_stripe_webhook_fails_closed_when_secret_is_unset`. | Set `STRIPE_WEBHOOK_SECRET` (B2). |
+| **B6** | ~~**No self-service cancellation existed.**~~ ✅ **FIXED 2026-07-25.** No billing-portal endpoint, and **no Stripe customer id was stored anywhere**, so cancellation, refund reconciliation and rebuild-from-Stripe were all impossible. | Claude | ✅ Built `server/stripe_portal.py`, `api/billing/portal.py`, route `/v1/billing/portal`, "Manage billing" button. Customer id now persisted + reverse-indexed. 15 tests. | Enable the Billing Portal in Stripe → Settings → Billing → Customer portal (**~10 min**, §2c S5). |
+| **B7** | **No Terms of Service and no published refund policy.** Stripe's merchant terms require published terms; the 30-day guarantee is the risk-reversal mechanism replacing the trial and must be published, linked and honoured. | Ryan | ❌ **CONFIRMED**: `_INFO_PAGES` = about, support, data-sources, responsible-gambling, privacy, contact. No terms, no refunds. | Review [legal-copy-draft-2026-07-25.md](legal-copy-draft-2026-07-25.md), decide L1–L6, hand back → Claude ships the routes. **Blocking. Start now.** |
+| **B8** | **Privacy policy is now false.** It states Entenser *"does not require an account and does not collect personal information"* and preferences are *"never sent to us"*. | Ryan → Claude | ❌ CONFIRMED at `?league=privacy`. (The account page's version of this claim ✅ **fixed** 2026-07-25.) | Rewrite per draft D3 once L1/L2 are decided. |
+| **B9** | **Vercel Hobby is non-commercial.** Taking subscription payments from a Hobby-hosted API violates Vercel's fair-use terms and risks suspension — mid-launch. | Ryan | ⚠️ **UNVERIFIED which plan the project is on.** Flagged on policy grounds. | Confirm plan; upgrade to **Pro, $20/mo** before Aug 17. |
+| **B10** | **Resend free tier is 100 emails/day.** Auth is magic-link, so **every signup *and* every sign-in sends an email**. A good launch day breaks this, and the failure mode is *new customers cannot log in after they have paid*. | Ryan | ⚠️ **UNVERIFIED headroom** — 3,000/mo is comfortable, **100/day is not**. 100 signups exhausts it. | Upgrade to Resend Pro (**$20/mo, 50k/mo**) **before** Aug 17, not during. This is the ceiling that binds first. |
 
-### 2b. Infrastructure — ✅ Vercel linked, API deployed and verified (2026‑07‑24)
+### 2b. Gaps — launch works but degrades
 
-| Action | Why | Notes |
-|---|---|---|
-| ~~Create/link the Vercel project + set its secrets~~ | ✅ Done. `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` are set as GitHub secrets on `intelligence-api-production`; project `ryang73/mls` is linked and deploys cleanly — see bug #1. | Remaining infra work: attach the `api.entenser.com` custom domain (Vercel dashboard → Domains). Resend env vars are done (E1 above). |
-
-### 2c. Launch execution (Aug 14–17) — yours to run
-
-- **Aug 14:** content freeze (I3).
-- **Aug 17 (Mon):** post the launch announcements (H5 — drafts ready in [launch-announcements.md](launch-announcements.md)), go live (I4). **Block two reply windows** that day (social plan §6).
-- **Social warm‑up starts now:** claim handles, comment in r/MLS & r/NWSL without linking for 1–2 weeks first (social plan §6 timeline).
-
-#### Open-access promo switch — run a "everything free" push
-
-Drops the paid-plan requirement on every Intel endpoint for a fixed window, without touching anyone's real plan. Needs `ADMIN_TOKEN` set in the Vercel project (shared secret; the endpoint **fails closed** if it's unset, so nothing is exposed before you set it).
-
-**Open it** — `days` defaults to 7, max 90:
-
-```bash
-curl -X POST https://api.entenser.com/v1/admin/open-access \
-  -H "X-Admin-Token: $ADMIN_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"days":7,"note":"launch week"}'
-```
-
-**Check what's running** (also public at `/v1/public/config`, which is what the site reads to drop its lock chrome):
-
-```bash
-curl https://api.entenser.com/v1/admin/open-access -H "X-Admin-Token: $ADMIN_TOKEN"
-```
-
-**Close it early:**
-
-```bash
-curl -X DELETE https://api.entenser.com/v1/admin/open-access -H "X-Admin-Token: $ADMIN_TOKEN"
-```
-
-What it does and does not do:
-
-- **Auto-closes at the expiry** even if you forget — the window is enforced on every read, not just by a TTL. A promo cannot be left open by accident; that's the failure mode that costs money.
-- **Never waives the login.** Open access means "no payment", not "no account" — Intel state is per-user (workspaces, journal, saved teams), so a free magic-link signup is still the front door. Requests with no token, or a forged one, stay 401.
-- **Does not resurrect a `canceled` account.** Cancellation is a deliberate state, not a missing entitlement.
-- Swap the host for `http://127.0.0.1:8787` to exercise it locally against `scripts/dev_intelligence_server.py`.
-
-Built + tested 2026‑07‑23: `server/open_access.py`, `api/admin/open_access.py`, `api/pub/config.py`, bypass wired at the single chokepoint `bearer_user()` in `server/api_support.py`. 16 tests in `tests/test_open_access.py`. Verified end‑to‑end on genuinely gated endpoints (`/intel/journal`, `/intel/workspaces`): 401 → 200 → 401 across close/open/close. **Live now that the API is deployed (§2b)** — confirmed via `GET /v1/public/config` returning 200.
-
-### 2d. Decisions & spends (no deadline, but they gate later work)
-
-| Decision | When it matters | Est. cost |
-|---|---|---|
-| Buy an **Odds API tier** (leagues + frequency) | Unblocks real model‑vs‑market depth, CLV, edge history | $50–300+/mo |
-| **Legal/compliance review** before *any* monetization | Required before affiliate links / paid tier / betting‑adjacent copy | $500–2,500 one‑time |
-| **Paid social** test | Only *after* GA4 live + 2 organic hooks proven | $500–1,000 test |
-| **Weekly digest email sends** sign‑off | Capture is built; sends need your explicit go‑ahead | Time |
-
----
-
-## 3. 🐛 Outstanding bugs & things needing attention
-
-| # | Issue | Severity | Status / cause | Action |
+| # | Gap | Owner | Status | Date |
 |---|---|---|---|---|
-| 1 | ~~**Intelligence API deploy fails on every push**~~ — ✅ **fixed 2026‑07‑24**, `https://mls-five.vercel.app/v1/public/config` returns 200 (custom domain not attached yet — see §7) | ~~Medium~~ | Was five stacked issues, not one: (a) Vercel project/secrets never existed — fixed by linking the project and setting `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` as GitHub secrets on `intelligence-api-production`; (b) Vercel's Python build now needs `uv` on the CI runner, added to `deploy-api.yml`; (c) `pyproject.toml` had zero declared dependencies and Vercel's `uv` builder reads it *instead of* `requirements-api.txt` when both exist, so numpy/requests/Pillow silently never installed; (d) that revealed a `.python-version` mismatch (3.13 vs the runtime's actual 3.12, a numpy binary-incompatibility); (e) with those fixed, `api/public/*` was still missing from every deploy — confirmed via a local `vercel build` that every other `api/` subpackage appeared in the function's file map except `api/public`, i.e. Vercel silently drops any directory literally named `public`. Renamed to `api/pub` (route strings like `/public/config` are untouched, they're string literals in `api/index.py`, not tied to the package name). | Done. Custom domain `api.entenser.com` still isn't in DNS yet (`NXDOMAIN`) — the live URL today is the Vercel-assigned `mls-five.vercel.app`; attaching the domain is a separate follow-up. |
-| 2 | ~~**Nightly data refresh failing**~~ — ✅ **fixed 2026‑07‑23** | ~~Medium~~ | **Not transient — it failed 5 nights running (Jul 19–23), and the earlier "looks transient/partial" reading was wrong.** The build itself succeeded every night (47 leagues, 836 teams, `"failures": {}`, validation ok); the run died on the *last* command of the `finalize` step, `publish_intelligence_artifacts.py`, which exits 2 when Upstash is unprovisioned. Because "Commit and push if changed" runs after it with no `if: always()`, five nights of good data were built and discarded — the last CI data commit was `a594590` (Jul 18); everything since was hand‑committed locally, which is why the site looked current and this stayed invisible. The weekly `refresh-leagues.yml` had the identical bug (last green Jul 6). | Fixed by passing the flag the script already supported: `--allow-missing-config` in both workflows. **Drop the flag once the `UPSTASH_*` secrets exist (§2b)** so a real publish failure is loud again. |
-| 3 | ~~**Dated `/weekly/<date>/` pages return 404**~~ — ✅ **resolved, verified live 2026‑07‑23** (`/weekly/2026-07-21|22|23/` all return HTTP 200) | Low | The pages build from committed `data/weekly-archive/*.json`. The old note said this "resolves automatically on the first successful nightly refresh" — that was never going to happen, because bug #2 meant no nightly refresh *could* succeed. Archives through `2026-07-23.json` are now committed (via local runs), and CI can commit again as of the bug #2 fix. | Should already be resolved on the live site. Verify a dated URL after the next nightly run. |
-| 4 | **1 test fails: `test_intelligence_state_replay`** | Low (pre‑existing, non‑blocking) | Monte‑Carlo replay tolerance breach (spoon odds 3.4pp vs a 3.0pp tolerance). **Proven to fail identically before any recent work** — it's data‑drift/flakiness, not a regression. Rest of suite: 1179 passed. | Decide later: widen tolerance or re‑baseline the snapshot. Not launch‑blocking. |
-| 5 | Vercel CLI is a few versions behind (local tooling) | Trivial | Session‑start notice only. | `npm i -g vercel@latest` whenever convenient. |
+| G1 | ~~Webhook dedup key written **before** the entitlement — a KV failure mid-apply turned Stripe's retry into a silent no-op (paid customer, no access, no second chance).~~ ✅ **FIXED**, reordered + regression test. | Claude | ✅ | done |
+| G2 | ~~`past_due` revoked access on the **first** decline, though Stripe retries ~3 weeks.~~ ✅ **FIXED** — `past_due` is now a grace state, `unpaid` is where access ends. **Owner-reversible policy call**; say so if you disagree. | Claude | ✅ | done |
+| G3 | ~~`invoice.payment_failed` unhandled.~~ ✅ **FIXED** — flags `dunning:<user>` without revoking. | Claude | ✅ | done |
+| G4 | ~~A **cancelled user could not export or delete their own data** (`PLAN_RANK["canceled"] = -1 < free`). GDPR access/erasure, for exactly the population that uses it.~~ ✅ **FIXED** via `account_user()`. | Claude | ✅ | done |
+| G5 | ~~`/intel/export` required `creator`, but "CSV downloads of every projection" is **advertised on the Intel tier**. Every launch customer would have been sold a 401.~~ ✅ **FIXED** to `intel`. | Claude | ✅ | done |
+| G6 | ~~`creator` was **purchasable but undefined** — no price, no tier, no copy.~~ ✅ **FIXED**: `PURCHASABLE_PLANS = {"intel"}`; UI button removed. Rank + webhook mapping retained. | Claude | ✅ | done |
+| G7 | ~~`checkout=success\|canceled` handled **nowhere** — a successful payment landed on an unchanged page and read as a failure.~~ ✅ **FIXED**: both handled, URL cleaned, plus a bounded poll for the webhook race. Browser-verified. | Claude | ✅ | done |
+| G8 | ~~Price was guessed from `navigator.language` (**three** currencies) and hardcoded on each surface — €5.99 displayed, $ charged. Also **two different prices**: $5.99 supporter vs **$7.99 Intel**.~~ ✅ **FIXED**: price/currency/interval now read from the **live Stripe Price object** via `/v1/public/config`. | Claude | ✅ | done |
+| G9 | ~~No refund→entitlement revocation — the guarantee's revocation step was manual.~~ ✅ **FIXED**: `charge.refunded` → revoke, via the customer reverse-index (refund events carry no metadata). **Partial refunds deliberately do not revoke.** Built on the L4 default (access ends immediately); `REVOKE_ACCESS_ON_REFUND` is a one-line flip if you decide otherwise — **the published wording and that constant must always agree.** | Claude | ✅ | done |
+| G10 | ~~No rate limit on `POST /billing/checkout`.~~ ✅ **FIXED**: 10/hour/user — generous enough that a genuine card retry never notices, tight enough that session-spray can't pollute the funnel the Sept 30 gate is read from. | Claude | ✅ | done |
+| G11 | ~~Funnel partly instrumented.~~ ✅ **FIXED**: `view_pricing` → `begin_checkout` → `purchase` complete, GA4 ecommerce shape, `interval` on every event so the monthly/annual split is readable. **`purchase` fires only once the server confirms the entitlement**, never on Stripe's redirect — otherwise launch week's number is inflated by abandoned payments. Delegates to the host page's consent-gated `track()`. **`refund`/`cancel` are read from Stripe, which is authoritative for money events** — not mirrored into GA4. | Claude | ✅ | done |
+| G12 | Support inbox is `entenser@gmail.com`, a personal address, unmonitored on a Monday. | Ryan | ❌ Open | **Aug 10** |
+| G13 | ~~Exported PNG cards embedded a hardcoded `api.entenser.com` verification URL.~~ ✅ **FIXED**: both hardcoded sites now honour the existing `PUBLIC_API_URL` convention. **Add `PUBLIC_API_URL` to the §2c env list.** | Claude | ✅ | done |
+
+### 2c. Owner runbook — exact steps, in order
+
+| # | Step | Where | Time | Unblocks |
+|---|---|---|---|---|
+| **S1** | Attach `api.entenser.com`; add the CNAME Vercel shows you | vercel.com → project `mls` → Settings → Domains; DNS at Namecheap | 15 min | **Everything.** B1 |
+| **S2** | Create an Upstash Redis DB (free tier), copy REST URL + token | console.upstash.com | 10 min | B2, B3 — the entitlement store |
+| **S3** | Generate a token secret: `openssl rand -base64 48` (also one for `ADMIN_TOKEN`, one for `UNSUBSCRIBE_SECRET`) | terminal | 2 min | B2 |
+| **S4** | Activate Stripe fully (business details, bank account, identity). **A Checkout Session against an unactivated account fails at the worst moment.** | dashboard.stripe.com | 20–30 min | B2, all payments |
+| **S5** | Create the **Price objects** — monthly and annual — then **enable the Customer Portal** (Settings → Billing → Customer portal: allow cancel, allow payment-method update) | dashboard.stripe.com | 20 min | B6. ⚠️ **One-way door — see the note below** |
+| **S6** | Add all env vars to Vercel **Production**, including `ENTENSER_ENV=production` | `vercel env add <NAME> production` | 15 min | B2, B3 |
+| **S7** | Confirm the Vercel plan is **Pro**, not Hobby | vercel.com → Settings → Billing | 5 min | B9 |
+| **S8** | Upgrade Resend to Pro | resend.com → Settings → Billing | 5 min | B10 |
+| **S9** | Decide L1–L6 in [legal-copy-draft-2026-07-25.md](legal-copy-draft-2026-07-25.md) and hand back | — | 45 min | B7, B8 |
+
+> ⚠️ **The Stripe Price objects are a one-way door.** Once a customer subscribes to a Price you
+> cannot edit its amount, currency or interval — you must create a new Price and migrate everyone.
+> Force the final call on **amount, currency and interval, for monthly *and* annual, before customer
+> #1**. Two open questions the audit could not answer for you: (a) the site currently shows **$5.99
+> supporter** and **$7.99 Intel** — pick one number; (b) it renders **three** currencies (USD/EUR/GBP)
+> from browser locale — either commit to **one currency honestly displayed**, or create genuine
+> Stripe multi-currency prices. The code no longer guesses; it displays whatever Stripe says.
+> **Nothing else in this file is as expensive to get wrong.**
+
+### 2d. Verification protocol — what is proven, what is not
+
+| Step | State | Evidence |
+|---|---|---|
+| 1. Full `pytest` | ✅ | **1397 passed, 7 skipped, 0 failed** (2026-07-25, after the follow-up pass). Browser tests excluded — `playwright` not installed locally. |
+| 2. Production reachable | ⚠️ Partial | `mls-five.vercel.app/v1/public/config` → **200**. `api.entenser.com` → **NXDOMAIN** — i.e. not reachable at the host the webapp calls. |
+| 3. CORS | ✅ | Preflight from `Origin: https://entenser.com` → **204**, `access-control-allow-origin: https://entenser.com`. |
+| 4. Gate returns 401 for free users | ✅ | `/intel/journal`, `/intel/workspaces`, `/intel/me`, `/account/data` → **401**. Admin endpoint fails closed → 401. |
+| 5. Magic link end-to-end on prod | ❌ **BLOCKED ON OWNER** | Needs B1+B2. Untestable until deployed. |
+| 6. `POST /billing/checkout` → session URL | ❌ **BLOCKED ON OWNER** | Needs `STRIPE_SECRET_KEY` + `STRIPE_INTEL_PRICE_ID`. |
+| 7. Test-mode payment | ❌ **BLOCKED ON OWNER** | Dress rehearsal, **Aug 10**. |
+| 8. Webhook → entitlement written | ❌ **BLOCKED ON OWNER** | Capture the Stripe event ID when run. |
+| 9. Gated endpoint → 200 after payment | ❌ **BLOCKED ON OWNER** | **This is the moment the product exists.** |
+| 10. Cancel self-service | ⚠️ Code ✅, live ❌ | Endpoint + tests done; needs S5 + deploy. |
+| 11. Refund end-to-end | ❌ Open | Blocked on G9 + L4. |
+| 12. Idempotency replay | ✅ (unit) | `test_duplicate_event_id_is_a_no_op` + `test_a_failed_apply_leaves_the_event_retryable`. TTL 30d vs Stripe's ~3d retry window — ample. |
+| 13. Browser, desktop + mobile | ⚠️ Partial | Checkout-return + disclosure verified locally, no console errors. **Not yet run against production.** |
 
 ---
 
-## 4. 🔨 Remaining builds (I can do these — mostly gated, not blocked)
+## 3. 🐛 Outstanding bugs
+
+| # | Issue | Severity | Status |
+|---|---|---|---|
+| 1 | ~~Intelligence API deploy fails~~ | — | ✅ Fixed 2026-07-24. Re-verified: `/v1/public/config` → 200. |
+| 2 | ~~Nightly refresh discarded 5 nights of data~~ | — | ✅ **Root cause fixed properly 2026-07-25.** The July fix (`--allow-missing-config`) treated the *symptom*; the commit step was still fail-fast behind four more scripts, so any *other* failure would have done the same thing. Delivery is now a separate `continue-on-error` step. A **build** failure still correctly skips the commit. |
+| 3 | ~~Dated `/weekly/<date>/` 404s~~ | — | ✅ Resolved 2026-07-23. |
+| 4 | ~~`test_intelligence_state_replay` fails~~ | — | ✅ **No longer reproduces.** Passes **5/5** consecutive runs and in the full suite (2026-07-25). The suite is genuinely green; a red suite at launch would mean you cannot tell a real regression from the known one. |
+| 5 | **No failure alerting existed** — a failed refresh was found by accident. | Medium | ✅ **FIXED**: both refresh workflows open (or comment on) a labelled `refresh-failure` issue on failure. |
+| 6 | Vercel CLI outdated (54.4.1 → 57.0.0) | Trivial | `npm i -g vercel@latest` |
+
+---
+
+## 4. 🔨 Remaining builds
 
 | Build | Gated on | Notes |
 |---|---|---|
-| **1.7 — per‑league OG cards + ~1,100 team pages** | A2/GSC proving league pages actually index | The one Phase‑1 item not yet built. Don't spend the render effort until indexation is confirmed. |
-| **Phase 2 (M1–M7) — paid supporter tier** | **Oct 31 gate:** waitlist joins ≥ **2% of returning users AND ≥ 150 absolute** | Much of M1 (checkout/entitlement/auth plumbing) already exists from Intelligence Hub S5. If the gate passes, time‑to‑paid is mostly Stripe config, not new engineering. Kill criterion: gate fails → build none of it, fall back to a donation link. |
-| **Weekly digest email *sends*** | Your explicit sign‑off (§2d) | Capture + templates exist; the send loop does not. Standing rule: no sends without sign‑off. |
-| **Phase 3 — annual report card, women's runway (NWSL/WSL → WWC 2027), saved scenarios, Spanish pages, embeds/API** | Later gates (see roadmap §7) | Post‑launch; each has its own evidence gate. |
-
-**Deliberately *not* building** (deferred by decision): Plausible dashboard, dynamic OG cards at scale, ads (gated on RPM‑vs‑trust), contextual sponsorship, quarterly competitor monitor. See [launch plan "Post‑launch backlog"](superpowers/plans/2026-08-17-public-launch.md).
-
----
-
-## 5. ✅ Done & live — you can stop tracking these
-
-- **Free static product:** 56 leagues, forecasts, tables, projected points, what‑if sim, trust/model‑health/calibration pages, mobile layout, locale + odds‑format toggle. Live.
-- **Launch workstreams:** B (data‑honesty labels), C1–C9 (crawlable SEO pages + sitemap + robots), D (messaging/trust on‑ramp), F (locale), G (supporter waitlist), H1–H4 (distribution content incl. after‑the‑World‑Cup page, open‑data CSVs, announcement drafts), I1 (QA pass), A1a (GA4 adapter code — waiting only on the ID from A1).
-- **Intelligence Hub S0–S6:** history flywheel + guards, stable IDs, shared sim engine, reproducible‑state archiving, canonical intelligence events, secure‑delivery code (magic‑link auth, KV entitlements, Stripe webhook, rate limiting), and the first live‑data Intel panel. (Code done; activation waits on Vercel + accounts.)
-- **Roadmap Phase 1 (shipped 2026‑07‑19, live):** 1.1 sparklines + race‑history chart · 1.2 My matchday · 1.3 shareable what‑if URLs · 1.4/E2/E3/E4 email capture (inert, key‑gated) · 1.5 dated weekly pages · 1.6 waitlist annual toggle + source‑tagged upsells · §6 ad‑free copy.
+| **Terms + refund routes** | **B7 / L1–L6** | Copy drafted; ~2h to ship once decided. **Launch-blocking.** |
+| **Privacy rewrite** | **B8 / L1–L2** | Draft D3 ready. **Launch-blocking.** |
+| **Refund → revocation (`charge.refunded`)** | L4 | G9. Aug 3. |
+| **Funnel completion** | — | G11. Aug 7. **You get exactly one chance to record the launch-week baseline.** |
+| **Signed-out preview split** | — | Highest-leverage conversion work in the 23 days, precisely because no trial is doing it. **Show the vault, describe the alerts** — see §5. |
+| **Waitlist → checkout transition** | B7 | Every waitlist CTA currently promises a *future* product ("Nothing is for sale yet", "launching soon", "planned"). On Aug 17 they must sell or be honestly relabelled. A whole workstream, not a copy tweak. |
+| **1.7 OG cards + team pages** | GSC indexation | Unchanged, post-launch. |
+| **Weekly digest *sends*** | Your sign-off | Standing rule: no broadcast sends without it. |
 
 ---
 
-## 6. 📅 Key dates & gates
+## 5. 🗄️ What the vault actually contains — measured, not asserted
+
+Re-measured 2026-07-25. **Do not copy these numbers forward; re-measure.**
+
+| Archive | Span | Snapshots | Integrity |
+|---|---|---|---|
+| `match_prob_history.parquet` (47 leagues, 121,104 rows) | **Jul 7 → Jul 25 (19 days)** | 17 | **Jul 8–9 missing.** Jul 24 (2,102) and Jul 25 (4,207) **partial** vs an 8,458 median |
+| `odds_history.parquet` (77 leagues, 11,038 rows) | **Jun 28 → Jul 25 (28 days)** | 20 | 8 of the first 14 days missing; counts oscillate 58–981 |
+| `data/weekly-archive/` | Jul 19 → Jul 25 | 7 files | — |
+
+**Honest depth at launch:** projecting the measured cadence to Aug 17 gives **~6 weeks** of
+match-level history and ~7 weeks of team-level. That is **not multi-season, by an order of
+magnitude.** The roadmap's claim that `odds_history.parquet` *"already **is** the private
+multi-season archive"* is true about the **mechanism** and false about the **contents**.
+
+**The ceiling is fixed and cannot be bought.** Roadmap §1 rule 3 is right: a forecast record is what
+the model *said at the time*, so it cannot be backfilled. One full season lands **mid-2027**;
+"multi-season" becomes honest **mid-2028** at the earliest.
+
+**Therefore the only launch pitch that survives contact with the data** is *founding member of an
+archive that starts now and compounds daily* — not *access to a deep vault*. The roadmap's own
+phrase, *"the vault gets more valuable every single day"*, is the sellable version. **Audit every
+paid-tier claim against ~6 weeks before Aug 14's content freeze.**
+
+**Partial snapshots — diagnosed, and it is not what it looked like.** Rows-per-league is *stable*
+(~275–295 across healthy days), so the row-count swings are mostly **league-count** swings: days on
+which fewer leagues were rebuilt, not partial writes. `snapshot_date` comes from each payload's own
+`generated` stamp, so a league rebuilt ad-hoc lands in its own bucket. Jul 25 is simply today,
+mid-accumulation. **The real defect is that the archive had no record of what it *should* have
+contained**, so it could not distinguish "this league had no fixtures" from "this league wasn't
+built". ✅ **FIXED**: `scripts/archive_odds_snapshot.py` now writes `data/snapshot_coverage.json` —
+leagues captured, leagues live, and which are missing, per day. Re-running can only improve a day,
+never erase it. **On its first real run it flagged `romania-liga1`: status `live`, rebuilt today,
+**zero upcoming fixtures**, contributing nothing to the vault while the site advertises it as live.
+Logged for `docs/league-qa-audit-prompt.md` — a data-correctness defect, not a launch blocker.**
+
+**The backtest question:** the eval harness holds walk-forward per-match vectors for 2022–2025
+(`experiments/champion.json`, avg Brier **0.632977**, matching CURRENT_STATE). That is **backtest,
+not live record** — what the model *would have* said. A clearly-labelled backtest archive is a
+legitimate *second* product, but its league coverage is far narrower than the 77-league registry.
+**If it ships it ships visibly separated and never blended.** A trust-first product that silently
+mixes reconstructed history with a live record has destroyed the only thing it sells. **Decision
+owed: Aug 3.**
+
+---
+
+## 6. 📅 One calendar
 
 | Date | Milestone |
 |---|---|
-| **Now → Jul 26** | Social warm‑up: claim handles, participate in communities without linking |
-| **Jul 27 → Aug 9** | Social "soft proof": a few no‑hype example posts; private feedback from 5–10 people |
-| **Aug 10 → 16** | Freeze & queue: launch copy freeze Aug 14, refresh links with UTMs |
-| **Aug 17 (Mon)** | **LAUNCH** — announcements, go‑live, two reply windows |
-| **Aug 17 → 23** | Launch week: Reddit → Show HN → analytics communities, in that order |
-| **Oct 31** | **Phase‑1 → Phase‑2 gate:** read waitlist conversion; decide whether to build the paid tier |
+| **Jul 25 (today)** | S1–S3 (DNS, Upstash, secrets). Start S9 (legal decisions). Deploy the audit fixes. |
+| **Jul 26 – Aug 2** | S4–S8. First real end-to-end test-mode purchase. Terms/refund/privacy shipped. Social warm-up continues. |
+| **Aug 3 – 9** | G9 refund revocation, G10 rate limit, G11 funnel. Preview split. Waitlist→checkout rewrite. Backtest decision. |
+| **Aug 10** | **Dress rehearsal — the single highest-value hour in the plan.** Owner, real device, cold session: sign up → pay → access → **request a refund** → cancel → verify period-end behaviour. **Once monthly, once annual** (the guarantee exposure differs). |
+| **Aug 11 – 13** | Fix what the rehearsal finds. Check each target community's self-promotion rules — several distinguish free tools from commercial products, and a launch-day removal costs the channel entirely. |
+| **Aug 14** | **Content freeze.** All copy final, UTMs applied. |
+| **Aug 15** | **Code freeze.** Launch-blocking fixes only, owner-approved, one at a time. |
+| **Aug 16** | Pre-flight only. No code. Final env-var check, `GET /v1/public/config`, cold-session smoke test. |
+| **Aug 17 (Mon)** | **LAUNCH.** Runbook in §7. |
+| **Aug 18** | First conversion read. |
+| **Sept 30** | **Conversion gate** — replaces Oct 31. Explicit keep/kill on the paid tier. |
+| **Oct–Nov** | Trial A/B against the launch-week baseline, if the gate passes. |
 
 ---
 
-## 7. The single most important thing
+## 7. 🚀 Launch day — and the rollback trigger
 
-**Attach the `api.entenser.com` custom domain to the Vercel project.** Everything else in
-account setup is done: A1 GA4, A2 GSC, and E1 Resend (domain/DNS, API key, Audience, and the
-Vercel env vars) are all live — a real subscribe call against production confirmed a contact
-landed in Resend. The Intelligence API itself is deployed and working as of 2026‑07‑24 (bug #1's
-five stacked build issues are all fixed), but today it only answers on the Vercel‑assigned
-`mls-five.vercel.app`; `api.entenser.com` still returns `NXDOMAIN`. Attaching the domain (Vercel
-dashboard → Domains) is what makes the API reachable at the URL the docs/webapp actually expect.
-Everything else is either
-already done, gated on a future date, or a decision that can wait.
+**You cannot roll back a charge.** Code reverts; money does not. A bug that charges the wrong amount,
+double-charges, or grants no access after payment is remediated by refunds and an apology, never by
+a deploy. That asymmetry decides the trigger:
+
+> **Defects on the money path abort. Defects elsewhere fix forward.**
+
+**Abort = turn checkout off in under 5 minutes.** Fastest lever: `vercel env rm STRIPE_SECRET_KEY production`
+→ checkout returns a clean 503 and the button stops working, while **everyone who already paid keeps
+their access** (entitlements live in KV, not in Stripe's availability). Rehearse this on Aug 16.
+
+**Launch day is one person, and one person cannot watch four things.** Ranked:
+
+| Priority | Watch | Cadence | Trigger |
+|---|---|---|---|
+| **1** | Failed checkouts, 5xx on `/v1/*` | Every few minutes, first 3 hours | Any money-path 5xx → **abort** |
+| **2** | Stripe dashboard: payments succeeding, receipts sending | Hourly | Wrong amount/currency → **abort** |
+| **3** | Support inbox | Two scheduled windows | — |
+| **4** | Reddit/HN replies | Two scheduled windows (social plan §6) | — |
+| **5** | GA4, indexation | Evening only | — |
+
+**If Ryan is unavailable for three hours** — a normal Monday occurrence, not a contingency — priority
+1–2 go unwatched. **Mitigation: do not post the announcements until you can watch for three
+uninterrupted hours.** The posts are the only thing that generates load; delaying them costs nothing
+and removes the entire risk.
+
+### Launch-deploy checklist (Aug 17, in order)
+
+1. ~~Bump `webapp/sw.js` cache version~~ — ✅ **now automatic.** `deploy.yml` stamps `CACHE` from the
+   commit SHA. This was a live trap: `sw.js` caches `/index.html` — the file carrying the pricing UI
+   and checkout button — so a forgotten bump would have served **every returning visitor and every
+   installed-PWA user the pre-monetization page**, with no way to pay, while every server-side test
+   passed. The file's own comments record two prior incidents.
+2. Confirm `webapp/data/*.js` payloads remain **outside** the SW cache (they must stay cache-busted per request).
+3. `vercel env ls production` — every §2c var present.
+4. Deploy API; `GET /v1/public/config` → 200 **on `api.entenser.com`**.
+5. **Cold-session purchase smoke test, in a private window, *after* deploy.**
+6. Only then: post announcements.
+
+---
+
+## 8. The single most important thing
+
+**Attach `api.entenser.com` and set the production environment variables — today.** They are the
+same 60 minutes of work they were last week, but the audit changed what they mean: the previous
+edition treated DNS as the last cosmetic step on a finished system. It is not. Until B1 and B2 land,
+**the deployed paid product cannot authenticate a single user, cannot verify a single webhook, and
+stores entitlements in a dictionary that is erased every time the function goes cold.** Everything
+else in this file — the portal, the guarantee, the funnel, the vault's honest depth — is downstream
+of those two rows.
+
+**Can we launch paid on Aug 17?** Yes, if S1–S9 clear this week. The engineering blockers are fixed
+and tested; what remains is configuration you own and one legal decision set. If S9 slips past
+**Aug 8**, ship the launch **free** on Aug 17 with checkout dark and open payments when terms
+publish — a launch without terms is the one failure mode that is worse than a delay.

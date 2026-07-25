@@ -1,5 +1,23 @@
 # Entenser — Subscription Feature Roadmap (Aug 2026 → Jul 2027)
 
+> **SUPERSEDED IN PART — 2026-07-25.** Three owner decisions override what follows; do not read this
+> file as current without them. (1) **§4's Oct 31 evidence gate and §5's Nov 2026 → Feb 2027 Phase-2
+> schedule are dead.** The paid tier ships **2026-08-17**. M1 is pulled into a 23-day window; the
+> demand evidence the gate would have produced is replaced by a **post-launch conversion read on
+> 2026-09-30** with an explicit kill/keep decision. (2) **§1's 14-day card-required trial
+> (`trial_period_days=14`) does not ship at launch** — Aug 17 ships no trial, a hard annual push and
+> a **30-day money-back guarantee**. The trial becomes a post-launch A/B against the no-trial
+> baseline measured in launch week; if it runs, **14 days is correct, not 7** (the paid loop is
+> matchweek-shaped, and Stripe's `trial_will_end` fires 3 days out — day 4 of 7, before a second
+> matchweek exists). Any M1 trial UX rule below is deferred with it. Trial *plumbing* stays.
+> (3) **Export scope is settled**: model output only, no raw third-party rows — see
+> `docs/data-sources.md`. **§1 rule 4 (the free-floor ratchet) was NOT reversed and is not
+> negotiable**: no shipped free feature ever moves behind the paywall; paid features are born paid;
+> current season free, the vault is paid. **§1 rule 3 (forecast history cannot be backfilled) also
+> stands**, and it bounds what the vault can honestly be sold as — see `docs/STATUS.md` §5.
+
+
+
 **Date:** 2026-07-17 · **Purpose:** the 12-month feature roadmap for converting free
 users into paying supporters. Picks up where `docs/superpowers/plans/2026-08-17-public-launch.md`
 ends. Evidence base: `docs/competitive-intelligence-2026-07-combined.md` (cited as
