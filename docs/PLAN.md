@@ -1,5 +1,22 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-25c — No waitlist. The site sells from day one.** Owner decision: Aug 17 begins doing
+> business, so the demand-test scaffolding comes out rather than being relabelled. Removed both
+> waitlist captures (`supportCardHTML`, `intelHookHTML`) and every "Nothing is for sale yet /
+> launching soon / planned" string; the account plan grid reads *available*, not *waitlist*. All
+> static pricing surfaces now read the **live Stripe price** through a new `PriceStore` fed by the
+> same `/public/config` payload the Intel hub uses — the locale-guessing `_supporterPrice` /
+> `_intelPrice` helpers are gone, which is what had two prices ($5.99 and $7.99) and three
+> currencies live simultaneously. Found and fixed while verifying: the pricing card painted before
+> the async config fetch resolved, so a **first-time** visitor saw "See price at checkout" and no
+> annual option at all — surfaces now repaint when the price lands (`syncPricingSurfaces`). The 1.6
+> upsell source tagging survives the change, riding `select_plan` to revenue instead of to a
+> waitlist join, and the chosen cadence carries into the hub via sessionStorage. **Obligation
+> created, not discharged:** existing waitlist members were promised a launch email and the launch
+> price; removing the UI does not release that, and a send needs explicit broadcast sign-off
+> (STATUS §2b G14). Suite **1414 passed**; 9 inline script blocks syntax-clean; verified in-browser
+> from a cold cache.
+
 > **2026-07-25b — Pricing decided: $5.99 launch, liftable to $7.99 at runtime.** The roadmap §1 had
 > already set $5.99 against real anchors (Football Data Lab £5.99/mo direct competitor; The Athletic
 > ~$8 explicitly the *ceiling*); the $7.99 on the Intel surface since 2026-07-18 carried no recorded

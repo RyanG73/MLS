@@ -1058,6 +1058,12 @@
   }
 
   async function loadPricing() {
+    // Carry through the cadence the visitor picked on the static pricing card,
+    // so arriving at the hub doesn't silently reset their choice to the default.
+    try {
+      var chosen = sessionStorage.getItem("entenser_checkout_interval");
+      if (chosen === "monthly" || chosen === "annual") state.interval = chosen;
+    } catch (error) { /* private mode */ }
     try {
       var response = await fetch(API_BASE + "/public/config", {cache: "no-store"});
       if (!response.ok) return;
@@ -1065,6 +1071,11 @@
       state.pricing = (config && config.pricing) || {};
     } catch (error) {
       state.pricing = {};   // quote nothing rather than quote wrong
+    }
+    // If the selected cadence has no Stripe Price, fall back to one that does
+    // rather than rendering a Subscribe button that cannot complete.
+    if (!priceRecord(state.interval)) {
+      state.interval = priceRecord("annual") ? "annual" : "monthly";
     }
   }
 

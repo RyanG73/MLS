@@ -79,6 +79,7 @@ committed and deployed (1414 tests green) — but **the production config is sti
 | G10 | ~~No rate limit on `POST /billing/checkout`.~~ ✅ **FIXED**: 10/hour/user — generous enough that a genuine card retry never notices, tight enough that session-spray can't pollute the funnel the Sept 30 gate is read from. | Claude | ✅ | done |
 | G11 | ~~Funnel partly instrumented.~~ ✅ **FIXED**: `view_pricing` → `begin_checkout` → `purchase` complete, GA4 ecommerce shape, `interval` on every event so the monthly/annual split is readable. **`purchase` fires only once the server confirms the entitlement**, never on Stripe's redirect — otherwise launch week's number is inflated by abandoned payments. Delegates to the host page's consent-gated `track()`. **`refund`/`cancel` are read from Stripe, which is authoritative for money events** — not mirrored into GA4. | Claude | ✅ | done |
 | G12 | Support inbox is `entenser@gmail.com`, a personal address, unmonitored on a Monday. | Ryan | ❌ Open | **Aug 10** |
+| G14 | **Existing waitlist members are still owed an email.** Removing the signup UI does not discharge the promise they joined under — *"we'll email you about the supporter tier"* and *"first in at the launch price"*. They are the warmest audience there is, and they are now invisible on the site. Contacts are tagged `supporter-waitlist` / `intel-waitlist` in the Resend Audience. **A launch-day send needs your explicit broadcast sign-off (§2d standing rule) — nothing has been sent.** Recommended: plain launch email + founding-rate-locked-for-life. | Ryan | ❌ Open | **Aug 14** (draft), send **Aug 17** |
 | G13 | ~~Exported PNG cards embedded a hardcoded `api.entenser.com` verification URL.~~ ✅ **FIXED**: both hardcoded sites now honour the existing `PUBLIC_API_URL` convention. **Add `PUBLIC_API_URL` to the §2c env list.** | Claude | ✅ | done |
 
 ### 2c. Owner runbook — exact steps, in order
@@ -185,7 +186,7 @@ already enabled, so this needs a Stripe promo code, not engineering.
 | **Refund → revocation (`charge.refunded`)** | L4 | G9. Aug 3. |
 | **Funnel completion** | — | G11. Aug 7. **You get exactly one chance to record the launch-week baseline.** |
 | **Signed-out preview split** | — | Highest-leverage conversion work in the 23 days, precisely because no trial is doing it. **Show the vault, describe the alerts** — see §5. |
-| **Waitlist → checkout transition** | B7 | Every waitlist CTA currently promises a *future* product ("Nothing is for sale yet", "launching soon", "planned"). On Aug 17 they must sell or be honestly relabelled. A whole workstream, not a copy tweak. |
+| ~~**Waitlist → checkout transition**~~ | — | ✅ **DONE 2026-07-25.** Owner decision: no waitlist, sell from day one. Both waitlist captures removed (support card, Intel hook), the account plan grid says *available* not *waitlist*, and every "Nothing is for sale yet / launching soon / planned" string is gone. All three surfaces now quote the **live Stripe price** via `PriceStore` and route to checkout, carrying the chosen cadence and the 1.6 upsell-source tag through to `select_plan`. Verified in-browser from a cold cache. |
 | **1.7 OG cards + team pages** | GSC indexation | Unchanged, post-launch. |
 | **Weekly digest *sends*** | Your sign-off | Standing rule: no broadcast sends without it. |
 

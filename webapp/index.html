@@ -1300,6 +1300,12 @@ const OpenAccess={
   KEY:'entenser.open_access',
   API:(location.hostname==='localhost'||location.hostname==='127.0.0.1')
     ?'http://127.0.0.1:8787/v1':'https://api.entenser.com/v1',
+  // Prices shown anywhere on the static site come from the same /public/config
+  // payload the Intel hub uses, which reads Stripe's own Price object for the
+  // currently active tier. Nothing here is hardcoded: a hardcoded price stops
+  // being true the moment the tier is lifted, and one stale price on one
+  // surface is a refund request. Cached in localStorage so an API blip shows
+  // the last known-good figure rather than blanking the pricing UI.
   state(){try{const r=JSON.parse(localStorage.getItem(this.KEY)||'null');
     return (r&&r.active&&r.until*1000>Date.now())?r:null;}catch(e){return null;}},
   active(){return !!this.state();},
@@ -1310,12 +1316,54 @@ const OpenAccess={
       .then(j=>{const s=j&&j.open_access;
         try{s&&s.active?localStorage.setItem(this.KEY,JSON.stringify(s))
                        :localStorage.removeItem(this.KEY);}catch(e){}
+        PriceStore.set(j&&j.pricing);
+        // Pricing surfaces paint before this fetch resolves, so a first-time
+        // visitor would otherwise read "See price at checkout" and never see
+        // the annual option at all. Repaint them once the real price lands.
+        syncPricingSurfaces();
         document.documentElement.classList.toggle('open-access',this.active());
         syncOpenAccessBanner();
         return this.active();})
       .catch(()=>this.active());   // offline / API down: keep the cached view
   },
 };
+const PriceStore={
+  KEY:'entenser.pricing',
+  set(pricing){
+    if(!pricing||!Object.keys(pricing).length)return;
+    try{localStorage.setItem(this.KEY,JSON.stringify(pricing));}catch(e){}
+  },
+  all(){try{return JSON.parse(localStorage.getItem(this.KEY)||'null')||null;}catch(e){return null;}},
+  rec(interval){const p=this.all();if(!p)return null;
+    return p[interval==='annual'?'intel_annual':'intel']||null;},
+  // Empty string when we genuinely do not know. Callers show "See price at
+  // checkout" rather than inventing a number — an absent price is honest, a
+  // wrong one is a chargeback.
+  display(interval){const r=this.rec(interval);return r&&r.display?r.display:'';},
+  word(interval){const r=this.rec(interval);
+    return (r&&r.interval)||(interval==='annual'?'year':'month');},
+  has(interval){return !!this.rec(interval);},
+};
+// Repaint anything that quotes a price, once the price is actually known.
+// Defined here beside PriceStore but called from an async continuation, so the
+// builders in later script blocks are guaranteed to exist by call time — the
+// typeof guards are belt-and-braces for a partial load.
+function syncPricingSurfaces(){
+  const doc=document.querySelector('.info-doc');
+  if(doc&&new URLSearchParams(location.search).get('league')==='support'
+        &&typeof supportCardHTML==='function'){
+    doc.innerHTML=supportCardHTML();
+    if(typeof bindWaitlist==='function') bindWaitlist();
+  }
+  const hook=document.getElementById('intelHook');
+  if(hook&&typeof intelHookHTML==='function') hook.outerHTML=intelHookHTML();
+  const planPrice=document.getElementById('acctIntelPrice');
+  if(planPrice){
+    const d=PriceStore.display('monthly');
+    planPrice.innerHTML=d?`${d}<small> / ${PriceStore.word('monthly')}</small>`
+                        :'See price at checkout';
+  }
+}
 // One builder, used both by the masthead's initial render and by the async
 // refresh below — a promo that starts mid-session must not need a page reload
 // to show up, and two copies of this markup would drift.
@@ -4109,123 +4157,102 @@ function bindCommandSignup(){
 }
 // ── Supporter-tier waitlist (launch plan G) — a demand test, NOT a paywall.
 //    The public forecasts stay free; this measures willingness to pay before
-//    any checkout is built (decision gate: build the tier only if >=2% of
-//    returning users join). Captures locally, POSTs to the Resend proxy tagged
-//    supporter-waitlist (+cadence/source, see 1.6), and fires the funnel event. ──
-function _supporterPrice(){
-  const l=(navigator.language||'').toLowerCase();
-  if(l==='en-gb'||l.endsWith('-gb'))return '£4.99';
-  if(/^(de|fr|es|it|nl|pt|fi|el|ga|et|lv|lt|sk|sl|mt)\b/.test(l)||l.endsWith('-eu'))return '€5.99';
-  return '$5.99';
-}
-// 1.6: annual = 10x monthly ("2 months free"), per roadmap §1 pricing anchors.
-function _supporterPriceAnnual(){
-  const l=(navigator.language||'').toLowerCase();
-  if(l==='en-gb'||l.endsWith('-gb'))return '£49.99';
-  if(/^(de|fr|es|it|nl|pt|fi|el|ga|et|lv|lt|sk|sl|mt)\b/.test(l)||l.endsWith('-eu'))return '€59.99';
-  return '$59.99';
-}
+//    any checkout is built. Superseded 2026-07-25: the tier is on sale, so
+//    these surfaces sell instead of capturing interest. The 1.6 source tagging
+//    survives the change — it now rides the select_plan event to revenue
+//    instead of to a waitlist join. ──
+// One price, one source: PriceStore, fed by Stripe's own Price object for the
+// active tier. The old helpers guessed a currency from navigator.language and
+// hardcoded three figures across two tiers — which is how a site displays euros
+// while charging dollars, and how $5.99 and $7.99 ended up live at once.
 // ── 1.6: upsell placements beside free features. Click → remember the source,
-//    fire the funnel event, go to the support card; the eventual waitlist join
-//    carries the source tag (gate reading: which promised feature pulls hardest).──
+//    fire the funnel event, go to the Intel pricing card; the source tag rides
+//    through to select_plan (reading: which feature actually pulls hardest). ──
 function upsellHTML(source,text){
-  return `<a class="upsell-link" href="?league=support" data-upsell="${source}">★ ${text} <em>supporter feature →</em></a>`;
+  return `<a class="upsell-link" href="?league=support" data-upsell="${source}">★ ${text} <em>Intel feature →</em></a>`;
+}
+// Price and renewal copy render from one pair of helpers, so the cadence
+// toggle can never leave the price and the renewal terms disagreeing.
+function _priceBlockHTML(interval){
+  const d=PriceStore.display(interval);
+  return d?`<b>${d}</b><span>/ ${PriceStore.word(interval)}</span>`
+          :`<b>See price at checkout</b>`;
+}
+function _renewalSentence(interval){
+  const d=PriceStore.display(interval), w=PriceStore.word(interval);
+  return (d?`${d} per ${w}. `
+           :'The exact price and currency are shown on the secure checkout page before you pay. ')+
+    `Renews automatically every ${w} until cancelled. Cancel any time in one click `+
+    `from your account. 30-day money-back guarantee.`;
 }
 function supportCardHTML(){
-  const joined=localStorage.getItem('entenser_supporter_waitlist');
-  const price=_supporterPrice();
+  // Annual is preselected (roadmap §0b hard annual push) and is only offered
+  // when a Stripe annual Price actually exists, so a half-configured
+  // environment shows one honest option rather than a broken choice.
+  const annual=PriceStore.has('annual'), sel=annual?'annual':'monthly';
   return `
-    <h2>Support Entenser</h2>
-    <p class="lead">The forecasts stay free — every league race, every match probability, every public grade. This is a supporter tier for readers who want more control, and who want to keep an independent, market-blind model running.</p>
-    <div class="sup-cadence" id="supCadence" data-cadence="monthly">
-      <button type="button" class="sc-opt on" data-c="monthly">Monthly</button>
-      <button type="button" class="sc-opt" data-c="annual">Annual <em>2 months free</em></button>
+    <h2>Entenser Intel</h2>
+    <p class="lead">The forecasts stay free — every league race, every match probability, every public grade. Intel is the personal layer on top, for readers who want alerts, history and control, and who want to keep an independent, market-blind model running.</p>
+    <div class="sup-cadence" id="supCadence" data-cadence="${sel}">
+      <button type="button" class="sc-opt${annual?'':' on'}" data-c="monthly">Monthly</button>
+      ${annual?'<button type="button" class="sc-opt on" data-c="annual">Annual <em>2 months free</em></button>':''}
     </div>
-    <div class="sup-price" id="supPrice"><b>${price}</b><span>/ month · planned</span></div>
-    <p class="fine">Nothing is for sale yet. We're gauging interest before building it — join the waitlist and you'll be first in, at the launch price, with no obligation.</p>
-    <h3>What the supporter tier would add</h3>
+    <div class="sup-price" id="supPrice">${_priceBlockHTML(sel)}</div>
+    <h3>What's included</h3>
     <ul class="sup-feats">
       <li><b>Saved teams &amp; leagues</b> with email alerts when a title, playoff or relegation chance moves past a threshold you set.</li>
       <li><b>Forecast-change history</b> — see how a club's odds shifted week by week, not just where they stand today.</li>
       <li><b>Weekly "model changed its mind" briefing</b> — the biggest movers and model-vs-market disagreements, in your inbox.</li>
       <li><b>Data downloads</b> — projections and probabilities as CSV for your own analysis.</li>
-      <li><b>Ad-free, always</b> — supporters keep it that way; the site stays fast and free of gambling creative.</li>
+      <li><b>Ad-free, always</b> — the site stays fast and free of gambling creative.</li>
     </ul>
-    <form class="sup-form" id="waitlistForm">
-      <input type="email" name="email" placeholder="Email address" aria-label="Email for the supporter waitlist" value="${commandEsc(joined||'')}" ${joined?'disabled':''}>
-      <button type="submit">${joined?"You're on the list ✓":'Join the waitlist'}</button>
-    </form>
-    <p class="fine">We'll only email you about the supporter tier. No spam, unsubscribe any time. The public site never gets paywalled.</p>`;
+    <p class="fine" id="supTerms">${_renewalSentence(sel)}</p>
+    <div class="sup-form"><a class="intel-btn primary" href="?league=intel" data-subscribe="support">Subscribe</a></div>
+    <p class="fine">The public site never gets paywalled. Current-season forecasts, tables and every published grade stay free, forever.</p>`;
 }
 function bindWaitlist(){
-  const form=document.getElementById('waitlistForm');
-  if(!form)return;
   const cad=document.getElementById('supCadence');
   if(cad)cad.querySelectorAll('.sc-opt').forEach(b=>b.onclick=()=>{
     cad.dataset.cadence=b.dataset.c;
     cad.querySelectorAll('.sc-opt').forEach(x=>x.classList.toggle('on',x===b));
     const p=document.getElementById('supPrice');
-    if(p)p.innerHTML=b.dataset.c==='annual'
-      ?`<b>${_supporterPriceAnnual()}</b><span>/ year · planned</span>`
-      :`<b>${_supporterPrice()}</b><span>/ month · planned</span>`;
+    if(p)p.innerHTML=_priceBlockHTML(b.dataset.c);
+    const t=document.getElementById('supTerms');
+    if(t)t.textContent=_renewalSentence(b.dataset.c);
   });
-  form.addEventListener('submit',ev=>{
-    ev.preventDefault();
-    const input=form.querySelector('input[name="email"]');
-    const email=(input&&input.value||'').trim();
-    if(!email||!/.+@.+\..+/.test(email))return;
-    try{localStorage.setItem('entenser_supporter_waitlist',email);}catch(e){}
+  // The waitlist join used to be the conversion event. Now the product is on
+  // sale, so the funnel is select_plan -> begin_checkout -> purchase, and the
+  // chosen cadence and upsell source ride along to keep 1.6's source-tagging
+  // answer ("which promised feature pulls hardest") readable against revenue.
+  document.querySelectorAll('[data-subscribe]').forEach(a=>a.addEventListener('click',()=>{
     const cadence=(cad&&cad.dataset.cadence)||'monthly';
-    let src=null;try{src=sessionStorage.getItem('entenser_upsell_src');sessionStorage.removeItem('entenser_upsell_src');}catch(e){}
-    captureEmail(email,['supporter-waitlist','cadence-'+cadence].concat(src?['src-'+src]:[]));
-    track('waitlist_click',{tier:'supporter',cadence,source:src||'direct'});
-    const btn=form.querySelector('button');
-    if(btn)btn.textContent="You're on the list ✓";
-    if(input)input.disabled=true;
-  });
+    let src=null;try{src=sessionStorage.getItem('entenser_upsell_src');}catch(e){}
+    try{sessionStorage.setItem('entenser_checkout_interval',cadence);}catch(e){}
+    track('select_plan',{plan:'intel',interval:cadence,source:src||a.dataset.subscribe||'direct'});
+  }));
 }
-// ── Entenser Intel waitlist (2026-07-18): the subscribe hook for the paywalled
-//    hub. Same demand-test pattern as the supporter tier — local capture +
-//    analytics event now, Resend proxy later. Separate localStorage key so the
-//    two waitlists can be measured independently. ──
-function _intelPrice(){
-  const l=(navigator.language||'').toLowerCase();
-  if(l==='en-gb'||l.endsWith('-gb'))return '£6.99';
-  if(/^(de|fr|es|it|nl|pt|fi|el|ga|et|lv|lt|sk|sl|mt)\b/.test(l)||l.endsWith('-eu'))return '€7.99';
-  return '$7.99';
-}
+// ── Entenser Intel purchase hook. Was an "early access" waitlist capture
+//    (2026-07-18) back when the tier was a demand test; since 2026-07-25 the
+//    product is on sale, so it sells. Checkout itself lives in the Intel hub,
+//    which is where the account exists — this routes there and records the
+//    chosen cadence and upsell source on the way. ──
 function intelHookHTML(){
-  const joined=localStorage.getItem('entenser_intel_waitlist');
+  const annual=PriceStore.has('annual'), sel=annual?'annual':'monthly';
   return `<div class="intel-hook" id="intelHook">
     <div>
       <div class="intel-kick">Entenser Intel · founding member</div>
-      <div class="ih-price"><b>${_intelPrice()}</b><span>/ month · launching soon</span></div>
+      <div class="ih-price">${_priceBlockHTML(sel)}</div>
       <p>Custom deep dives, scenario what-ifs, a projection studio and full team pages for the clubs you follow — the same market-blind model, made personal.</p>
       <div class="hnote">Every public forecast stays free. Intel adds the personal layer on top.</div>
     </div>
     <div>
-      <form class="sup-form" id="intelWaitlistForm">
-        <input type="email" name="email" placeholder="Email for early access" aria-label="Email for Entenser Intel early access" value="${commandEsc(joined||'')}" ${joined?'disabled':''}>
-        <button type="submit">${joined?"You're on the list ✓":'Get early access'}</button>
-      </form>
-      <div class="hnote">First in at the launch price · no obligation · <a href="?league=account#acct-subs" style="color:var(--txt-2)">manage in Account</a></div>
+      <div class="sup-form"><a class="intel-btn primary" href="?league=intel" data-subscribe="intel-hook">Subscribe</a></div>
+      <div class="hnote">Cancel any time · 30-day money-back guarantee · <a href="?league=account#acct-subs" style="color:var(--txt-2)">manage in Account</a></div>
     </div></div>`;
 }
 function bindIntelWaitlist(){
-  const form=document.getElementById('intelWaitlistForm');
-  if(!form)return;
-  form.addEventListener('submit',ev=>{
-    ev.preventDefault();
-    const input=form.querySelector('input[name="email"]');
-    const email=(input&&input.value||'').trim();
-    if(!email||!/.+@.+\..+/.test(email))return;
-    try{localStorage.setItem('entenser_intel_waitlist',email);}catch(e){}
-    captureEmail(email,['intel-waitlist']);
-    track('waitlist_click',{tier:'intel'});
-    const btn=form.querySelector('button');
-    if(btn)btn.textContent="You're on the list ✓";
-    if(input)input.disabled=true;
-  });
+  // Subscribe links are bound centrally in bindWaitlist(); kept as a no-op so
+  // the existing call sites don't need to change.
 }
 // ── Matches-tab day calendar (2026-07-13 feedback: "a calendar for matches,
 //    so you can scroll across the top by day or on desktop ... select a day
@@ -4867,13 +4894,17 @@ if(_isAccount){
               <li>Match probabilities &amp; fair no-vig odds</li>
               <li>Public grading — every hit and miss</li>
               <li>Favorites, news &amp; the weekly email</li></ul></div>
-          <div class="plan pro"><span class="cur">${intelOn?'active':'waitlist'}</span>
-            <div class="nm" style="color:var(--intel)">Entenser Intel</div><div class="pr">${_intelPrice()}<small> / month · launching soon</small></div>
+          <div class="plan pro"><span class="cur">${intelOn?'active':'available'}</span>
+            <div class="nm" style="color:var(--intel)">Entenser Intel</div>
+            <div class="pr" id="acctIntelPrice">${PriceStore.display('monthly')||'See price at checkout'}${PriceStore.display('monthly')?`<small> / ${PriceStore.word('monthly')}</small>`:''}</div>
             <ul><li>Custom deep dives &amp; scenario what-ifs</li>
               <li>Full team pages for every club</li>
               <li>Projection studio &amp; threshold alerts</li>
               <li>CSV downloads of every projection</li></ul>
-            <div style="margin-top:12px"><a class="intel-btn" href="?league=intel">Preview the hub →</a></div></div>
+            <div style="margin-top:12px">${intelOn
+              ? '<a class="intel-btn" href="?league=intel">Open the hub →</a>'
+              : '<a class="intel-btn primary" href="?league=intel" data-subscribe="account">Subscribe</a> <a class="intel-btn" href="?league=intel">Preview →</a>'}</div>
+            ${intelOn?'':'<div class="hnote" style="margin-top:8px">Cancel any time · 30-day money-back guarantee</div>'}</div>
         </div>
         ${intelHookHTML()}
         <div class="acct-row"><div class="ttl"><b>Weekly email</b><span>Sections reorder around your picks — no picks yet gets the global edition. Free, unsubscribe any time.</span></div></div>
@@ -5088,8 +5119,11 @@ if(_infoPage){
 
 /* ── Analytics instrumentation (track() defined in <head>; no-op off entenser.com) ──
    Events: pageview_route, tab_click, league_nav, article_click, match_expand,
-   team_open, favorite_toggle, email_signup, waitlist_click, home_table_jump,
-   odds_format_change. Delegated so it survives re-renders. */
+   team_open, favorite_toggle, email_signup, select_plan, home_table_jump,
+   odds_format_change. Delegated so it survives re-renders.
+   The revenue funnel continues in intelligence.js, which is where the account
+   and checkout live: select_plan -> view_pricing -> begin_checkout -> purchase.
+   (waitlist_click retired 2026-07-25 with the waitlist itself.) */
 (()=>{
   const route = _isHome ? 'home'
     : _isEdgeBoard ? 'command-center'
