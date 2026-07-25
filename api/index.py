@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 from api.account import data as account_data
 from api.auth import callback, logout, refresh, request
-from api.billing import checkout
+from api.billing import checkout, portal as billing_portal
 from api.intel import (
     analytics, ask, briefing, cards, events, export, journal, me, preferences, scenario, team, workspaces,
 )
@@ -18,6 +18,7 @@ from api.pub import subscribe as public_subscribe
 from api.pub import unsubscribe as public_unsubscribe
 from api.resend import webhook as resend_webhook
 from api.stripe import webhook as stripe_webhook
+from server.http_headers import Headers
 
 
 def _query(path: str) -> dict:
@@ -44,6 +45,8 @@ def _dispatch(method: str, path: str, headers: dict, body: bytes):
         return logout.handle(method, headers, body)
     if route == "/billing/checkout":
         return checkout.handle(method, headers, body)
+    if route == "/billing/portal":
+        return billing_portal.handle(method, headers, body)
     if route == "/stripe/webhook":
         return stripe_webhook.handle(method, headers, body)
     if route == "/resend/webhook":
@@ -98,7 +101,7 @@ class handler(BaseHTTPRequestHandler):
     def _handle(self):
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length) if length else b""
-        headers = {key: value for key, value in self.headers.items()}
+        headers = Headers(self.headers.items())
         try:
             status, response_headers, payload = _dispatch(
                 self.command, self.path, headers, body)
