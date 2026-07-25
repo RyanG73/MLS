@@ -3869,12 +3869,15 @@ if (_isPower && window.POWER_DATA) {
 .mv-empty{font-size:12px;color:var(--txt-3);padding:8px 0}
 @media(max-width:900px){.mv-cols{grid-template-columns:1fr}.rr-leagues{grid-template-columns:1fr}}
 .ed-sec{font-family:var(--serif);font-size:15px;font-weight:700;border-bottom:1px solid var(--line-3);padding-bottom:6px;margin:var(--s4) 0 2px}
-/* ── 2026-07-17 home redesign grid: B (promise+results) → C|E (rotating table +
-   synced odds board) → D (personalized stories, desktop only) → F (league
-   fixtures carousel) → G (movers) → J (news band). Mobile reorders to
-   E → C → B → F → G → J via grid-template-areas; D drops to the News tab. ── */
+/* ── 2026-07-17 home redesign grid, desktop order revised 2026-07-25 by user
+   decision: C|E (rotating table + synced odds board) leads, then D (personalized
+   stories, desktop only) → B (promise+results) → F (league fixtures carousel) →
+   G (movers) → J (news band). The league tables are the intended lead-in on
+   desktop. Measured at 1280×800: table/odds y=294, stories 752, b 1104,
+   fix 1289, movers 1539, news 1794 — so B, F and G sit below the fold. Mobile
+   (≤900px) keeps its own volatile-first order below and is unaffected. ── */
 .hx-wrap{padding-top:var(--s4);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:24px;row-gap:6px;
-  grid-template-areas:"tag tag" "b b" "table odds" "stories stories" "fix fix" "movers movers" "news news"}
+  grid-template-areas:"tag tag" "table odds" "stories stories" "b b" "fix fix" "movers movers" "news news"}
 .hx-tag{grid-area:tag}.hx-b{grid-area:b}.hx-table{grid-area:table}.hx-odds{grid-area:odds}
 .hx-stories{grid-area:stories}.hx-fix{grid-area:fix}.hx-movers{grid-area:movers}.hx-news{grid-area:news}
 /* Tagline (2026-07-19: signature serif headline, balanced across two full
