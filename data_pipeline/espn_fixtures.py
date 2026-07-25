@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from data_pipeline.http import espn_get
+from data_pipeline.match_time import competition_date
 from data_pipeline.understat import _COLS, _coerce
 
 logger = logging.getLogger("espn_fixtures")
@@ -283,8 +284,7 @@ def _parse_events(events: list[dict], league_id: str, season: int) -> list[dict]
         at = _to_understat(league_id, espn_at)
 
         done = comp.get("status", {}).get("type", {}).get("completed", False)
-        dt = pd.to_datetime(e.get("date"), utc=True, errors="coerce")
-        date = dt.normalize().tz_localize(None) if pd.notna(dt) else pd.NaT
+        date = competition_date(e.get("date"), league_id)
         venue = comp.get("venue") or {}
 
         rec: dict = {

@@ -34,6 +34,11 @@ echo "=== $(date '+%Y-%m-%d %H:%M:%S') build_all start (CUR=$CUR) ==="
 echo "--- MLS: odds log ---"
 PYTHONPATH="$REPO_DIR" "$PY" -m data_pipeline.odds_log \
   || echo "  [WARN] odds_log step failed (non-fatal)"
+echo "--- MLS: current feature frame ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/eval_baseline.py \
+  --cache --seed 42 --test-seasons 2021 2022 2023 2024 2025 \
+  --dump-frame data/parity_frame.parquet \
+  || echo "  [WARN] MLS feature-frame refresh failed (dashboard build may be stale)"
 echo "--- MLS: dashboard data ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_dashboard_data.py \
   && echo "  [OK] mls" \
@@ -182,6 +187,9 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/bet_ledger.py \
 echo "--- edge board ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_edge_board.py \
   || echo "  [WARN] build_edge_board failed (non-fatal)"
+echo "--- cross-league match calendar ---"
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_calendar.py \
+  || echo "  [WARN] build_calendar failed (non-fatal)"
 echo "--- home landing (cross-league leaders/races/movers/news) ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_home.py \
   || echo "  [WARN] build_home failed (non-fatal)"

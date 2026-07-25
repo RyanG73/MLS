@@ -83,6 +83,9 @@ jobs:
       - name: Edge board
         run: python scripts/build_edge_board.py
 
+      - name: Match calendar
+        run: python scripts/build_calendar.py
+
       - name: Drift report
         run: python scripts/build_drift_report.py
 

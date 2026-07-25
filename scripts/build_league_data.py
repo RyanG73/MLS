@@ -2226,8 +2226,9 @@ def main():
                              for ai in range(nT)] for hi in range(nT)]},
         "in_season_brier": in_season_brier,
         "market_brier": market_brier,
-        "team_inputs": team_inputs,
-        "team_inputs_full": team_inputs_full,
+        # Detailed feature snapshots are proprietary and must never be shipped
+        # in the public static payload. They may still be used above while
+        # building projections and derived public summaries.
         # B9 squad-value panel (A9): freshest TM snapshot for this league, team-level
         # aggregates keyed on canonical names; None (the "not available" state) when
         # no mapped CSV exists for the league — same convention as the model-input

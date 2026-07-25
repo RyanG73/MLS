@@ -192,18 +192,10 @@ class TestPowerPayload:
         assert len(data["groups"]) > 0, "power.js: 'groups' is empty"
 
 
-# ── B9: team_inputs_full leaf-value contract ─────────────────────────────────
+# ── Public payload privacy contract ───────────────────────────────────────────
 
-class TestTeamInputsFullLeaves:
-    """team_inputs_full leaf values must be numbers or null, never a NaN token.
-
-    json.loads() already rejects a literal NaN token at parse time (see
-    TestPayloadParseable), so this test targets a subtler regression: a builder
-    that accidentally serialises the *string* "NaN" (e.g. via str(nan) before
-    round()) rather than a JSON null. team_inputs_full is absent from older
-    payloads (build_league_data.py leagues not yet rebuilt) — skip those, don't
-    fail them; the frontend's fallback-to-legacy-panel handles that case.
-    """
+class TestPublicPayloadPrivacy:
+    """Detailed model features must never be downloadable from the static site."""
 
     @pytest.fixture(params=_LEAGUE_FILES, ids=[p.name for p in _LEAGUE_FILES])
     def league_payload(self, request):
@@ -213,44 +205,45 @@ class TestTeamInputsFullLeaves:
             pytest.skip(f"{path.name} is not a LEAGUE_DATA payload (var={var_name})")
         return path, data
 
-    def test_leaves_are_numeric_or_null(self, league_payload):
+    def test_league_payload_omits_model_inputs(self, league_payload):
         path, data = league_payload
-        tif = data.get("team_inputs_full")
-        if not tif:
-            pytest.skip(f"{path.name}: no team_inputs_full (legacy/older payload)")
-        bad = []
-        for team, families in tif.items():
-            if not isinstance(families, dict):
-                bad.append(f"{team} is not a dict")
-                continue
-            for fam, suffixes in families.items():
-                if not isinstance(suffixes, dict):
-                    bad.append(f"{team}.{fam} is not a dict")
-                    continue
-                for suf, val in suffixes.items():
-                    if val is None:
-                        continue
-                    if isinstance(val, bool) or not isinstance(val, (int, float)):
-                        bad.append(f"{team}.{fam}.{suf} = {val!r} ({type(val).__name__})")
-        assert not bad, (
-            f"{path.name}: team_inputs_full has non-numeric, non-null leaves:\n"
-            + "\n".join(f"  {b}" for b in bad[:20])
-        )
+        assert "team_inputs" not in data, f"{path.name}: public team_inputs leak"
+        assert "team_inputs_full" not in data, f"{path.name}: public team_inputs_full leak"
 
-    def test_no_literal_nan_string(self, league_payload):
-        """Guard the specific regression this test exists for: a 'NaN' string
-        leaf sneaking through instead of JSON null."""
-        path, data = league_payload
-        tif = data.get("team_inputs_full")
-        if not tif:
-            pytest.skip(f"{path.name}: no team_inputs_full (legacy/older payload)")
-        offenders = [
-            f"{team}.{fam}.{suf}"
-            for team, families in tif.items() if isinstance(families, dict)
-            for fam, suffixes in families.items() if isinstance(suffixes, dict)
-            for suf, val in suffixes.items()
-            if isinstance(val, str) and val.strip().lower() == "nan"
+    def test_home_fixtures_omit_model_inputs(self):
+        path = WEBAPP_DATA / "home.js"
+        _, data = _load_payload(path)
+        leaked = [
+            f for f in data.get("fixtures", [])
+            if "hinp" in f or "ainp" in f
         ]
-        assert not offenders, (
-            f"{path.name}: literal 'NaN' string leaves found: {offenders[:20]}"
+        assert not leaked, "home.js: fixture-level model inputs are public"
+
+
+class TestMlsSeasonCompleteness:
+    """The MLS payload must carry the complete 34-match regular season."""
+
+    def test_every_team_has_34_fixtures_and_latest_crew_result(self):
+        _, data = _load_payload(WEBAPP_DATA / "mls.js")
+        counts: dict[str, int] = {}
+        for game in data["games"]:
+            counts[game["home"]] = counts.get(game["home"], 0) + 1
+            counts[game["away"]] = counts.get(game["away"], 0) + 1
+
+        assert len(counts) == 30
+        assert set(counts.values()) == {34}
+        assert data["played"] + data["upcoming"] == 510
+
+        crew_nycfc = [
+            game
+            for game in data["games"]
+            if game["date"] == "2026-07-22"
+            and game["home"] == "Columbus Crew"
+            and game["away"] == "New York City FC"
+        ]
+        assert len(crew_nycfc) == 1
+        assert (crew_nycfc[0]["hg"], crew_nycfc[0]["ag"], crew_nycfc[0]["result"]) == (
+            1,
+            2,
+            "A",
         )

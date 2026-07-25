@@ -87,11 +87,63 @@ Race Cards:
 - Show leader, probability, league, and a small contender set.
 - Keep race cards full-width on mobile; no clipped horizontal cards.
 
+League Tables:
+
+- League mastheads show identity and season state, not methodology: logo, league name, country, division, projected season, next match, and average matches played per team.
+- Express season progress as average team GP divided by the regular-season game total so uneven fixture counts remain honest.
+- Historical model/market/naive performance belongs in the Trust tab.
+- Treat the full-width ladder as the primary league decision surface.
+- Keep `Pts`, `GP`, and `GD` as adjacent numeric columns immediately after the club.
+- Team names use the strongest row typography; do not place metadata footnotes beneath them.
+- Keep headers compact but no smaller than 10px, with enough contrast and weight to scan.
+- Put supporting trajectory, projected-finish, and schedule analysis below the ladder.
+- Premium table controls remain visible as muted previews for free readers, with a compact lock marker and a direct path to the relevant entitlement page.
+- Explain locked table controls in a compact card that physically overlaps the disabled control column, revealed only when the column is hovered or keyboard-focused; a detached or permanently open banner is too distracting.
+- Disabled previews must not mutate state; entitled and open-access readers receive the same control in its active state.
+
+Season Trajectory:
+
+- Use isolated team lanes on a shared 0–100% probability scale; do not overlay a full field of lines.
+- Fix the horizontal domain to the actual regular season, labeled from Game 1 to the final scheduled game.
+- Position snapshots by matches played, not by snapshot count or date spacing.
+- Collapse multiple model snapshots between matchdays into one point.
+- Preseason leagues therefore show one point at the start; live leagues stop at current season progress and never stretch to the chart edge.
+- Suppress probability-point movement during preseason; label the state as a baseline because no match-driven movement exists yet.
+- Rotate the movement panel through every available configured projection, with direct category controls and hover/focus pause.
+- For title and relegation, show the six clubs with the highest current likelihood. For other projection categories, show the six largest absolute likelihood changes.
+- During preseason, use current likelihood for every category because no match-driven movement exists yet.
+
+Run difficulty:
+
+- Opening/upcoming-run charts should rely on team identity, bar length, opponent ELO, and the shared toughest/easiest legend.
+- Do not append opponent-monogram chips; their density and abbreviations make the chart harder to scan.
+
 Match Rows:
 
+- Match projections open on the viewer's current local date. Past results are reached through backward calendar navigation, not a separate Played filter.
+- Keep the match filter row to the team selector and result count; do not add status, hit/miss, edge, or leverage pill groups beside it.
+- On desktop, the date control opens a compact month calendar with direct day selection and previous/next month navigation. Dates without matches remain selectable and resolve to an honest empty state.
+- Do not place the league-wide Model vs. Market analysis panel in Match Projections; detailed evaluation belongs in Trust.
 - Keep compact probability bars.
 - Show model favorite or edge status, but suppress draw-side betting recommendations until draw calibration clears.
-- Expected scorelines and raw inputs belong behind expansion, not in the default scan.
+- Venue and weather may sit behind expansion. Proprietary model inputs are not exposed in public match or team views.
+
+Team Dashboards:
+
+- Show one selected club at a time; never lead with a grid of every club's ELO history.
+- Selection priority is explicit navigation/deep link, then a favorite in that league, then the current championship-projection leader.
+- Use a custom searchable/scannable team dropdown that keeps club crests and current ELO visible.
+- Lead with the selected club's identity and ELO history. Do not show trophy counts or trophy markers until trophy data is reliable enough to be a product feature.
+- Place three dotted league-relative references directly on the ELO chart: league average, the top-quartile threshold, and the bottom-quartile threshold.
+- Pair Season Outlook and Season Trajectory as equal-height cards on desktop; stack them on narrow screens.
+- Render headline projection probabilities as horizontal bars instead of a dense stat list.
+- Keep squad value inside Season Outlook: one total plus plain, aligned attack, midfield, defense, and goalkeeper value lines. Do not use progress bars for the positional split, and do not surface player rows, rank, age, or a separate squad card.
+- Use the same fixed-season trajectory language as the league table: Game 1 to the final scheduled game, with snapshots positioned by matches played and preseason represented by one starting dot per projection.
+- Plot every projection category configured as a league-table column in the team Season Trajectory card. Reuse the table's category colors and include a compact legend with current values; the shared 0–100% axis makes unlike outcomes directly comparable.
+- Keep club news full-width immediately below the Outlook/Trajectory pair.
+- Replace separate upcoming/recent cards with one full-season fixture ledger. Keep rows neutral and put the semantic tone only on the pre-match win value: green when the selected club exceeds 50%, amber when neither side exceeds 50%, and red when the opponent exceeds 50%. Use a sufficiently dark tinted badge to remain legible on the dark panel.
+- Fixture rows pair the selected club's pre-match win probability with a compact result marker: green W, amber T, red L, or a muted dash when unplayed.
+- Random matchup odds belong only in the Intel hub.
 
 Model Weak Spots:
 

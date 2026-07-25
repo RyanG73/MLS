@@ -52,8 +52,13 @@ def _live_league_files() -> list[tuple[str, dict]]:
 
 
 def build_calendar(files: list[tuple[str, dict]]) -> dict:
-    lo = (date.today() - timedelta(days=DAYS_BACK)).isoformat()
-    hi = (date.today() + timedelta(days=DAYS_FWD)).isoformat()
+    today = date.today()
+    lo = (today - timedelta(days=DAYS_BACK)).isoformat()
+    hi = (today + timedelta(days=DAYS_FWD)).isoformat()
+    dates = [
+        (today + timedelta(days=offset)).isoformat()
+        for offset in range(-DAYS_BACK, DAYS_FWD + 1)
+    ]
     by_date: dict[str, list[dict]] = {}
     for lid, d in files:
         name = (d.get("league") or {}).get("name", lid)
@@ -75,9 +80,11 @@ def build_calendar(files: list[tuple[str, dict]]) -> dict:
                 "lam": g.get("lam"), "mu": g.get("mu"),
             })
     for rows in by_date.values():
-        rows.sort(key=lambda g: (g["name"], g["home"]))
-    return {"days": by_date, "dates": sorted(by_date.keys()),
-            "today": date.today().isoformat()}
+        rows.sort(key=lambda g: (g["name"], g.get("ko") or "", g["home"]))
+    # Include quiet dates in the rail so "today" is always selectable. The old
+    # payload listed only dates with fixtures, which made a quiet current day
+    # disappear and pushed the UI back to the first (past) date in the window.
+    return {"days": by_date, "dates": dates, "today": today.isoformat()}
 
 
 def main() -> None:

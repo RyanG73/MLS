@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from data_pipeline.asa_cache import get_game_xgoals, get_games, get_teams
+from data_pipeline.match_time import competition_datetime
 from data_pipeline.understat import _COLS, _coerce
 
 
@@ -33,7 +34,10 @@ def asa_canonical_frame(league: str) -> pd.DataFrame:
     # scores (forfeits/data gaps) that would poison the goals-int cast.
     g = games[(games["status"] == "FullTime")
               & games["home_score"].notna() & games["away_score"].notna()].copy()
-    g["date"] = pd.to_datetime(g["date_time_utc"]).dt.tz_localize(None)
+    # ASA timestamps are UTC instants.  Convert them to the competition's
+    # schedule timezone before deriving the matchday; otherwise a Friday-night
+    # NWSL game becomes a Saturday result at midnight UTC.
+    g["date"] = competition_datetime(g["date_time_utc"], league)
     g["season"] = g["season_name"].astype(int)
 
     xg = get_game_xgoals(league)

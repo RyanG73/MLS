@@ -92,6 +92,9 @@ jobs:
       - name: Build league
         run: |
           if [ "${{ matrix.league }}" = "mls" ]; then
+            python scripts/eval_baseline.py --cache --seed 42 \
+              --test-seasons 2021 2022 2023 2024 2025 \
+              --dump-frame data/parity_frame.parquet
             python scripts/build_dashboard_data.py --sims 20000
           else
             python scripts/build_league_data.py --league "${{ matrix.league }}" --sims 20000
@@ -130,6 +133,7 @@ jobs:
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
         run: |
           python scripts/build_power_rankings.py
+          python scripts/build_calendar.py
           python scripts/archive_odds_snapshot.py
           python scripts/build_movers.py
           python scripts/build_race_deltas.py

@@ -250,12 +250,26 @@ def _cf(fn, *args, **kw):
     """Invoke fn(*args, **kw), caching the DataFrame result as parquet when --cache is set."""
     if _CACHE_DIR is None:
         return fn(*args, **kw)
+    import time as _time
     import hashlib
     _key = hashlib.md5(
         _json.dumps([fn.__name__, list(args), sorted(kw.items())], default=str).encode()
     ).hexdigest()[:12]
     _p = _CACHE_DIR / f"{fn.__name__}_{_key}.parquet"
-    if _p.exists():
+    # Match-level feeds change during the season.  Keeping these files forever
+    # made the production parity frame silently stop at its last manual rebuild,
+    # even while the daily dashboard job fetched a current schedule.  A short
+    # TTL preserves fast same-day reruns while ensuring each daily MLS build
+    # incorporates newly completed matches and xG/event features.
+    _volatile = fn.__name__ in {"get_games", "get_game_xgoals", "get_game_xpass"}
+    _fresh = (
+        _p.exists()
+        and (
+            not _volatile
+            or (_time.time() - _p.stat().st_mtime) / 3600 < 6
+        )
+    )
+    if _fresh:
         return pd.read_parquet(_p)
     _result = fn(*args, **kw)
     # Some ASA endpoints (e.g. get_players' season_name) return list-typed columns

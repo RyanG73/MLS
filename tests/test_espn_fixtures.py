@@ -142,6 +142,17 @@ def test_parse_events_kickoff_and_venue_metadata():
     assert r["venue_city"] == "London"
 
 
+def test_parse_events_uses_nwsl_matchday_not_utc_date():
+    """A Friday-night U.S. match remains Friday after midnight UTC."""
+    event = _make_event("Orlando Pride", "Chicago Stars FC", completed=True)
+    event["date"] = "2026-07-25T00:00:00Z"
+
+    r = _parse_events([event], "nwsl", 2026)[0]
+
+    assert r["date"] == pd.Timestamp("2026-07-24")
+    assert r["ko_utc"] == "2026-07-25T00:00:00Z"
+
+
 def test_parse_events_metadata_absent_is_none():
     r = _parse_events([_make_event("Arsenal", "Chelsea", completed=False)],
                       "epl", 2026)[0]

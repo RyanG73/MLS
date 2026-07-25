@@ -810,8 +810,8 @@ def main():
                                  for ai in range(nT)] for hi in range(nT)]},
             "in_season_brier": in_season_brier,
             "market_brier": market_brier,
-            "team_inputs": _team_inputs,
-            "team_inputs_full": _team_inputs_full,
+            # Detailed feature snapshots stay inside the build; the public
+            # dashboard receives projections and derived summaries only.
             "squad_value": _squad_value,
             "elo_history": _elo_hist,
             "trophies": _trophies,
