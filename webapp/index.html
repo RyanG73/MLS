@@ -1545,7 +1545,7 @@ $('#sub').textContent = isKnockout
   : (D.outlook||{}).preseason
     ? `${_seasonLbl} season${_dateRange} · pre-season projection · schedule out, no matches played yet`
     : D.in_season
-      ? `${_seasonLbl} season${_dateRange} · ${_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
+      ? `${_seasonLbl} season${_dateRange} · ${D.no_fixture_feed?`${D.played} played so far`:_pct!=null?_pct+'% complete':`${D.played} of ${D.played+D.upcoming} played`}`
       : _seasonComplete
         ? `${_seasonLbl} season complete${_dateRange} · next season not yet published`
         : `${_seasonLbl} season projection`;
@@ -1555,7 +1555,13 @@ $('#sub').textContent = isKnockout
 // predates the data_status field.
 (()=>{
   const ds=D.data_status||(((window.LEAGUES||[]).find(l=>l.id===LID)||{}).data_status);
-  const note=ds==='results_only'
+  // no_fixture_feed: the season has started but its schedule has not been
+  // published, so there is nothing left to simulate and every probability
+  // column collapses to 0/100 off the matches already played. Say so — this
+  // outranks the data_status note, which describes the source, not this season.
+  const note=D.no_fixture_feed
+    ? 'no schedule published for this season yet — the probability columns restate played matches, not a forecast'
+    : ds==='results_only'
     ? 'results only — no fixture feed for this league, projections use played matches'
     : ds==='historical'
       ? `${D.season} is the newest season available from this data source — not a live forecast`

@@ -213,6 +213,33 @@ def _to_understat(league_id: str, espn_name: str) -> str:
     return ESPN_TO_UNDERSTAT.get(league_id, {}).get(espn_name, espn_name)
 
 
+# ESPN tags every event with the season phase it belongs to (event.season.slug).
+# Post-regular-season rounds must not count toward a league table: before this
+# was wired up (2026-07-24 league QA audit) every ESPN league with a playoff
+# shipped a "final table" contaminated by its own playoff results — Honduras
+# read 40–52 GP across 11 clubs, the CPL final counted as a league fixture.
+#
+# Token list built from a live slug census of all 31 ESPN-sourced leagues
+# (scratch: espn season.slug histogram, 2025 + 2026). Regular-season phases seen:
+#   regular-season · apertura · clausura · torneo-{apertura,clausura,intermedio}
+#   first-stage · final-stage · fall-season · <year>-<league-name>
+# Deliberately conservative: a bare "final-stage" (Ecuador's second half of the
+# season, a full round robin) is NOT a playoff, so only an exact trailing
+# final/finals counts — "…-stage" never matches.
+_PLAYOFF_TOKENS = ("playoff", "semifinal", "quarterfinal", "triangulares",
+                   "elimination", "reducido", "campeon-de-campeones")
+
+
+def is_playoff_slug(slug: str | None) -> bool:
+    """True when ESPN's season.slug names a post-regular-season round."""
+    s = (slug or "").lower()
+    if not s:
+        return False
+    if any(tok in s for tok in _PLAYOFF_TOKENS):
+        return True
+    return s.rsplit("-", 1)[-1] in ("final", "finals")
+
+
 def _fetch_events(slug: str, season: int, calendar_year: bool = False) -> list[dict]:
     """Fetch all events (played + scheduled) for `slug` in one season.
 
@@ -268,7 +295,7 @@ def _parse_events(events: list[dict], league_id: str, season: int) -> list[dict]
             "away_team":   at,
             "home_xg":     np.nan,
             "away_xg":     np.nan,
-            "is_playoff":  0,
+            "is_playoff":  int(is_playoff_slug((e.get("season") or {}).get("slug"))),
             # Match metadata (F1, 2026-07-09): kept OUTSIDE the canonical _COLS
             # contract as nullable extras — understat frames don't carry them.
             "ko_utc":      e.get("date") or None,          # full ISO kickoff

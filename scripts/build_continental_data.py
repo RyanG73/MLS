@@ -101,17 +101,42 @@ META = {
                  "knockout play-off, bottom 12 are out · single-elimination two-legged knockout from "
                  "there to a one-off final.",
     },
+    # Concacaf's two comps were the only entries shipping a null `rules` (found
+    # in the 2026-07-24 league QA audit). Structure below is stated from the
+    # competition's own fixture graph in data/espn_continental: Round One = 22
+    # matches (11 two-legged ties, 5 seeds bye to the R16), R16 = 16, QF = 8,
+    # SF = 4, Final = 1 single match; Leagues Cup = 36 clubs in two 18-club
+    # tables, 54 cross-league matches (3 each), 8 quarter-finalists.
     "concacaf-champions": {
         "name": "Concacaf Champions Cup",
         "confederation": "Concacaf",
         "format_label": "27-team knockout",
         "phases": ["knockout"],
+        "rules": "27 clubs qualify through their domestic leagues plus the Leagues Cup, "
+                 "the Central American Cup and the Caribbean Cup — those feeder "
+                 "competitions are not modeled here, the projection starts with the "
+                 "field as drawn · the 5 highest-seeded clubs go straight to the round "
+                 "of 16; the other 22 meet in 11 two-legged Round One ties · every round "
+                 "from Round One to the semi-finals is two-legged home and away with the "
+                 "higher seed at home in the second leg, and away goals are not used as "
+                 "a tie-breaker (Concacaf abolished them) · the final is a single match "
+                 "hosted by the higher seed · projections-only: there is no continental "
+                 "odds source, so no edge figures are shown.",
     },
     "leagues-cup": {
         "name": "Leagues Cup",
         "confederation": "Concacaf",
         "format_label": "Two-table group → knockout",
         "phases": ["group", "knockout"],
+        "rules": "All 18 MLS and all 18 Liga MX clubs enter · in Phase One each club "
+                 "plays 3 matches against clubs from the other league only, and results "
+                 "are ranked in two separate 18-club tables, one per league — clubs never "
+                 "face and are never ranked against their own league · 3 points for a win, "
+                 "1 for a draw, no group-stage shootout · the top 4 of each table reach "
+                 "the quarter-finals, which are one-off single-elimination matches through "
+                 "the semi-finals to a one-off final, with a third-place match · the top "
+                 "finishers qualify for the Concacaf Champions Cup · projections-only: "
+                 "there is no odds source for this competition, so no edge figures are shown.",
     },
     # CONMEBOL (2026-07-24). Shipped once scripts/eval/continental_calibrate.py
     # produced a validated CONMEBOL league-offset scale — before that every South

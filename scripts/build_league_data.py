@@ -523,7 +523,12 @@ OUTLOOK = {
                      "rules": "Points halve before the championship playoff (top 6) · champion qualifies for the Champions League · bottom 2 relegated"},
     "greek-super":  {"name": "Greek Super League", "source": "footballdata", "n": 14,
                      "buckets": _TOP(1, rel=2), "green_line": 1, "red_line": 2,
-                     "rules": "Top 6 enter the championship playoff round · champion qualifies for the Champions League · bottom 2 relegated"},
+                     # "Top 6" was stale: the post-split pairing graph for both
+                     # 2024-25 and 2025-26 resolves to pools of 1-4 / 5-8 / 9-14
+                     # (8 clubs playing 6 post matches, 6 clubs playing 10), which
+                     # is what FORMATS["greek-super"] = groups [4, 4] already
+                     # models. Corrected in the 2026-07-24 league QA audit.
+                     "rules": "After 26 rounds the table splits into a championship play-off (1st-4th), a European play-off (5th-8th) and a play-out (9th-14th); points carry in full and a club cannot finish above its pool · champion qualifies for the Champions League · bottom 2 relegated"},
     # Concacaf — ESPN goals-only (no xG, no market odds)
     # eval_seasons=None → derived dynamically from frame's season integers
     "liga-mx":      {"name": "Liga MX", "source": "espn", "n": 18, "confederation": "Concacaf",
@@ -1127,6 +1132,19 @@ ESPN_GOALS_ONLY_SEASONS: dict[str, list[int]] = {}
 # once a paid plan unlocks the current season, to get their forward schedules.
 FIXTURE_OVERRIDE: dict[str, str] = {}
 
+# Table-mode leagues whose `title` column is NOT the championship: the payload
+# models an aggregate/cumulative table (which is what the continental berths and
+# relegation are drawn from), but the actual champion comes out of an
+# Apertura/Clausura final series or playoff the sim does not play. Topping this
+# table therefore must not be captioned "Champions" on a concluded season — see
+# _TABLE_PRIZE in build_static_pages.py, which reads the emitted flag.
+# Leagues whose plain table really does crown the champion (Chile, Brazil, the
+# European splits, K League's championship round) are deliberately absent.
+TITLE_BY_PLAYOFF: set[str] = {
+    "argentina-primera", "colombia-primera-a", "peru-liga1", "venezuela-primera",
+    "ecuador-ligapro", "paraguay-primera", "bolivia-profesional", "uruguay-primera",
+}
+
 
 def _load_frame(league_id: str, source: str, asa_key: str | None = None):
     """Route a league to its canonical-frame source."""
@@ -1377,6 +1395,9 @@ def main():
     if cfg["source"] == "footballdata_intl" and lid not in fdi_no_espn:
         try:
             _espn = european_fixtures(lid, ts, use_cache=False)
+            if _espn.empty:
+                # ESPN has not published this league's season yet — not an error.
+                raise LookupError(f"ESPN has no {ts} events for {lid} yet")
             _sched = _espn[~_espn["is_result"]].copy()
             _last_played = frame[frame["season"] == ts]["date"].max()
             if pd.notna(_last_played):
@@ -1406,6 +1427,16 @@ def main():
         upcoming = espn_upcoming
     else:
         upcoming = frame[(frame["season"] == ts) & (~frame["is_result"])].copy()
+    # Scheduled playoff/finals rounds are not league-table fixtures — simulating
+    # them into the final table would hand teams extra points for matches the
+    # table never counts (the same reason `is_playoff` is filtered out of the
+    # points loop below). Only ESPN/ASA frames carry a non-zero flag.
+    if "is_playoff" in upcoming.columns:
+        _ko = upcoming["is_playoff"].fillna(0).astype(int) != 0
+        if _ko.any():
+            print(f"[{lid}] dropped {int(_ko.sum())} scheduled playoff fixtures "
+                  f"from the league-table sim")
+            upcoming = upcoming[~_ko].copy()
     print(f"[{lid}] season {ts}: {len(played)} played, {len(upcoming)} upcoming, "
           f"{len(df)} historical matches, {len(feat)} features"
           + (" [PRE-SEASON]" if is_preseason else ""))
@@ -2114,6 +2145,21 @@ def main():
 
     pct = round(len([g for g in games if g["result"]]) / max(1, len(games)) * 100)
     _sstate = season_state(len(played), len(upcoming))
+    _no_fixture_feed = False
+    # A season cannot be over before anyone has played a full round robin. Without
+    # this, a league whose new campaign has kicked off but whose fixture feed has
+    # not published the schedule yet (played>0, upcoming==0) is classified
+    # CONCLUDED and the page ships "<League> results · final · Champions: X" off
+    # one matchday — romania-liga1 was publishing exactly that on 8 played matches
+    # (2026-07-24 league QA audit). Note the projection is still degenerate with
+    # nothing left to simulate; this only stops the false "final" headline.
+    if _sstate == CONCLUDED and nT > 1 and max(gp.values(), default=0) < nT - 1:
+        print(f"[{lid}] season has no upcoming fixtures but only "
+              f"{max(gp.values(), default=0)}/{nT - 1} games played per team — "
+              f"holding at in-progress rather than declaring it final")
+        _sstate = IN_PROGRESS
+        _no_fixture_feed = True
+        pct = None   # denominator unknown without a schedule; don't claim 100%
     # liga-mx's `ts` is a sequential torneo index, not a calendar year — without
     # this the SEO page falls back to `season` and renders "Liga MX 20" (and the
     # pre-season branch would render "20-1"). Decode it to "Ap.2026"/"Cl.2026".
@@ -2143,6 +2189,11 @@ def main():
         "status": _route_status,
         "data_status": _data_status,
         "format_approximate": _format_approx,
+        # True when the season has started but no schedule is published for it:
+        # the projection has nothing left to simulate, so every probability
+        # column collapses to 0/100 off the games played so far. Surfaces as a
+        # warning note rather than being passed off as a real forecast.
+        "no_fixture_feed": _no_fixture_feed,
         "league": {"id": lid, "name": cfg["name"], "logo": _stub_league_logo(lid),
                    "confederation": cfg.get("confederation", "UEFA"),
                    "status": "live", "pct_complete": pct},
@@ -2152,6 +2203,7 @@ def main():
                     "has_xg": has_xg,
                     "preseason": True if is_preseason else None,
                     "season_label": _season_label,
+                    "title_by_playoff": lid in TITLE_BY_PLAYOFF or None,
                     "rules": cfg.get("rules"),
                     "cards": [{"key": b["key"], "label": b["label"]}
                               for b in buckets if b.get("card", True)],

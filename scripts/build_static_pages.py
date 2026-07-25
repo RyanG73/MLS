@@ -187,7 +187,10 @@ _TABLE_PRIZE = {
 }
 
 
-def _top_row_label(cols: list[tuple[str, str]]) -> str:
+def _top_row_label(d: dict, cols: list[tuple[str, str]]) -> str:
+    if (d.get("outlook") or {}).get("title_by_playoff"):
+        # `title` here ranks an aggregate table the championship is not drawn from.
+        return "Top of the table"
     return _TABLE_PRIZE.get(cols[0][0], "Top of the table") if cols else "Top of the table"
 
 
@@ -426,12 +429,19 @@ def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
             sub.append(f"Champions: {champ}")
         elif rows:
             top = max(rows, key=lambda r: (r.get("pts") or 0))["team"]
-            sub.append(f"{_top_row_label(cols)}: {top}")
+            sub.append(f"{_top_row_label(d, cols)}: {top}")
     sub.append(f"updated {generated[:10]}")
     parts.append(f'<div class="sub">{E(" · ".join(sub))}</div>')
 
     if ds in _DS_NOTE:
         parts.append(f'<div class="note">{E(_DS_NOTE[ds])}</div>')
+    if d.get("no_fixture_feed"):
+        parts.append('<div class="note">The new season has started but no '
+                     'fixture list has been published for it yet, so there is '
+                     'nothing left for the model to simulate — the probability '
+                     'columns below just restate the matches already played, '
+                     'not a forecast. They become meaningful once the schedule '
+                     'appears.</div>')
     if d.get("format_approximate"):
         parts.append('<div class="note">This competition uses a split-round '
                      'or playoff format that the model approximates as a '
