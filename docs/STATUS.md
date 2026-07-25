@@ -37,7 +37,7 @@ tier that the previous edition called ready **was not**. The audit found the mon
 both ends in production: a header-case bug meant **no authenticated request could ever succeed and
 no Stripe webhook could ever be verified**, and Vercel production holds **exactly three environment
 variables**, none of them Stripe, Upstash, or the token secret. Both are now fixed,
-committed and deployed (1397 tests green) — but **the production config is still absent**. The honest position:
+committed and deployed (1414 tests green) — but **the production config is still absent**. The honest position:
 **we cannot take money today, and Aug 17 is achievable but only if §2's blockers clear this week.**
 
 ---
@@ -52,7 +52,7 @@ committed and deployed (1397 tests green) — but **the production config is sti
 | # | Blocker | Owner | Status / proof | Action |
 |---|---|---|---|---|
 | **B1** | **`api.entenser.com` does not resolve.** `webapp/intelligence.js:13` hardcodes `https://api.entenser.com/v1` as the production API base, so *every* Intel call and checkout fails in the browser. | Ryan | ❌ **CONFIRMED 2026-07-25**: `dig api.entenser.com` → empty; `curl` → `http=000`. API answers only on `mls-five.vercel.app` (200). | Attach the domain in Vercel → Domains, add the CNAME at Namecheap. **~15 min. Unblocks everything.** |
-| **B2** | **Production has no application secrets.** `vercel env ls production` returns exactly `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_FROM_EMAIL`. Missing: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_INTEL_PRICE_ID`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `ACCESS_TOKEN_SECRET`, `ADMIN_TOKEN`, `ENTENSER_ENV`, `UNSUBSCRIBE_SECRET`, `PUBLIC_API_URL`. | Ryan | ❌ **CONFIRMED live 2026-07-25** via `vercel env ls production` (names only). | See §2c. **~45 min total.** |
+| **B2** | **Production has no application secrets.** `vercel env ls production` returns exactly `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_FROM_EMAIL`. Missing: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_INTEL_PRICE_ID`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `ACCESS_TOKEN_SECRET`, `ADMIN_TOKEN`, `ENTENSER_ENV`, `UNSUBSCRIBE_SECRET`, `PUBLIC_API_URL`, and the four `STRIPE_PRICE_INTEL_*` ids (§2e). | Ryan | ❌ **CONFIRMED live 2026-07-25** via `vercel env ls production` (names only). | See §2c. **~45 min total.** |
 | **B3** | **`ENTENSER_ENV` unset disarms every production guard.** `server/config.py` returns dev defaults instead of raising: `ACCESS_TOKEN_SECRET` becomes `dev-only-insecure-secret` (**anyone can forge a paid token**) and `get_kv()` silently falls back to an **in-memory dict that dies on every cold start** — a paid entitlement would evaporate within minutes. | Ryan | ❌ **CONFIRMED**: absent from `vercel env ls`; `/v1/public/config` returns 200 (not the 503 a production-mode missing-KV would raise), proving the silent fallback is active. | Set `ENTENSER_ENV=production` **together with** B2's secrets — setting it alone will 503 the whole API. |
 | **B4** | ~~**Header case broke all auth and all webhooks in production.**~~ ✅ **FIXED 2026-07-25.** Vercel delivers header names lowercased; `api/index.py` built a plain dict from raw items, so `headers.get("Authorization")` and `headers.get("Stripe-Signature")` always missed. | Claude | ✅ Proof: prod `/intel/me` + valid bearer → `missing bearer token`; prod webhook → `malformed Stripe-Signature header`; local reproduces **only** with lowercase headers. Fixed via `server/http_headers.Headers`; verified through the real router (lowercase → 200, forged → 401, none → 401). 9 regression tests. | ✅ **Deployed 2026-07-25** (`f260df6`, via `deploy-api.yml`). |
 | **B5** | ~~**Stripe webhook failed OPEN with the secret unset.**~~ ✅ **FIXED 2026-07-25.** HMAC over an empty key verifies, so a forged `checkout.session.completed` signed with `b""` was **accepted** — a free `creator` entitlement for anyone who knew. Masked by B4; **B4's fix would have unmasked it.** | Claude | ✅ Proof: demonstrated accepted pre-fix; endpoint now returns 503 when unset. Test: `test_stripe_webhook_fails_closed_when_secret_is_unset`. | Set `STRIPE_WEBHOOK_SECRET` (B2). |
@@ -73,6 +73,7 @@ committed and deployed (1397 tests green) — but **the production config is sti
 | G5 | ~~`/intel/export` required `creator`, but "CSV downloads of every projection" is **advertised on the Intel tier**. Every launch customer would have been sold a 401.~~ ✅ **FIXED** to `intel`. | Claude | ✅ | done |
 | G6 | ~~`creator` was **purchasable but undefined** — no price, no tier, no copy.~~ ✅ **FIXED**: `PURCHASABLE_PLANS = {"intel"}`; UI button removed. Rank + webhook mapping retained. | Claude | ✅ | done |
 | G7 | ~~`checkout=success\|canceled` handled **nowhere** — a successful payment landed on an unchanged page and read as a failure.~~ ✅ **FIXED**: both handled, URL cleaned, plus a bounded poll for the webhook race. Browser-verified. | Claude | ✅ | done |
+| G8b | ~~**No monthly/annual split at the API** — the site rendered an annual toggle while `_price_id()` could only bill the single monthly Price. A customer picking annual would have been billed monthly.~~ ✅ **FIXED**: interval is a first-class checkout parameter, annual is preselected (hard annual push), and the chooser renders only when both Prices exist. | Claude | ✅ | done |
 | G8 | ~~Price was guessed from `navigator.language` (**three** currencies) and hardcoded on each surface — €5.99 displayed, $ charged. Also **two different prices**: $5.99 supporter vs **$7.99 Intel**.~~ ✅ **FIXED**: price/currency/interval now read from the **live Stripe Price object** via `/v1/public/config`. | Claude | ✅ | done |
 | G9 | ~~No refund→entitlement revocation — the guarantee's revocation step was manual.~~ ✅ **FIXED**: `charge.refunded` → revoke, via the customer reverse-index (refund events carry no metadata). **Partial refunds deliberately do not revoke.** Built on the L4 default (access ends immediately); `REVOKE_ACCESS_ON_REFUND` is a one-line flip if you decide otherwise — **the published wording and that constant must always agree.** | Claude | ✅ | done |
 | G10 | ~~No rate limit on `POST /billing/checkout`.~~ ✅ **FIXED**: 10/hour/user — generous enough that a genuine card retry never notices, tight enough that session-spray can't pollute the funnel the Sept 30 gate is read from. | Claude | ✅ | done |
@@ -94,20 +95,55 @@ committed and deployed (1397 tests green) — but **the production config is sti
 | **S8** | Upgrade Resend to Pro | resend.com → Settings → Billing | 5 min | B10 |
 | **S9** | Decide L1–L6 in [legal-copy-draft-2026-07-25.md](legal-copy-draft-2026-07-25.md) and hand back | — | 45 min | B7, B8 |
 
-> ⚠️ **The Stripe Price objects are a one-way door.** Once a customer subscribes to a Price you
-> cannot edit its amount, currency or interval — you must create a new Price and migrate everyone.
-> Force the final call on **amount, currency and interval, for monthly *and* annual, before customer
-> #1**. Two open questions the audit could not answer for you: (a) the site currently shows **$5.99
-> supporter** and **$7.99 Intel** — pick one number; (b) it renders **three** currencies (USD/EUR/GBP)
-> from browser locale — either commit to **one currency honestly displayed**, or create genuine
-> Stripe multi-currency prices. The code no longer guesses; it displays whatever Stripe says.
-> **Nothing else in this file is as expensive to get wrong.**
+### 2e. Pricing — decided 2026-07-25
+
+**Launch at $5.99/mo · $59.99/yr (USD only). $7.99/mo · $79.99/yr is pre-built and one API call away.**
+
+The roadmap §1 already decided $5.99 with competitive anchors (Football Data Lab, the closest direct
+competitor, is £5.99/mo; The Athletic at ~$8 is called "the content **ceiling**"). The $7.99 that
+appeared on the Intel surface on 2026-07-18 carried **no recorded rationale** — it was drift, not a
+revision. USD-only because three currencies means six immutable Price objects and an implied EU/UK
+VAT position; add currencies later, you cannot remove them.
+
+A Stripe Price is **immutable** in amount, currency and interval, so a price change is never an edit
+— it points new checkouts at a different, pre-created Price while Stripe keeps existing subscribers
+on the one they bought. That is what makes a lift safe *and* what makes "founding rate locked for
+life" a promise you can actually keep.
+
+**Create four Prices at S5** and set all four ids:
+
+| Env var | Price | Tier |
+|---|---|---|
+| `STRIPE_PRICE_INTEL_MONTHLY_LAUNCH` | **$5.99 / month** | launch (active) |
+| `STRIPE_PRICE_INTEL_ANNUAL_LAUNCH` | **$59.99 / year** | launch (active) |
+| `STRIPE_PRICE_INTEL_MONTHLY_STANDARD` | **$7.99 / month** | standard (idle) |
+| `STRIPE_PRICE_INTEL_ANNUAL_STANDARD` | **$79.99 / year** | standard (idle) |
+
+Lift the price — no redeploy, works during code freeze, reversible in seconds:
+
+```bash
+curl -X POST https://api.entenser.com/v1/admin/pricing \
+  -H "X-Admin-Token: $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"tier":"standard","note":"post-launch lift"}'
+```
+
+`GET` the same URL to read the current tier. **Safety properties, tested:** the switch fails **low**
+— an unset, unknown, or newly-unconfigured tier resolves to `launch`, so a config mistake
+undercharges rather than overcharges; a tier with no Price **cannot be selected** (400, not a broken
+checkout button); and the **client cannot name its own tier**. `/v1/public/config` quotes the active
+tier's Price and checkout charges the active tier's Price **through the same resolver**, so the
+number on the page and the number on the card cannot drift.
+
+**Founding rate:** at $5.99 list there is no discount left to give waitlist members, so the offer is
+*"your $5.99 rate is locked for life"* — honours "first in at the launch price", costs nothing today,
+and preserves your freedom to lift list price as the vault deepens. `allow_promotion_codes` is
+already enabled, so this needs a Stripe promo code, not engineering.
 
 ### 2d. Verification protocol — what is proven, what is not
 
 | Step | State | Evidence |
 |---|---|---|
-| 1. Full `pytest` | ✅ | **1397 passed, 7 skipped, 0 failed** (2026-07-25, after the follow-up pass). Browser tests excluded — `playwright` not installed locally. |
+| 1. Full `pytest` | ✅ | **1414 passed, 7 skipped, 0 failed** (2026-07-25, after the pricing-switch pass). Browser tests excluded — `playwright` not installed locally. |
 | 2. Production reachable | ⚠️ Partial | `mls-five.vercel.app/v1/public/config` → **200**, now returning `"pricing":{}` (honest fallback, no 503). `api.entenser.com` → **NXDOMAIN** — still not reachable at the host the webapp calls. |
 | 2b. **Header fix confirmed in production** | ✅ | **Post-deploy 2026-07-25 (`7bf77fe`).** `GET /v1/intel/me` with a forged bearer now returns **`{"error":"bad signature"}`** — pre-deploy the identical request returned `{"error":"missing bearer token"}`. The header now *arrives and is parsed*; the token is verified and correctly rejected. This is the single most important verification in the file. |
 | 2c. **Webhook fails closed in production** | ✅ | `POST /v1/stripe/webhook` with a `Stripe-Signature` header → **503 `webhook signing secret is not configured`**. Two facts at once: the header arrived (it reached the secret check rather than dying at header parse), and an unset secret is refused rather than accepted. |

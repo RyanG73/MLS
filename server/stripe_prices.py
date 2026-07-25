@@ -19,6 +19,7 @@ import os
 import requests
 
 from server.kv_store import KVStore
+from server.pricing_tier import get_tier, price_id_for
 
 CACHE_TTL_SECONDS = 3600
 _CACHE_KEY = "stripe_price_display"
@@ -96,14 +97,19 @@ def pricing(kv: KVStore) -> dict:
     if not secret:
         return {}
     plans = {}
-    for plan, env_name in (("intel", "STRIPE_INTEL_PRICE_ID"),
-                           ("creator", "STRIPE_CREATOR_PRICE_ID")):
-        price_id = os.environ.get(env_name, "")
+    # Quote the ACTIVE tier's Price, resolved by the same function checkout
+    # uses, so the number on the page is always the number on the card. Annual
+    # is published alongside monthly because the site has always rendered an
+    # annual toggle.
+    tier = get_tier(kv)
+    for interval in ("monthly", "annual"):
+        price_id = price_id_for(tier, interval)
         if not price_id:
             continue
         record = _fetch(price_id, secret)
         if record:
-            plans[plan] = record
+            record["tier"] = tier
+            plans["intel" if interval == "monthly" else "intel_annual"] = record
     if plans:
         kv.set(_CACHE_KEY, json.dumps(plans), ex=CACHE_TTL_SECONDS)
     return plans

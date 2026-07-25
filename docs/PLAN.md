@@ -1,5 +1,20 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-25b — Pricing decided: $5.99 launch, liftable to $7.99 at runtime.** The roadmap §1 had
+> already set $5.99 against real anchors (Football Data Lab £5.99/mo direct competitor; The Athletic
+> ~$8 explicitly the *ceiling*); the $7.99 on the Intel surface since 2026-07-18 carried no recorded
+> rationale and was drift, not a revision. **USD only** — three currencies means six immutable Price
+> objects plus an implied EU/UK VAT position, and currencies can be added later but not removed.
+> Because a Stripe Price is immutable, the lift is implemented as a **runtime tier switch**
+> (`server/pricing_tier.py`, `POST /v1/admin/pricing`, ADMIN_TOKEN, KV-backed) rather than an env
+> change plus redeploy — it works during the Aug 15 code freeze and reverts in seconds. It **fails
+> low**: unset, unknown or newly-unconfigured tiers resolve to `launch`, a tier with no Price cannot
+> be selected, and the client cannot name its own tier. Display and charge resolve through the same
+> function, so the quoted price and the billed price cannot diverge. Also closed a latent chargeback:
+> the site had rendered an annual toggle since 1.6 while the API could only bill the monthly Price —
+> interval is now a first-class checkout parameter, with annual preselected per the §0b annual push.
+> Suite **1414 passed**.
+
 > **2026-07-25 — Paid launch pulled forward to Aug 17; Oct 31 evidence gate reversed; launch-readiness
 > audit run.** Ran `docs/launch-readiness-audit-prompt.md`, treating every launch claim as unverified.
 > **Three decisions recorded, all owner-directed:** (1) the Phase-2 **Oct 31 evidence gate is dead** —

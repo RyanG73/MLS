@@ -12,6 +12,7 @@ from api.intel import (
     analytics, ask, briefing, cards, events, export, journal, me, preferences, scenario, team, workspaces,
 )
 from api.admin import open_access as admin_open_access
+from api.admin import pricing as admin_pricing
 from api.pub import card as public_card
 from api.pub import config as public_config
 from api.pub import subscribe as public_subscribe
@@ -81,6 +82,8 @@ def _dispatch(method: str, path: str, headers: dict, body: bytes):
         return public_config.handle(method, headers)
     if route in ("/admin/open-access", "/admin/open_access"):
         return admin_open_access.handle(method, headers, body)
+    if route == "/admin/pricing":
+        return admin_pricing.handle(method, headers, body)
     if route == "/public/card":
         return public_card.handle(method, headers, query)
     if route == "/public/unsubscribe":

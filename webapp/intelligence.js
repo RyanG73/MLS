@@ -41,33 +41,67 @@
     notice: "",
     error: "",
     selectedTarget: "",
-    pricing: {}
+    pricing: {},
+    interval: "annual"
   };
 
   // Price quoted to the customer comes from Stripe's own Price object via
-  // /public/config -- never guessed from navigator.language, which is how a
-  // site ends up displaying euros while charging dollars. If Stripe is
-  // unreachable we say nothing rather than quote a number we might not bill.
-  function planPrice(plan) {
-    var record = state.pricing && state.pricing[plan || "intel"];
+  // /public/config, for the tier the server currently has active -- never
+  // guessed from navigator.language, which is how a site ends up displaying
+  // euros while charging dollars, and never hardcoded, which is how a price
+  // lift silently starts lying. If Stripe is unreachable we say nothing rather
+  // than quote a number we might not bill.
+  function priceRecord(interval) {
+    var key = interval === "annual" ? "intel_annual" : "intel";
+    return (state.pricing && state.pricing[key]) || null;
+  }
+
+  function hasInterval(interval) {
+    return !!priceRecord(interval);
+  }
+
+  function planPrice(interval) {
+    var record = priceRecord(interval);
     return record && record.display ? record.display : "";
   }
 
-  function priceSentence(plan) {
-    var price = planPrice(plan);
+  // Stripe reports "month"/"year"; the copy around the button reads better as
+  // the same word the customer just clicked.
+  function intervalWord(interval) {
+    var record = priceRecord(interval);
+    if (record && record.interval) return record.interval;
+    return interval === "annual" ? "year" : "month";
+  }
+
+  function priceSentence(interval) {
+    var price = planPrice(interval);
     return price
-      ? price + " per " + planInterval(plan) + "."
+      ? price + " per " + intervalWord(interval) + "."
       : "The exact price and currency are shown on the secure checkout page before you pay.";
   }
 
-  function subscribeLabel(plan) {
-    var price = planPrice(plan);
-    return price ? "Subscribe — " + price + " / " + planInterval(plan) : "Subscribe";
+  function subscribeLabel(interval) {
+    var price = planPrice(interval);
+    return price ? "Subscribe — " + price + " / " + intervalWord(interval) : "Subscribe";
   }
 
-  function planInterval(plan) {
-    var record = state.pricing && state.pricing[plan || "intel"];
-    return record && record.interval ? record.interval : "month";
+  // Annual is preselected deliberately (roadmap §0b, hard annual push). It is
+  // also what protects the launch cohort from the archive's thinnest weeks: an
+  // annual subscriber does not re-evaluate a six-week vault every 30 days.
+  // Rendered only when both intervals actually have a Stripe Price, so a
+  // half-configured environment shows one honest option rather than a broken
+  // choice.
+  function intervalChooserHTML() {
+    if (!hasInterval("annual") || !hasInterval("monthly")) return "";
+    return '<div class="intel-interval" role="radiogroup" aria-label="Billing period">' +
+      ["annual", "monthly"].map(function (option) {
+        var on = state.interval === option;
+        return '<button type="button" class="intel-action' + (on ? " primary" : "") +
+          '" role="radio" aria-checked="' + (on ? "true" : "false") +
+          '" data-action="set-interval" data-interval="' + option + '">' +
+          escapeHtml(option === "annual" ? "Annual" : "Monthly") +
+          ' · ' + escapeHtml(planPrice(option)) + "</button>";
+      }).join(" ") + "</div>";
   }
 
   function escapeHtml(value) {
@@ -305,7 +339,7 @@
     // Top of the funnel: this is the pricing surface for a signed-in free
     // account. Fired once per render so visitor -> checkout -> paid is a
     // complete, standard GA4 funnel by launch week.
-    track("view_pricing", funnelPayload("intel"));
+    track("view_pricing", funnelPayload(state.interval));
     root.classList.remove("hidden");
     root.innerHTML = '<div class="ed-wrap intel-app">' +
       commandHeader("Intelligence Hub", "Free account") +
@@ -315,14 +349,16 @@
       // selling rules require price, renewal cadence and the cancellation
       // method to be visible BEFORE the customer commits, not only on Stripe's
       // page. Keep this adjacent to the button -- never behind a link.
-      '<p class="intel-terms">' + escapeHtml(priceSentence()) + ' Renews automatically every ' +
-      escapeHtml(planInterval()) + ' until cancelled. ' +
-      'Cancel any time in one click from your account. 30-day money-back guarantee.</p>' +
+      intervalChooserHTML() +
+      '<p class="intel-terms">' + escapeHtml(priceSentence(state.interval)) +
+      ' Renews automatically every ' + escapeHtml(intervalWord(state.interval)) +
+      ' until cancelled. Cancel any time in one click from your account. ' +
+      '30-day money-back guarantee.</p>' +
       // NOTE (launch audit 2026-07-25): the Terms and Refund-policy routes do
       // not exist yet -- drafts are in docs/legal-copy-draft-2026-07-25.md and
       // need owner sign-off. Link them here the moment they ship; publishing
       // paid checkout without them is a Track 6 blocker.
-      '<button class="intel-action primary" data-action="checkout" data-plan="intel">' + escapeHtml(subscribeLabel()) + '</button> ' +
+      '<button class="intel-action primary" data-action="checkout" data-plan="intel">' + escapeHtml(subscribeLabel(state.interval)) + '</button> ' +
       '<button class="intel-action" data-action="logout">Sign out</button>' +
       (state.notice ? '<div class="intel-success">' + escapeHtml(state.notice) + "</div>" : "") +
       (state.error ? '<div class="intel-error">' + escapeHtml(state.error) + "</div>" : "") +
@@ -1067,11 +1103,12 @@
   // GA4 ecommerce shape, so the Sept 30 conversion read is a standard funnel
   // report rather than a hand-rolled one. `interval` is carried on every event
   // because the monthly/annual split is the thing the annual push is testing.
-  function funnelPayload(plan) {
-    var priced = state.pricing && state.pricing[plan || "intel"];
+  function funnelPayload(interval) {
+    var priced = priceRecord(interval || state.interval);
     return {
-      plan: plan || "intel",
-      interval: planInterval(plan),
+      plan: "intel",
+      interval: interval || state.interval,
+      tier: priced ? priced.tier : undefined,
       currency: priced ? String(priced.currency || "").toUpperCase() : undefined,
       value: priced ? priced.amount / 100 : undefined
     };
@@ -1125,7 +1162,7 @@
         // Stripe redirect alone -- a redirect proves the customer came back
         // from Stripe, not that money moved. Anything less and launch week's
         // conversion number is inflated by abandoned and failed payments.
-        track("purchase", funnelPayload(state.me.plan));
+        track("purchase", funnelPayload(state.interval));
       }
       if (["intel", "creator"].indexOf(state.me.plan) < 0) {
         setMessage("Your payment went through, but access hasn't activated yet. " +
@@ -1217,9 +1254,16 @@
         signInView();
       } else if (action === "checkout") {
         var plan = button.getAttribute("data-plan") || "intel";
-        track("begin_checkout", funnelPayload(plan));
-        var checkout = await api("/billing/checkout", {method: "POST", body: JSON.stringify({plan: plan})});
+        track("begin_checkout", funnelPayload(state.interval));
+        var checkout = await api("/billing/checkout", {
+          method: "POST",
+          body: JSON.stringify({plan: plan, interval: state.interval})
+        });
         location.assign(checkout.url);
+      } else if (action === "set-interval") {
+        state.interval = button.getAttribute("data-interval") === "monthly" ? "monthly" : "annual";
+        freeView();
+        return;
       } else if (action === "billing-portal") {
         var portal = await api("/billing/portal", {method: "POST", body: "{}"});
         location.assign(portal.url);
