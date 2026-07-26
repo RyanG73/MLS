@@ -30,26 +30,127 @@ _HDR = {"User-Agent": "Mozilla/5.0"}
 TM_CODES = {"epl": "GB1", "la-liga": "ES1", "serie-a": "IT1",
             "bundesliga": "L1", "ligue-1": "FR1"}
 
-# TM row pattern in the season-page club table: club title + total value cell.
-_ROW = re.compile(r'title="([^"]+)".*?€([\d.]+)(bn|m)')
+# Structural parse of the season-page club table.
+#
+# The original implementation was a single regex over raw HTML:
+#     re.compile(r'title="([^"]+)".*?€([\d.]+)(bn|m)')
+# with a `v > 20` floor meant to "skip player-value cells". It was wrong, and
+# quietly so. A club row looks like this:
+#
+#   <td class="zentriert no-border-rechts"><a title="Bayern Munich" ...crest...
+#   <td class="hauptlink no-border-links"><a title="Bayern Munich" ...name...
+#   <td class="zentriert"><a title="Bayern Munich" ...>38</a></td>   squad size
+#   <td class="zentriert">24.2</td>                                  ø age
+#   <td class="zentriert">21</td>                                    foreigners
+#   <td class="rechts">€20.46m</td>                    <-- ø MARKET VALUE
+#   <td class="rechts"><a ...>€777.33m</a></td>        <-- TOTAL market value
+#
+# `title="Bayern Munich"` occurs three times per row, so the non-greedy `.*?`
+# resolved to the nearest following €, which is the ø (per-player average)
+# column — and for an elite squad that average clears the €20m floor, so the
+# guard let it through. Bayern 2019 was stored as €20.46m instead of €777.33m.
+# 13.5% of big-5 rows were affected, concentrated on the richest clubs
+# (Real Madrid €21.28m, Barcelona €20.41m, PSG €21.35m, Inter €28.37m), which
+# is exactly the population a squad-value prior most needs to get right.
+#
+# Columns are now located by HEADER NAME and rows read cell-by-cell, so a
+# column re-order upstream cannot silently shift the meaning of the number.
+_CELL = re.compile(r"<td[^>]*>(.*?)</td>", re.S)
+_MONEY = re.compile(r"€\s*([\d.,]+)\s*(bn|m|k)?", re.I)
+_TAGS = re.compile(r"<[^>]+>")
 
 
-def fetch_league_season(tm_code: str, season: int) -> dict[str, float]:
-    """{tm_team_name: squad_value_eur_m} for one league-season page."""
-    url = (f"https://www.transfermarkt.com/x/startseite/wettbewerb/"
-           f"{tm_code}/plus/?saison_id={season}")
-    html = requests.get(url, headers=_HDR, timeout=30).text
+def _money_to_m(cell_html: str) -> float | None:
+    """'€777.33m' / '€1.02bn' → millions of EUR. None when the cell has no €."""
+    m = _MONEY.search(cell_html)
+    if not m:
+        return None
+    num = float(m.group(1).replace(",", ""))
+    unit = (m.group(2) or "m").lower()
+    return num * {"bn": 1000.0, "m": 1.0, "k": 0.001}[unit]
+
+
+def parse_league_season(html: str) -> dict[str, float]:
+    """{tm_team_name: total_squad_value_eur_m} from a season-page's club table.
+
+    Split out from the fetch so it is testable against a saved fixture without
+    touching the network.
+    """
+    start = html.find('<table class="items"')
+    if start == -1:
+        return {}
+    table = html[start:html.find("</table>", start)]
+
+    # Locate the value column by its header text rather than by position.
+    head = table[:table.find("</thead>")] if "</thead>" in table else table[:4000]
+    headers = [_TAGS.sub("", c).replace("&nbsp;", " ").replace("&oslash;", "ø").strip().lower()
+               for c in re.findall(r"<th[^>]*>(.*?)</th>", head, re.S)]
+    total_idx = next((i for i, h in enumerate(headers) if "total market value" in h), None)
+
     out: dict[str, float] = {}
-    for name, val, unit in _ROW.findall(html[:250000]):
-        v = float(val) * (1000.0 if unit == "bn" else 1.0)
-        # club rows repeat (crest + name cells); first hit wins. The >20 floor
-        # skips player-value cells that share the € pattern.
-        if name not in out and v > 20:
-            out[name] = v
+    for row in re.findall(r'<tr class="(?:odd|even)">(.*?)</tr>', table, re.S):
+        name_m = re.search(r'<td class="hauptlink[^"]*"[^>]*>\s*<a title="([^"]+)"', row)
+        if not name_m:
+            continue
+        name = name_m.group(1).strip()
+        cells = _CELL.findall(row)
+        value = None
+        if total_idx is not None and total_idx < len(cells):
+            value = _money_to_m(cells[total_idx])
+        if value is None:
+            # Fallback: the LAST money cell in the row is the total (the ø
+            # column always precedes it). Never the first — that is the ø.
+            monies = [v for v in (_money_to_m(c) for c in cells) if v is not None]
+            value = monies[-1] if monies else None
+        if value and value > 0:
+            out[name] = value
     return out
 
 
-def run_backfill(seasons=range(2017, 2026), sleep_s: float = 3.0) -> pd.DataFrame:
+def fetch_league_season(tm_code: str, season: int) -> dict[str, float]:
+    """{tm_team_name: total squad value in EUR millions} for one league-season."""
+    url = (f"https://www.transfermarkt.com/x/startseite/wettbewerb/"
+           f"{tm_code}/plus/?saison_id={season}")
+    return parse_league_season(requests.get(url, headers=_HDR, timeout=30).text)
+
+
+# A big-5 league-season whose RICHEST club is under this is not a squad-value
+# table — it is the ø (per-player) column, which is the exact way this scrape
+# failed silently for years. Even the poorest big-5 season has a top club well
+# into the hundreds of millions; the corrupt data topped out around €20-45m.
+MIN_TOP_CLUB_EUR_M = 200.0
+
+
+def validate(df: pd.DataFrame) -> list[str]:
+    """Structural checks on a scraped value table. Returns a list of problems.
+
+    Deliberately checks the SHAPE of each league-season rather than individual
+    values: a plausible-looking number in the wrong column is the failure mode
+    that went unnoticed, and only the distribution reveals it.
+    """
+    problems: list[str] = []
+    if df.empty:
+        return ["value table is empty"]
+
+    dupes = int(df.duplicated(subset=["league", "season", "tm_name"]).sum())
+    if dupes:
+        problems.append(f"{dupes} duplicate (league, season, team) rows")
+
+    for (lid, season), g in df.groupby(["league", "season"]):
+        if not 16 <= len(g) <= 22:
+            problems.append(f"{lid} {season}: {len(g)} clubs (expected 16-22) — "
+                            "the row regex is probably matching other tables")
+        top = float(g["value_eur_m"].max())
+        if top < MIN_TOP_CLUB_EUR_M:
+            problems.append(
+                f"{lid} {season}: richest club is only €{top:.1f}m — this looks "
+                "like the ø market-value column, not the total")
+        if (g["value_eur_m"] <= 0).any():
+            problems.append(f"{lid} {season}: non-positive values present")
+    return problems
+
+
+def run_backfill(seasons=range(2017, 2027), sleep_s: float = 3.0) -> pd.DataFrame:
     rows = []
     done = set()
     if OUT.exists():
@@ -67,6 +168,17 @@ def run_backfill(seasons=range(2017, 2026), sleep_s: float = 3.0) -> pd.DataFram
             print(f"[{lid} {s}] {len(vals)} teams", flush=True)
             time.sleep(sleep_s)
     df = pd.DataFrame(rows)
+    problems = validate(df)
+    if problems:
+        # Loud, but still written: a partial scrape is easier to inspect on disk
+        # than to reproduce, and the caller decides whether to promote it.
+        print(f"\n!! {len(problems)} VALIDATION PROBLEM(S) — do not promote this "
+              f"table into the model until they are resolved:")
+        for p in problems:
+            print(f"   - {p}")
+    else:
+        print(f"\nvalidation OK: {len(df)} rows, "
+              f"{df.groupby(['league', 'season']).ngroups} league-seasons")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUT, index=False)
     return df
