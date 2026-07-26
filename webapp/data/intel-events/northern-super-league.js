@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Ottawa Rapid FC":[],"Montreal Roses FC":[],"AFC Toronto":[],"Vancouver Rise FC":[],"Halifax Tides FC":[],"Calgary Wild FC":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-26 12:08 UTC","teams":{"Ottawa Rapid FC":[],"Montreal Roses FC":[],"AFC Toronto":[],"Halifax Tides FC":[],"Vancouver Rise FC":[],"Calgary Wild FC":[]}};
