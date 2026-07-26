@@ -756,6 +756,23 @@ class TestTeamsDashboard:
         page.wait_for_timeout(300)
         assert page.locator('[data-view="teams"]').get_attribute("aria-selected") == "true"
         assert page.locator("#profileTeamSel").inner_text() == "Manchester United"
+        assert page.locator('link[rel="canonical"]').get_attribute(
+            "href"
+        ) == "https://entenser.com/leagues/epl/clubs/manchester-united/"
+
+    def test_table_club_links_are_crawlable_but_keep_in_app_navigation(
+        self, page: Page, webapp_url: str
+    ):
+        _load_route(page, webapp_url, "epl")
+        link = page.locator('#ladders .tlink[data-team="Manchester City"]')
+        assert link.get_attribute(
+            "href"
+        ) == "/leagues/epl/clubs/manchester-city/"
+        before = page.url
+        link.click()
+        assert page.url == before
+        assert page.locator('[data-view="teams"]').get_attribute("aria-selected") == "true"
+        assert page.locator("#profileTeamSel").inner_text() == "Manchester City"
 
     def test_squad_value_is_condensed_inside_season_outlook(
         self, page: Page, webapp_url: str

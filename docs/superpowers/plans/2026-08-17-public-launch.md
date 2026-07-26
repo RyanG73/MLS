@@ -16,7 +16,7 @@ manage billing, cancel, and receive a refund through the production domain.
 
 Launch only when all five are proven:
 
-- [ ] `api.entenser.com` resolves and serves the production API.
+- [x] `api.entenser.com` resolves and serves the production API.
 - [ ] Production uses durable KV, strong secrets, and fail-closed configuration.
 - [ ] Monthly and annual Stripe prices, webhook, and Customer Portal work.
 - [ ] Terms, refund policy, and accurate privacy policy are public.
@@ -27,6 +27,13 @@ Launch only when all five are proven:
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, or test result. Do not copy implementation history from `PROJECT_HISTORY.md`.
 
+- **2026-07-26 — production API domain and CORS verified.** Namecheap CNAME resolves through local,
+  Cloudflare, and Google DNS; HTTPS `GET /v1/public/config` returns 200. Browser-origin preflight
+  returns 204 with `Access-Control-Allow-Origin: https://entenser.com` and `Vary: Origin`.
+- **2026-07-26 — crawlable club pages built; deployment pending.** The static acquisition build
+  now emits 1,444 competition-scoped club forecasts plus league-to-club links and a 1,536-URL
+  sitemap with no broken club links. Full suite: 1,676 passed, 14 skipped; final static contracts:
+  21 passed. Production proof still requires the GitHub Pages deployment.
 - **2026-07-26 — documentation reset.** `STATUS.md` is now the canonical current truth; this file
   is the only active execution plan. Completed and overlapping UX plans were retired after their
   open decisions moved to `STATUS.md`.
@@ -45,8 +52,8 @@ These steps require Ryan's external account access or decisions.
 
 ### A. Domain and persistence
 
-- [ ] Attach `api.entenser.com` to the Vercel project.
-- [ ] Add the DNS record required by Vercel.
+- [x] Attach `api.entenser.com` to the Vercel project.
+- [x] Add the DNS record required by Vercel.
 - [ ] Create an Upstash Redis database.
 - [ ] Add its REST URL and token to Vercel Production.
 

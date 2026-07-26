@@ -29,22 +29,25 @@ No new feature outranks that milestone.
 |---|---|---|
 | Public site | ✅ Live | `https://entenser.com/` returns 200 |
 | Forecast landing page and RSS | ✅ Live | `/football-forecasts/` and `/forecast-feed.xml` return 200 |
+| Crawlable club forecast pages | 🟡 Built, not yet live | Static build emits 1,444 competition-scoped club pages and a 1,536-URL sitemap; deployment pending |
 | Global Power and shared ELO | ✅ Live | 892 clubs across 50 leagues; shared `global_elo` displayed throughout relevant public surfaces |
 | Fast result/projection refresh | ✅ Live | Final workflow run `30205921705` published `live-data` successfully on 2026-07-26 |
 | Intelligence API on Vercel host | ✅ Reachable | `https://mls-five.vercel.app/v1/public/config` returns 200 |
-| `api.entenser.com` | ❌ Broken | DNS does not resolve as of 2026-07-26 |
+| `api.entenser.com` | ✅ Live | HTTPS GET returns 200; CORS preflight from `https://entenser.com` returns 204 |
 | Production application configuration | ❌ Incomplete | Vercel lists only `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, and `RESEND_FROM_EMAIL` |
 | Public pricing configuration | ❌ Empty | Production `/v1/public/config` returns `"pricing": {}` |
 | Paid transaction path | ❌ Not operable | Blocked by DNS, persistence, secrets, Stripe configuration, and legal publication |
 
 ## Launch blockers, in order
 
-### 1. Connect the production API domain
+### 1. Connect the production API domain — completed 2026-07-26
 
-Attach `api.entenser.com` to the Vercel project and add the required DNS record. The web client
-uses this hostname, so checkout and authenticated Intel requests fail until it resolves.
+`api.entenser.com` is attached to the Vercel production environment through the Namecheap CNAME
+`3b4876572083db00.vercel-dns-017.com`. Cloudflare and Google public DNS resolve it, HTTPS is active,
+`GET /v1/public/config` returns 200, and a preflight from `https://entenser.com` returns 204 with
+the exact allowed origin.
 
-**Exit test:** `GET https://api.entenser.com/v1/public/config` returns 200.
+**Exit test:** ✅ passed.
 
 ### 2. Provision durable storage and production secrets
 
@@ -106,14 +109,13 @@ blocks launch.
 
 These require account access or business decisions and cannot be completed from the repository:
 
-1. Vercel domain and DNS setup.
-2. Upstash account/database creation.
-3. Stripe activation, Price creation, webhook registration, and Customer Portal settings.
-4. Confirm Vercel Pro rather than Hobby.
-5. Confirm Resend capacity for launch-day magic links.
-6. Decide the legal draft's open terms.
-7. Create or confirm GA4 and Google Search Console access; submit the sitemap.
-8. Approve any broadcast email. No broadcast is sent without explicit approval.
+1. Upstash account/database creation.
+2. Stripe activation, Price creation, webhook registration, and Customer Portal settings.
+3. Confirm Vercel Pro rather than Hobby.
+4. Confirm Resend capacity for launch-day magic links.
+5. Decide the legal draft's open terms.
+6. Create or confirm GA4 and Google Search Console access; submit the sitemap.
+7. Approve any broadcast email. No broadcast is sent without explicit approval.
 
 ## Agent work immediately after owner setup
 
@@ -126,6 +128,10 @@ These require account access or business decisions and cannot be completed from 
 
 ## Recently completed
 
+- Competition-scoped club acquisition pages: 1,444 self-canonical club forecasts with unique
+  metadata, `SportsTeam`/dataset schema, match and season outlooks, league-table links, interactive
+  dashboard handoff, and sitemap coverage. Repository verification is green; production deployment
+  is still pending.
 - Durable league-qualified “since your last visit” Intel cursor.
 - Followed-team win/draw/loss stakes cards and timezone-aware match-morning briefings.
 - No-refit fast refresh: results and kickoff changes re-simulate tables every 15 minutes in match

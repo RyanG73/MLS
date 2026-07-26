@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.build_static_pages import main as build_main, pct
+from scripts.build_static_pages import club_slug, main as build_main, pct
 from scripts.build_share_cards import card_og
 from scripts.payload_utils import read_js_payload
 
@@ -36,6 +36,13 @@ def built(tmp_path_factory) -> Path:
 def _pages(built: Path) -> dict[str, str]:
     return {p.parent.name: p.read_text()
             for p in sorted((built / "leagues").glob("*/index.html"))}
+
+
+def _club_pages(built: Path) -> dict[tuple[str, str], str]:
+    return {
+        (p.parents[2].name, p.parent.name): p.read_text()
+        for p in sorted((built / "leagues").glob("*/clubs/*/index.html"))
+    }
 
 
 def test_every_nonplaceholder_league_has_a_page(built):
@@ -63,6 +70,64 @@ def test_canonical_matches_directory(built):
     for lid, html_txt in _pages(built).items():
         canon = re.search(r'rel="canonical" href="([^"]+)"', html_txt).group(1)
         assert canon == f"{SITE}/leagues/{lid}/"
+
+
+def test_every_forecasted_club_has_a_competition_scoped_page(built):
+    pages = _club_pages(built)
+    expected = set()
+    for lid in _pages(built):
+        payload = read_js_payload(built / "data" / f"{lid}.js")
+        expected.update(
+            (lid, club_slug(row["team"]))
+            for row in payload.get("standings") or [] if row.get("team")
+        )
+        expected.update(
+            (lid, club_slug(team))
+            for game in payload.get("games") or []
+            for team in (game.get("home"), game.get("away")) if team
+        )
+    assert set(pages) == expected
+    assert len(pages) > 1_000
+
+
+def test_club_pages_have_unique_metadata_and_self_canonicals(built):
+    titles = set()
+    for (lid, slug), html_txt in _club_pages(built).items():
+        title = re.search(r"<title>([^<]+)</title>", html_txt).group(1)
+        assert title not in titles, f"duplicate club title: {title}"
+        titles.add(title)
+        desc = re.search(r'name="description" content="([^"]+)"', html_txt)
+        assert desc and len(desc.group(1)) > 60, f"{lid}/{slug}: thin description"
+        canon = re.search(r'rel="canonical" href="([^"]+)"', html_txt).group(1)
+        assert canon == f"{SITE}/leagues/{lid}/clubs/{slug}/"
+
+
+def test_club_pages_are_useful_and_structured(built):
+    inter_miami = _club_pages(built)[("mls", "inter-miami-cf")]
+    assert "Expected finish" in inter_miami
+    assert "Upcoming matches" in inter_miami
+    assert "Recent results" in inter_miami
+    assert "Open the interactive Inter Miami CF dashboard" in inter_miami
+    blocks = re.findall(
+        r'<script type="application/ld\+json">(.*?)</script>',
+        inter_miami, re.DOTALL)
+    graph = json.loads(blocks[0])["@graph"]
+    assert {"BreadcrumbList", "SportsTeam", "Dataset"} <= {
+        node["@type"] for node in graph
+    }
+
+
+def test_league_tables_link_to_club_canonicals(built):
+    mls = _pages(built)["mls"]
+    assert 'href="/leagues/mls/clubs/inter-miami-cf/"' in mls
+    epl = _pages(built)["epl"]
+    assert 'href="/leagues/epl/clubs/manchester-city/"' in epl
+
+
+def test_club_slug_is_readable_and_normalized():
+    assert club_slug("CF Montréal") == "cf-montreal"
+    assert club_slug("St. Patrick's Athletic") == "st-patrick-s-athletic"
+    assert club_slug("  Adelaide United ") == "adelaide-united"
 
 
 def test_jsonld_parses_and_has_breadcrumb_and_dataset(built):
@@ -94,11 +159,17 @@ def test_sitemap_wellformed_and_complete(built):
     assert locs[0] == f"{SITE}/"
     assert locs[1] == f"{SITE}/leagues/"
     # Every league page is present; the weekly recap, open-data, and World Cup
-    # on-ramp pages are included when their inputs exist (they do here).
+    # on-ramp pages are included when their inputs exist (they do here). Every
+    # generated club page is present too.
     league_locs = {f"{SITE}/leagues/{lid}/" for lid in _pages(built)}
     assert league_locs <= set(locs[2:])
+    club_locs = {
+        f"{SITE}/leagues/{lid}/clubs/{slug}/"
+        for lid, slug in _club_pages(built)
+    }
+    assert club_locs <= set(locs[2:])
     dated_weekly = re.compile(rf"^{re.escape(SITE)}/weekly/\d{{4}}-\d{{2}}-\d{{2}}/$")
-    non_league = {loc for loc in set(locs[2:]) - league_locs
+    non_league = {loc for loc in set(locs[2:]) - league_locs - club_locs
                   if not dated_weekly.match(loc)}
     assert non_league <= {
         f"{SITE}/weekly/", f"{SITE}/open-data/",
@@ -130,12 +201,17 @@ def test_pct_formatting():
 def test_pages_are_lightweight(built):
     for lid, html_txt in _pages(built).items():
         assert len(html_txt) < 80_000, f"{lid}: page too heavy"
+    for key, html_txt in _club_pages(built).items():
+        assert len(html_txt) < 80_000, f"{key}: club page too heavy"
 
 
 def test_no_spa_scripts_leak_into_static_pages(built):
     for lid, html_txt in _pages(built).items():
         assert "document.write" not in html_txt
         assert "LEAGUE_DATA" not in html_txt
+    for key, html_txt in _club_pages(built).items():
+        assert "document.write" not in html_txt, key
+        assert "LEAGUE_DATA" not in html_txt, key
 
 
 def test_open_data_page_and_csv_exports(built):

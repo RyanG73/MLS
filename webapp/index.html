@@ -16,7 +16,7 @@
 <meta name="twitter:image" content="https://entenser.com/assets/og/og-image.png" />
 <link rel="alternate" type="application/rss+xml" title="Entenser football forecasts" href="/forecast-feed.xml" />
 <!-- Canonical (launch plan C5): the head router below swaps this to the static
-     /leagues/<id>/ page when ?league= names a registry league, consolidating
+     league or club page when ?league= names a registry league, consolidating
      search signals onto the crawlable documents. -->
 <link rel="canonical" href="https://entenser.com/" id="canonicalLink" />
 <script type="application/ld+json">
@@ -1212,6 +1212,12 @@ footer a:hover{color:var(--txt-2)}
 // (B12) is the site's landing view; ?league=mls etc. deep links are unchanged.
 // Synchronous document.write so window.LEAGUE_DATA is set before the main render script runs.
 const _rawLeague=new URLSearchParams(location.search).get('league');
+const _rawTeam=new URLSearchParams(location.search).get('team');
+// Competition-scoped club canonicals mirror scripts/build_static_pages.py.
+const clubSlug=name=>(String(name||'').trim().normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-')
+  .replace(/^-+|-+$/g,'')||'club');
+const clubURL=(league,team)=>`/leagues/${league}/clubs/${clubSlug(team)}/`;
 const _isHome=!_rawLeague;                    // no param → the Home landing (window.HOME_DATA)
 const _isEdgeBoard=_rawLeague==='command';    // edge board moved to ?league=command ("Matches")
 const _isLeagues=_rawLeague==='leagues';      // full league index (replaces the old sidebar)
@@ -1240,7 +1246,8 @@ const _infoPage=_INFO_PAGES.includes(_rawLeague)?_rawLeague:null;
 // available for query-param routes on GitHub Pages (no server redirects).
 if(_rawLeague&&(window.LEAGUES||[]).some(l=>l.id===_rawLeague)){
   const c=document.getElementById('canonicalLink');
-  if(c)c.href='https://entenser.com/leagues/'+_rawLeague+'/';
+  if(c)c.href='https://entenser.com'+(
+    _rawTeam?clubURL(_rawLeague,_rawTeam):'/leagues/'+_rawLeague+'/');
 }
 // Odds-format preference (launch plan F2): American for US browsers, decimal
 // for everyone else; overridable via the masthead toggle and persisted in
@@ -1678,7 +1685,7 @@ function teamGateCardHTML(team){
     const L=(window.LEAGUES||[]).filter(l=>norm(l.name).includes(q)||norm(l.country||'').includes(q)).slice(0,5)
       .map(l=>`<a href="?league=${l.id}"><span class="ms-k">league</span><span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span></a>`);
     const T=(window.SEARCH_INDEX||[]).filter(e=>norm(e.t).includes(q)).slice(0,9)
-      .map(e=>`<a href="?league=${e.l}&team=${encodeURIComponent(e.t)}"><span class="ms-k">team</span><span class="mb-nm">${e.t}<em>${lgName(e.l)}</em></span></a>`);
+      .map(e=>`<a href="${clubURL(e.l,e.t)}"><span class="ms-k">team</span><span class="mb-nm">${e.t}<em>${lgName(e.l)}</em></span></a>`);
     const rows=[...L,...T];
     msr.innerHTML=rows.join('')||`<div class="ms-empty">${window.SEARCH_INDEX?'No matches.':'Loading team index…'}</div>`;
     msr.classList.add('open');
@@ -2134,7 +2141,7 @@ function ladder(conf){
     const r=el('div','row'+(i<D.hfa_slots?' hfa':''));
     const sub=`${t.gp} GP · ${sgn(t.gd)} GD · ${sgnf(t.xgd)} xGD`;
     r.innerHTML=`<span class="rank">${i+1}</span>`+
-      `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname tlink" data-team="${t.team}">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
+      `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><a class="tname tlink" href="${clubURL(LID,t.team)}" data-team="${t.team}">${t.team}</a><span class="tsub">${sub}</span></span></span>`+
       `<span class="pts">${t.pts}</span>`+
       `<span class="projc">${t.proj_pts}</span>`+
       `<span class="eloc">${Math.round(publishedElo(t))}</span>`+
@@ -2355,7 +2362,7 @@ function tableLadder(){
     const isRed=ol.red_line&&rank>teams.length-ol.red_line;
     const r=el('div','trow'+(isGreen?' ucl':isRed?' rz':''));
     r.innerHTML=`<span class="rank">${rank}</span>`+
-      `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname tlink" data-team="${t.team}">${t.team}</span></span></span>`+
+      `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><a class="tname tlink" href="${clubURL(LID,t.team)}" data-team="${t.team}">${t.team}</a></span></span>`+
       `<span class="pts">${t.pts}</span><span class="gpc">${t.gp}</span><span class="gdc">${sgn(t.gd)}</span>`+
       `<span class="projc">${t.proj_pts}</span><span class="eloc">${Math.round(publishedElo(t))}</span>`+
       cols.map(c=>hc(t[c.key]||0,c.key,t)).join('')+
@@ -2679,7 +2686,7 @@ const FEATURE_DEFS={
   ...(MARKET_MODE?{'Market':'De-vigged betting-market probabilities where a line exists'}:{})};
 renderHealth();   // eager: pre-render so NaN/undefined issues surface at load, not only on tab click
 $('#ladders').addEventListener('click',e=>{
-  const tl=e.target.closest('.tlink');if(tl){openTeam(tl.dataset.team);return;}
+  const tl=e.target.closest('.tlink');if(tl){e.preventDefault();openTeam(tl.dataset.team);return;}
   if(e.target.closest('.wlocked'))return; // allow the preview link to navigate to Intel
   const b=e.target.closest('.wbox');if(!b)return;
   const gid=+b.dataset.gid,team=b.dataset.team;
@@ -3875,7 +3882,7 @@ if (_isPower && window.POWER_DATA) {
         const subtitle=`${t.league_short}${t.tier>1?` · Tier ${t.tier}`:''}${t.women?' · Women':''}`;
         return `<div class="pr-row">
           <span class="pr-rank">${t.global_rank}</span>
-          <a class="pr-club" href="?league=${encodeURIComponent(t.league)}&team=${encodeURIComponent(t.team)}">${crest(t.team,t.logo)}<span class="pr-team"><span class="pr-name">${prEsc(t.team)}</span><span class="pr-lg">${prEsc(subtitle)}</span></span></a>
+          <a class="pr-club" href="${clubURL(t.league,t.team)}">${crest(t.team,t.logo)}<span class="pr-team"><span class="pr-name">${prEsc(t.team)}</span><span class="pr-lg">${prEsc(subtitle)}</span></span></a>
           <span class="pr-conf">${prEsc(t.confederation)}</span>
           <span class="pr-barwrap" title="${prEsc(t.team)} · ${Math.round(t.strength)} global ELO"><span class="pr-bar" style="width:${w.toFixed(1)}%"></span></span>
           <span class="pr-str">${Math.round(t.strength)}</span>
@@ -5048,7 +5055,7 @@ if(_isFavs){
         const next=(d.games||[]).filter(g=>g.result==null&&(g.home===team||g.away===team))
           .sort((a,b)=>(a.date<b.date?-1:1))[0];
         const nx=next?`next: ${next.home===team?'vs '+next.away:'@ '+next.home} ${next.date} · model ${Math.round((next.home===team?next.pH:next.pA)*100)}% win`:'no upcoming fixture';
-        rows+=`<a class="fv-card" href="?league=${lid}">${crest(team,st.logo)}<span class="lg">${nm(lid)}</span><span>${team}</span>
+        rows+=`<a class="fv-card" href="${clubURL(lid,team)}">${crest(team,st.logo)}<span class="lg">${nm(lid)}</span><span>${team}</span>
           ${metric?`<b>${(+st[metric.key]||0).toFixed(1)}%</b><span style="color:var(--txt-3);font-size:11px">${metric.label}</span>`:''}${unpin}
           <span class="sub">proj. #${Math.round(st.proj_rank)} · ${nx}</span></a>`;
       }

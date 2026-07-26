@@ -719,3 +719,11 @@ one active launch plan for execution, `CURRENT_STATE.md` for technical configura
 for history. The 2,000-line `PLAN.md` changelog was replaced by a short navigation and
 Now/Next/Later map, and the repository instructions were changed to prevent current status,
 execution checklists, and historical narrative from diverging again.
+
+## Crawlable club forecast architecture (2026-07-26)
+
+The static acquisition build expanded from league-only documents to one self-canonical page per
+competition-scoped club. League scoping intentionally prevents same-name men's and women's teams,
+continental appearances, and source aliases from being merged; 1,444 club pages now carry unique
+metadata, `SportsTeam` and dataset schema, season outlooks, recent/upcoming matches, peer links, and
+an interactive-dashboard handoff, with all canonicals included in the generated sitemap.

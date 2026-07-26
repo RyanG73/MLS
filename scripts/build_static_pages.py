@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Generate crawlable static league pages + hub + sitemap.xml (launch plan C2).
+"""Generate crawlable static league/club pages + hub + sitemap.xml (launch plan C2).
 
 Emits, from the same payloads the SPA reads:
 
   webapp/leagues/<id>/index.html   one standalone landing page per league
+  webapp/leagues/<id>/clubs/<slug>/index.html
+                                    one standalone forecast page per club
   webapp/leagues/index.html        the hub page listing every league
-  webapp/sitemap.xml               /, /leagues/, and every league page
+  webapp/sitemap.xml               /, /leagues/, every league and club page
 
 Design contract (docs/superpowers/plans/2026-08-17-public-launch.md):
   - stdlib only — this runs inside .github/workflows/deploy.yml on bare
     python3 with no pip install. Do not import pandas/jinja2/requests here.
-  - pages are lightweight standalone documents (~15-25 KB), NOT copies of the
-    SPA; they are self-canonical and link into /?league=<id> for interaction.
+  - pages are lightweight standalone documents, NOT copies of the SPA; they
+    are self-canonical and link into /?league=<id> for interaction.
   - generated at deploy time; webapp/leagues/ and webapp/sitemap.xml are
     .gitignore'd — never commit the output.
   - a malformed payload for a registry-live league fails the build (a deploy
@@ -30,8 +32,10 @@ import io
 import json
 import re
 import sys
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlencode
 
 # Runnable both as `python3 scripts/build_static_pages.py` (deploy.yml) and
 # `python3 -m scripts.build_static_pages` (build_all.sh).
@@ -110,6 +114,14 @@ border-radius:6px;padding:10px 14px;font-size:13.5px;color:var(--txt2);margin:14
 .callout .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3)}
 .callout .v{font-family:var(--mono);font-size:18px;font-weight:700}
 .callout .t{font-size:13px;color:var(--txt2)}
+.club-hd{display:flex;align-items:center;gap:14px;margin:4px 0 6px}
+.club-hd h1{margin:0}
+.club-crest{width:54px;height:54px;object-fit:contain;flex:none}
+.club-summary{font-size:15px;color:var(--txt2);margin:16px 0;max-width:760px}
+.result{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;
+border-radius:4px;font:700 11px var(--mono);flex:none}
+.result.w{background:#173a29;color:var(--green)}.result.d{background:#2c3037;color:var(--txt2)}
+.result.l{background:#401f23;color:var(--red)}
 .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
 table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:520px}
 th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);text-align:right;
@@ -165,6 +177,77 @@ def _fmt_date(iso: str | None) -> str:
 
 def _today() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def club_slug(name: str | None) -> str:
+    """Stable, readable URL segment for one competition-scoped club."""
+    ascii_name = unicodedata.normalize(
+        "NFKD", str(name or "").strip()).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-") or "club"
+
+
+def _club_groups(d: dict) -> list[tuple[str, dict, list[str]]]:
+    """Group harmless spelling aliases that collapse to one slug.
+
+    A source currently emits both "St. Patrick's Athletic" and
+    "St Patrick's Athletic". A single competition-scoped canonical is more
+    useful than two near-duplicate pages. The row with the most played matches
+    is treated as the representative forecast.
+    """
+    grouped: dict[str, list[dict]] = {}
+    for row in d.get("standings") or []:
+        if row.get("team"):
+            grouped.setdefault(club_slug(row["team"]), []).append(row)
+
+    # Knockout payloads can carry scheduled participants that are not present
+    # in the current-stage standings. They still need real landing pages because
+    # the league fixture list links to them.
+    game_only: dict[str, dict] = {}
+    for game in d.get("games") or []:
+        for side, logo_key, id_key, color_key in (
+            ("home", "hlogo", "home_id", "hcolor"),
+            ("away", "alogo", "away_id", "acolor"),
+        ):
+            name = game.get(side)
+            if not name:
+                continue
+            slug = club_slug(name)
+            candidate = {
+                "team": name,
+                "team_id": game.get(id_key),
+                "logo": game.get(logo_key),
+                "color": game.get(color_key),
+            }
+            existing = game_only.get(slug)
+            if existing is None or (
+                    not existing.get("logo") and candidate.get("logo")):
+                game_only[slug] = candidate
+    for slug, row in game_only.items():
+        grouped.setdefault(slug, [row])
+
+    out = []
+    for slug, rows in grouped.items():
+        primary = max(
+            rows,
+            key=lambda row: (
+                row.get("gp") or 0,
+                row.get("pts") or 0,
+                row.get("proj_pts") or 0,
+                sum(value is not None for value in row.values()),
+            ),
+        )
+        aliases = [str(row["team"]) for row in rows]
+        out.append((slug, primary, aliases))
+    return sorted(out, key=lambda item: item[1]["team"].casefold())
+
+
+def _club_href(league_id: str, team: str | None) -> str:
+    return f"/leagues/{league_id}/clubs/{club_slug(team)}/"
+
+
+def _club_link(league_id: str, team: str | None) -> str:
+    name = str(team or "")
+    return f'<a href="{E(_club_href(league_id, name))}">{E(name)}</a>'
 
 
 def _public_copy(value: str | None) -> str:
@@ -274,14 +357,16 @@ def _footer(generated: str) -> str:
             f'© Entenser</footer>\n</main>\n</body>\n</html>\n')
 
 
-def _standings_table(d: dict, cols: list[tuple[str, str]], completed: bool) -> str:
+def _standings_table(d: dict, cols: list[tuple[str, str]], completed: bool,
+                     league_id: str) -> str:
     rows = d.get("standings") or []
     if not rows:
         return ""
     if completed:
         heads = "".join(f"<th>{E(h)}</th>" for h in ("GP", "Pts", "GD"))
         body = "".join(
-            f'<tr><td>{i + 1}</td><td class="tm">{E(r.get("team", ""))}</td>'
+            f'<tr><td>{i + 1}</td><td class="tm">'
+            f'{_club_link(league_id, r.get("team"))}</td>'
             f'<td>{r.get("gp", "–")}</td><td>{r.get("pts", "–")}</td>'
             f'<td>{r.get("gd", "–")}</td></tr>'
             for i, r in enumerate(
@@ -298,7 +383,8 @@ def _standings_table(d: dict, cols: list[tuple[str, str]], completed: bool) -> s
 
     def _body(rs):
         return "".join(
-            f'<tr><td>{i + 1}</td><td class="tm">{E(r.get("team", ""))}</td>'
+            f'<tr><td>{i + 1}</td><td class="tm">'
+            f'{_club_link(league_id, r.get("team"))}</td>'
             f'<td>{r.get("pts", "–")}</td>'
             f'<td>{r.get("proj_pts", "–")}</td>'
             + "".join(f"<td>{pctH(r.get(k))}</td>" for k, _ in cols)
@@ -321,7 +407,7 @@ def _standings_table(d: dict, cols: list[tuple[str, str]], completed: bool) -> s
     return _tbl(rows)
 
 
-def _callouts(d: dict, cols: list[tuple[str, str]]) -> str:
+def _callouts(d: dict, cols: list[tuple[str, str]], league_id: str) -> str:
     rows = d.get("standings") or []
     if not rows or not cols:
         return ""
@@ -333,7 +419,8 @@ def _callouts(d: dict, cols: list[tuple[str, str]]) -> str:
             continue
         out.append(f'<div class="callout"><div class="k">{E(lbl0)}</div>'
                    f'<div class="v">{pctH(r.get(key0))}</div>'
-                   f'<div class="t">{E(r.get("team", ""))}</div></div>')
+                   f'<div class="t">{_club_link(league_id, r.get("team"))}'
+                   f'</div></div>')
     rel = next(((k, l) for k, l in cols if k == "releg"), None)
     if rel:
         worst = sorted(rows, key=lambda r: -(r.get("releg") or 0))[:2]
@@ -342,16 +429,18 @@ def _callouts(d: dict, cols: list[tuple[str, str]]) -> str:
                 continue
             out.append(f'<div class="callout"><div class="k">Relegation</div>'
                        f'<div class="v">{pctH(r.get("releg"))}</div>'
-                       f'<div class="t">{E(r.get("team", ""))}</div></div>')
+                       f'<div class="t">{_club_link(league_id, r.get("team"))}'
+                       f'</div></div>')
     return f'<div class="callouts">{"".join(out)}</div>' if out else ""
 
 
-def _fixtures(fx: list[dict]) -> str:
+def _fixtures(fx: list[dict], league_id: str) -> str:
     if not fx:
         return ""
     rows = "".join(
         f'<div class="fxrow"><span class="d">{E(_fmt_date(g.get("date")))}</span>'
-        f'<span class="t">{E(g.get("home", ""))} vs {E(g.get("away", ""))}</span>'
+        f'<span class="t">{_club_link(league_id, g.get("home"))} vs '
+        f'{_club_link(league_id, g.get("away"))}</span>'
         f'<span class="p">{pctH((g.get("pH") or 0) * 100)} W · '
         f'{pctH((g.get("pD") or 0) * 100)} D · '
         f'{pctH((g.get("pA") or 0) * 100)} L</span></div>'
@@ -483,12 +572,12 @@ def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
                      '</div>')
 
     if not completed:
-        parts.append(_callouts(d, cols))
+        parts.append(_callouts(d, cols, lid))
 
     if rows and not knockout:
         parts.append(f'<h2>{"Final table" if completed else "Projected table"}</h2>')
-        parts.append(_standings_table(d, cols, completed))
-    parts.append(_fixtures(fx))
+        parts.append(_standings_table(d, cols, completed, lid))
+    parts.append(_fixtures(fx, lid))
 
     rules = (d.get("outlook") or {}).get("rules")
     if rules:
@@ -509,6 +598,312 @@ def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
                                f'{E(x["name"])}</a>' for x in sibs)
                      + f'<a href="/leagues/">All {len(registry)} leagues</a>'
                        '</div>')
+    parts.append(_footer(generated))
+    return "".join(parts)
+
+
+# ── per-club page ─────────────────────────────────────────────────────────────
+
+def _club_jsonld(lg: dict, d: dict, row: dict, canonical: str,
+                 site: str) -> dict:
+    league_url = f"{site}/leagues/{lg['id']}/"
+    team = str(row["team"]).strip()
+    sports_team = {
+        "@type": "SportsTeam",
+        "name": team,
+        "sport": "Soccer",
+        "url": canonical,
+        "memberOf": {
+            "@type": "SportsOrganization",
+            "name": lg["name"],
+            "url": league_url,
+        },
+    }
+    if row.get("logo"):
+        sports_team["logo"] = row["logo"]
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    {"@type": "ListItem", "position": 1, "name": "Entenser",
+                     "item": f"{site}/"},
+                    {"@type": "ListItem", "position": 2, "name": "Leagues",
+                     "item": f"{site}/leagues/"},
+                    {"@type": "ListItem", "position": 3, "name": lg["name"],
+                     "item": league_url},
+                    {"@type": "ListItem", "position": 4, "name": team,
+                     "item": canonical},
+                ],
+            },
+            sports_team,
+            {
+                "@type": "Dataset",
+                "name": f"{team} {lg['name']} forecast",
+                "description": (
+                    f"Daily-refreshed {team} season outlook, table projection "
+                    f"and match probabilities in {lg['name']}."
+                ),
+                "url": canonical,
+                "dateModified": (d.get("generated") or "")[:10],
+                "creator": {
+                    "@type": "Organization",
+                    "name": "Entenser",
+                    "url": f"{site}/",
+                },
+                "isAccessibleForFree": True,
+            },
+        ],
+    }
+
+
+def _club_games(d: dict, slug: str) -> tuple[list[dict], list[dict]]:
+    games = [
+        game for game in d.get("games") or []
+        if slug in {club_slug(game.get("home")), club_slug(game.get("away"))}
+    ]
+    played = sorted(
+        (game for game in games if game.get("result")),
+        key=lambda game: game.get("date") or "",
+        reverse=True,
+    )[:5]
+    upcoming = sorted(
+        (game for game in games
+         if not game.get("result") and (game.get("date") or "") >= _today()),
+        key=lambda game: (game.get("date") or "", game.get("id") or 0),
+    )[:5]
+    return played, upcoming
+
+
+def _club_projected_position(d: dict, row: dict) -> tuple[float | None, int, str]:
+    """Expected rank plus the relevant field size and optional conference."""
+    if row.get("proj_rank") is not None:
+        return (
+            float(row["proj_rank"]),
+            (d.get("outlook") or {}).get("n_teams")
+            or len(d.get("standings") or []),
+            "",
+        )
+    conference = row.get("conf") if isinstance(row.get("conf"), str) else ""
+    peers = [
+        candidate for candidate in d.get("standings") or []
+        if not conference or candidate.get("conf") == conference
+    ]
+    if not peers or row.get("proj_pts") is None:
+        return None, len(peers), conference
+    peers.sort(key=lambda candidate: (
+        -(candidate.get("proj_pts") or 0),
+        -(candidate.get("pts") or 0),
+        candidate.get("team") or "",
+    ))
+    slug = club_slug(row.get("team"))
+    for index, candidate in enumerate(peers, 1):
+        if club_slug(candidate.get("team")) == slug:
+            return float(index), len(peers), conference
+    return None, len(peers), conference
+
+
+def _club_match_rows(games: list[dict], slug: str, league_id: str,
+                     completed: bool) -> str:
+    rows = []
+    for game in games:
+        home = club_slug(game.get("home")) == slug
+        opponent = game.get("away") if home else game.get("home")
+        venue = game.get("venue")
+        context = f' · {E(venue)}' if venue else ""
+        if completed:
+            hg, ag = game.get("hg"), game.get("ag")
+            if hg is not None and ag is not None:
+                club_goals, opp_goals = (hg, ag) if home else (ag, hg)
+                outcome = "W" if club_goals > opp_goals else (
+                    "D" if club_goals == opp_goals else "L")
+                detail = f"{club_goals}–{opp_goals}"
+            else:
+                result = game.get("result")
+                outcome = "D" if result == "D" else (
+                    "W" if (result == "H") == home else "L")
+                detail = outcome
+            rows.append(
+                f'<div class="fxrow"><span class="result {outcome.lower()}">'
+                f'{outcome}</span><span class="d">{E(_fmt_date(game.get("date")))}</span>'
+                f'<span class="t">{"vs" if home else "at"} '
+                f'{_club_link(league_id, opponent)}{context}</span>'
+                f'<span class="p">{E(detail)}</span></div>'
+            )
+        else:
+            win = game.get("pH") if home else game.get("pA")
+            draw = game.get("pD")
+            loss = game.get("pA") if home else game.get("pH")
+            rows.append(
+                f'<div class="fxrow"><span class="d">'
+                f'{E(_fmt_date(game.get("date")))}</span>'
+                f'<span class="t">{"vs" if home else "at"} '
+                f'{_club_link(league_id, opponent)}{context}</span>'
+                f'<span class="p">{pctH((win or 0) * 100)} W · '
+                f'{pctH((draw or 0) * 100)} D · '
+                f'{pctH((loss or 0) * 100)} L</span></div>'
+            )
+    return "".join(rows)
+
+
+def _club_summary(lg: dict, d: dict, row: dict,
+                  cols: list[tuple[str, str]]) -> str:
+    team = str(row["team"]).strip()
+    league = lg["name"]
+    completed = d.get("status") == "completed"
+    bits = []
+    if completed:
+        bits.append(
+            f"{team} finished with {row.get('pts', '–')} points from "
+            f"{row.get('gp', '–')} matches in {league}.")
+    else:
+        projected_rank, _, conference = _club_projected_position(d, row)
+        if projected_rank is not None:
+            rank_label = (
+                f"{projected_rank:.1f}" if projected_rank % 1 else
+                f"{int(projected_rank)}")
+            bits.append(
+                f"{team} are projected to finish {rank_label}"
+                f"{f' in the {conference}' if conference else ''} in {league}")
+            if row.get("proj_pts") is not None:
+                bits[-1] += f" with {float(row['proj_pts']):.1f} points."
+            else:
+                bits[-1] += "."
+        else:
+            bits.append(f"Current {team} projections for {league}.")
+    probabilities = [
+        f"{pct(row.get(key))} {label.lower()}"
+        for key, label in cols if row.get(key) is not None
+    ][:3]
+    if probabilities and not completed:
+        bits.append("The current model outlook is " + ", ".join(probabilities) + ".")
+    bits.append("Forecasts update with new results and are graded in public.")
+    return " ".join(bits)
+
+
+def club_page(lg: dict, d: dict, row: dict, aliases: list[str],
+              site: str) -> str:
+    lid, league = lg["id"], lg["name"]
+    team = str(row["team"]).strip()
+    slug = club_slug(team)
+    canonical = f"{site}/leagues/{lid}/clubs/{slug}/"
+    season = _season_label(d)
+    completed = d.get("status") == "completed"
+    generated = d.get("generated") or ""
+    cols = _columns(d)
+    played, upcoming = _club_games(d, slug)
+
+    if completed:
+        title = f"{team} {season} Results & Final {league} Position — Entenser"
+        desc = (
+            f"{team} {season} {league} results, final position and model "
+            f"forecast record. Updated {generated[:10]}."
+        )
+    else:
+        title = f"{team} Predictions {season}: {league} Forecast — Entenser"
+        headline = next(
+            (f"{pct(row.get(key))} {label.lower()} probability"
+             for key, label in cols if row.get(key) is not None),
+            "season projection",
+        )
+        detail = (
+            "projected finish, points, strength rating and upcoming match "
+            "probabilities" if row.get("proj_rank") is not None
+            or row.get("proj_pts") is not None else
+            "competition outlook and match win/draw/loss probabilities"
+        )
+        desc = (f"{team} {season} forecast in {league}: {headline}, {detail}. "
+                f"Updated {generated[:10]}.")
+
+    parts = [_head(
+        title, desc, canonical, f"{site}/assets/og/og-image.png",
+        _club_jsonld(lg, d, row, canonical, site),
+    )]
+    crest = (
+        f'<img class="club-crest" src="{E(row["logo"])}" '
+        f'alt="{E(team)} crest">' if row.get("logo") else ""
+    )
+    badge = "final" if completed else (
+        "pre-season" if d.get("status") == "preseason" else "live")
+    parts.append(
+        f'<div class="club-hd">{crest}<div><h1>{E(team)} forecast'
+        f'<span class="badge">{badge}</span></h1>'
+        f'<div class="sub"><a href="/leagues/{E(lid)}/">{E(league)}</a>'
+        f' · {E(season)} · updated {E(generated[:10])}</div></div></div>'
+    )
+    parts.append(f'<p class="club-summary">{E(_club_summary(lg, d, row, cols))}</p>')
+
+    metrics = []
+    if row.get("pts") is not None:
+        metrics.append(("Current", f"{row.get('pts')} pts",
+                        f"{row.get('gp', '–')} matches"))
+    projected_rank, field_size, conference = _club_projected_position(d, row)
+    if projected_rank is not None:
+        rank_label = (
+            f"{projected_rank:.1f}" if projected_rank % 1 else
+            f"{int(projected_rank)}")
+        metrics.append((
+            "Expected finish",
+            f"#{rank_label}",
+            f"of {field_size}{f' · {conference}' if conference else ''}",
+        ))
+    if row.get("proj_pts") is not None and not completed:
+        metrics.append(("Projected points", f"{float(row['proj_pts']):.1f}", season))
+    rating = row.get("global_elo")
+    if rating is None:
+        rating = row.get("elo")
+    if rating is not None:
+        metrics.append(("Global ELO", f"{float(rating):.0f}", "shared strength scale"))
+    for key, label in cols:
+        if row.get(key) is not None:
+            metrics.append((label, pct(row.get(key)), "season probability"))
+    if metrics:
+        parts.append('<div class="callouts">' + "".join(
+            f'<div class="callout"><div class="k">{E(label)}</div>'
+            f'<div class="v">{E(value)}</div><div class="t">{E(note)}</div></div>'
+            for label, value, note in metrics
+        ) + "</div>")
+
+    if upcoming:
+        parts.append("<h2>Upcoming matches — win probabilities</h2><div class=\"fx\">")
+        parts.append(_club_match_rows(upcoming, slug, lid, False))
+        parts.append("</div>")
+    if played:
+        parts.append("<h2>Recent results</h2><div class=\"fx\">")
+        parts.append(_club_match_rows(played, slug, lid, True))
+        parts.append("</div>")
+
+    if len(aliases) > 1:
+        parts.append(
+            '<div class="note">Source naming variants consolidated on this '
+            f'page: {E(" / ".join(alias.strip() for alias in aliases))}.</div>'
+        )
+
+    peers = [
+        (peer_slug, peer)
+        for peer_slug, peer, _ in _club_groups(d) if peer_slug != slug
+    ]
+    peers.sort(key=lambda item: (
+        item[1].get("proj_rank") or 999,
+        -(item[1].get("pts") or 0),
+        item[1]["team"],
+    ))
+    if peers:
+        parts.append('<h2>More clubs in ' + E(league) + '</h2><div class="sibs">')
+        parts.extend(
+            f'<a href="/leagues/{E(lid)}/clubs/{E(peer_slug)}/">'
+            f'{E(peer["team"].strip())}</a>'
+            for peer_slug, peer in peers[:12]
+        )
+        parts.append(f'<a href="/leagues/{E(lid)}/">Full {E(league)} forecast</a></div>')
+
+    query = urlencode({"league": lid, "team": team})
+    parts.append(
+        f'<a class="cta" href="/?{E(query)}">Open the interactive {E(team)} dashboard →</a>'
+    )
+    parts.append(f'<h2>How these forecasts work</h2>'
+                 f'<p class="sub">{E(_METHOD_NOTE)}</p>')
     parts.append(_footer(generated))
     return "".join(parts)
 
@@ -907,7 +1302,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     names = {lg["id"]: lg["name"] for lg in registry}
 
-    pages: list[tuple[str, str]] = []   # (loc, lastmod)
+    pages: list[tuple[str, str]] = []   # league (loc, lastmod)
+    club_pages: list[tuple[str, str]] = []
     payloads: dict[str, dict] = {}
     failures: list[str] = []
     for lg in registry:
@@ -940,6 +1336,13 @@ def main(argv: list[str] | None = None) -> int:
         lastmod = (d.get("generated") or "")[:10]
         max_lastmod = max(max_lastmod, lastmod)
         pages.append((f"{site}/leagues/{lg['id']}/", lastmod))
+        for slug, row, aliases in _club_groups(d):
+            club_dir = page_dir / "clubs" / slug
+            club_dir.mkdir(parents=True, exist_ok=True)
+            (club_dir / "index.html").write_text(
+                club_page(lg, d, row, aliases, site), encoding="utf-8")
+            club_pages.append(
+                (f"{site}/leagues/{lg['id']}/clubs/{slug}/", lastmod))
         # Open-data CSV (launch plan H3) — table leagues with a projected table.
         cols = _columns(d)
         if (d.get("standings") and cols
@@ -1013,9 +1416,9 @@ def main(argv: list[str] | None = None) -> int:
 
     entries = ([(f"{site}/", max_lastmod),
                 (f"{site}/leagues/", max_lastmod)]
-               + extra + sorted(pages))
+               + extra + sorted(pages) + sorted(club_pages))
     (out / "sitemap.xml").write_text(sitemap(entries), encoding="utf-8")
-    print(f"wrote {len(pages)} league pages + hub"
+    print(f"wrote {len(pages)} league pages + {len(club_pages)} club pages + hub"
           f"{' + weekly' if w and w.get('status') == 'ok' else ''}"
           f" + {len(exported)} CSV exports + European forecasts + RSS + sitemap "
           f"({len(entries)} URLs, lastmod {max_lastmod})")
