@@ -2,7 +2,8 @@
 
 > Newcomer reference. Covers what this project is, how it evolved, and the key decisions that
 > shaped it. For current model state and run commands, see `docs/CURRENT_STATE.md`. For what's
-> in progress, see the active `docs/superpowers/plans/` file and the top of `docs/PLAN.md`.
+> true now, see `docs/STATUS.md`; for execution, see the single active
+> `docs/superpowers/plans/` file.
 
 ---
 
@@ -701,3 +702,20 @@ without refitting the model or redeploying the shell. The public acquisition lay
 from the opt-in authenticated comparison layer, adding forecast-first copy, local league aliases,
 a European breadth landing page, RSS, and revised share cards while preserving the full analytical
 tables and globally comparable ELO already on the site.
+
+## Full-site UX audit and documentation consolidation (2026-07-25 → 2026-07-26)
+
+The mobile and desktop audit corrected the shared contrast token, raised the most damaging type
+sizes, stopped Mobile Safari search-focus zoom, restored keyboard access to league pins, repaired
+semantic table headings, and verified 12 representative routes without horizontal overflow.
+Follow-up work also repaired the masthead, RSS generation, crest identity, season rollover,
+competition brackets, Transfermarkt value parsing, global shared ELO, and Matches to Watch. The
+completed audit and the earlier premium-site review were retired; their unresolved structural
+decisions—desktop ordering, tablet layout, type floor, design-contract drift, and remaining
+production surface QA—now live once in `STATUS.md`.
+
+The documentation system was reduced to one source per purpose: `STATUS.md` for current truth,
+one active launch plan for execution, `CURRENT_STATE.md` for technical configuration, and this file
+for history. The 2,000-line `PLAN.md` changelog was replaced by a short navigation and
+Now/Next/Later map, and the repository instructions were changed to prevent current status,
+execution checklists, and historical narrative from diverging again.

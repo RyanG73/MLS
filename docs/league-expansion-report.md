@@ -205,7 +205,7 @@
 >   implied below. Brazil's file tracked the current season in real time; Japan's file lagged a
 >   full season boundary (last row was the *prior* season's finale). The build now backfills
 >   already-played ESPN matches onto the frame whenever this happens — see
->   `docs/PLAN.md`'s 2026-07-10 entry and `scripts/build_league_data.py` for the fix. Any future
+>   `docs/PROJECT_HISTORY.md` and `scripts/build_league_data.py` for the fix. Any future
 >   Tier-1-style addition should verify this per country before assuming the CSV is current.
 >
 > Implementation detail: Brazil/Japan/Sweden/Norway/Denmark/Argentina use a new adapter,

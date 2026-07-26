@@ -4,7 +4,7 @@ Recommendations for the open-question items from the 2026-07-13 feedback round.
 The build-now items from that same round (masthead reorder, South America icon,
 qualify-line labels, power-rankings fix, contact page, home page Recent Results +
 Movers board, Matches-tab day calendar) shipped directly — see commit history and
-`docs/PLAN.md`. This doc covers only the items that need a decision before work
+`docs/PROJECT_HISTORY.md`. This doc covers only the items that need a decision before work
 starts.
 
 ---
@@ -88,7 +88,7 @@ or a right-rail unit under `.ga-models`. Concretely: pick placements now (home
 mid-feed, league-page sidebar, between Matches-tab panels), but don't wire an ad
 network until there's traffic worth monetizing — most networks (AdSense, Ezoic)
 have minimum-traffic gates anyway. The betting-adjacent content also needs care:
-`docs/PLAN.md`'s responsible-gambling stance (no sportsbook affiliate links,
+the project's responsible-gambling stance (no sportsbook affiliate links,
 Privacy page explicitly says "There are no sportsbook affiliate links on this
 site") should stay true even with generic display ads — don't let an ad network
 backfill sportsbook creative without a policy decision first.

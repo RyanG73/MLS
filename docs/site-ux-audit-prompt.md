@@ -584,7 +584,8 @@ gap — off the 4px grid and outside the 10–16px card-gap rule (`index.html:28
 - **Check for a concurrent session before committing:** `git log` plus running processes. Another
   session may be live in this repo and mid-edit on the same file.
 - **Update docs** per `CLAUDE.md`: a plan file under `docs/superpowers/plans/` carrying the
-  per-surface verdicts, and a blockquote entry at the top of `docs/PLAN.md` if behaviour changed.
+  per-surface verdicts, update `docs/STATUS.md` if current product truth changed, and summarize a
+  completed audit in `docs/PROJECT_HISTORY.md`.
 - **Commit with clear messages; do not push unless asked.**
 
 ---

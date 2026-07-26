@@ -15,7 +15,7 @@
 > | **Support address** (`entenser@gmail.com` → `support@entenser.com`) | not tracked | **by Aug 10** | free |
 >
 > **Unchanged / still deferred:** Odds API tier, paid social test, weekly digest sends (still needs
-> explicit sign-off — standing rule). Full context: `docs/STATUS.md` §2.
+> explicit sign-off — standing rule). Current context: `docs/STATUS.md` under Owner actions.
 
 
 

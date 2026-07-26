@@ -3,18 +3,23 @@
 ## Documentation convention
 
 **Where to look:**
-- `docs/PLAN.md` — canonical plan; blockquote header is the living changelog of what was built
+- `docs/STATUS.md` — canonical current truth: production state, blockers, next actions, and proof
+- `docs/PLAN.md` — short documentation map and Now/Next/Later roadmap; never a changelog
 - `docs/CURRENT_STATE.md` — canonical model config, metrics, run commands (quick reference)
 - `docs/PROJECT_HISTORY.md` — narrative history for newcomers; model lineage, key decisions, what failed and why
 - `docs/experiment-protocol.md` — shared agent contract for improvement campaigns
 - `docs/feature-hunt-log.md` — live record of features tried and rejected
-- `docs/superpowers/plans/<active>.md` — what's in progress right now; completed steps have verdicts appended at top
+- `docs/superpowers/plans/<active>.md` — the one active execution checklist; completed steps have verdicts appended at top
+- Dated strategy, audit, and research documents are evidence only. They never override `STATUS.md`.
 
 **Update rules (apply every iteration, commit with code changes):**
-- After any **code change**: append a verdict to the active `docs/superpowers/plans/` file. If model config or metrics changed, update `docs/CURRENT_STATE.md`.
+- After any **code or production-state change**: update `docs/STATUS.md` and append a concise verdict to the active `docs/superpowers/plans/` file.
+- If model config or metrics changed, update `docs/CURRENT_STATE.md`.
 - After a **plan completes**: add 2–3 sentences summarising outcomes to `docs/PROJECT_HISTORY.md` under a dated entry, then delete the plan file.
-- After any **eval result change, feature add/drop, or parameter tune**: add a blockquote entry to the top of `docs/PLAN.md`.
-- **Completed plan files are deleted, not archived.** Their story lives in `PROJECT_HISTORY.md`. Only one or two plan files should exist at any time.
+- After a **milestone or durable decision**: record it once in `docs/PROJECT_HISTORY.md`; do not copy a running changelog into `PLAN.md`.
+- Keep `docs/PLAN.md` under 100 lines. It links to the current truth and groups work into Now/Next/Later.
+- **Completed plan files are deleted, not archived.** Their story lives in `PROJECT_HISTORY.md`.
+  Keep exactly one active plan unless the owner explicitly authorizes a second independent workstream.
 
 ## Active branch
 

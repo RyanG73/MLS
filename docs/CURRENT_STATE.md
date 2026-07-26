@@ -506,4 +506,4 @@ python scripts/model_report.py --frame data/parity_frame.parquet --market-eval e
 - `legacy/models/{dixon_coles,gradient_boost,stacking_ensemble,backtest,season_simulator}.py` — old model stack, superseded by `models/research_model.py`
 - `legacy/dashboard/` — Streamlit multi-page app, superseded by `webapp/`
 - `legacy/data_pipeline/`, `legacy/features/`, `legacy/market/`, `legacy/scripts/` — Postgres-backed ingest, feature builders, betting layer, and ops/cron scripts
-- `docs/PLAN.md` — historical plan; deep-history sections describe the archived Postgres/Pi architecture
+- `docs/PROJECT_HISTORY.md` — historical narrative for the archived Postgres/Pi architecture and later decisions

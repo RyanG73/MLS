@@ -14,7 +14,8 @@
 > `docs/data-sources.md`. **§1 rule 4 (the free-floor ratchet) was NOT reversed and is not
 > negotiable**: no shipped free feature ever moves behind the paywall; paid features are born paid;
 > current season free, the vault is paid. **§1 rule 3 (forecast history cannot be backfilled) also
-> stands**, and it bounds what the vault can honestly be sold as — see `docs/STATUS.md` §5.
+> stands**, and it bounds what the vault can honestly be sold as — see `docs/STATUS.md` and the
+> measured archive history in `docs/PROJECT_HISTORY.md`.
 
 
 

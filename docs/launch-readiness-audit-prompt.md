@@ -14,17 +14,17 @@
 
 ## 0. The decision that changed — read this first
 
-`docs/product-roadmap-2026-07.md` §4–5 gates the entire paid tier behind an **Oct 31 evidence
-gate** (waitlist joins ≥ 2% of returning users **AND** ≥ 150 absolute), with Phase 2 (M1–M7)
-scheduled **Nov 2026 → Feb 2027**. `docs/STATUS.md` §4 repeats it. The kill criterion on record
-is: gate fails → build none of it, fall back to a donation link.
+`docs/product-roadmap-2026-07.md` §4–5 originally gated the entire paid tier behind an **Oct 31
+evidence gate** (waitlist joins ≥ 2% of returning users **AND** ≥ 150 absolute), with Phase 2
+(M1–M7) scheduled **Nov 2026 → Feb 2027**. That historical gate was replaced by the paid-launch
+decision recorded in `docs/PROJECT_HISTORY.md`; `docs/STATUS.md` carries the current gate.
 
 **The owner has now directed that subscriptions must be live and taking money at go-live on
 2026-08-17.** That is a deliberate reversal of a documented decision, made with knowledge of the
 gate. Your job is not to re-litigate it — it is to:
 
-1. **Record the reversal explicitly** as a dated decision entry at the top of
-   `docs/PLAN.md` (blockquote changelog) and in `docs/product-roadmap-2026-07.md`, so the repo
+1. **Record the reversal explicitly** in `docs/PROJECT_HISTORY.md`,
+   `docs/STATUS.md`, and `docs/product-roadmap-2026-07.md`, so the repo
    never again reads as if Oct 31 still governs. State what the gate was *for* (evidence that
    demand exists before spending build effort) and what replaces it now that the effort is
    being spent regardless — most likely a **post-launch conversion read** with an explicit
@@ -80,7 +80,8 @@ Stripe's `trial_will_end` fires 3 days out — day 4 of 7, before a second match
 14-day trial must also survive **FIFA international breaks**, which pause domestic leagues for
 ~2 weeks and can render a trial empty; define it in matchweeks or suspend expiry across a break.
 
-**What this obliges you to do in this audit:** record the decision in `docs/PLAN.md`, reconcile
+**What this obliges you to do in this audit:** record the decision in `docs/PROJECT_HISTORY.md`,
+update `docs/STATUS.md`, reconcile
 `docs/product-roadmap-2026-07.md` §1 and M1, **keep the `trial` plan rank and webhook mapping
 intact** (they cost nothing, they are correct, and the A/B needs them), and instrument the
 funnel (Track 8) so the no-trial baseline is measurable from day one.
@@ -160,7 +161,7 @@ a Vercel deployment with missing env vars. Hit the live endpoints.
 **No live money, no live sends, no public posts.** Use Stripe **test mode** for every payment
 rehearsal. Use Resend's `delivered@resend.dev` for email tests. Do not send broadcast email, do
 not post announcements, do not open the promo switch — all four require explicit owner sign-off
-and one of them (broadcast sends) is a standing rule in `docs/STATUS.md` §2d.
+and one of them (broadcast sends) is a standing rule in `docs/STATUS.md` under Owner actions.
 
 **Do not touch production data or secrets destructively.** Read env var *names* and presence;
 never print or commit secret *values*. `.env` and `.env.local` exist locally — confirm
@@ -191,7 +192,7 @@ the file's existing convention. Update the header's **Last updated** and keep **
 Monday 2026-08-17**.
 
 Also update, per `CLAUDE.md`'s documentation convention:
-- `docs/PLAN.md` — a dated blockquote entry at the top for the paid-launch decision reversal.
+- `docs/PROJECT_HISTORY.md` — a dated durable-decision entry for the paid-launch reversal.
 - `docs/product-roadmap-2026-07.md` — reconcile §4's Oct 31 gate, §5's Nov–Feb schedule, and
   §1's 14-day-trial spec plus M1's trial UX rules (all superseded by §0b).
 - `docs/superpowers/plans/2026-08-17-public-launch.md` — the active launch plan; append verdicts.
@@ -362,7 +363,7 @@ Files: `server/intel_auth.py`, `api/auth/{request,callback,refresh,logout}.py`,
   Note `RESEND_FROM` **and** `RESEND_FROM_EMAIL` both appear; determine whether that's a real
   inconsistency. Produce a table: variable → set in Vercel prod? → who sets it → what breaks
   without it. Use `vercel env ls` (names only — never print values).
-- **`api.entenser.com` DNS.** `docs/STATUS.md` §7 flags this as the top item; last recorded state
+- **`api.entenser.com` DNS.** `docs/STATUS.md` flags this as the top launch blocker; last recorded state
   was `NXDOMAIN`, with the API answering only on `mls-five.vercel.app`. Verify current state and
   confirm what the webapp actually calls — if the site is hardcoded to the custom domain, the
   API is unreachable in production regardless of it being deployed.
@@ -474,7 +475,8 @@ What you must produce:
 
 ### Track 6 — Legal, tax & consumer-subscription compliance
 
-`docs/STATUS.md` §2d lists legal review as a no-deadline decision at $500–2,500. **Taking money
+The external-dependency ledger historically listed legal review as a no-deadline decision at
+$500–2,500. **Taking money
 on Aug 17 moves it onto the critical path.** This is the track most likely to be underestimated.
 
 Assess and report — clearly labeled as *operational findings, not legal advice*, with a

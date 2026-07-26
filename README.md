@@ -90,9 +90,10 @@ python scripts/promotion_gate.py evaluate --challenger experiments/chal.report.j
 ```
 
 Canonical state and config live in `docs/CURRENT_STATE.md`; the full project
-history and decisions are in `docs/PLAN.md` and `docs/PROJECT_HISTORY.md`.
-The experiment contract and active plans live under `docs/experiment-protocol.md`
-and `docs/superpowers/plans/`.
+status is in `docs/STATUS.md`; and history and durable decisions are in
+`docs/PROJECT_HISTORY.md`. `docs/PLAN.md` is the short documentation map.
+The experiment contract and single active execution plan live under
+`docs/experiment-protocol.md` and `docs/superpowers/plans/`.
 
 ## Odds logging (opening lines)
 
