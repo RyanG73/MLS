@@ -112,6 +112,10 @@ jobs:
       - name: Logo map + curated news feeds (non-fatal)
         run: |
           python scripts/build_logo_map.py || echo "build_logo_map failed (non-fatal)"
+          # Matches to Watch: fixture leverage. Runs AFTER the league builds
+          # because it reads their published per-fixture probabilities.
+          python scripts/build_match_leverage.py --days 7 --sims 3000 \
+            || echo "match leverage failed (non-fatal)"
           python scripts/build_news.py || echo "build_news failed (non-fatal)"
 
       - name: Build, validate, publish, and shadow Intelligence

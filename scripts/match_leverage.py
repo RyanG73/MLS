@@ -121,7 +121,8 @@ def _bucket_probs(order, columns, n_teams):
     return out
 
 
-def leverage_for_league(lid: str, horizon_days: int, N: int, seed: int = 7):
+def leverage_for_league(lid: str, horizon_days: int, N: int, seed: int = 7,
+                        scope: str = "all"):
     d = load(lid)
     if not d or d.get("status") not in ("live", "preseason"):
         return []
@@ -168,7 +169,12 @@ def leverage_for_league(lid: str, horizon_days: int, N: int, seed: int = 7):
             for k, w in ((c.get("key"), BUCKET_WEIGHT.get(c.get("key"), 0.3)) for c in cols):
                 if k not in o_probs or k not in base_probs:
                     continue
-                for t in (hi, ai):
+                # Scope: "all" sums over EVERY club, not just the two playing.
+                # A title six-pointer moves third parties as much as the two on
+                # the pitch — "this match decides someone else's season" is the
+                # more interesting product, and it is the same arithmetic.
+                idxs = range(n_teams) if scope == "all" else (hi, ai)
+                for t in idxs:
                     delta = abs(o_probs[k][t] - base_probs[k][t])
                     swing += p_o * w * delta
                     if delta > detail.get(k, (0, None))[0]:
@@ -196,6 +202,7 @@ def main():
     ap.add_argument("--days", type=int, default=7)
     ap.add_argument("--sims", type=int, default=3000)
     ap.add_argument("--top", type=int, default=15)
+    ap.add_argument("--scope", choices=["all","pair"], default="all")
     a = ap.parse_args()
 
     lids = ([p.stem for p in sorted(DATA.glob("*.js"))] if a.all
@@ -203,7 +210,7 @@ def main():
     rows = []
     for lid in lids:
         try:
-            rows += leverage_for_league(lid, a.days, a.sims)
+            rows += leverage_for_league(lid, a.days, a.sims, scope=a.scope)
         except Exception as e:
             print(f"  [skip] {lid}: {type(e).__name__}: {e}")
     rows.sort(key=lambda r: -r["leverage"])

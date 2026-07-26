@@ -49,6 +49,9 @@ _NON_PAYLOAD = {
     # Weekly recap (window.WEEKLY_DATA, launch plan H1) — cross-league snapshot,
     # not a per-league LEAGUE_DATA payload.
     "weekly.js",
+    # Matches to Watch (window.MATCH_LEVERAGE, build_match_leverage.py) —
+    # fixture leverage across every league, keyed by fixture rather than league.
+    "match-leverage.js",
     # Added 2026-07-14 while shipping round-5 leagues: "calendar.js" (matches
     # calendar, window.CALENDAR_DATA) landed in 3279e2a without being added
     # here, so it failed contract validation and the REGISTRY-vs-disk test as

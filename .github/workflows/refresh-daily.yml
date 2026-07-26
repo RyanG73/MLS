@@ -36,7 +36,8 @@ jobs:
           # excluding them stops bogus matrix jobs like "build (edge-board)".
           for p in sorted(Path("webapp/data").glob("*.js")):
               if p.name in ("logos.js", "ledger.js", "power.js", "edge-board.js",
-                            "movers.js", "drift.js", "model-slices.js", "coefficients.js"):
+                            "movers.js", "drift.js", "model-slices.js", "coefficients.js",
+                            "match-leverage.js"):
                   continue
               m = re.match(r"window\.\w+\s*=\s*(.*?);?\s*$", p.read_text(), re.DOTALL)
               if not m:
@@ -158,6 +159,10 @@ jobs:
               || echo "$C build failed (non-fatal)"
           done
           python scripts/build_logo_map.py || echo "logo map failed (non-fatal)"
+          # Matches to Watch: fixture leverage. Runs AFTER the league builds
+          # because it reads their published per-fixture probabilities.
+          python scripts/build_match_leverage.py --days 7 --sims 3000 \
+            || echo "match leverage failed (non-fatal)"
           # Curated RSS feeds. Ran ONLY in the local scripts/daily_build.sh until
           # 2026-07-25, so webapp/data/news/ went stale the moment the live site
           # moved to CI refresh+deploy — payloads rebuilt nightly while the news

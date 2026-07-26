@@ -208,6 +208,25 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mb-portal.open.cols2,.mb-portal.open.cols3{max-width:min(94vw,760px);padding:6px 6px;column-gap:14px}
 .mb-portal.open.cols2{columns:2}
 .mb-portal.open.cols3{columns:3}
+/* Matches to watch — three leverage rails on the Matches page */
+.mtw-rails{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.mtw-rail{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--ink-1)}
+.mtw-h{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-bottom:1px solid var(--line);
+  font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-1)}
+.mtw-h em{font-style:normal;font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--txt-3)}
+.mtw-row{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"day fx lev" "day meta lev";
+  gap:1px 9px;align-items:center;padding:8px 12px;text-decoration:none;color:var(--txt-2);
+  border-bottom:1px solid var(--line)}
+.mtw-row:last-child{border-bottom:0}
+.mtw-row:hover{background:var(--ink-2);color:var(--txt-1)}
+.mtw-day{grid-area:day;font-family:var(--mono);font-size:11px;color:var(--txt-3);min-width:62px}
+.mtw-fx{grid-area:fx;display:flex;align-items:center;gap:5px;font-size:13px;min-width:0}
+.mtw-fx b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mtw-fx em{font-style:normal;color:var(--txt-3);font-size:11px}
+.mtw-fx img{width:16px;height:16px;object-fit:contain;flex:none}
+.mtw-meta{grid-area:meta;font-size:11px;color:var(--txt-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mtw-lev{grid-area:lev;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--txt-1);
+  min-width:34px;text-align:right}
 .mb-sec{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;padding-bottom:4px}
 .mb-ctry{display:flex;align-items:center;gap:6px;padding:6px 12px 3px;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-3)}
 .mb-t{display:flex;align-items:center;gap:5px;min-width:0}
@@ -1252,6 +1271,12 @@ if(_MOMENTUM_LEAGUES.has(LID))
 // day-by-day browser. Separate from edge-board.js's narrow 48h betting window.
 if(_isEdgeBoard)
   document.write('<scr'+'ipt src="data/calendar.js?t='+Date.now()+'"></scr'+'ipt>');
+// Matches to Watch (scripts/build_match_leverage.py) — fixture leverage, i.e.
+// how far each result moves the table. Static and un-gated: leverage is a
+// property of the FIXTURE, so the personalised rail is assembled client-side
+// by intersecting it with FavStore rather than by an authed API call.
+if(_isEdgeBoard)
+  document.write('<scr'+'ipt src="data/match-leverage.js?t='+Date.now()+'"></scr'+'ipt>');
 </script>
 <script>
 const _isPower = new URLSearchParams(location.search).get('league')==='power';
@@ -4446,11 +4471,65 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
       <span class="odds"><span class="was">${m.prev}%</span> → <span class="now${up?'':' dn'}">${m.now}%</span><br>
         <span class="d" style="color:${up?'var(--qualify)':'#e25f4f'}">${up?'▲':'▼'} ${Math.abs(m.delta).toFixed(1)} this week</span></span></a>`;
   };
+  // ── Matches to Watch — fixture leverage (build_match_leverage.py) ──
+  // Three rails, because raw leverage answers "where is the table most
+  // volatile", not "what should I watch": a 16-team South American table with
+  // 30 games left genuinely swings more per match than an August Premier
+  // League, so an unranked global board fills with fixtures nobody asked for.
+  //   yours       pinned leagues/teams, ordered by leverage
+  //   normalised  WITHIN-LEAGUE percentile, so a big-five game competes fairly
+  //   world       raw global leverage, labelled as the exotic rail
+  const mtwHTML=()=>{
+    const ML=window.MATCH_LEVERAGE;
+    if(!ML||!ML.fixtures||!ML.fixtures.length) return '';
+    // FavStore.teams() is an ARRAY of {league, team}, not a Set — flatten to a
+    // "league|team" key set so the membership test is O(1) per fixture.
+    const favL=FavStore.leagues();
+    const favT=new Set(FavStore.teams().map(x=>x.league+'|'+x.team));
+    const isMine=r=>favL.has(r.league)
+      ||favT.has(r.league+'|'+r.home)||favT.has(r.league+'|'+r.away);
+    const row=r=>{
+      const dt=new Date(r.date+'T12:00:00');
+      const day=dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+      const drv=r.driver&&r.driver_team
+        ? `${commandEsc(r.driver_team)} <b>${commandEsc(r.driver)}</b> ±${r.driver_swing_pp}pp` : '';
+      return `<a class="mtw-row" href="?league=${r.league}">
+        <span class="mtw-day">${day}</span>
+        <span class="mtw-fx">${crest(r.home,r.home_logo)}<b>${commandEsc(r.home)}</b>
+          <em>v</em>${crest(r.away,r.away_logo)}<b>${commandEsc(r.away)}</b></span>
+        <span class="mtw-meta">${commandEsc(r.league_name)}${drv?' · '+drv:''}</span>
+        <span class="mtw-lev" title="Expected movement in table odds">${r.leverage.toFixed(0)}</span></a>`;
+    };
+    const mine=ML.fixtures.filter(isMine).slice(0,5);
+    // One fixture per league (its most pivotal), then order by league tier so
+    // a first-division game outranks a fourth-tier one at equal pct. Every
+    // league's top fixture ties at pct 1.0, so without the tier key this rail
+    // re-sorts on raw leverage and becomes a copy of the world rail.
+    const seenL=new Set(), norm=[];
+    ML.fixtures.slice().sort((a,b)=>b.pct-a.pct||b.leverage-a.leverage)
+      .forEach(r=>{ if(!seenL.has(r.league)){ seenL.add(r.league); norm.push(r); } });
+    norm.sort((a,b)=>(a.tier||9)-(b.tier||9)||b.pct-a.pct||b.leverage-a.leverage);
+    norm.length=Math.min(norm.length,5);
+    const world=ML.fixtures.slice(0,5);
+    const rail=(title,note,rows)=>rows.length
+      ? `<div class="mtw-rail"><div class="mtw-h">${title}<em>${note}</em></div>${rows.map(row).join('')}</div>` : '';
+    const yours=mine.length
+      ? rail('Your matches','pinned leagues and teams',mine)
+      : `<div class="mtw-rail"><div class="mtw-h">Your matches<em>pinned leagues and teams</em></div>
+         <div class="cc-panel-note" style="padding:10px 12px">Pin a league or team (★) and the fixtures that matter most to you appear here.</div></div>`;
+    return `<div class="eb-panel mtw">
+      <div class="eb-h" style="padding:0 0 4px">Matches to watch</div>
+      <div class="cc-panel-note" style="padding:0 0 10px">${commandEsc(ML.explainer)}</div>
+      <div class="mtw-rails">${yours}
+        ${rail('Biggest swing in each league','ranked within its own league',norm)}
+        ${rail('Around the world','raw leverage — expect the unfamiliar',world)}</div></div>`;
+  };
   const target=$('#view-outlook')||$('main.wrap');
   if(target){
     target.classList.remove('hidden');
     target.innerHTML=`
     <div class="eb-panel" style="margin-top:var(--s4)">${calStripHTML()}<div id="calList" class="fx-panel">${calDayListHTML()}</div></div>
+    ${mtwHTML()}
     <div class="mxp-two">
       <div class="mxp-card">
         <div class="eb-h" style="padding:0 0 8px">Weekly model movement, in your inbox</div>

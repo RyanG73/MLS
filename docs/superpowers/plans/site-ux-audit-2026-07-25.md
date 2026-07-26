@@ -628,3 +628,52 @@ A/B. Tracked baseline `experiments/season-outcomes-baseline.report.json` regener
 **The general lesson worth keeping:** a modelling decision is only as good as the data it was
 measured on. This gate looked like a considered trade-off for nineteen days and was actually an
 artefact of a regex reading the wrong HTML column.
+
+---
+
+## 21. Matches to Watch — SHIPPED (2026-07-26)
+
+The §1 prototype promoted to a built payload + rendered feature.
+
+**Metric change from the draft: leverage now sums over EVERY club, not just the two
+playing.** That is the literal request — "the biggest swing in **table odds**" is a property
+of the table, not of the two teams — and it changes the ranking materially. Brazil, same
+week: pair-scope leads with Mirassol v Remo (13.2), all-scope with Internacional v Flamengo
+(36.3) and promotes Vitória v Palmeiras to 3rd because a title race moves everyone.
+`--scope pair` keeps the old behaviour.
+
+**Static payload, not an Intel-hub API feature.** The hub is auth-gated and team-scoped, but
+leverage is a property of the FIXTURE. `scripts/build_match_leverage.py` →
+`webapp/data/match-leverage.js` (122 KB, 321 fixtures, 29 leagues, 7-day horizon), and the
+client intersects it with FavStore for the personal rail — personalisation with no auth
+round-trip, and the hub can consume the same file when it wants to.
+
+**Three rails**, mounted on the Matches page:
+
+| rail | ranking | why |
+|---|---|---|
+| Your matches | pinned leagues/teams by leverage | never empty, never irrelevant |
+| Biggest swing in each league | one fixture per league, tier-ordered | lets a big-five game compete |
+| Around the world | raw global leverage | the exotic rail, labelled as such |
+
+Rail 2 needed two fixes the draft did not anticipate. Sorting by percentile alone reproduced
+the world rail exactly — every league's top fixture ties at pct 1.0, so the sort fell through
+to raw leverage. It now dedupes to one fixture per league and orders by league TIER.
+
+Cost: the whole board is 8 seconds at 2,000 sims and needs no model refit and no network — it
+reads the per-fixture probabilities the payloads already publish. Wired into both refresh
+workflows, non-fatal, after the league builds.
+
+`tests/test_match_leverage.py` (8) pins the properties rather than the values: non-negative and
+bounded, percentile monotone in leverage within a league and reaching 1.0, ranks dense and
+ordered, a dead rubber scores ~0, and a title-deciding fixture scores 5× a dead one.
+
+Also caught: `match-leverage.js` carries `status: "live"`, which would have spawned a bogus
+`build (match-leverage)` matrix job in refresh-daily. Added to that filter and to
+`validate_payloads._NON_PAYLOAD` — one change fixing both the payload-contract and
+registry-drift tests.
+
+**Known limitation, deliberately shipped:** rail 2 is South-America-heavy right now because the
+European leagues are in preseason with nothing played, so their fixtures carry little leverage.
+That is correct behaviour in late July and rebalances once seasons start — worth re-checking in
+September rather than tuning against a preseason snapshot.
