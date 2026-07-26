@@ -297,7 +297,10 @@ def test_fast_refresh_uses_cached_probabilities_and_data_only_branch():
     assert "scripts/fast_refresh.py --select" in workflow
     assert "scripts/fast_refresh.py --refresh-selected" in workflow
     assert workflow.count("pip install -r requirements.txt") == 1
-    assert "git push --force origin HEAD:live-data" in workflow
+    assert 'GIT_INDEX_FILE="${RUNNER_TEMP}/live-data.index"' in workflow
+    assert "git commit-tree" in workflow
+    assert 'git push --force origin "$COMMIT":live-data' in workflow
+    assert "git switch --orphan" not in workflow
     assert "deploy-pages" not in workflow
     assert "ODDS_API_KEY" not in workflow
     assert "raw.githubusercontent.com/RyanG73/MLS/live-data" in shell

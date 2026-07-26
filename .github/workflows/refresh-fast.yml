@@ -59,8 +59,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git switch --orphan live-data-publish
-          git rm -rf --cached . || true
+          export GIT_INDEX_FILE="${RUNNER_TEMP}/live-data.index"
+          rm -f "$GIT_INDEX_FILE"
+          git read-tree --empty
           git add -f webapp/data
-          git commit -m "chore(data): fast live snapshot [$(date -u +%Y-%m-%dT%H:%MZ)]"
-          git push --force origin HEAD:live-data
+          TREE=$(git write-tree)
+          COMMIT=$(git commit-tree "$TREE" -m "chore(data): fast live snapshot [$(date -u +%Y-%m-%dT%H:%MZ)]")
+          git push --force origin "$COMMIT":live-data
