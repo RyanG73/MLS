@@ -291,6 +291,45 @@ def tier2_offset(tier2_league_id: str) -> float:
     return _TIER2_PRIORS.get(key, 0.0)
 
 
+def global_elo_offset(league_id: str) -> float:
+    """Additive offset from a league's domestic ELO onto the global EPL scale.
+
+    ``league_offset`` already includes the fitted within-confederation bridge
+    and the Club World Cup confederation shift for top flights. Lower divisions
+    need one extra step: their tier bridge first translates domestic ELO onto
+    the parent league's scale. English tiers compose recursively, so League Two
+    is translated through League One and the Championship before reaching EPL.
+
+    Keeping this composition here gives payload builders, team pages and the
+    power rankings one canonical published-rating contract without changing
+    the domestic ELO values used by league simulations.
+    """
+    offset = 0.0
+    current = league_id
+    seen: set[str] = set()
+    while current in _TIER1_FOR and current not in seen:
+        seen.add(current)
+        offset += tier2_offset(current)
+        current = _TIER1_FOR[current]
+    return offset + league_offset(current)
+
+
+def global_elo_quality(league_id: str) -> str:
+    """Describe the strongest bridge evidence behind ``global_elo_offset``."""
+    if league_id in _TIER1_FOR:
+        return "tier_bridge"
+    fitted = _load_fitted() or {}
+    if league_id in fitted:
+        return "fitted"
+    if league_id in _CONCACAF_OFFSET:
+        return "confederation_prior"
+    if league_id in _MANUAL_LEAGUE_OFFSET or league_id in _LEAGUE_COEFF:
+        return "calibrated_prior"
+    if _league_conf(league_id):
+        return "confederation_anchor"
+    return "unanchored"
+
+
 # Reverse-direction static priors: translate a RELEGATED team's tier-1 ELO down to the
 # tier-2 scale. Positive — a dropped top-flight side is strong in the second tier.
 _TIER1_PRIORS: dict[str, float] = {

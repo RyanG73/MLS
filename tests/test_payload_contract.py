@@ -191,6 +191,38 @@ class TestPowerPayload:
         assert isinstance(data["groups"], list), "power.js: 'groups' must be a list"
         assert len(data["groups"]) > 0, "power.js: 'groups' is empty"
 
+    def test_power_is_one_continuous_global_ladder(self):
+        _, data = _load_payload(WEBAPP_DATA / "power.js")
+        teams = data["teams"]
+        assert teams, "power.js: 'teams' is empty"
+        assert [row["global_rank"] for row in teams] == list(range(1, len(teams) + 1))
+        assert [row["strength"] for row in teams] == sorted(
+            (row["strength"] for row in teams), reverse=True)
+        assert len({row["league"] for row in teams}) == len(data["leagues"])
+
+
+class TestGlobalEloPayload:
+    """Domestic payloads expose one reconciled published-rating contract."""
+
+    @pytest.fixture(params=_LEAGUE_FILES, ids=[p.name for p in _LEAGUE_FILES])
+    def domestic_payload(self, request):
+        path = request.param
+        var_name, data = _load_payload(path)
+        domestic_mode = data.get("outlook", {}).get("mode") in {"table", "mls"}
+        if var_name != "LEAGUE_DATA" or not domestic_mode or not data.get("standings"):
+            pytest.skip(f"{path.name} has no domestic standings")
+        return path, data
+
+    def test_global_elo_reconciles_with_raw_rating(self, domestic_payload):
+        path, data = domestic_payload
+        scale = data.get("elo_scale")
+        assert scale, f"{path.name}: missing elo_scale"
+        offset = scale["offset"]
+        for row in data["standings"]:
+            if isinstance(row.get("elo"), (int, float)):
+                assert "global_elo" in row, f"{path.name}: {row['team']} missing global_elo"
+                assert row["global_elo"] == pytest.approx(row["elo"] + offset, abs=.51)
+
 
 # ── Public payload privacy contract ───────────────────────────────────────────
 

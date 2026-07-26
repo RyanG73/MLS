@@ -149,6 +149,34 @@ def write_js_payload(path: Path, var_name: str, data: dict) -> None:
     path.write_text(f"window.{var_name} = {js};\n")
 
 
+def apply_global_elo_scale(data: dict, league_id: str) -> dict:
+    """Publish shared-scale ELO alongside the raw domestic model rating.
+
+    League simulations intentionally continue to consume ``standings[].elo``:
+    adding one constant to every club in a league cannot change a domestic
+    strength difference. Public comparison surfaces consume ``global_elo``
+    instead, while ``elo_scale.offset`` lets the browser translate the compact
+    historical series without duplicating it in every payload.
+    """
+    from data_pipeline import coefficients as co  # lazy: keep stdlib-only imports cheap
+
+    offset = float(co.global_elo_offset(league_id))
+    for row in data.get("standings") or []:
+        value = row.get("elo")
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            row["global_elo"] = int(round(float(value) + offset))
+    data["elo_scale"] = {
+        "anchor": "EPL = 0",
+        "base_field": "elo",
+        "rating_field": "global_elo",
+        "offset": round(offset, 3),
+        "quality": co.global_elo_quality(league_id),
+        "method": "domestic ELO + league bridge + Club World Cup confederation shift",
+        "cross_conf_matches": 60,
+    }
+    return data
+
+
 def health_feature_stats(rows: pd.DataFrame, cols: list[str]) -> dict:
     """Return health stats for one feature family, safe when *rows* is empty.
 

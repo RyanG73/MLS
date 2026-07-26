@@ -103,6 +103,17 @@ def _scrolls_wider_than_viewport(page: Page) -> bool:
 
 
 def _load_route(page: Page, base_url: str, league_id: str):
+    # Static smoke tests do not run the optional local API. Fulfil the one
+    # background public-config read so Chromium does not report a network
+    # resource error unrelated to the page under test.
+    page.route(
+        "http://127.0.0.1:8787/v1/public/config",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"open_access":{"active":false},"pricing":{}}',
+        ),
+    )
     page.goto(f"{base_url}/index.html?league={league_id}", wait_until="networkidle")
     page.wait_for_timeout(400)
 
@@ -202,6 +213,21 @@ class TestRouteStateCorrectness:
             + "\n".join(f"  {e}" for e in team_errors)
         )
 
+    def test_power_is_discoverable_and_uses_one_global_rank(
+        self, page: Page, webapp_url: str
+    ):
+        _load_route(page, webapp_url, "power")
+        assert page.locator('.mast-bar a[href="?league=power"]').count() == 1
+        ranks = page.locator(".pr-row .pr-rank").all_inner_texts()
+        assert ranks[:5] == ["1", "2", "3", "4", "5"]
+        page.locator('.pr-chip[data-conf="Concacaf"]').click()
+        filtered = [int(value) for value in
+                    page.locator(".pr-row .pr-rank").all_inner_texts()]
+        assert filtered == sorted(filtered)
+        assert filtered and filtered[0] > 1, (
+            "Confederation filtering must preserve global ranks, not restart at 1"
+        )
+
     def test_preseason_health_shows_no_bogus_percentages(
         self, page: Page, webapp_url: str
     ):
@@ -234,16 +260,18 @@ class TestOddsDecimalFormatting:
     def test_epl_table_has_sub_one_percent_with_decimal(self, page: Page, webapp_url: str):
         _load_route(page, webapp_url, "epl")
         text = _visible_body_text(page)
-        # EPL preseason title odds include several teams under 1% (e.g. Chelsea's title
-        # odds in webapp/data/epl.js are 0.2%) — the table row must render "0.2", not a
-        # bare "0", right after that team's name. A page-wide "0.X" regex would false-
+        # EPL preseason title odds include several teams under 1% — the table row
+        # must retain its decimal, not render a bare "0". A page-wide "0.X" regex would false-
         # positive on unrelated summary-card text (e.g. "VS MARKET +0.1%"), so anchor on
         # the specific row instead.
-        idx = text.find("Chelsea")
-        assert idx != -1, "Expected 'Chelsea' row in the EPL table"
+        team, value = page.evaluate(
+            "() => { const s=D.standings.find(x=>x.title>0&&x.title<1); return [s.team,s.title]; }"
+        )
+        idx = text.find(team)
+        assert idx != -1, f"Expected {team!r} row in the EPL table"
         row_text = text[idx:idx + 60]
-        assert "\n0.2\n" in row_text, (
-            f"Expected Chelsea's sub-1% title-odds cell formatted as '0.2' near its row, got: {row_text!r}"
+        assert f"\n{value:.1f}\n" in row_text, (
+            f"Expected {team}'s sub-1% title odds formatted as {value:.1f}, got: {row_text!r}"
         )
 
 
@@ -272,7 +300,7 @@ class TestLeaguePageRaceFirstLayout:
             h.lower()
             for h in page.locator(".tlad .thead > span").all_inner_texts()
         ]
-        assert headers[1:7] == ["club", "pts", "gp", "gd", "proj", "elo"]
+        assert headers[1:7] == ["club", "pts", "gp", "gd", "proj", "global elo"]
         assert headers[-1] == "next 5 sim 🔒"
         assert page.locator(".tlad .tsub").count() == 0, (
             "League-table team cells should not retain the old GP/GD footnote"
@@ -645,7 +673,10 @@ class TestTeamsDashboard:
         page.locator('[data-view="teams"]').click()
         page.wait_for_timeout(300)
         view = page.locator("#view-teams")
-        assert page.locator("#profileTeamSel").inner_text() == "Arsenal"
+        expected = page.evaluate(
+            "() => [...D.standings].sort((a,b)=>(b.title??-1)-(a.title??-1))[0].team"
+        )
+        assert page.locator("#profileTeamSel").inner_text() == expected
         assert view.locator(".elo-grid, .elo-card, #matchupBox").count() == 0
         text = view.inner_text().lower()
         assert "trophies" not in text

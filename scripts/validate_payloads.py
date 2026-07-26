@@ -26,7 +26,7 @@ _DATA = Path("webapp/data")
 # health, and generated.  Knockout competitions replace health with outlook.
 _REQUIRED_LIVE = {"status", "league", "standings", "games", "health", "generated"}
 _REQUIRED_KNOCKOUT = {"status", "league", "outlook", "games", "generated"}
-_REQUIRED_POWER = {"status", "groups", "generated"}
+_REQUIRED_POWER = {"status", "groups", "teams", "leagues", "generated"}
 _REQUIRED_PLACEHOLDER = {"status", "league"}  # "coming soon" stubs — minimal gate
 
 # Canonical list of cross-league data files that are NOT per-league payloads
@@ -164,6 +164,38 @@ def validate_file(path: Path, registry_ds: dict[str, str] | None = None) -> list
                     errors.append(f"games[{i}] ({g.get('home')!r} v {g.get('away')!r}): "
                                    f"missing {field} "
                                    "(docs/intelligence-hub-implementation-instructions.md §4.3)")
+
+    # Every domestic table publishes an EPL-anchored rating alongside the raw
+    # simulation ELO. The rounded row value must reconcile with the exact
+    # top-level offset so every page is reading the same scale.
+    standings = data.get("standings") or []
+    domestic_mode = (data.get("outlook") or {}).get("mode") in {"table", "mls"}
+    if data.get("status") != "placeholder" and domestic_mode and standings:
+        scale = data.get("elo_scale")
+        if not isinstance(scale, dict):
+            errors.append("missing elo_scale metadata for standings payload")
+        else:
+            offset = scale.get("offset")
+            if not isinstance(offset, (int, float)):
+                errors.append("elo_scale.offset must be numeric")
+            for i, row in enumerate(standings):
+                raw, global_elo = row.get("elo"), row.get("global_elo")
+                if not isinstance(raw, (int, float)):
+                    continue
+                if not isinstance(global_elo, (int, float)):
+                    errors.append(f"standings[{i}] ({row.get('team')!r}): missing global_elo")
+                elif isinstance(offset, (int, float)) and abs(global_elo - (raw + offset)) > 0.51:
+                    errors.append(
+                        f"standings[{i}] ({row.get('team')!r}): global_elo "
+                        f"{global_elo} != elo {raw} + offset {offset}")
+
+    if "teams" in data and "groups" in data and "league" not in data:
+        ranks = [row.get("global_rank") for row in data.get("teams") or []]
+        if ranks != list(range(1, len(ranks) + 1)):
+            errors.append("power teams must have contiguous global_rank values")
+        strengths = [row.get("strength") for row in data.get("teams") or []]
+        if strengths != sorted(strengths, reverse=True):
+            errors.append("power teams must be sorted by descending global strength")
 
     return errors
 

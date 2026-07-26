@@ -1,5 +1,15 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-26 — global ELO is now the website’s published rating.** Restored a discoverable
+> **Global Power** route as one continuous, searchable ladder: 892 clubs across 50 leagues with
+> measured league/tier bridges, with confederation filters preserving the actual global rank.
+> Every one of the 71 domestic league payloads now carries `standings[].global_elo` plus auditable
+> `elo_scale` metadata, and league tables, run-in difficulty, team selectors, team headers and ELO
+> history charts all display that shared EPL-anchored number. Raw `elo` remains the simulation
+> input, so league projections are mathematically unchanged. Fixed a material tier bug in the old
+> power builder: 2. Bundesliga/Serie B stopped at their parent’s domestic scale; deep English tiers
+> now compose every bridge hop before the parent league’s global offset is applied.
+
 > **2026-07-26 — the AC Milan fix: value tilt un-gated.** The preseason value tilt was
 > restricted to bottom-half-rated clubs on the strength of a 2026-07-07 A/B measuring +0.005
 > title Brier for the untargeted variant. That A/B ran on a corrupt squad-value table (the

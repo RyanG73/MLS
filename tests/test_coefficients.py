@@ -105,6 +105,25 @@ def test_tier1_offset_is_positive_for_relegated_seeding():
     assert co.tier1_offset("nonexistent") == 0.0
 
 
+def test_global_elo_offset_composes_parent_league_bridge():
+    """A second tier must reach the parent's global scale, not stop domestically."""
+    assert co.global_elo_offset("bundesliga-2") == pytest.approx(
+        co.tier2_offset("bundesliga-2") + co.league_offset("bundesliga")
+    )
+    assert co.global_elo_offset("serie-b") == pytest.approx(
+        co.tier2_offset("serie-b") + co.league_offset("serie-a")
+    )
+
+
+def test_global_elo_offset_composes_deep_english_chain():
+    assert co.global_elo_offset("league-two") == pytest.approx(
+        co.tier2_offset("league-two")
+        + co.tier2_offset("league-one")
+        + co.tier2_offset("championship")
+        + co.league_offset("epl")
+    )
+
+
 # ── UEFA-spots page builder (I1, 2026-07-09) ─────────────────────────────────
 
 def test_coefficients_page_covers_all_modeled_uefa_leagues():

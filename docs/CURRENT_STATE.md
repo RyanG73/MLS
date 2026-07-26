@@ -1,6 +1,6 @@
 # MLS Prediction System — Current State
 
-Last updated: 2026-06-27
+Last updated: 2026-07-26
 
 This document is the single source of truth for the canonical model, metric
 definitions, data sources, and run commands. Update it when any of these change.
@@ -33,7 +33,9 @@ definitions, data sources, and run commands. Update it when any of these change.
 - 10 offsets stored in `experiments/tier2_offsets.json` (forward + reverse); static priors used as fallback. All LOSO-validated below the naive 0.6667 baseline.
 - `build_league_data._TIER1_FOR_BUILD` + generalised `_get_tier_elo_map` drive the reverse seeding path when building a second-tier league in preseason.
 - Second-tier dashboard leagues: Championship, League One, League Two, 2.Bundesliga, Serie B, **Segunda (SP2)**, **Ligue 2 (F2)** — football-data goals-only source.
-- Power rankings gain a "UEFA Tier 2" group on the EPL=0 scale.
+- Published ratings use `coefficients.global_elo_offset`: lower divisions compose their tier
+  bridge(s) into the parent top flight and then inherit that league's global offset. Raw domestic
+  ELO remains the simulation input; `standings[].global_elo` is the public comparison field.
 - R2 follow-up (2026-07-11): hybrid bridge-decay windows 5/8/10 were tested on the England chain in `scripts/eval/unified_tier_elo.py`. Decay-8 tied seeded production (`0.6326`) and destination-league updating (`0.6325`) while beating frozen bridge (`0.6410`), so there is **no production change**. Keep bridge seeding for preseason and normal destination-league updating after kickoff; any future claim needs an early-window-only gate.
 - Expansion round 4 (2026-07-11, `docs/superpowers/specs/2026-07-11-*`): +12 leagues live.
   Scottish Championship/League One/League Two (footballdata SC1/SC2/SC3, chained to
@@ -89,6 +91,13 @@ definitions, data sources, and run commands. Update it when any of these change.
   new CWC edition: `python -m scripts.eval.interconf_calibrate`.
   Least certain number on the platform is Concacaf's −275 (Liga MX went W2 D4 L11 across 23
   matches); treat cross-continental gaps accordingly.
+- **Global ELO publication (2026-07-26).** All 71 domestic payloads carry
+  `elo_scale {anchor, offset, quality, method}` and a rounded `standings[].global_elo`. Tables,
+  run-in cards and team pages display the shared rating; historical charts add the payload's
+  constant offset client-side. `power.js` is one global rank (not one restarted rank per
+  confederation), currently 892 clubs / 50 leagues with measured bridge evidence. Unbridged
+  leagues and women's competitions remain visible on their league pages but are excluded from
+  the global ladder until a match network can place them honestly on that scale.
 - **AFC and CAF continental cups remain blocked, and the gate — not judgement — says so.**
   AFC Champions League: the fit beats its prior but LOSES to a naive base-rate predictor
   (+0.0020 on a 76-match holdout), and only **54%** of the field resolves to a modeled league —
@@ -358,7 +367,8 @@ Notes:
   the sidebar "soon" tag and the model-not-built branch; top-level `status` is the
   canonical route state. They will usually agree, but consumers should branch on
   top-level `status`.
-- Power rankings (`power.js`) is a cross-league surface with `groups` and no `league`
+- Global power rankings (`power.js`) is a cross-league surface with one globally ordered `teams`
+  array, filter-only `groups` metadata, and no `league`
   key; the webapp selects it via `?league=power` before the normal league render.
 - `placeholder` payloads MUST include `reason` (why there are no projections). The
   webapp surfaces this string directly in the "coming soon" view.

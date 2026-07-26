@@ -6,6 +6,22 @@ unreviewed; all numbers measured, read twice, never taken from a screenshot.
 
 ## Verdicts
 
+### 2026-07-26 — Global Power and shared ELO publication · FIXED
+
+Restored Global Power to both desktop and mobile navigation and replaced the independent
+confederation panels (each restarted at rank 1 and rescaled its bars) with one continuous,
+searchable ladder. Confederation controls now filter the same rank, and every bar uses the same
+global min/max. The ladder includes 892 clubs across the 50 leagues whose league/tier bridge is
+supported; unbridged and women's competitions stay out rather than claiming unsupported
+comparability.
+
+All 71 domestic payloads now publish `global_elo` plus `elo_scale` metadata. League tables,
+run-in difficulty, team selectors, headers and history charts consistently render that value.
+The audit also found and fixed a real second-tier composition bug: the old Power builder added
+the 2. Bundesliga→Bundesliga bridge but omitted Bundesliga→global (the same issue affected Serie
+B and deeper English tiers). Raw domestic ELO and every within-league projection remain
+unchanged. Full suite: **1,649 passed, 14 skipped**; all **79 payloads valid**.
+
 ### 1. Home — `/` · ISSUES (2 bugs, 5 violations) — fixed
 
 | metric | before (375) | after |

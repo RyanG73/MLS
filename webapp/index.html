@@ -258,7 +258,7 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .bnav{display:none}
 @media(max-width:900px){
   body{padding-bottom:84px}
-  .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:70;
+  .bnav{display:grid;grid-template-columns:repeat(6,1fr);position:fixed;left:0;right:0;bottom:0;z-index:70;
     background:rgba(10,13,11,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line-3);padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
   .bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--txt-3);text-decoration:none;margin:0 6px;padding:4px 0 3px;border-radius:10px}
   .bnav a .ico{font-size:19px;line-height:1}
@@ -1291,6 +1291,19 @@ const D = (_isPower || _isEdgeBoard || _infoPage || _homeDataRoute)
      health:null, model_card:{}, in_season_brier:{}, season:2026}
   : window.LEAGUE_DATA;
 const $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+// Public pages display the EPL-anchored shared rating. Raw domestic ELO stays
+// in the payload for simulation compatibility; a constant league offset cannot
+// change a within-league matchup, but it does make the published number
+// comparable across competitions and confederations.
+const ELO_SCALE=D.elo_scale||{};
+const ELO_SCALE_OFFSET=Number(ELO_SCALE.offset)||0;
+const _finiteElo=v=>v!==null&&v!==''&&Number.isFinite(Number(v));
+const scaledElo=v=>_finiteElo(v)?Number(v)+ELO_SCALE_OFFSET:NaN;
+const publishedElo=row=>row&&_finiteElo(row.global_elo)
+  ?Number(row.global_elo):scaledElo(row&&row.elo);
+const teamEloSeries=team=>((D.elo_history||{})[team]||[])
+  .filter(point=>point&&_finiteElo(point[1]))
+  .map(point=>[point[0],scaledElo(point[1])]);
 // Data-status badge (launch plan B2): registry entries carry data_status
 // (fetch_league_teams.DATA_STATUS); anything short of full_forecast gets an
 // honest tag wherever a league is listed. Shared with the Leagues hub script.
@@ -1545,7 +1558,8 @@ function teamGateCardHTML(team){
   // sidesteps the quirk entirely regardless of engine.
   const menuHTML={}, menuCols={};
   let bar=`<div class="mb-item"><a href="${location.pathname}" class="${_isHome?'active':''}">\u{1F3E0} Home</a></div>`
-         +`<div class="mb-item"><a href="?league=command" class="${_isEdgeBoard?'active':''}">⚽ Matches</a></div>`;
+         +`<div class="mb-item"><a href="?league=command" class="${_isEdgeBoard?'active':''}">⚽ Matches</a></div>`
+         +`<div class="mb-item"><a href="?league=power" class="${_isPower?'active':''}">↗ Global Power</a></div>`;
   const _mlsActive=!_isEdgeBoard&&!_homeDataRoute&&!_infoPage&&LID==='mls';
   const _hasMLS=(window.LEAGUES||[]).some(l=>l.id==='mls');
   MAST_GROUPS.forEach(([g,flag,label,ls])=>{ if(!ls.length) return;
@@ -1640,6 +1654,7 @@ function teamGateCardHTML(team){
   const bn=$('#bnav'); if(bn) bn.innerHTML=
     `<a href="${location.pathname}" class="${_isHome?'active':''}"><span class="ico">\u{1F3E0}</span>Home</a>
      <a href="?league=command" class="${_isEdgeBoard?'active':''}"><span class="ico">⚽</span>Matches</a>
+     <a href="?league=power" class="${_isPower?'active':''}"><span class="ico">↗</span>Power</a>
      <a href="?league=leagues" class="${_isLeagues?'active':''}"><span class="ico">\u{1F4CA}</span>Leagues</a>
      <a href="?league=intel" class="${_isIntel?'active':''}"><span class="ico">\u{1F4E1}</span>Intel</a>
      <a href="?league=account" class="bn-sub${_isAccount?' active':''}">Account</a>`;
@@ -2066,7 +2081,7 @@ function ladder(conf){
     `<span>#</span><span>Club</span>`+
     `<span class="c c-pts">Pts</span>`+
     `<span class="c c-proj">Proj</span>`+
-    `<span class="c c-elo">ELO</span>`+
+    `<span class="c c-elo">Global ELO</span>`+
     `<span class="c">Cup</span><span class="c">Shield</span><span class="c">PO</span><span class="c">Top 4</span><span class="c">Spoon</span>`+
       `<span class="c c-w5${IntelStore.unlocked()?'':' locked'}">Next 5 Sim${IntelStore.unlocked()?'':' <span class="w5-lock" aria-hidden="true">🔒</span>'}</span>`));
   teams.forEach((t,i)=>{
@@ -2076,7 +2091,7 @@ function ladder(conf){
       `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname tlink" data-team="${t.team}">${t.team}</span><span class="tsub">${sub}</span></span></span>`+
       `<span class="pts">${t.pts}</span>`+
       `<span class="projc">${t.proj_pts}</span>`+
-      `<span class="eloc">${t.elo}</span>`+
+      `<span class="eloc">${Math.round(publishedElo(t))}</span>`+
       hcell(t.cup,'cup')+hcell(t.shield,'sh')+hcell(t.playoff,'po')+hcell(t.hfa,'hfa')+hcell(t.spoon,'sp')+
       whatifCell(t.team);
     box.appendChild(r);
@@ -2286,7 +2301,7 @@ function tableLadder(){
   const simGate=simGateNote(true); if(simGate)box.appendChild(simGate);
   box.appendChild(el('div','thead',
     `<span></span><span>Club</span><span class="c">Pts</span><span class="c">GP</span><span class="c">GD</span><span class="c c-proj">Proj</span>`+
-    `<span class="c c-elo">ELO</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
+    `<span class="c c-elo">Global ELO</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
     (hasUp?`<span class="c c-w5${IntelStore.unlocked()?'':' locked'}">Next 5 Sim${IntelStore.unlocked()?'':' <span class="w5-lock" aria-hidden="true">🔒</span>'}</span>`:'')));
   teams.forEach((t,i)=>{
     const rank=i+1;
@@ -2296,7 +2311,7 @@ function tableLadder(){
     r.innerHTML=`<span class="rank">${rank}</span>`+
       `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><span class="tname tlink" data-team="${t.team}">${t.team}</span></span></span>`+
       `<span class="pts">${t.pts}</span><span class="gpc">${t.gp}</span><span class="gdc">${sgn(t.gd)}</span>`+
-      `<span class="projc">${t.proj_pts}</span><span class="eloc">${t.elo}</span>`+
+      `<span class="projc">${t.proj_pts}</span><span class="eloc">${Math.round(publishedElo(t))}</span>`+
       cols.map(c=>hc(t[c.key]||0,c.key,t)).join('')+
       (hasUp?whatifCell(t.team):'');
     box.appendChild(r);
@@ -2360,7 +2375,7 @@ function finishPlotPanel(){
 const RUNIN_N=5;
 function runInPanel(){
   if(!NF)return null;
-  const eloOf=t=>(STAND.get(t)||{}).elo||1500;
+  const eloOf=t=>publishedElo(STAND.get(t))||1500;
   const rows=D.standings.map(s=>{
     const fx=UPCOMING.filter(g=>g.home===s.team||g.away===s.team)
       .sort((a,b)=>(a.date||'')<(b.date||'')?-1:1).slice(0,RUNIN_N);
@@ -2381,7 +2396,7 @@ function runInPanel(){
   const isPre=(D.outlook||{}).preseason;
   const nLbl=rows.length&&rows.every(r=>r.n>=RUNIN_N)?RUNIN_N:`≤${RUNIN_N}`;
   panel.innerHTML=`<div class="panel-h"><span class="dot" style="background:var(--win);box-shadow:0 0 8px var(--win)"></span>`+
-    `<h2>${isPre?'Opening run':'Upcoming run'}</h2><span class="meta">avg opponent ELO · next ${nLbl} fixtures · hardest first</span></div>`+
+    `<h2>${isPre?'Opening run':'Upcoming run'}</h2><span class="meta">avg opponent global ELO · next ${nLbl} fixtures · hardest first</span></div>`+
     `<div class="plot">${body}<div class="fleg"><span><i style="background:var(--drop)"></i>Toughest</span>`+
     `<span><i style="background:var(--qualify)"></i>Easiest</span></div></div>`;
   return panel;
@@ -2608,7 +2623,7 @@ const _PHASE_LABEL={first_60d:'First 60 days',mid:'Mid-season',late:'Late season
    NOTE: must be declared BEFORE the eager renderHealth() call below — a later
    const is still in its temporal dead zone when the call runs. */
 const FEATURE_DEFS={
-  'ELO':'Team strength rating, updated after every match result (K=25, home advantage +80)',
+  'ELO':'Global ELO shown on the EPL-anchored shared scale; the domestic rating updates after every result (K=25, home advantage +80)',
   'xG rolling':'Expected goals for/against — shot-quality rolling averages over the last 3/5/10/15 matches',
   'Form':'Points per game over recent matches',
   'GK z-score':'Goalkeeper quality — saves above expected, standardized across the league',
@@ -3250,8 +3265,8 @@ async function renderNews(){
 /* ═══════════════ TEAMS (one selected club) ═══════════════ */
 const stdByTeam=new Map(D.standings.map(s=>[s.team,s]));
 const currentElo=team=>{
-  const row=((D.elo_history||{})[team]||[]).slice(-1)[0];
-  return row?Number(row[1]):Number((stdByTeam.get(team)||{}).elo);
+  const row=teamEloSeries(team).slice(-1)[0];
+  return row?Number(row[1]):publishedElo(stdByTeam.get(team));
 };
 const _eloVals=D.standings.map(s=>currentElo(s.team)).filter(Number.isFinite).sort((a,b)=>a-b);
 const _eloQuantile=q=>_eloVals.length?_eloVals[Math.min(_eloVals.length-1,Math.floor((_eloVals.length-1)*q))]:1500;
@@ -3263,8 +3278,8 @@ const eloTip=el('div','elo-tip');document.body.appendChild(eloTip);
 let _gradId=0,_selTeam=null;
 
 function eloChartSVG(team,W=760,H=220){
-  const series=(D.elo_history||{})[team]||[];
-  if(!series.length)return {svg:'<div class="elo-empty">No ELO history available.</div>',x0:0,x1:0};
+  const series=teamEloSeries(team);
+  if(!series.length)return {svg:'<div class="elo-empty">No global ELO history available.</div>',x0:0,x1:0};
   const padL=42,padR=16,padT=18,padB=28;
   const xs=series.map(p=>new Date(p[0]+'T12:00').getTime()),ys=series.map(p=>Number(p[1]));
   const rawX0=Math.min(...xs),rawX1=Math.max(...xs),x0=rawX0,x1=rawX1===rawX0?rawX0+86400000:rawX1;
@@ -3568,10 +3583,10 @@ function renderProfile(team,scroll){
     </div>${oddsRows||'<div class="hnote">No headline projection categories for this competition.</div>'}
     ${squadValueSummaryHTML(team)}</div>`;
   $('#teamProfile').innerHTML=
-    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">Projected #${projRank} of ${n} · ELO ${Number.isFinite(elo)?Math.round(elo):'—'}</div></div>
+    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">Projected #${projRank} of ${n} · Global ELO ${Number.isFinite(elo)?Math.round(elo):'—'}</div></div>
       <span class="fav-team-star${FavStore.hasTeam(LID,team)?' on':''}" id="favTeamStar" title="Pin to Favorites">${FavStore.hasTeam(LID,team)?'★':'☆'}</span></div>
-    <div class="pcard elo-panel"><div class="elo-panel-h"><div><h3>ELO history</h3><div class="hnote">Hover the line for the rating on any date.</div></div>
-      <div class="elo-now"><b style="color:${eloTier(elo)}">${Number.isFinite(elo)?Math.round(elo):'—'}</b><span>Current ELO</span></div></div>
+    <div class="pcard elo-panel"><div class="elo-panel-h"><div><h3>Global ELO history</h3><div class="hnote">Hover the line for the EPL-anchored rating on any date.</div></div>
+      <div class="elo-now"><b style="color:${eloTier(elo)}">${Number.isFinite(elo)?Math.round(elo):'—'}</b><span>Current global ELO</span></div></div>
       <div class="chart-wrap big">${chart}</div>
       <div class="elo-key"><span class="top"><i></i>Top 25% starts · ${Math.round(ELO_HI)}</span><span class="avg"><i></i>League average · ${Math.round(ELO_AVG)}</span><span class="low"><i></i>Bottom 25% starts · ${Math.round(ELO_LO)}</span></div></div>
     <div class="prof-grid">${outlookCard}${trajCardHTML(team)}
@@ -3602,7 +3617,7 @@ function renderTeams(){
   const teams=[...D.standings].sort((a,b)=>a.team.localeCompare(b.team));
   const menu=$('#profileTeamMenu');
   menu.innerHTML=teams.map(s=>`<div class="dd-opt team-dd-opt" role="option" data-team="${s.team}">
-    ${crest(s.team,s.logo)}<b>${s.team}</b><small>ELO ${Number.isFinite(currentElo(s.team))?Math.round(currentElo(s.team)):'—'}</small></div>`).join('');
+    ${crest(s.team,s.logo)}<b>${s.team}</b><small>Global ELO ${Number.isFinite(currentElo(s.team))?Math.round(currentElo(s.team)):'—'}</small></div>`).join('');
   const favorite=FavStore.teams().find(x=>x.league===LID&&stdByTeam.has(x.team));
   const raceKeys=['title','cup','shield','playoff','promo','liguilla','playoffs'];
   const raceKey=raceKeys.find(k=>D.standings.some(s=>s[k]!=null))||
@@ -3624,12 +3639,12 @@ function renderTeams(){
 }
 // Shared hover tooltip for the selected club's ELO chart.
 function eloHover(e){const svg=e.target.closest('.elo-svg');if(!svg){eloTip.style.display='none';return;}
-  const team=svg.dataset.team, series=(D.elo_history||{})[team]||[]; if(!series.length)return;
+  const team=svg.dataset.team, series=teamEloSeries(team); if(!series.length)return;
   const r=svg.getBoundingClientRect(), x0=+svg.dataset.x0, x1=+svg.dataset.x1;
   // for big charts (preserveAspectRatio meet) the drawing may be inset; approximate with the rect
   const tt=x0+Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*(x1-x0);
   let bi=0;for(let i=1;i<series.length;i++)if(Math.abs(new Date(series[i][0]).getTime()-tt)<Math.abs(new Date(series[bi][0]).getTime()-tt))bi=i;
-  eloTip.innerHTML=`<b>${series[bi][1]}</b> ELO · ${series[bi][0]}`;
+  eloTip.innerHTML=`<b>${Math.round(series[bi][1])}</b> global ELO · ${series[bi][0]}`;
   eloTip.style.display='block';eloTip.style.left=(e.clientX+12)+'px';eloTip.style.top=(e.clientY-10)+'px';}
 $('#teamProfile').addEventListener('mousemove',eloHover);
 $('#teamProfile').addEventListener('mouseleave',()=>eloTip.style.display='none');
@@ -3698,47 +3713,125 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
 </script>
 
 <style>
-.pr-intro{color:var(--txt-2);font-size:13px;max-width:780px;margin:0 0 18px;line-height:1.55}
-.pr-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-@media(max-width:880px){.pr-grid{grid-template-columns:1fr}}
-.pr-panel{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden}
-.pr-h{padding:9px 14px;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--line-2);background:var(--ink-2);display:flex;align-items:baseline;gap:8px}
-.pr-anchor{font-size:11px;color:var(--txt-3);font-weight:400;font-family:var(--mono);text-transform:none;letter-spacing:0}
-.pr-list{padding:4px 0;max-height:680px;overflow-y:auto}
-.pr-row{display:flex;align-items:center;gap:10px;padding:5px 14px}
+.pr-shell{display:grid;gap:var(--s4)}
+.pr-intro{display:grid;grid-template-columns:minmax(0,1.7fr) repeat(4,minmax(92px,.45fr));border:1px solid var(--line-2);background:var(--ink-1)}
+.pr-copy{padding:var(--s4);border-right:1px solid var(--line-2)}
+.pr-copy .eyebrow{display:block;font:700 10px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--floodlight);margin-bottom:var(--s2)}
+.pr-copy p{color:var(--txt-2);font-size:12.5px;line-height:1.58;max-width:760px}
+.pr-kpi{padding:var(--s3);display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--line-2)}
+.pr-kpi:last-child{border-right:0}
+.pr-kpi b{font:700 21px var(--mono);color:var(--txt-1)}
+.pr-kpi span{font:700 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);margin-top:3px}
+.pr-controls{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.pr-filter{display:flex;gap:4px;flex-wrap:wrap}
+.pr-chip{font:700 10px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--txt-2);background:var(--ink-1);border:1px solid var(--line-2);padding:7px 10px;cursor:pointer}
+.pr-chip:hover,.pr-chip.on{color:var(--txt-1);border-color:var(--floodlight)}
+.pr-chip.on{box-shadow:inset 0 -2px 0 var(--floodlight)}
+.pr-search{margin-left:auto;min-width:min(280px,100%);background:var(--ink-1);border:1px solid var(--line-2);color:var(--txt-1);padding:8px 10px;font-size:13px}
+.pr-search:focus{outline:1px solid var(--floodlight);outline-offset:1px}
+.pr-count{width:100%;font:500 10px var(--mono);color:var(--txt-3)}
+.pr-panel{background:var(--ink-1);border:1px solid var(--line-2);overflow:hidden}
+.pr-head,.pr-row{display:grid;grid-template-columns:42px minmax(210px,1.4fr) minmax(150px,.8fr) minmax(120px,1fr) 72px;align-items:center;gap:var(--s3);padding:8px var(--s3)}
+.pr-head{position:sticky;top:0;z-index:2;background:var(--ink-2);border-bottom:1px solid var(--line-2);font:700 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3)}
+.pr-head span:last-child{text-align:right}
+.pr-list{max-height:72vh;overflow:auto}
+.pr-row{min-height:47px;border-bottom:1px solid var(--line)}
+.pr-row:last-child{border-bottom:0}
 .pr-row:hover{background:var(--ink-2)}
-.pr-rank{width:22px;text-align:right;color:var(--txt-3);font-size:12px;font-family:var(--mono)}
-.pr-team{display:flex;flex-direction:column;min-width:128px}
-.pr-name{font-size:13px;color:var(--txt-1)}
-.pr-lg{font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.04em}
-.pr-barwrap{flex:1;height:7px;background:var(--ink-3);border-radius:4px;overflow:hidden;min-width:40px}
-.pr-bar{display:block;height:100%;border-radius:4px;opacity:.9}
-.pr-str{width:42px;text-align:right;font-weight:700;font-size:13px;font-family:var(--mono)}
+.pr-rank{text-align:right;color:var(--txt-3);font:700 12px var(--mono)}
+.pr-club{display:flex;align-items:center;gap:9px;min-width:0;text-decoration:none}
+.pr-team{display:flex;flex-direction:column;min-width:0}
+.pr-name{font-size:13px;font-weight:650;color:var(--txt-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr-lg{font-size:10px;color:var(--txt-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr-conf{font:700 10px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--txt-2)}
+.pr-barwrap{height:6px;background:var(--ink-3);overflow:hidden}
+.pr-bar{display:block;height:100%;background:var(--floodlight)}
+.pr-str{text-align:right;font:700 14px var(--mono);color:var(--txt-1)}
+.pr-empty{padding:var(--s5);text-align:center;color:var(--txt-3)}
 .sb-power{font-weight:600}
+@media(max-width:900px){
+  .pr-intro{grid-template-columns:repeat(4,1fr)}
+  .pr-copy{grid-column:1/-1;border-right:0;border-bottom:1px solid var(--line-2)}
+  .pr-head,.pr-row{grid-template-columns:36px minmax(160px,1.3fr) minmax(110px,.7fr) minmax(80px,.8fr) 58px;gap:8px}
+}
+@media(max-width:620px){
+  .pr-intro{grid-template-columns:repeat(2,1fr)}
+  .pr-kpi:nth-of-type(3),.pr-kpi:nth-of-type(5){border-right:0}
+  .pr-kpi:nth-of-type(-n+3){border-bottom:1px solid var(--line-2)}
+  .pr-search{margin-left:0;width:100%;font-size:16px}
+  .pr-head,.pr-row{grid-template-columns:32px minmax(140px,1fr) minmax(64px,.55fr) 54px;padding:7px 8px}
+  .pr-head .pr-conf,.pr-row .pr-conf{display:none}
+  .pr-name{font-size:12px}
+  .pr-list{max-height:none}
+}
 </style>
 <script>
-// Cross-league Power Rankings view (pinned sidebar item). Renders window.POWER_DATA.
+// Global Power Rankings: one continuous rank. Confederation chips filter the
+// same ordering; they never restart rank numbers or rescale the strength rail.
 if (_isPower && window.POWER_DATA) {
+  const P=window.POWER_DATA;
   const seg=$('#seg'); if(seg) seg.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
-  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent='Cross-League Power Rankings';
-  const sub=$('#sub'); if(sub) sub.textContent='Domestic ELO + cross-league offset · one shared ladder, with the gap between confederations fitted on the Club World Cup';
-  const panels = (window.POWER_DATA.groups||[]).map(g=>{
-    const max=g.teams[0].strength, min=g.teams[g.teams.length-1].strength, span=Math.max(1,max-min);
-    const rows = g.teams.map(t=>{
-      const w=10+90*(t.strength-min)/span;
-      return `<div class="pr-row"><span class="pr-rank">${t.rank}</span>`+
-        crest(t.team, t.logo)+
-        `<span class="pr-team"><span class="pr-name">${t.team}</span><span class="pr-lg">${t.league_short}</span></span>`+
-        `<span class="pr-barwrap"><span class="pr-bar" style="width:${w.toFixed(1)}%;background:${t.color||'#5a96f6'}"></span></span>`+
-        `<span class="pr-str">${t.strength.toFixed(0)}</span></div>`;
-    }).join('');
-    return `<div class="pr-panel"><div class="pr-h">${g.confederation}<span class="pr-anchor">${g.teams.length} teams · ${g.n_leagues} leagues · ${g.anchor}</span></div><div class="pr-list">${rows}</div></div>`;
-  }).join('');
+  const ttl=$('#leagueTitle'); if(ttl) ttl.textContent='Global Power Rankings';
+  const sub=$('#sub'); if(sub) sub.textContent='One continuous club ladder · domestic ELO translated onto the EPL-anchored global scale';
+  const all=P.teams||[];
+  const confs=(P.groups||[]).map(g=>g.confederation);
+  const max=all.length?Math.max(...all.map(t=>t.strength)):1;
+  const min=all.length?Math.min(...all.map(t=>t.strength)):0;
+  const span=Math.max(1,max-min);
+  const prEsc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const target=$('#view-outlook')||$('main.wrap');
   if(target){
     target.classList.remove('hidden');
-    target.innerHTML='<div class="pr-intro">Every team on one comparable strength scale — domestic ELO plus the league’s cross-league offset (the same strength the continental model uses), so a Premier League side can be compared directly against La Liga or Bundesliga. Confederations are now on <b>one shared ladder</b>: the gap between them is fitted on the Club World Cup, the only competition where they actually meet, so a Liga MX or Brasileirão side can be read against a European one. That link rests on 60 matches — treat cross-continental gaps as the roughest number on this page.</div><div class="pr-grid">'+panels+'</div>';
+    target.innerHTML=`<div class="pr-shell">
+      <div class="pr-intro">
+        <div class="pr-copy"><span class="eyebrow">Shared strength scale</span><p>Every ranked club keeps its domestic ELO, then receives a measured league or tier bridge plus a confederation shift fitted on Club World Cup meetings. Leagues without that bridge—and women’s competitions, which have no cross-gender match network—stay on their league pages until the evidence can support a global comparison. Cross-confederation gaps rest on ${P.cross_conf_matches||60} matches and are the least certain comparisons here.</p></div>
+        <div class="pr-kpi"><b>${all.length.toLocaleString()}</b><span>Clubs ranked</span></div>
+        <div class="pr-kpi"><b>${(P.leagues||[]).length}</b><span>Leagues</span></div>
+        <div class="pr-kpi"><b>${confs.length}</b><span>Confederations</span></div>
+        <div class="pr-kpi"><b>${P.cross_conf_matches||60}</b><span>Cross-conf matches</span></div>
+      </div>
+      <div class="pr-controls">
+        <div class="pr-filter" role="group" aria-label="Filter by confederation">
+          ${['All',...confs].map((c,i)=>`<button class="pr-chip${i?'':' on'}" type="button" data-conf="${prEsc(c)}" aria-pressed="${i?'false':'true'}">${prEsc(c)}</button>`).join('')}
+        </div>
+        <input class="pr-search" type="search" aria-label="Search global power rankings" placeholder="Search club or league…" autocomplete="off">
+        <div class="pr-count"></div>
+      </div>
+      <div class="pr-panel">
+        <div class="pr-head"><span>Rank</span><span>Club</span><span class="pr-conf">Confederation</span><span>Shared scale</span><span>Global ELO</span></div>
+        <div class="pr-list"></div>
+      </div>
+    </div>`;
+    const list=target.querySelector('.pr-list'),count=target.querySelector('.pr-count');
+    const search=target.querySelector('.pr-search');
+    let active='All';
+    const draw=()=>{
+      const q=(search.value||'').trim().toLowerCase();
+      const filtered=all.filter(t=>(active==='All'||t.confederation===active)&&
+        (!q||`${t.team} ${t.league_short} ${t.confederation}`.toLowerCase().includes(q)));
+      list.innerHTML=filtered.length?filtered.map(t=>{
+        const w=8+92*(t.strength-min)/span;
+        const subtitle=`${t.league_short}${t.tier>1?` · Tier ${t.tier}`:''}${t.women?' · Women':''}`;
+        return `<div class="pr-row">
+          <span class="pr-rank">${t.global_rank}</span>
+          <a class="pr-club" href="?league=${encodeURIComponent(t.league)}&team=${encodeURIComponent(t.team)}">${crest(t.team,t.logo)}<span class="pr-team"><span class="pr-name">${prEsc(t.team)}</span><span class="pr-lg">${prEsc(subtitle)}</span></span></a>
+          <span class="pr-conf">${prEsc(t.confederation)}</span>
+          <span class="pr-barwrap" title="${prEsc(t.team)} · ${Math.round(t.strength)} global ELO"><span class="pr-bar" style="width:${w.toFixed(1)}%"></span></span>
+          <span class="pr-str">${Math.round(t.strength)}</span>
+        </div>`;
+      }).join(''):'<div class="pr-empty">No clubs match this filter.</div>';
+      count.textContent=`Showing ${filtered.length.toLocaleString()} of ${all.length.toLocaleString()} clubs · ranks remain global`;
+    };
+    target.querySelectorAll('.pr-chip').forEach(button=>button.addEventListener('click',()=>{
+      active=button.dataset.conf;
+      target.querySelectorAll('.pr-chip').forEach(chip=>{
+        const on=chip===button;chip.classList.toggle('on',on);chip.setAttribute('aria-pressed',on?'true':'false');
+      });
+      draw();
+    }));
+    search.addEventListener('input',draw);
+    draw();
   }
 }
 </script>
@@ -5177,7 +5270,7 @@ if(_infoPage){
     <p class="lead">Entenser is a <b>market-blind</b> football prediction system — the model never sees betting odds. It estimates win / draw / loss probabilities from team strength and form, so when it disagrees with the market, that disagreement is genuinely independent. And it is, as far as we know, <b>the only football model that grades itself in public</b>: every forecast is scored against what actually happened, hits and misses on the same page.</p>
     <h3>How a prediction is built</h3>
     <ul>
-      <li><b>ELO ratings</b> track each team's strength over time (home advantage and between-season regression baked in).</li>
+      <li><b>Global ELO ratings</b> track each team's strength over time, then translate the domestic rating onto one EPL-anchored scale for cross-league comparison.</li>
       <li><b>Dixon–Coles</b> models goal rates with a 120-day time-decay, so recent matches matter more.</li>
       <li>A <b>season-weighted XGBoost</b> classifier (5-model seed bag) blends xG, form, rest and schedule features.</li>
       <li>The two are combined and then <b>temperature-calibrated</b> so a stated 60% really happens about 60% of the time.</li>

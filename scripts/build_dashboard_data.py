@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from data_pipeline.http import espn_get  # noqa: E402
-from scripts.payload_utils import write_js_payload, health_feature_stats, outcome_skill_block, make_fixture_id  # noqa: E402
+from scripts.payload_utils import apply_global_elo_scale, write_js_payload, health_feature_stats, outcome_skill_block, make_fixture_id  # noqa: E402
 from scripts.eval.upcoming_features import latest_team_features  # noqa: E402
 from scripts.postgame_win_expectancy import compute_we  # noqa: E402
 
@@ -841,6 +841,7 @@ def main():
                            "champion_run": champ_run,
                            "metric_convention": "brier_sum_form (range 0-2; random ~0.6406); "
                                                 "champion avg = 2022-2025 walk-forward"}}
+    apply_global_elo_scale(data, "mls")
     out = Path("webapp/data/mls.js")
     write_js_payload(out, "LEAGUE_DATA", data)
     _kb = out.stat().st_size / 1024

@@ -57,6 +57,7 @@ from scripts.eval.season_format import FORMATS, format_classification, regular_p
 from scripts.postgame_win_expectancy import compute_we
 from scripts.eval.upcoming_features import latest_team_features
 from scripts.payload_utils import (
+    apply_global_elo_scale,
     canonical_team_id,
     health_feature_stats,
     make_fixture_id,
@@ -2424,6 +2425,7 @@ def main():
                        "metric_convention": "brier_sum_form (range 0-2; random ~0.64); "
                                             "league avg = recent walk-forward folds"}}
 
+    apply_global_elo_scale(data, lid)
     out = Path(f"webapp/data/{lid}.js")
     write_js_payload(out, "LEAGUE_DATA", data)
     print(f"[{lid}] wrote {out} ({out.stat().st_size/1024:.0f} KB) · "
