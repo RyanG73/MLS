@@ -132,8 +132,8 @@ def _headline(movers: dict, fragile: list[dict]) -> str:
     top = (movers["risers"] + movers["fallers"])
     if top:
         m = max(top, key=lambda r: abs(r["delta"]))
-        dirn = "climb" if m["delta"] > 0 else "slide"
-        return (f"{m['team']}’s {m['metric'].lower()} odds {dirn} "
+        dirn = "climbs" if m["delta"] > 0 else "slides"
+        return (f"{m['team']}’s {m['metric'].lower()} probability {dirn} "
                 f"{abs(m['delta']):.1f} points to {m['now']:.0f}%")
     if fragile:
         r = fragile[0]

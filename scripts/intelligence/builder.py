@@ -126,6 +126,55 @@ def _target_for_team(team: dict, snapshot: dict) -> str | None:
     return min(candidates, key=lambda key: abs(float(published[key]) - 50))
 
 
+def _prematch_stakes(leverage_rows: list[dict], team_id: str,
+                     team_name: str, target: str) -> dict | None:
+    """Express the next own fixture's H/D/A branches from the team's view."""
+    own = [row for row in leverage_rows if row.get("is_own_fixture")]
+    if not own:
+        return None
+    fixture = min(
+        own,
+        key=lambda row: (row.get("date") or "9999-12-31",
+                         row.get("ko") or "", row.get("fixture_id") or ""),
+    )
+    is_home = str(fixture.get("home_id")) == str(team_id)
+    labels = (
+        {"H": "Win", "D": "Draw", "A": "Loss"}
+        if is_home else {"H": "Loss", "D": "Draw", "A": "Win"}
+    )
+    baseline = _finite(fixture.get("baseline_pct"))
+    conditional = fixture.get("conditional_pct") or {}
+    outcomes = []
+    for code in ("H", "D", "A"):
+        value = _finite(conditional.get(code))
+        outcomes.append({
+            "code": code,
+            "label": labels[code],
+            "pct": value,
+            "delta_pp": (
+                round(value - baseline, 1)
+                if value is not None and baseline is not None else None
+            ),
+        })
+    return {
+        "fixture_id": fixture.get("fixture_id"),
+        "date": fixture.get("date"),
+        "ko": fixture.get("ko"),
+        "team": team_name,
+        "opponent": fixture.get("away") if is_home else fixture.get("home"),
+        "venue": "home" if is_home else "away",
+        "home": fixture.get("home"),
+        "away": fixture.get("away"),
+        "target_metric": target,
+        "target_label": TARGET_LABELS.get(target, target),
+        "baseline_pct": baseline,
+        "outcomes": outcomes,
+        "leverage_pp": _finite(fixture.get("leverage_pp")),
+        "delivery_date": fixture.get("date"),
+        "evidence_ids": fixture.get("evidence_ids") or [],
+    }
+
+
 def _event_rows(events: pd.DataFrame, league_id: str, team_id: str) -> list[dict]:
     if events.empty or "league_id" not in events:
         return []
@@ -570,6 +619,9 @@ def build_team_record(payload: dict, snapshot: dict, team: dict, target: str,
     schedule = _schedule(payload, team_name)
     consensus = _consensus(payload, team_name)
     top_leverage = leverage_rows[0] if leverage_rows else None
+    visible_leverage = leverage_rows[:12]
+    prematch_stakes = _prematch_stakes(
+        leverage_rows, team_id, team_name, target)
     confidence = _confidence(payload, snapshot, team_events, top_leverage, trajectory)
     race = _race_context(snapshot, team_id, target, leverage_rows)
     thesis = _thesis(team, target, expectation, schedule, confidence, team_events, snapshot)
@@ -629,7 +681,8 @@ def build_team_record(payload: dict, snapshot: dict, team: dict, target: str,
             } for event in why_events],
         }, None if why_events else "No evidence-linked forecast movement is available."),
         "4": feature(4, "live" if leverage_rows else "unavailable", {
-            "target_metric": target, "fixtures": leverage_rows,
+            "target_metric": target, "fixtures": visible_leverage,
+            "stakes_card": prematch_stakes,
             "method": "forced H/D/A common-random Monte Carlo range",
         }, None if leverage_rows else "No scheduled fixture has supported probabilities."),
         "5": feature(5, "live" if snapshot.get("fixtures") else "unavailable", {
@@ -652,6 +705,7 @@ def build_team_record(payload: dict, snapshot: dict, team: dict, target: str,
             "calendar_mode": mode["mode"], "cadence": mode["cadence"],
             "sections": {"team_pulse": brief_data, "what_changed": team_events[:3],
                          "match_to_watch": top_leverage, "receipt": receipts[0] if receipts else None,
+                         "prematch_stakes": prematch_stakes,
                          "scenario_prompt": watchpoints[0] if watchpoints else None},
             "skip_when_empty": True,
         }),
@@ -761,7 +815,7 @@ def build_league(payload: dict, snapshot: dict, history: pd.DataFrame,
     mode = calendar_mode(payload, today=today)
     return [
         build_team_record(payload, snapshot, team, targets[team["team_id"]],
-                          leverage.get(team["team_id"], [])[:12],
+                          leverage.get(team["team_id"], []),
                           baseline[team["team_id"]], history, match_history, events, mode)
         for team in snapshot["teams"] if team["team_id"] in targets
     ]

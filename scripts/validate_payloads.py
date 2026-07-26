@@ -58,6 +58,8 @@ _NON_PAYLOAD = {
     # an unregistered "league". Not caused by round 5 — a pre-existing gap.
     "calendar.js",
     "team-catalog.js",
+    # Operational manifest for the single-snapshot live-data branch.
+    "live-manifest.js",
 }
 
 

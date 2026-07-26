@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from scripts.build_static_pages import main as build_main, pct
+from scripts.build_share_cards import card_og
 from scripts.payload_utils import read_js_payload
 
 REPO = Path(__file__).resolve().parent.parent
@@ -100,7 +101,8 @@ def test_sitemap_wellformed_and_complete(built):
     non_league = {loc for loc in set(locs[2:]) - league_locs
                   if not dated_weekly.match(loc)}
     assert non_league <= {
-        f"{SITE}/weekly/", f"{SITE}/open-data/", f"{SITE}/after-the-world-cup/"}
+        f"{SITE}/weekly/", f"{SITE}/open-data/",
+        f"{SITE}/after-the-world-cup/", f"{SITE}/football-forecasts/"}
     for u in root:
         lm = u.find(f"{ns}lastmod")
         assert lm is not None and re.fullmatch(r"\d{4}-\d{2}-\d{2}", lm.text)
@@ -157,6 +159,48 @@ def test_data_dir_payloads_untouched_by_generator(built):
     # The generator must never write into webapp/data/ (the SPA payloads);
     # the open-data index lives at /open-data/, not /data/.
     assert not (built / "data" / "index.html").exists()
+
+
+def test_public_acquisition_pages_and_rss_are_forecast_only(built):
+    paths = (
+        list((built / "leagues").glob("*/index.html"))
+        + [built / "leagues" / "index.html",
+           built / "open-data" / "index.html",
+           built / "football-forecasts" / "index.html",
+           built / "weekly" / "index.html"]
+    )
+    banned = re.compile(
+        r"\b(odds|bet|betting|edge|kelly|stake|staking|bookmaker|sportsbook|"
+        r"wager|roi|clv|market)\b", re.IGNORECASE)
+    for path in paths:
+        if path.exists():
+            assert not banned.search(path.read_text()), path
+
+    feed = built / "forecast-feed.xml"
+    assert feed.exists()
+    root = ET.parse(feed).getroot()
+    assert root.tag == "rss"
+    assert root.find("./channel/title").text == "Entenser football forecasts"
+    assert not banned.search(feed.read_text())
+
+
+def test_local_league_names_support_european_search(built):
+    segunda = built / "leagues" / "segunda" / "index.html"
+    if segunda.exists():
+        assert "Segunda División" in segunda.read_text()
+    forecast = built / "football-forecasts" / "index.html"
+    assert forecast.exists()
+    assert "Eerste Divisie" in forecast.read_text()
+    assert "National League" in forecast.read_text()
+
+
+def test_default_og_card_copy_is_forecast_only():
+    html_txt = card_og("")
+    banned = re.compile(
+        r"\b(odds|bet|betting|edge|kelly|stake|staking|bookmaker|sportsbook|"
+        r"wager|roi|clv|market)\b", re.IGNORECASE)
+    assert not banned.search(html_txt)
+    assert "70+ competitions" in html_txt
 
 
 # ── roadmap 1.5: dated /weekly/<date>/ recap pages from the F-3 archive ─────────

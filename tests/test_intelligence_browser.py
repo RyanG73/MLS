@@ -114,6 +114,17 @@ def test_scenario_card_and_journal_workflows(page: Page, intelligence_urls):
         "Preseason checkpoint", timeout=10_000)
 
 
+def test_next_match_stakes_uses_team_view_and_evidence(page: Page, intelligence_urls):
+    errors = _open(page, intelligence_urls)
+    card = page.locator("#intel-feature-4 .intel-stakes")
+    expect(card).to_contain_text("Next match · what’s at stake")
+    expect(card.locator(".intel-stake-outcome")).to_have_count(3)
+    labels = card.locator(".intel-stake-outcome > span").all_text_contents()
+    assert sorted(labels) == ["Draw", "Loss", "Win"]
+    expect(card.locator(".intel-evidence")).to_contain_text("fixture:")
+    assert not errors
+
+
 def test_hub_mobile_has_no_document_overflow(page: Page, intelligence_urls):
     errors = _open(page, intelligence_urls, width=375, height=812)
     for tab in ("Today", "Explore", "History", "Studio"):

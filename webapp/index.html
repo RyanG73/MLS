@@ -3,17 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="description" content="Title, qualification and relegation forecasts across world football. No bookmaker odds in the model — every forecast graded in public." />
+<meta name="description" content="Title, qualification and relegation forecasts across world football, with every forecast graded in public." />
 <meta property="og:title" content="Entenser — football forecasts, graded in public" />
-<meta property="og:description" content="Who wins the league, who qualifies, who goes down — across 50+ competitions. The model never sees betting odds, and we show every hit and miss." />
+<meta property="og:description" content="Who wins the league, who qualifies, who goes down — across 70+ competitions, with every hit and miss shown." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://entenser.com/" />
 <meta property="og:image" content="https://entenser.com/assets/og/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="Entenser — market-blind football probabilities, explained and audited" />
+<meta property="og:image:alt" content="Entenser — football forecasts across 70+ competitions, explained and audited" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:image" content="https://entenser.com/assets/og/og-image.png" />
+<link rel="alternate" type="application/rss+xml" title="Entenser football forecasts" href="/forecast-feed.xml" />
 <!-- Canonical (launch plan C5): the head router below swaps this to the static
      /leagues/<id>/ page when ?league= names a registry league, consolidating
      search signals onto the crawlable documents. -->
@@ -21,7 +22,7 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
  {"@type":"WebSite","name":"Entenser","url":"https://entenser.com/",
-  "description":"Market-blind football forecasts — title, qualification and relegation probabilities across world football, every forecast graded in public."},
+  "description":"Title, qualification and relegation forecasts across world football, every forecast graded in public."},
  {"@type":"Organization","name":"Entenser","url":"https://entenser.com/",
   "logo":"https://entenser.com/assets/pwa/icon-512.png"}]}
 </script>
@@ -290,6 +291,9 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .brand .sub{display:flex;align-items:center;gap:7px;margin-top:5px;font-size:11px;
   color:var(--txt-3);font-weight:650;text-transform:uppercase;letter-spacing:.055em}
 .brand .sub span+span:before{content:"·";margin-right:7px;color:var(--line-3)}
+.brand .sub .data-clock{flex-basis:100%;font-family:var(--mono);font-size:9px;
+  font-weight:600;letter-spacing:.02em;text-transform:none;color:var(--txt-3)}
+.brand .sub .data-clock:before{content:none}
 .season-status{margin-left:auto;display:grid;grid-template-columns:auto minmax(220px,330px);
   align-items:center;gap:var(--s4);min-width:min(100%,480px);background:var(--ink-1);
   border:1px solid var(--line-2);border-radius:var(--r-md);padding:9px var(--s3)}
@@ -1127,7 +1131,7 @@ footer a:hover{color:var(--txt-2)}
     <div class="favs" id="favs"></div>
     <div id="raceHistory"></div>
     <div class="whatif-banner" id="wbanner"><b>What-if mode</b><span id="wcount"></span>
-      <span style="color:var(--txt-3)">odds resimulated in your browser (10k runs)</span>
+      <span style="color:var(--txt-3)">probabilities resimulated in your browser (10k runs)</span>
       <a class="upsell-link" href="?league=support" data-upsell="saved-scenarios">★ Save scenarios across devices <em>supporter feature →</em></a>
       <a id="wshare" title="Copy a link to this scenario">Share ⧉</a>
       <a id="wreset">Reset ⟲</a></div>
@@ -1168,7 +1172,7 @@ footer a:hover{color:var(--txt-2)}
   </section>
 
   <section id="view-matches" class="hidden">
-    <div class="sec-h"><h2>Game-by-game predictions</h2><span class="note">Model win / draw / loss probability per match, with fair no-vig odds</span></div>
+    <div class="sec-h"><h2>Game-by-game predictions</h2><span class="note">Model win / draw / loss probability for every scheduled match</span></div>
     <div class="match-dates" id="matchDateRail"></div>
     <div class="controls">
       <div class="dd" id="teamDD">
@@ -1244,10 +1248,31 @@ if(_rawLeague&&(window.LEAGUES||[]).some(l=>l.id===_rawLeague)){
 window.ODDS_FMT=(()=>{ try{const s=localStorage.getItem('entenser_odds_fmt');
   if(s==='american'||s==='decimal'||s==='fractional')return s;}catch(e){}
   return (navigator.language||'en').toLowerCase()==='en-us'?'american':'decimal'; })();
+// Interactive routes overlay the latest single-snapshot data branch at runtime.
+// The same-origin payload above remains a daily, deploy-coupled fallback. Raw
+// GitHub allows CORS but serves JS as text/plain, so parse the assignment rather
+// than injecting it as a script (strict MIME checking would reject it).
+const _LIVE_DATA_BASE=/^(entenser\.com|ryang73\.github\.io)$/i.test(location.hostname)
+  ?'https://raw.githubusercontent.com/RyanG73/MLS/live-data/webapp/data/':null;
+const _overlayLiveData=path=>{
+  if(!_LIVE_DATA_BASE)return false;
+  try{
+    const req=new XMLHttpRequest();
+    req.open('GET',_LIVE_DATA_BASE+path+'?t='+Date.now(),false);
+    req.send(null);
+    if(req.status<200||req.status>=300)return false;
+    const m=req.responseText.match(/^window\.([A-Za-z0-9_]+)\s*=\s*([\s\S]*?);?\s*$/);
+    if(!m)return false;
+    window[m[1]]=JSON.parse(m[2]);
+    return true;
+  }catch(_err){return false;}
+};
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
 if(!_infoPage)
   document.write('<scr'+'ipt src="data/'+(_homeDataRoute?'home':_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
+if(!_infoPage&&!_isEdgeBoard)
+  _overlayLiveData((_homeDataRoute?'home':LID)+'.js');
 // Baked multi-source news (scripts/build_news.py). Missing file (new league,
 // build not yet run) 404s harmlessly — window.NEWS_DATA just stays undefined.
 if(!_homeDataRoute&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
@@ -1271,12 +1296,16 @@ if(_MOMENTUM_LEAGUES.has(LID))
 // day-by-day browser. Separate from edge-board.js's narrow 48h betting window.
 if(_isEdgeBoard)
   document.write('<scr'+'ipt src="data/calendar.js?t='+Date.now()+'"></scr'+'ipt>');
+if(_isEdgeBoard)
+  _overlayLiveData('calendar.js');
 // Matches to Watch (scripts/build_match_leverage.py) — fixture leverage, i.e.
 // how far each result moves the table. Static and un-gated: leverage is a
 // property of the FIXTURE, so the personalised rail is assembled client-side
 // by intersecting it with FavStore rather than by an authed API call.
 if(_isEdgeBoard)
   document.write('<scr'+'ipt src="data/match-leverage.js?t='+Date.now()+'"></scr'+'ipt>');
+if(_isEdgeBoard)
+  _overlayLiveData('match-leverage.js');
 </script>
 <script>
 const _isPower = new URLSearchParams(location.search).get('league')==='power';
@@ -1291,6 +1320,18 @@ const D = (_isPower || _isEdgeBoard || _infoPage || _homeDataRoute)
      health:null, model_card:{}, in_season_brier:{}, season:2026}
   : window.LEAGUE_DATA;
 const $=s=>document.querySelector(s), el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+// The public presentation is forecast-first. The separate comparison layer is
+// available only to an authenticated Intel session that explicitly requests it.
+const MARKET_MODE=(()=>{if(new URLSearchParams(location.search).get('market')!=='1')return false;
+  try{
+    const token=localStorage.getItem('entenser.intel.access');
+    if(!token)return false;
+    let body=token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+    while(body.length%4)body+='=';
+    const payload=JSON.parse(atob(body));
+    return payload.exp*1000>Date.now()
+      &&['trial','intel','creator'].includes(payload.plan);
+  }catch(_err){return false;}})();
 // Public pages display the EPL-anchored shared rating. Raw domestic ELO stays
 // in the payload for simulation compatibility; a constant league offset cannot
 // change a within-league matchup, but it does make the published number
@@ -1586,9 +1627,9 @@ function teamGateCardHTML(team){
       <a class="mast-wordmark" href="${location.pathname}"><img class="mast-moose" src="assets/branding/entenser-icon-light.png" alt="">Entenser</a>
       <div class="mast-right">
         <div class="mast-search"><input id="msq" type="search" aria-label="Search leagues and teams" placeholder="Search leagues & teams…" autocomplete="off" spellcheck="false"><div class="ms-results" id="msr"></div></div>
-        <span class="odds-lbl">Odds Format</span><div class="odds-toggle" title="Odds display format">${
+        ${MARKET_MODE?`<span class="odds-lbl">Price Format</span><div class="odds-toggle" title="Price display format">${
           [['american','US'],['decimal','Dec'],['fractional','Frac']].map(([f,lbl])=>
-            `<button type="button" data-oddsfmt="${f}" class="${window.ODDS_FMT===f?'on':''}">${lbl}</button>`).join('')}</div>
+            `<button type="button" data-oddsfmt="${f}" class="${window.ODDS_FMT===f?'on':''}">${lbl}</button>`).join('')}</div>`:''}
         <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
       </div>
     </div><nav class="mast-bar">${bar}</nav>${live}${oa}<div class="mb-portal" id="mbPortal"></div>`;
@@ -1672,7 +1713,11 @@ function teamGateCardHTML(team){
   if(isCanonical)title.innerHTML=`<a href="/leagues/${LID}/">${lg.name}</a>`;
   const country=reg.country||lg.country||lg.confederation||'International';
   const level=reg.tier!=null?`Division ${reg.tier}`:(isKnockout?'Cup competition':'League competition');
-  $('#sub').innerHTML=`<span>${country}</span><span>${level}</span>`;
+  const fast=D.fast_refresh||{};
+  const clock=fast.forecast_updated_at
+    ?`<span class="data-clock">Forecast ${fast.forecast_updated_at} · fitted model ${fast.fitted_model_at||'—'}${MARKET_MODE?` · market prices ${fast.market_prices_at||'—'}`:''}</span>`
+    :(D.generated?`<span class="data-clock">Forecast ${D.generated}</span>`:'');
+  $('#sub').innerHTML=`<span>${country}</span><span>${level}</span>${clock}`;
 })();
 const monogram=n=>{const w=n.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean);return ((w[0]?.[0]||'')+(w[1]?.[0]||'')).toUpperCase();};
 const fmt=v=>`${v.toFixed(1)}%`;                         // percentages with one decimal + sign
@@ -1738,6 +1783,7 @@ function oddsStr(p){
 }
 const american=oddsStr;  // legacy alias — existing call sites keep working
 function oddsHTML(p){return `<span class="odds-val" data-p="${p!=null?p:''}">${oddsStr(p)}</span>`;}
+function matchQuote(p){return MARKET_MODE?oddsHTML(p):`<span class="odds-val">${p==null?'—':Math.round(p*100)+'%'}</span>`;}
 /* Re-render every quoted price in place after a format switch. */
 function applyOddsFmt(){document.querySelectorAll('.odds-val').forEach(s=>{
   const p=parseFloat(s.dataset.p);s.textContent=oddsStr(isNaN(p)?null:p);});}
@@ -1877,11 +1923,11 @@ function modelPerformanceHTML(){
     `</span></div>`;
   return `<div class="acc-nums">
        <div class="acc-row"><span class="t">Model</span><span class="v">${b3(m)}</span></div>
-       <div class="acc-row"><span class="t">Market</span><span class="v">${b3(mk)}</span></div>
+       ${MARKET_MODE?`<div class="acc-row"><span class="t">Market</span><span class="v">${b3(mk)}</span></div>`:''}
        <div class="acc-row"><span class="t">Naive</span><span class="v muted">${b3(n)}</span></div>
        ${D.generated?`<div class="acc-row"><span class="t" style="width:auto">as of ${D.generated}</span></div>`:''}
      </div>
-     <div class="acc-tracks">${row('vs naive',naiveMap)}${row('vs market',mktMap)}</div>`;
+     <div class="acc-tracks">${row('vs naive',naiveMap)}${MARKET_MODE?row('vs market',mktMap):''}</div>`;
 }
 $('#foot').innerHTML=FOOT_HTML;
 
@@ -2049,7 +2095,7 @@ function simGateNote(overlay=false){
   if(!NF||IntelStore.unlocked())return null;
   const a=el('a',overlay?'sim-gate-overlay':'sim-gate-note',
     `<span class="sg-boxes" aria-hidden="true">${'<i></i>'.repeat(5)}</span>`+
-    `<span class="sg-copy"><b>See how odds change based on upcoming performances across the league.</b> `+
+    `<span class="sg-copy"><b>See how probabilities change based on upcoming performances across the league.</b> `+
     `<span>Force results, then rerun the season 10,000 times.</span></span>`+
     `<span class="sg-cta">🔒 Entenser Intel →</span>`);
   a.href='?league=intel';
@@ -2589,7 +2635,7 @@ function renderKnockout(){
   const mgrid='minmax('+clubColWidth(fld.map(t=>t.team))+'px,1.3fr) '+rounds.map(()=>'1fr').join(' ')+' 1fr';
   h+='<div class="ko-pane'+off()+'" data-pane="ko">'+bracketTree()+
      '<div class="panel ladder tlad" style="--tgrid:'+mgrid+'">'+
-     '<div class="panel-h"><span class="dot"></span><h2>Round-by-round odds</h2><span class="meta">chance of reaching each round</span></div>'+
+     '<div class="panel-h"><span class="dot"></span><h2>Round-by-round probabilities</h2><span class="meta">chance of reaching each round</span></div>'+
      '<div class="thead"><span>Team</span>'+rounds.map(r=>'<span class="c">'+r+'</span>').join('')+'<span class="c">Win</span></div>';
   fld.forEach(t=>{const mark=(D.outlook.concluded||t.modeled)?'':' <span class="ko-coef">~</span>';
     h+='<div class="trow">'+tcell(t.team,t.logo,mark)+
@@ -2630,7 +2676,7 @@ const FEATURE_DEFS={
   'Availability':'Share of the roster healthy and available for selection',
   'is_playoff':'Playoff-match flag — 0 for every regular-season match by design',
   'Schedule':'Rest days and fixture congestion going into each match',
-  'Market':'De-vigged betting-market probabilities where a line exists'};
+  ...(MARKET_MODE?{'Market':'De-vigged betting-market probabilities where a line exists'}:{})};
 renderHealth();   // eager: pre-render so NaN/undefined issues surface at load, not only on tab click
 $('#ladders').addEventListener('click',e=>{
   const tl=e.target.closest('.tlink');if(tl){openTeam(tl.dataset.team);return;}
@@ -2676,6 +2722,20 @@ function reliabilitySVG(trust,w=460,h=230){
   return `<svg viewBox="0 0 ${w} ${h}" class="chart-svg" style="min-width:0">${grid}${diag}${dots(favPts,'var(--floodlight)')}${dots(drawPts,'#e25f4f')}${[0,0.5,1].map(axLbl).join('')}</svg>`;
 }
 function escHTML(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function publicAnalysisCopy(s){
+  if(MARKET_MODE)return String(s??'');
+  return String(s??'')
+    .replace(/\bmarket-blind\b/gi,'independent')
+    .replace(/\bmarkets?\b/gi,'external benchmarks')
+    .replace(/\bbookmakers?\b/gi,'external benchmarks')
+    .replace(/\bbetting\b/gi,'forecasting')
+    .replace(/\bodds\b/gi,'probabilities')
+    .replace(/\bedges?\b/gi,'differences')
+    .replace(/\bstaking?\b/gi,'allocation')
+    .replace(/\bkelly\b/gi,'allocation')
+    .replace(/\broi\b/gi,'evaluation return')
+    .replace(/\bclv\b/gi,'closing comparison');
+}
 function modelSliceForLeague(id=LID){
   const MS=window.MODEL_SLICES;
   if(!MS||MS.status!=='ok')return null;
@@ -2715,14 +2775,14 @@ function familyForwardEvidenceHTML(fam){
   const md=fs.market_disagreement||{};
   const pieces=[
     diagTapeHTML('Family draw by total',fs.total_goals_draw,'total'),
-    diagTapeHTML('Model vs market edge',md.by_edge,'favorite'),
+    MARKET_MODE?diagTapeHTML('Model vs market edge',md.by_edge,'favorite'):'',
   ].filter(Boolean).join('');
   const du=md.disagreement_underdogs||{};
   const note=du.n?`Market underdogs priced at least 8pp below model: ${diagPct(du.hit_rate,1)} hit · n=${du.n}`:'Market-disagreement sample pending';
   if(!pieces)return '';
   return `<div class="hnote">Family-level forward / played diagnostics</div>
     <div class="diag-tapes">${pieces}</div>
-    <div class="hnote">${escHTML(note)}</div>`;
+    ${MARKET_MODE?`<div class="hnote">${escHTML(note)}</div>`:''}`;
 }
 function promotedWindowsHTML(fam){
   const rows=fam.promoted_relegated_windows||[];
@@ -2751,7 +2811,7 @@ function modelDiagHTML(fam){
       <div class="diag-cell"><div class="dk">Current matches</div><div class="dv">${m.upcoming||0} up · ${m.played||0} played</div></div>
       <div class="diag-cell"><div class="dk">Draw-heavy</div><div class="dv">${drawHeavy.n||0}</div></div>
       <div class="diag-cell"><div class="dk">Model underdogs</div><div class="dv">${u.upcoming_count||0} up</div></div>
-      <div class="diag-cell"><div class="dk">Market status</div><div class="dv" style="color:${md.status==='ok'?'var(--win)':'var(--txt-3)'}">${escHTML(marketTxt)}</div></div>
+      ${MARKET_MODE?`<div class="diag-cell"><div class="dk">Market status</div><div class="dv" style="color:${md.status==='ok'?'var(--win)':'var(--txt-3)'}">${escHTML(marketTxt)}</div></div>`:''}
     </div>${tapes?`<div class="diag-tapes">${tapes}</div>`:''}${gapRows?`<div class="hnote">Value/table disagreement watchlist</div><div class="gap-list">${gapRows}</div>`:''}`;
 }
 function modelSliceCard(){
@@ -2760,12 +2820,12 @@ function modelSliceCard(){
   const metric=fam.model_brier!=null
     ?`<div class="pstat"><span class="k">${escHTML(fam.label)} champion Brier</span><span class="v">${fam.model_brier.toFixed(4)}${fam.improvement_pct!=null?` <span style="color:var(--qualify);font-weight:600">+${fam.improvement_pct}% vs naive</span>`:''}</span></div>`
     :'';
-  const limits=(fam.limits||[]).slice(0,4).map(x=>`<li>${escHTML(x)}</li>`).join('');
+  const limits=(fam.limits||[]).slice(0,4).map(x=>`<li>${escHTML(publicAnalysisCopy(x))}</li>`).join('');
   const teams=(fam.worst_home_teams||[]).slice(0,5).map(t=>
     `<span class="cfg-chip"><i>${escHTML(t.team)}</i> ${t.brier.toFixed(3)} Brier · n=${t.n}</span>`).join('');
-  const missing=(fam.missing_diagnostics||[]).slice(0,4).map(x=>`<span class="cfg-chip"><i>Needed</i> ${escHTML(x)}</span>`).join('');
+  const missing=(fam.missing_diagnostics||[]).slice(0,4).map(x=>`<span class="cfg-chip"><i>Needed</i> ${escHTML(publicAnalysisCopy(x))}</span>`).join('');
   return `<div class="hcard2"><h3>Known weak spots</h3>${metric}
-    <div class="hnote">${escHTML(fam.policy)}</div>
+    <div class="hnote">${escHTML(publicAnalysisCopy(fam.policy))}</div>
     ${modelDiagHTML(fam)}
     ${underdogHistoryHTML(fam)}
     ${familyForwardEvidenceHTML(fam)}
@@ -2807,11 +2867,11 @@ function phaseBrierCard(){
     <span class="pb-v">${v.toFixed(3)}</span><span class="pc-n">${n||''}</span></div>`;
   const body=stats.map(([lab,s])=>`<div class="pb-grp"><div class="pb-hd">${lab} <span class="pc-n">n=${s.n}</span></div>`+
     bar('Model',s.model,'var(--qualify)','')+
-    (s.market!=null?bar('Market',s.market,'var(--europa)',`n=${s.n_mkt}`):'')+
+    (MARKET_MODE&&s.market!=null?bar('Market',s.market,'var(--europa)',`n=${s.n_mkt}`):'')+
     bar('Naive',s.naive,'var(--txt-3)','')+`</div>`).join('');
   const mktNote=stats.some(([,s])=>s.market!=null)?'market = de-vigged closing lines on its matched games':'no market lines matched this season — model vs naive only';
-  return `<div class="hcard2"><h3>Brier by season phase — model vs market vs naive</h3>${body}
-    <div class="hnote">Lower is better. Naive = always quoting this season's league base rates; ${mktNote}.</div></div>`;
+  return `<div class="hcard2"><h3>Brier by season phase — model vs ${MARKET_MODE?'market vs ':''}naive</h3>${body}
+    <div class="hnote">Lower is better. Naive = this season's league base rates${MARKET_MODE?`; ${mktNote}`:''}.</div></div>`;
 }
 function renderHealth(){
   const h=D.health, m=D.model||{}, mc=D.model_card||{}, live=D.in_season_brier||{};
@@ -2819,7 +2879,7 @@ function renderHealth(){
   const performance=modelPerformanceHTML();
   const performanceCard=performance
     ?`<div class="hcard2 trust-performance"><h3>Model performance — historical walk-forward results</h3>
-      <div class="hnote">The model-score comparison formerly shown in the league masthead. Lower Brier is better; yearly percentages show improvement versus the naive baseline and closing market.</div>
+      <div class="hnote">Lower Brier is better; yearly percentages show improvement versus the naive baseline${MARKET_MODE?' and closing market':''}.</div>
       <div class="trust-perf-body">${performance}</div></div>`
     :'';
   const col=v=>v>=99?'var(--qualify)':v>=95?'var(--hfa)':'#e25f4f';
@@ -2846,7 +2906,7 @@ function renderHealth(){
   // and places the champion model between them. Only renders when this
   // league actually has market odds matched (m.market not null); otherwise
   // falls back to silence rather than a misleading naive-only bar.
-  const brierScale=(m.naive!=null&&m.market!=null&&m.best_brier!=null&&m.naive!==m.market)?(()=>{
+  const brierScale=(MARKET_MODE&&m.naive!=null&&m.market!=null&&m.best_brier!=null&&m.naive!==m.market)?(()=>{
     const capture=(m.naive-m.best_brier)/(m.naive-m.market)*100;
     const pos=Math.max(0,Math.min(100,capture));
     const verdict=capture>=100?`beats the market by ${(capture-100).toFixed(0)}%`
@@ -2879,7 +2939,7 @@ function renderHealth(){
   // value edge backtest card
   const bt=(D.value_layer||{}).backtest;
   const _btG='display:grid;grid-template-columns:90px 64px 80px 80px;gap:8px;align-items:center';
-  const btCard=bt&&bt.n_bets>0?`<div class="hcard2"><h3>Value edge backtest · ≥${bt.threshold_pct}% model edge, flat stake</h3>
+  const btCard=MARKET_MODE&&bt&&bt.n_bets>0?`<div class="hcard2"><h3>Value edge backtest · ≥${bt.threshold_pct}% model edge, flat stake</h3>
     <div class="h-stats">
       <div class="h-stat"><div class="h-k">Historical bets</div><div class="h-big">${bt.n_bets}</div><div class="h-sub" style="color:var(--txt-3)">${bt.avg_edge_pct}% avg edge</div></div>
       <div class="h-stat"><div class="h-k">Hit rate</div><div class="h-big">${(bt.win_rate*100).toFixed(1)}%</div><div class="h-sub" style="color:var(--txt-3)">wins / bets placed</div></div>
@@ -2923,13 +2983,13 @@ function renderHealth(){
     // supersedes the backtest-only trust slice; fall back when too few games.
     const phaseCard=phaseBrierCard()
       ||`<div class="hcard2"><h3>Brier by season phase (backtest)</h3>${phaseRows}
-          <div class="hnote">Too few played matches this season for the live model-vs-market-vs-naive split — backtest slice shown.</div></div>`;
+          <div class="hnote">Too few played matches this season for the live model-vs-${MARKET_MODE?'market-vs-':''}naive split — backtest slice shown.</div></div>`;
     trustBlock=`<div class="hgrid2">
       <div class="hcard2"><h3>Reliability — predicted vs observed</h3>${reliabilitySVG(trust)}
         <div class="hnote"><span style="color:var(--floodlight)">●</span>&nbsp;favorite-probability deciles &nbsp; <span style="color:#e25f4f">●</span>&nbsp;draw curve (model's worst class) &nbsp; dashed = perfect calibration</div></div>
       ${phaseCard}
     </div><div class="hcard2"><h3>Does the favorite win as often as the model says?</h3>
-      <div class="hnote" style="margin-bottom:8px">Matches grouped by the model's favorite probability. Gray bar = what the model predicted, green bar = how often the favorite actually won. Matching bars = trustworthy odds.</div>${favRows}</div>${advBanner}`;
+      <div class="hnote" style="margin-bottom:8px">Matches grouped by the model's favorite probability. Gray bar = what the model predicted, green bar = how often the favorite actually won. Matching bars = trustworthy probabilities.</div>${favRows}</div>${advBanner}`;
   }else{
     const phaseCard=phaseBrierCard();
     trustBlock=(phaseCard?`<div class="hgrid2">${phaseCard}`:'<div class="hgrid2">')+
@@ -2955,10 +3015,10 @@ function renderHealth(){
         const c=m.skill<=0.05?'#e25f4f':(m.skill<0.25?'var(--ink-dim,#8a93a6)':'var(--qualify,#41d18c)');
         return `<td style="color:${c}">${m.skill.toFixed(2)}</td>`;
       }).join('')+'</tr>').join('');
-    oskBlock=`<div class="hcard2"><h3 id="oskHead">Season-outcome skill — when to trust the odds</h3>
+    oskBlock=`<div class="hcard2"><h3 id="oskHead">Season-outcome skill — when to trust the forecast</h3>
       <table class="osk-table" aria-labelledby="oskHead" style="width:100%;border-collapse:collapse;font-size:12px;text-align:center">${head}${rows}</table>
       <div class="hnote">Skill vs always quoting historical base rates (1 = perfect, 0 = none, red = little/none).
-      Preseason relegation/promotion odds carry little skill — they sharpen by ~25% of the season.
+      Preseason relegation/promotion probabilities carry little skill — they sharpen by ~25% of the season.
       Measured on 2018–2025 replays (<code>season-outcomes-baseline</code>).</div></div>`;
   }else{
     oskBlock=`<div class="hcard2"><h3>Season-outcome skill</h3><div class="hnote">Not measured for this league yet — the season-outcome replay covers leagues with sufficient history.</div></div>`;
@@ -3169,11 +3229,11 @@ function renderGames(){
     const row=el('div','grow'+(played?' done':''));
     row.innerHTML=
       `<span class="gr-time">${matchTime(g)}<span class="sub">${played?'Result':'Kickoff'}</span></span>`+
-      `<span class="gr-team home"><span class="tn">${g.home}</span><span class="gr-odds">${oddsHTML(g.pH)}</span>${crest(g.home,g.hlogo)}</span>`+
+      `<span class="gr-team home"><span class="tn">${g.home}</span><span class="gr-odds">${matchQuote(g.pH)}</span>${crest(g.home,g.hlogo)}</span>`+
       `<span class="gr-xg">${hVal}<span class="sub">${scoreSub}</span></span>`+
       `<span class="gr-bar">${cbar(g)}</span>`+
       `<span class="gr-xg">${aVal}<span class="sub">${scoreSub}</span></span>`+
-      `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${oddsHTML(g.pA)}</span><span class="tn">${g.away}</span></span>`;
+      `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${matchQuote(g.pA)}</span><span class="tn">${g.away}</span></span>`;
     // Venue/weather stay in a compact expansion; proprietary model inputs are
     // intentionally not exposed in the public match UI.
     const meta=[];
@@ -3184,7 +3244,7 @@ function renderGames(){
       row.appendChild(el('div','gr-why',`<div class="why-meta">${meta.join('&ensp;·&ensp;')}</div>`));
     }else row.style.cursor='default';
     grp.appendChild(row);
-    if(!played){
+    if(!played&&MARKET_MODE){
       const bb=bestBet(g);  // ≥8% edge, draw-side suppressed (B5)
       if(bb&&bb.units>0){
         const chip=el('div','gr-scores');
@@ -4377,7 +4437,7 @@ function supportCardHTML(){
   const annual=PriceStore.has('annual'), sel=annual?'annual':'monthly';
   return `
     <h2>Entenser Intel</h2>
-    <p class="lead">The forecasts stay free — every league race, every match probability, every public grade. Intel is the personal layer on top, for readers who want alerts, history and control, and who want to keep an independent, market-blind model running.</p>
+    <p class="lead">The forecasts stay free — every league race, every match probability, every public grade. Intel is the personal layer on top, for readers who want alerts, history and control, and who want to keep an independent model running.</p>
     <div class="sup-cadence" id="supCadence" data-cadence="${sel}">
       <button type="button" class="sc-opt${annual?'':' on'}" data-c="monthly">Monthly</button>
       ${annual?'<button type="button" class="sc-opt on" data-c="annual">Annual <em>2 months free</em></button>':''}
@@ -4386,8 +4446,8 @@ function supportCardHTML(){
     <h3>What's included</h3>
     <ul class="sup-feats">
       <li><b>Saved teams &amp; leagues</b> with email alerts when a title, playoff or relegation chance moves past a threshold you set.</li>
-      <li><b>Forecast-change history</b> — see how a club's odds shifted week by week, not just where they stand today.</li>
-      <li><b>Weekly "model changed its mind" briefing</b> — the biggest movers and model-vs-market disagreements, in your inbox.</li>
+      <li><b>Forecast-change history</b> — see how a club's probability shifted week by week, not just where they stand today.</li>
+      <li><b>Weekly "model changed its mind" briefing</b> — the biggest movers, what changed, and why, in your inbox.</li>
       <li><b>Data downloads</b> — projections and probabilities as CSV for your own analysis.</li>
       <li><b>Ad-free, always</b> — the site stays fast and free of gambling creative.</li>
     </ul>
@@ -4427,7 +4487,7 @@ function intelHookHTML(){
     <div>
       <div class="intel-kick">Entenser Intel · founding member</div>
       <div class="ih-price">${_priceBlockHTML(sel)}</div>
-      <p>Custom deep dives, scenario what-ifs, a projection studio and full team pages for the clubs you follow — the same market-blind model, made personal.</p>
+      <p>Custom deep dives, scenario what-ifs, a projection studio and full team pages for the clubs you follow — the same independently graded model, made personal.</p>
       <div class="hnote">Every public forecast stays free. Intel adds the personal layer on top.</div>
     </div>
     <div>
@@ -4466,15 +4526,15 @@ function _koTime(g){
 function mxCard(g){
   const up=g.result==null, hasP=g.pH!=null;
   const pc=p=>p==null?'—':`${Math.round(p*100)}%`;
-  const priced=up&&hasP;
-  const market=priced
-    ?`${cbar(g)}<span class="mx-draw">draw ${pc(g.pD)} · ${oddsHTML(g.pD)}</span>`
+  const projected=up&&hasP;
+  const market=projected
+    ?`${cbar(g)}<span class="mx-draw">draw ${pc(g.pD)}${MARKET_MODE?' · '+oddsHTML(g.pD):''}</span>`
     :`<span class="mx-result">${g.hg??'—'}–${g.ag??'—'} · FT</span>`;
   return `<a class="mxcard" href="?league=${g.league}" data-ko="${commandEsc(g.ko||'')}" title="${commandEsc(g.home)} v ${commandEsc(g.away)}">
     <time class="ko">${_koTime(g)}</time>
-    <span class="mx-team home"><span class="nm">${commandEsc(g.home)}</span>${priced?oddsHTML(g.pH):''}${crest(g.home,g.hlogo)}</span>
+    <span class="mx-team home"><span class="nm">${commandEsc(g.home)}</span>${projected?(MARKET_MODE?oddsHTML(g.pH):`<span class="odds-val">${pc(g.pH)}</span>`):''}${crest(g.home,g.hlogo)}</span>
     <span class="mx-market">${market}</span>
-    <span class="mx-team away">${crest(g.away,g.alogo)}${priced?oddsHTML(g.pA):''}<span class="nm">${commandEsc(g.away)}</span></span>
+    <span class="mx-team away">${crest(g.away,g.alogo)}${projected?(MARKET_MODE?oddsHTML(g.pA):`<span class="odds-val">${pc(g.pA)}</span>`):''}<span class="nm">${commandEsc(g.away)}</span></span>
   </a>`;
 }
 function calStripHTML(){
@@ -4548,7 +4608,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
   // Edge-board lookup so fixture captions can flag qualifying model edges
   // (league|home|away key; the calendar and edge board share team spellings).
   window._EDGE_LOOKUP={};
-  (EB.priced||[]).forEach(r=>{window._EDGE_LOOKUP[`${r.league}|${r.home}|${r.away}`]=r;});
+  if(MARKET_MODE)(EB.priced||[]).forEach(r=>{window._EDGE_LOOKUP[`${r.league}|${r.home}|${r.away}`]=r;});
   // ── Q: one-mover-at-a-time ticker over MOVERS_DATA (team · what the odds
   //    are for · old → new), quietly rotating (2026-07-17 redesign) ──
   const MV=(window.MOVERS_DATA&&window.MOVERS_DATA.status==='ok'&&window.MOVERS_DATA.movers)||[];
@@ -4591,7 +4651,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
         <span class="mtw-fx">${crest(r.home,r.home_logo)}<b>${commandEsc(r.home)}</b>
           <em>v</em>${crest(r.away,r.away_logo)}<b>${commandEsc(r.away)}</b></span>
         <span class="mtw-meta">${commandEsc(r.league_name)}${drv?' · '+drv:''}</span>
-        <span class="mtw-lev" title="Expected movement in table odds">${r.leverage.toFixed(0)}</span></a>`;
+        <span class="mtw-lev" title="Expected movement in table probabilities">${r.leverage.toFixed(0)}</span></a>`;
     };
     const mine=ML.fixtures.filter(isMine).slice(0,5);
     // One fixture per league (its most pivotal), then order by league tier so
@@ -4627,14 +4687,14 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
       <div class="mxp-card">
         <div class="eb-h" style="padding:0 0 8px">Weekly model movement, in your inbox</div>
         ${commandSignupHTML()}
-        <div class="cc-panel-note" style="padding:8px 0 0">One email a week — biggest movers, closest races, how our calls did. ${BET_DISCLAIMER}</div>
+        <div class="cc-panel-note" style="padding:8px 0 0">One email a week — biggest movers, closest races, and how our calls did.</div>
       </div>
       <div class="mxp-card">
         <div class="eb-h" style="padding:0 0 8px">Model mover</div>
         <div id="mxTicker">${tickerHTML()}</div>
       </div>
     </div>
-    <div class="eb-panel">${ledgerStripHTML()}</div>`;
+    ${MARKET_MODE?`<div class="eb-panel">${ledgerStripHTML()}</div>`:''}`;
     bindCommandSignup();
     // day strip: click filters the fixtures panel beneath
     const calStripEl=$('.cal-strip');
@@ -4707,7 +4767,7 @@ if(_isHome && window.HOME_DATA){
   // Board rows drop the metric label after the % (2026-07-19 feedback: "it is
   // implied to be the title") and gain a UCL row pinned under Ligue 1 — a
   // plain link, not part of the table rotation. Between seasons ucl_board.pct
-  // is null → "new season odds coming soon" indicator.
+  // is null → a new-season forecast indicator.
   // Board rows label by country, not league name (2026-07-19 feedback) —
   // country comes from the leagues.js registry, with two display overrides.
   const ctry=id=>({mls:'USA',ucl:'UEFA CL'})[id]
@@ -4716,7 +4776,7 @@ if(_isHome && window.HOME_DATA){
     const u=H.ucl_board; if(!u) return '';
     const body=u.pct!=null
       ?`${crest(u.team,u.logo)}<span class="nm">${u.team}</span><b>${u.pct}%</b>`
-      :`<span class="nm soon">New season odds coming soon</span>`;
+      :`<span class="nm soon">New season forecast coming soon</span>`;
     return `<a class="hx-erow" href="?league=ucl" title="Open ${u.name}">
       <span class="lg">${ctry('ucl')}</span>${body}</a>`;
   };
@@ -4746,14 +4806,14 @@ if(_isHome && window.HOME_DATA){
 
   // ── F: upcoming-matches strip — same day→card format as the results strip
   //    (2026-07-19 feedback: "format the same way as results"), but each team
-  //    row carries the model's win % + fair odds instead of a score, with the
-  //    draw on a slim footer line. Replaces the one-league-per-slide carousel. ──
+  //    row carries the model's win percentage, with the draw on a slim footer
+  //    line. Replaces the one-league-per-slide carousel. ──
   const pctStr=p=>p==null?'—':`${Math.round(p*100)}%`;
   const fxCard=f=>`<a class="hx-scard fx" href="?league=${f.league}" title="${f.home} v ${f.away}">
     <div class="lg">${f.name}</div>
-    <div class="tr">${crest(f.home,f.hlogo)}<span class="p"><b>${pctStr(f.pH)}</b><span class="o">${oddsHTML(f.pH)}</span></span></div>
-    <div class="tr">${crest(f.away,f.alogo)}<span class="p"><b>${pctStr(f.pA)}</b><span class="o">${oddsHTML(f.pA)}</span></span></div>
-    <div class="drw">draw ${pctStr(f.pD)} · ${oddsHTML(f.pD)}</div></a>`;
+    <div class="tr">${crest(f.home,f.hlogo)}<span class="p"><b>${pctStr(f.pH)}</b>${MARKET_MODE?`<span class="o">${oddsHTML(f.pH)}</span>`:''}</span></div>
+    <div class="tr">${crest(f.away,f.alogo)}<span class="p"><b>${pctStr(f.pA)}</b>${MARKET_MODE?`<span class="o">${oddsHTML(f.pA)}</span>`:''}</span></div>
+    <div class="drw">draw ${pctStr(f.pD)}${MARKET_MODE?' · '+oddsHTML(f.pD):''}</div></a>`;
   const fxStripHTML=()=>{
     // Key matches only (2026-07-19 feedback): the board's top leagues, sorted
     // by date then league prominence. If none of them play in the window
@@ -4820,7 +4880,7 @@ if(_isHome && window.HOME_DATA){
   const moversBoardHTML=()=>{
     if(!(MVB.movers||[]).length) return '';
     const pills=MV_REGIONS.map(r=>`<button class="mv-pill${r===mvRegion?' on':''}" data-region="${r}" type="button">${r}</button>`).join('');
-    return `<div class="mv-head"><span style="font-size:11px;color:var(--txt-3)">${MVB.window_label?`Model odds · ${MVB.window_label}`:''}</span><div class="mv-pills">${pills}</div></div>
+    return `<div class="mv-head"><span style="font-size:11px;color:var(--txt-3)">${MVB.window_label?`Model probability movement · ${MVB.window_label}`:''}</span><div class="mv-pills">${pills}</div></div>
       <div id="mvBody">${moversBoardBody()}</div>`;
   };
 
@@ -4857,13 +4917,13 @@ if(_isHome && window.HOME_DATA){
   if(target){ target.classList.remove('hidden'); target.innerHTML=`
     <div class="hx-wrap">
     <div class="hx-tag">${(()=>{const ls=liveStateHTML();return ls
-      ?`<h1 class="sr-only">Today on Entenser</h1>${ls}<p class="hx-sub">Market-blind football probabilities, explained and audited.</p>`
+      ?`<h1 class="sr-only">Today on Entenser</h1>${ls}<p class="hx-sub">Football forecasts across 70+ competitions, explained and graded.</p>`
       :`<h1>Title, qualification and relegation forecasts across world football.</h1>`;})()}</div>
     <div class="hx-b">
       ${stripHTML()}
     </div>
     <div class="hx-table"><h2 class="ed-sec">League Tables</h2><div class="hx-card" id="hxTable">${T.length?tableHTML(T[tIdx]):'<div class="news-empty">League tables arrive with the next data build.</div>'}</div></div>
-    <div class="hx-odds"><h2 class="ed-sec">Title Odds</h2><div class="hx-card" id="hxBoard" style="padding:6px 8px">${T.length?boardHTML():'<div class="news-empty">Title odds arrive with the next data build.</div>'}</div></div>
+    <div class="hx-odds"><h2 class="ed-sec">Title Probabilities</h2><div class="hx-card" id="hxBoard" style="padding:6px 8px">${T.length?boardHTML():'<div class="news-empty">Title probabilities arrive with the next data build.</div>'}</div></div>
     <div class="hx-stories"><h2 class="ed-sec">Your Stories</h2>${storiesHTML}</div>
     <div class="hx-fix">${myMatchdayHTML?`<h2 class="ed-sec">★ My Matchday</h2><div class="hx-card" style="margin-bottom:16px" id="myMatchday">${myMatchdayHTML}</div>`:''}<h2 class="ed-sec">Upcoming Matches</h2><div id="hxCaro">${fxStripHTML()}</div></div>
     <div class="hx-movers">${moversBody?`<h2 class="ed-sec">Biggest Movers</h2>${moversBody}`:''}</div>
@@ -5081,8 +5141,8 @@ if(_isAccount){
   const NOTIF_DEFS=[   // [key, label, description, default-on, intel-gated]
     ['weekly','Weekly digest','The one honest email a week — biggest movers, closest races, every graded call.',true,false],
     ['matchday','Matchday reminders','A morning note when a club you follow plays that day.',false,false],
-    ['odds_move','Threshold alerts','Email the moment title / playoff / relegation odds cross a level you set.',false,true],
-    ['market_gap','Model vs market alerts','When the model disagrees with the market by 8%+ on a club you follow.',false,true],
+    ['odds_move','Threshold alerts','Email the moment a title / playoff / relegation probability crosses a level you set.',false,true],
+    ...(MARKET_MODE?[['market_gap','Model vs market alerts','When the model disagrees with the market by 8%+ on a club you follow.',false,true]]:[]),
     ['product','Product updates','New leagues, new features, occasional launch news.',false,false],
   ];
   const notifs={...Object.fromEntries(NOTIF_DEFS.map(d=>[d[0],d[3]])),...(acct.notifs||{})};
@@ -5130,7 +5190,7 @@ if(_isAccount){
           <div class="plan"><span class="cur">current plan</span>
             <div class="nm">Free</div><div class="pr">$0<small> / forever</small></div>
             <ul><li>Every league forecast, all ${(window.LEAGUES||[]).filter(l=>l.status==='live').length} live competitions</li>
-              <li>Match probabilities &amp; fair no-vig odds</li>
+              <li>Match win / draw / loss probabilities</li>
               <li>Public grading — every hit and miss</li>
               <li>Favorites, news &amp; the weekly email</li></ul></div>
           <div class="plan pro"><span class="cur">${intelOn?'active':'available'}</span>
@@ -5154,7 +5214,7 @@ if(_isAccount){
         <h2><span class="dot"></span>Notifications</h2>
         <div class="d">What lands in your inbox. Nothing is sent without an email saved in Profile.</div>
         ${NOTIF_DEFS.map(notifRow).join('')}
-        <div class="acct-row"><div class="ttl"><b>Alert threshold<span class="ilock">🔒 Intel</span></b><span>How big an odds move has to be before we email you.</span></div>
+        <div class="acct-row"><div class="ttl"><b>Alert threshold<span class="ilock">🔒 Intel</span></b><span>How big a probability move has to be before we email you.</span></div>
           <select id="acThresh" ${intelOn?'':'disabled'} style="background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:7px 9px;font-size:12px">
             ${['3','5','8','12'].map(v=>`<option value="${v}" ${String(acct.thresh||'5')===v?'selected':''}>±${v} pts</option>`).join('')}
           </select></div>
@@ -5163,9 +5223,9 @@ if(_isAccount){
       <section class="acct-sec" id="acct-prefs">
         <h2><span class="dot"></span>Preferences</h2>
         <div class="d">Saved instantly, applied everywhere on this device.</div>
-        <div class="acct-row"><div class="ttl"><b>Odds format</b><span>How every quoted price renders across the site.</span></div>
+        ${MARKET_MODE?`<div class="acct-row"><div class="ttl"><b>Price format</b><span>How every quoted price renders in the comparison layer.</span></div>
           <div class="sp-row">${[['american','American'],['decimal','Decimal'],['fractional','Fractional']].map(([f,l])=>
-            `<button type="button" class="sp-pill${window.ODDS_FMT===f?' on':''}" data-oddsfmt="${f}">${l}</button>`).join('')}</div></div>
+            `<button type="button" class="sp-pill${window.ODDS_FMT===f?' on':''}" data-oddsfmt="${f}">${l}</button>`).join('')}</div></div>`:''}
         <div class="acct-row"><div class="ttl"><b>Kickoff times</b><span>Always shown in your device's timezone (${Intl.DateTimeFormat().resolvedOptions().timeZone||'local'}).</span></div></div>
         <div class="acct-row"><div class="ttl"><b>Favorites-first matchdays</b><span>Days with many leagues sort your clubs to the top. Automatic once you pin favorites.</span></div>
           <label class="tgl"><input type="checkbox" checked disabled><i></i></label></div>
@@ -5267,7 +5327,7 @@ if(_infoPage){
   const DOCS={};
   DOCS['about']=`
     <h2>About the model</h2>
-    <p class="lead">Entenser is a <b>market-blind</b> football prediction system — the model never sees betting odds. It estimates win / draw / loss probabilities from team strength and form, so when it disagrees with the market, that disagreement is genuinely independent. And it is, as far as we know, <b>the only football model that grades itself in public</b>: every forecast is scored against what actually happened, hits and misses on the same page.</p>
+    <p class="lead">Entenser is an independent football prediction system. It estimates win / draw / loss probabilities from team strength and form and, as far as we know, is <b>the only football model that grades itself in public</b>: every forecast is scored against what actually happened, hits and misses on the same page.</p>
     <h3>How a prediction is built</h3>
     <ul>
       <li><b>Global ELO ratings</b> track each team's strength over time, then translate the domestic rating onto one EPL-anchored scale for cross-league comparison.</li>
@@ -5284,10 +5344,10 @@ if(_infoPage){
       <div class="metric"><div class="k">MLS</div><div class="v">0.633</div><div class="s">vs 0.641 naive · +1.2%</div></div>
       <div class="metric"><div class="k">NWSL</div><div class="v">0.646</div><div class="s">vs 0.651 naive · +0.8%</div></div>
     </div>
-    <div class="callout"><b>We do not claim to beat the market.</b> Against sharp bookmakers the model typically trails by a couple of percent on aggregate Brier — that is expected for a market-blind model. Its value is in <i>specific disagreement pockets</i>, transparency, and tracking whether a projection is stable enough to trust.</div>
+    <div class="callout"><b>The public record is the claim.</b> Entenser publishes calibrated forecasts, the baselines they must beat, and the misses as well as the hits. Its value is transparency and tracking whether a projection is stable enough to trust.</div>
     <h3>Where the model is weak (on purpose, we show this)</h3>
     <ul>
-      <li><b>Draws</b> are structurally hard; draw-side recommendations are suppressed until a calibration gate clears.</li>
+      <li><b>Draws</b> are structurally hard and remain the model's weakest outcome class.</li>
       <li><b>Preseason</b> numbers are statistical <i>priors</i>, not live probabilities — they carry little skill on promotion/relegation until ~25% of a season is played.</li>
       <li><b>Thin samples</b> (early season, lower tiers, cups) are flagged rather than hidden.</li>
     </ul>
@@ -5300,16 +5360,16 @@ if(_infoPage){
       <li><b>American Soccer Analysis</b> — xG, possession and passing features (MLS, NWSL, USL).</li>
       <li><b>ESPN</b> — fixtures, results and schedules across all leagues.</li>
       <li><b>Understat</b> — shot-level xG for the European Big-5.</li>
-      <li><b>football-data.co.uk</b> — historical results and closing market odds (used only to <i>evaluate</i> the model after the fact — never as a model input).</li>
-      <li><b>Transfermarkt</b> — squad market values, shown only as <i>team-level aggregates</i> with attribution.</li>
+      <li><b>football-data.co.uk</b> — historical results and external closing prices, used only for aggregate after-the-fact evaluation.</li>
+      <li><b>Transfermarkt</b> — squad value estimates, shown only as <i>team-level aggregates</i> with attribution.</li>
       <li><b>Open-Meteo</b> — kickoff weather for matches within a week.</li>
     </ul>
-    <div class="callout"><b>Market-blind guarantee.</b> Betting odds are never used as a model feature. Training on closing lines would collapse the model-vs-market edge, so odds are only ever used after a prediction is made, for evaluation and CLV.</div>
+    <div class="callout"><b>Independent-input guarantee.</b> External prices are never used as a model feature. They are available only for aggregate, after-the-fact evaluation in the opt-in comparison layer.</div>
     <h3>Rights posture</h3>
     <ul>
-      <li>Team-level Transfermarkt value aggregates are displayed with attribution; individual player valuations stay local-only.</li>
+      <li>Team-level squad value aggregates are displayed with attribution; individual player valuations stay local-only.</li>
       <li>Club crests and fixture data are used for identification with attribution to their sources.</li>
-      <li>Odds-derived figures appear only as aggregate model-evaluation metrics, not as redistributed raw data.</li>
+      <li>External price-derived figures appear only as aggregate evaluation metrics, not as redistributed raw data.</li>
     </ul>
     <p class="fine">If you represent a data source and have a question about usage or attribution, please <a href="?league=contact">get in touch</a> and we will resolve it promptly.</p>`;
   DOCS['responsible-gambling']=`

@@ -36,6 +36,11 @@ class TrialBatch:
         self.rng = np.random.default_rng(self.seed)
         self.random = self.rng.random((self.n, len(self.fixtures)))
         self.jitter = self.rng.random((self.n, len(self.teams))) * 10
+        # MLS needs at most 33 postseason draws per season (two conference
+        # brackets plus the Cup final). Pre-generating them preserves
+        # common-random-number comparisons when aggregate() is called again
+        # for a forced fixture.
+        self.playoff_random = self.rng.random((self.n, 40))
         self.sampled = np.zeros((self.n, len(self.fixtures)), dtype=np.int8)
         self.points = np.tile(self.base_points, (self.n, 1))
         for fixture_index, fixture in enumerate(self.fixtures):
@@ -63,6 +68,106 @@ class TrialBatch:
         points[:, self.home[fixture_index]] += home_pts
         points[:, self.away[fixture_index]] += away_pts
         return points
+
+    def _host_win_probability(self, home: int, away: int,
+                              extra_time: bool) -> float:
+        cell = self.snapshot["pmatrix"][home][away]
+        if not cell:
+            return 0.5
+        scale = 1000.0 if max(cell) > 1 else 1.0
+        ph, pd, pa = (float(value) / scale for value in cell)
+        if not extra_time:
+            return ph + 0.5 * pd
+        return ph + (pd * ph / (ph + pa) if ph + pa > 1e-9 else 0.5 * pd)
+
+    def _conference_bracket(self, seeds: list[int], draws: np.ndarray,
+                            cursor: int) -> tuple[int, int]:
+        """Replay the published MLS postseason contract for one conference."""
+        rank = {team: index for index, team in enumerate(seeds)}
+
+        def winner(home: int, away: int,
+                   extra_time: bool = False) -> int:
+            nonlocal cursor
+            value = draws[cursor]
+            cursor += 1
+            return home if value < self._host_win_probability(
+                home, away, extra_time) else away
+
+        wild_card = winner(seeds[7], seeds[8])
+        first_round = (
+            (seeds[0], wild_card),
+            (seeds[1], seeds[6]),
+            (seeds[2], seeds[5]),
+            (seeds[3], seeds[4]),
+        )
+        winners = []
+        for higher, lower in first_round:
+            higher_wins = lower_wins = 0
+            for game in range(3):
+                home, away = (
+                    (lower, higher) if game == 1 else (higher, lower))
+                result = winner(home, away)
+                if result == higher:
+                    higher_wins += 1
+                else:
+                    lower_wins += 1
+                if higher_wins == 2 or lower_wins == 2:
+                    break
+            winners.append(higher if higher_wins == 2 else lower)
+
+        def single(team_1: int, team_2: int) -> int:
+            home, away = (
+                (team_1, team_2)
+                if rank[team_1] < rank[team_2] else (team_2, team_1))
+            return winner(home, away, extra_time=True)
+
+        champion = single(
+            single(winners[0], winners[3]),
+            single(winners[1], winners[2]),
+        )
+        return champion, cursor
+
+    def _mls_targets(self, points: np.ndarray) -> dict[str, np.ndarray]:
+        conferences: dict[str, list[int]] = {}
+        for index, team in enumerate(self.teams):
+            if team.get("conf"):
+                conferences.setdefault(team["conf"], []).append(index)
+        conference_order = [
+            conference for conference in ("East", "West")
+            if conference in conferences
+        ]
+        if len(conference_order) != 2 or any(
+                len(conferences[conference]) < 9
+                for conference in conference_order):
+            return {}
+
+        conf_win = np.zeros(len(self.teams), dtype=float)
+        cup = np.zeros(len(self.teams), dtype=float)
+        for trial in range(self.n):
+            key = points[trial] * 10000 + self.base_gd * 10 + self.jitter[trial]
+            finalists = []
+            cursor = 0
+            for conference in conference_order:
+                members = np.array(conferences[conference], dtype=int)
+                seeds = members[np.argsort(-key[members])].tolist()
+                conf_win[seeds[0]] += 1
+                champion, cursor = self._conference_bracket(
+                    seeds[:9], self.playoff_random[trial], cursor)
+                finalists.append(champion)
+            team_1, team_2 = finalists
+            home, away = (
+                (team_1, team_2) if key[team_1] >= key[team_2]
+                else (team_2, team_1))
+            cup_winner = (
+                home if self.playoff_random[trial, cursor]
+                < self._host_win_probability(home, away, True)
+                else away
+            )
+            cup[cup_winner] += 1
+        return {
+            "conf_win": conf_win / self.n * 100,
+            "cup": cup / self.n * 100,
+        }
 
     def aggregate(self, points: np.ndarray) -> dict[str, dict]:
         order = np.argsort(-(points * 10000 + self.base_gd * 10 + self.jitter), axis=1)
@@ -102,6 +207,8 @@ class TrialBatch:
             else:
                 continue
             target_values[key] = membership.mean(axis=0) * 100
+        if self.snapshot.get("rules", {}).get("mode") == "mls":
+            target_values.update(self._mls_targets(points))
         return {
             team_id: {
                 "proj_pts": round(float(points[:, index].mean()), 1),

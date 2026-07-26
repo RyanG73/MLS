@@ -115,11 +115,11 @@ def card_og(lockup_uri: str) -> str:
     coverage = f"{n} leagues · 5 continental competitions" if n else "Global league coverage"
     body = f"""
     {_brand_row(lockup_uri)}
-    <div class="eyebrow" style="margin-top:26px">Market-blind football probabilities</div>
+    <div class="eyebrow" style="margin-top:26px">Football forecasts across 70+ competitions</div>
     <h1 style="font-size:60px;margin-top:14px;max-width:980px">Explained, and audited.</h1>
     <p style="color:{TXT2};font-size:24px;line-height:1.4;margin-top:20px;max-width:900px">
-      Track league races, compare model odds to the market, and see when the model is
-      stable enough to trust.</p>
+      Track title, promotion and relegation races, see what changed, and inspect
+      the model’s public record.</p>
     <div class="foot"><b>{coverage}</b> · updated daily · entenser.com</div>"""
     return _shell(body)
 
@@ -221,14 +221,14 @@ def main() -> int:
             if tr:
                 jobs.append(("title-race.png", lambda tr=tr: card_race(
                     lockup, "2026-27 Premier League title race",
-                    "Preseason priors · market-blind", tr,
+                    "Preseason forecast · independently graded", tr,
                     "Preseason priors — no matches played yet · entenser.com")))
         if args.only in (None, "releg"):
             rr = _epl_rows("releg")
             if rr:
                 jobs.append(("relegation.png", lambda rr=rr: card_race(
                     lockup, "2026-27 Premier League relegation risk",
-                    "Preseason priors · market-blind", rr,
+                    "Preseason forecast · independently graded", rr,
                     "Preseason priors — skill grows after ~25% of the season · entenser.com")))
         if args.only in (None, "movers"):
             mv = _load_payload("movers.js")

@@ -91,6 +91,21 @@
 .intel-data-table td strong{color:var(--txt-1)}
 .intel-data-table tr:last-child td{border-bottom:0}
 .intel-data-table .num{text-align:right;color:var(--txt-1)}
+.intel-stakes{border-top:2px solid var(--qualify);border-bottom:1px solid var(--line-3);margin:0 0 14px}
+.intel-stakes-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:10px 0}
+.intel-stakes-head span,.intel-stakes-current span{display:block;font:600 10px var(--mono);text-transform:uppercase;color:var(--txt-3)}
+.intel-stakes-head b{display:block;font:700 14px "Archivo",sans-serif;margin:3px 0}
+.intel-stakes-head small{display:block;font:500 11px var(--mono);color:var(--txt-3);text-transform:capitalize}
+.intel-stakes-current{text-align:right;flex:none}
+.intel-stakes-current b{font:800 24px/1.1 "Archivo",sans-serif}
+.intel-stake-outcomes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line-2);border-top:1px solid var(--line-2)}
+.intel-stake-outcome{background:var(--ink-1);padding:10px}
+.intel-stake-outcome>span{display:block;font:600 11px var(--mono);text-transform:uppercase;color:var(--txt-3)}
+.intel-stake-outcome>b{display:block;font:800 21px/1.2 "Archivo",sans-serif;margin:3px 0}
+.intel-stake-outcome>small{display:block;font:600 10px var(--mono);color:var(--txt-3)}
+.intel-stake-outcome>small.up{color:var(--qualify)}
+.intel-stake-outcome>small.down{color:var(--drop)}
+.intel-stakes>.intel-evidence{padding:7px 0;margin:0;border-top:1px solid var(--line)}
 .intel-segment{display:inline-flex;border:1px solid var(--line-3);border-radius:4px;overflow:hidden}
 .intel-segment button{min-width:34px;min-height:30px;border:0;border-left:1px solid var(--line-3);border-radius:0;padding:4px 8px;cursor:pointer;color:var(--txt-2)}
 .intel-segment button:first-child{border-left:0}
@@ -151,6 +166,7 @@
   .intel-primary-metric{border-right:0;border-bottom:1px solid var(--line-3);padding:0 0 12px}
   .intel-tape-row{grid-template-columns:74px minmax(0,1fr)}
   .intel-tape-row .intel-move{grid-column:2}
+  .intel-stakes-head{align-items:flex-start}
   .intel-data-table{min-width:640px}
   .intel-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .intel-indicators{grid-template-columns:1fr 1fr}

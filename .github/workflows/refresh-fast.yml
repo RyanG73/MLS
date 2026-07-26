@@ -1,0 +1,66 @@
+name: Fast Result and Projection Refresh
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-data-refresh
+  cancel-in-progress: true
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select hourly or in-window leagues
+        id: select
+        run: |
+          LEAGUES=$(python3 scripts/fast_refresh.py --select)
+          echo "leagues=$LEAGUES" >> "$GITHUB_OUTPUT"
+          if [ "$LEAGUES" != "[]" ]; then
+            echo "has_leagues=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Fast-refresh leagues: $LEAGUES"
+      - uses: actions/setup-python@v5
+        if: steps.select.outputs.has_leagues == 'true'
+        with:
+          python-version: '3.13'
+          cache: pip
+      - name: Install fast-path runtime
+        if: steps.select.outputs.has_leagues == 'true'
+        run: pip install -r requirements.txt
+      - name: Overlay prior live-data snapshot
+        if: steps.select.outputs.has_leagues == 'true'
+        run: |
+          git fetch origin live-data --depth=1 || true
+          git archive origin/live-data webapp/data | tar -x || true
+      - name: Refresh selected leagues without refitting
+        if: steps.select.outputs.has_leagues == 'true'
+        run: python scripts/fast_refresh.py --refresh-selected
+      - name: Rebuild fast derived surfaces
+        if: steps.select.outputs.has_leagues == 'true'
+        run: |
+          python scripts/build_home.py
+          python scripts/build_calendar.py
+          python scripts/build_match_leverage.py --days 7 --sims 3000
+          python scripts/fast_refresh.py --manifest
+          python scripts/validate_payloads.py
+      - name: Publish one-snapshot data branch
+        if: steps.select.outputs.has_leagues == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch --orphan live-data-publish
+          git rm -rf --cached . || true
+          git add -f webapp/data
+          git commit -m "chore(data): fast live snapshot [$(date -u +%Y-%m-%dT%H:%MZ)]"
+          git push --force origin HEAD:live-data

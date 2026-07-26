@@ -129,6 +129,8 @@ webapp/sitemap.xml
 webapp/open-data/
 webapp/exports/
 webapp/after-the-world-cup/
+webapp/football-forecasts/
+webapp/forecast-feed.xml
 .vercel
 .env*
 /build/

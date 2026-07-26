@@ -2,7 +2,9 @@ name: Intelligence Live Delivery
 
 on:
   schedule:
-    - cron: '30 12 * * *'
+    # Hourly evaluation lets each subscriber receive the briefing in their
+    # own 06:00–10:59 local window; the sender remains kill-switch protected.
+    - cron: '30 * * * *'
   workflow_dispatch:
     inputs:
       confirm:

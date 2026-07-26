@@ -107,7 +107,7 @@ def build(days: int, sims: int, scope: str) -> dict:
             "Leverage is how much this result moves the league table: we replay "
             "the rest of the season with the match pinned to a home win, a draw "
             "and an away win, and measure how far every club's title, European "
-            "and relegation odds shift. A dead rubber between two safe clubs "
+            "and relegation probabilities shift. A dead rubber between two safe clubs "
             "scores near zero; a game that decides someone else's season scores "
             "high even if neither side is famous."
         ),

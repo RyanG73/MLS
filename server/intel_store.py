@@ -147,12 +147,23 @@ def update_public_preferences(kv: KVStore, user_id: str, updates: dict) -> dict:
     return update_preferences(kv, user_id, **updates)
 
 
-def set_seen_cursor(kv: KVStore, user_id: str, team_id: str, event_id: str) -> dict:
+def event_cursor_key(league_id: str, team_id: str) -> str:
+    """League-qualified cursor key.
+
+    Team ids deliberately survive competition changes and name collisions can
+    exist across countries. A bare team id therefore cannot safely identify
+    one event stream; the league-qualified key can.
+    """
+    return f"{league_id}:{team_id}"
+
+
+def set_seen_cursor(kv: KVStore, user_id: str, team_id: str, event_id: str,
+                    league_id: str | None = None) -> dict:
     record = export_user_data(kv, user_id)
     if record is None:
         raise KeyError(user_id)
     cursors = dict(record.get("last_seen_event_id_by_team") or {})
-    cursors[team_id] = event_id
+    cursors[event_cursor_key(league_id, team_id) if league_id else team_id] = event_id
     return update_preferences(kv, user_id, last_seen_event_id_by_team=cursors)
 
 

@@ -466,10 +466,64 @@
     }).join("") + "</div>";
   }
 
+  function stakesFromFixtures(data) {
+    if (data.stakes_card) return data.stakes_card;
+    var own = (data.fixtures || []).filter(function (fixture) {
+      return fixture.home_id === state.teamId || fixture.away_id === state.teamId;
+    }).sort(function (a, b) {
+      return String(a.date || "").localeCompare(String(b.date || "")) ||
+        String(a.ko || "").localeCompare(String(b.ko || ""));
+    });
+    if (!own.length) return null;
+    var fixture = own[0];
+    var isHome = fixture.home_id === state.teamId;
+    var labels = isHome
+      ? { H: "Win", D: "Draw", A: "Loss" }
+      : { H: "Loss", D: "Draw", A: "Win" };
+    return {
+      date: fixture.date,
+      ko: fixture.ko,
+      home: fixture.home,
+      away: fixture.away,
+      target_metric: data.target_metric,
+      baseline_pct: fixture.baseline_pct,
+      evidence_ids: fixture.evidence_ids,
+      outcomes: ["H", "D", "A"].map(function (code) {
+        var value = fixture.conditional_pct && fixture.conditional_pct[code];
+        return {
+          code: code,
+          label: labels[code],
+          pct: value,
+          delta_pp: value == null ? null : Number(value) - Number(fixture.baseline_pct)
+        };
+      })
+    };
+  }
+
+  function renderStakes(data) {
+    var card = stakesFromFixtures(data);
+    if (!card) return "";
+    var target = String(card.target_label || card.target_metric || "target").replace(/_/g, " ");
+    return '<section class="intel-stakes" aria-label="What is at stake in the next match">' +
+      '<div class="intel-stakes-head"><div><span>Next match · what’s at stake</span><b>' +
+      escapeHtml(card.home) + " vs " + escapeHtml(card.away) + '</b><small>' +
+      shortDate(card.date) + " · " + escapeHtml(target) + '</small></div>' +
+      '<div class="intel-stakes-current"><span>Scenario baseline</span><b>' +
+      pct(card.baseline_pct) + '</b></div></div>' +
+      '<div class="intel-stake-outcomes">' + (card.outcomes || []).map(function (outcome) {
+        var movement = Number(outcome.delta_pp);
+        var moveClass = movement > 0 ? " up" : movement < 0 ? " down" : "";
+        return '<div class="intel-stake-outcome ' + attr(String(outcome.label || "").toLowerCase()) + '">' +
+          '<span>' + escapeHtml(outcome.label) + '</span><b>' + pct(outcome.pct) +
+          '</b><small class="intel-move' + moveClass + '">' + pp(outcome.delta_pp) +
+          " vs baseline</small></div>";
+      }).join("") + "</div>" + evidence(card.evidence_ids) + "</section>";
+  }
+
   function renderLeverage(data) {
     var fixtures = data.fixtures || [];
     if (!fixtures.length) return empty("No remaining fixture leverage can be calculated.");
-    return table(["Date", "Fixture", "Scope", "Range", "Expected move"], fixtures.slice(0, 10).map(function (fixture) {
+    return renderStakes(data) + table(["Date", "Fixture", "Scope", "Range", "Expected move"], fixtures.slice(0, 10).map(function (fixture) {
       return "<tr><td>" + shortDate(fixture.date) + "</td><td><strong>" + escapeHtml(fixture.home) + " vs " + escapeHtml(fixture.away) +
         "</strong>" + evidence(fixture.evidence_ids) + "</td><td>" + (fixture.is_own_fixture ? "Own match" : "Rival dependency") +
         '</td><td class="num">' + number(fixture.leverage_pp, 1) + 'pp</td><td class="num">' + pp(fixture.expected_move_pp) + "</td></tr>";
@@ -952,6 +1006,18 @@
     loading("Loading team intelligence");
     try {
       var record = await api("/intel/team?league_id=" + encodeURIComponent(leagueId) + "&team_id=" + encodeURIComponent(teamId));
+      // Feature 2 is a per-user view, not a static artifact. The team record
+      // carries the complete event history; /intel/events applies the
+      // persisted cursor so this tape means "since your last visit" across
+      // devices instead of merely being labelled that way.
+      var unseen = await api("/intel/events?league_id=" + encodeURIComponent(leagueId) + "&team_id=" + encodeURIComponent(teamId));
+      if (record.features["2"]) {
+        record.features["2"].data.events = unseen.events || [];
+        record.features["2"].data.cursor = unseen.cursor || null;
+        record.features["2"].status = unseen.events && unseen.events.length ? "live" : "thin_history";
+        record.features["2"].reason = unseen.events && unseen.events.length
+          ? null : "No material change has been recorded since your last visit.";
+      }
       state.record = record;
       state.leagueId = leagueId;
       state.teamId = teamId;
@@ -1003,7 +1069,11 @@
     try {
       await api("/intel/events", {
         method: "POST",
-        body: JSON.stringify({team_id: state.teamId, event_id: events[0].event_id})
+        body: JSON.stringify({
+          league_id: state.leagueId,
+          team_id: state.teamId,
+          event_id: events[0].event_id
+        })
       });
     } catch (error) {}
   }

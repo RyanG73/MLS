@@ -691,3 +691,13 @@ only, matching every prior step. Shipped across commits `c84f2e6`, `4489108`, an
 adding the signed-out locked-preview and the lit bottom-nav active tab). Note: the S6 plan file's
 checkboxes were never ticked even though every artifact landed and is live — a process miss corrected
 during the 2026-07-19 roadmap Phase-1 buildout, when the plan was retired to this entry.
+
+## Product-strategy execution (2026-07-26, plan completed)
+
+Closed the four immediate actions from `docs/product-strategy-2026-07-26.md`: a durable per-user
+unseen-event cursor, followed-club pre-match stakes with local-morning email delivery, and a
+cached-probability fast path that publishes result-driven tables through a one-snapshot data branch
+without refitting the model or redeploying the shell. The public acquisition layer was separated
+from the opt-in authenticated comparison layer, adding forecast-first copy, local league aliases,
+a European breadth landing page, RSS, and revised share cards while preserving the full analytical
+tables and globally comparable ELO already on the site.

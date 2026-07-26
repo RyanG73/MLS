@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import email.utils
 import html
 import io
 import json
@@ -45,12 +46,21 @@ _MLS_COLS = [("playoff", "Playoff"), ("shield", "Shield"), ("cup", "MLS Cup")]
 
 # Plain-language method note (shared with the About copy, launch plan D3).
 _METHOD_NOTE = (
-    "Entenser is a market-blind football prediction system: the model never "
-    "sees betting odds — probabilities come only from match results, expected "
-    "goals, and team-strength ratings. Every forecast is graded in public "
-    "after the fact, hits and misses alike. We do not claim to beat the "
-    "betting market; we claim to show our work."
+    "Entenser estimates football outcomes from match results, expected goals, "
+    "and team-strength ratings. Every forecast is graded in public after the "
+    "fact, with hits and misses shown together."
 )
+
+_LOCAL_NAMES = {
+    "segunda": ["Segunda División", "LaLiga Hypermotion"],
+    "bundesliga-2": ["2. Bundesliga"],
+    "serie-b": ["Serie B"],
+    "ligue-2": ["Ligue 2"],
+    "eerste-divisie": ["Keuken Kampioen Divisie"],
+    "sweden-allsvenskan": ["Allsvenskan"],
+    "norway-eliteserien": ["Eliteserien"],
+    "denmark-superliga": ["Superligaen"],
+}
 
 _DS_NOTE = {
     "results_only": ("Results only — no forward-fixture feed exists for this "
@@ -157,6 +167,26 @@ def _today() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+def _public_copy(value: str | None) -> str:
+    """Remove trading vocabulary from crawlable acquisition surfaces."""
+    text = str(value or "")
+    replacements = (
+        (r"\bbookmakers?\b", "external benchmarks"),
+        (r"\bbetting\b", "forecast"),
+        (r"\bodds\b", "probabilities"),
+        (r"\bmarket\b", "consensus"),
+        (r"\bedge\b", "difference"),
+        (r"\bkelly\b", "allocation"),
+        (r"\bstaking?\b", "allocation"),
+        (r"\bbets?\b", "forecasts"),
+        (r"\broi\b", "evaluation return"),
+        (r"\bclv\b", "closing comparison"),
+    )
+    for pattern, replacement in replacements:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    return text
+
+
 def _season_label(d: dict) -> str:
     lbl = (d.get("outlook") or {}).get("season_label")
     return str(lbl or d.get("season") or "")
@@ -222,6 +252,7 @@ def _head(title: str, desc: str, canonical: str, og_image: str,
 <meta property="og:url" content="{E(canonical)}">
 <meta property="og:image" content="{E(og_image)}">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" type="application/rss+xml" title="Entenser football forecasts" href="/forecast-feed.xml">
 <meta name="theme-color" content="#070809">
 <link rel="icon" href="/assets/pwa/icon-192.png">
 <style>{_CSS}</style>
@@ -344,8 +375,7 @@ def _jsonld(lg: dict, d: dict, canonical: str, fx: list[dict],
          "name": f"{name} season projections and match win probabilities",
          "description": (f"Daily-refreshed {name} title, qualification and "
                          "relegation probabilities plus match win/draw/loss "
-                         "probabilities from a market-blind model (no "
-                         "bookmaker odds used as inputs)."),
+                         "probabilities from an independently graded model."),
          "url": canonical,
          "dateModified": (d.get("generated") or "")[:10],
          "creator": {"@type": "Organization", "name": "Entenser",
@@ -392,19 +422,20 @@ def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
         desc = (f"Final {name} {season} standings and results, with the "
                 f"season's model forecast record. Updated {generated[:10]}.")
     elif knockout:
-        title = f"{name} {season} Forecast & Bracket Odds — Entenser"
-        desc = (f"{name} {season} projections: advancement odds and match "
-                f"probabilities from a market-blind model. "
+        title = f"{name} {season} Forecast & Bracket Probabilities — Entenser"
+        desc = (f"{name} {season} projections: advancement and match "
+                f"probabilities from an independently graded model. "
                 f"Updated {generated[:10]}.")
     else:
-        title = f"{name} Predictions {season}: {lbl0} Odds & Projected Table — Entenser"
-        odds_bits = ", ".join(f"{r['team']} {pct(r.get(key0))}" for r in top2
-                              if r.get(key0))
+        title = f"{name} Predictions {season}: {lbl0} Probabilities & Projected Table — Entenser"
+        probability_bits = ", ".join(
+            f"{r['team']} {pct(r.get(key0))}" for r in top2 if r.get(key0))
         desc = (f"{name} {season} forecast: "
-                + (f"{odds_bits} {lbl0.lower()} odds, " if odds_bits else "")
+                + (f"{probability_bits} {lbl0.lower()} probabilities, "
+                   if probability_bits else "")
                 + "full projected table and win/draw/loss probabilities for "
-                  f"every match. No bookmaker odds in the model; every "
-                  f"forecast graded in public. Updated {generated[:10]}.")
+                  f"every match. Every forecast is graded in public. "
+                  f"Updated {generated[:10]}.")
 
     # ── body ──
     parts = [_head(title, desc, canonical, f"{site}/assets/og/og-image.png",
@@ -431,6 +462,9 @@ def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
             top = max(rows, key=lambda r: (r.get("pts") or 0))["team"]
             sub.append(f"{_top_row_label(d, cols)}: {top}")
     sub.append(f"updated {generated[:10]}")
+    aliases = _LOCAL_NAMES.get(lid) or []
+    if aliases:
+        sub.append("also known as " + " / ".join(aliases))
     parts.append(f'<div class="sub">{E(" · ".join(sub))}</div>')
 
     if ds in _DS_NOTE:
@@ -459,7 +493,7 @@ def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
     rules = (d.get("outlook") or {}).get("rules")
     if rules:
         parts.append(f'<h2>Competition rules</h2>'
-                     f'<p class="sub">{E(rules)}</p>')
+                     f'<p class="sub">{E(_public_copy(rules))}</p>')
 
     parts.append(f'<h2>How these forecasts work</h2>'
                  f'<p class="sub">{E(_METHOD_NOTE)}</p>')
@@ -486,10 +520,10 @@ def hub_page(registry: list[dict], site: str) -> str:
     with_pages = [lg for lg in registry if lg.get("_has_page")]
     full = sum(1 for lg in with_pages
                if (lg.get("data_status") or "full_forecast") == "full_forecast")
-    title = "Football League Predictions — Title, Playoff & Relegation Odds — Entenser"
+    title = "Football League Predictions — Title, Playoff & Relegation Probabilities — Entenser"
     desc = (f"Season forecasts for {len(with_pages)} football competitions "
             f"across six confederations — {full} with full live projections. "
-            "Market-blind model, every forecast graded in public.")
+            "Independent model, every forecast graded in public.")
     jsonld = {"@context": "https://schema.org", "@type": "CollectionPage",
               "name": title, "url": canonical}
     parts = [_head(title, desc, canonical, f"{site}/assets/og/og-image.png",
@@ -535,11 +569,12 @@ def weekly_page(w: dict, site: str, path: str = "weekly/",
     canonical = f"{site}/{path}"
     generated = w.get("generated") or ""
     week = w.get("week_label") or "This week"
-    headline = w.get("headline") or "This week across world football"
-    title = f"{week}: Football Model Recap — Movers, Races & Misses — Entenser"
-    desc = (f"{headline}. Biggest title/relegation odds swings, the closest "
+    headline = _public_copy(
+        w.get("headline") or "This week across world football")
+    title = f"{week}: Football Forecast Recap — Movers, Races & Misses — Entenser"
+    desc = (f"{headline}. Biggest title/relegation probability shifts, the closest "
             "races, and this week's high-confidence model misses — from a "
-            "market-blind model graded in public.")[:300]
+            "forecast model graded in public.")[:300]
     jsonld = {"@context": "https://schema.org", "@type": "Article",
               "headline": headline, "url": canonical,
               "datePublished": generated[:10], "dateModified": generated[:10],
@@ -574,17 +609,6 @@ def weekly_page(w: dict, site: str, path: str = "weekly/",
                 f'{E(r["label"])}</span><span class="p">{E(r["leader"])} '
                 f'{r["leader_prob"]:.0f}%{f" · chased by {E(cont)}" if cont else ""}'
                 '</span></div>')
-        parts.append('</div>')
-
-    dis = w.get("disagreements") or []
-    if dis:
-        parts.append('<h2>Where the model disagrees with the market</h2><div class="fx">')
-        for r in dis:
-            parts.append(
-                f'<div class="fxrow"><span class="t">{E(r["home"])} vs {E(r["away"])} '
-                f'<span class="sub">{E(r["league_name"])}</span></span>'
-                f'<span class="p">model {r.get("model_pct")}% vs market '
-                f'{r.get("market_pct")}% · {r["edge_pct"]:+.1f}pp</span></div>')
         parts.append('</div>')
 
     rc = w.get("receipt") or {}
@@ -649,7 +673,7 @@ def world_cup_page(payloads: dict, names: dict, site: str) -> str:
     title = "What to Watch After the World Cup — MLS, NWSL & Liga MX Forecasts — Entenser"
     desc = ("Just finished the World Cup and want more? Live title, playoff "
             "and relegation forecasts for MLS, NWSL, Liga MX and more — "
-            "market-blind, graded in public.")
+            "independently graded in public.")
     jsonld = {"@context": "https://schema.org", "@type": "WebPage",
               "name": title, "url": canonical}
     parts = [_head(title, desc, canonical, f"{site}/assets/og/og-image.png",
@@ -658,7 +682,7 @@ def world_cup_page(payloads: dict, names: dict, site: str) -> str:
     parts.append('<div class="sub">The tournament is over, but the club '
                  'season is always running. These are the races we forecast '
                  'that a new US fan is most likely to pick up — updated daily, '
-                 'no betting odds in the model.</div>')
+                 'with every forecast graded after the fact.</div>')
     parts.append('<div class="fx">')
     for lid, blurb in _WC_ONRAMP:
         d = payloads.get(lid)
@@ -717,7 +741,7 @@ def data_page(exported: list[dict], site: str) -> str:
     canonical = f"{site}/open-data/"
     title = "Open Data — Football Projection Downloads (CSV) — Entenser"
     desc = ("Download Entenser's title, qualification and relegation "
-            "projections as CSV, free with attribution. Market-blind model, "
+            "projections as CSV, free with attribution. Independently graded model, "
             f"{len(exported)} competitions, refreshed daily.")
     jsonld = {"@context": "https://schema.org", "@type": "DataCatalog",
               "name": "Entenser football projections", "url": canonical,
@@ -733,9 +757,7 @@ def data_page(exported: list[dict], site: str) -> str:
                  'attribution. Refreshed daily.</div>')
     parts.append('<div class="note">Please credit <b>Entenser '
                  '(entenser.com)</b> and link back when you use these files. '
-                 'The model is market-blind — no bookmaker odds are used as '
-                 'inputs — so the numbers are independent of the betting '
-                 'market. Columns: projected rank, club, played, points, '
+                 'Columns: projected rank, club, played, points, '
                  'projected points, then one probability column per outcome '
                  '(percentages).</div>')
     parts.append('<h2>Per-league downloads</h2><ul class="lgs">')
@@ -746,6 +768,113 @@ def data_page(exported: list[dict], site: str) -> str:
     parts.append('<a class="cta" href="/leagues/">Browse the forecasts →</a>')
     parts.append(_footer(_today()))
     return "".join(parts)
+
+
+# ── European forecast acquisition surface ────────────────────────────────────
+
+_EUROPE_FORECAST_GROUPS = [
+    ("UK football pyramid", [
+        "epl", "championship", "league-one", "league-two", "national-league",
+        "scottish-prem", "scottish-champ", "scottish-league-one",
+        "scottish-league-two",
+    ]),
+    ("Netherlands and the Nordics", [
+        "eredivisie", "eerste-divisie", "sweden-allsvenskan",
+        "norway-eliteserien", "denmark-superliga",
+    ]),
+    ("Germany", ["bundesliga", "bundesliga-2"]),
+    ("Spain and Italy", ["la-liga", "segunda", "serie-a", "serie-b"]),
+]
+
+
+def europe_forecast_page(payloads: dict, names: dict, site: str) -> str:
+    canonical = f"{site}/football-forecasts/"
+    covered = sum(
+        league_id in payloads
+        for _, league_ids in _EUROPE_FORECAST_GROUPS for league_id in league_ids)
+    title = "Football Forecasts Beyond the Big Five — Entenser"
+    desc = (
+        f"Independently graded title, promotion and relegation forecasts for "
+        f"{covered} European competitions, from the Premier League to the "
+        f"National League, Eerste Divisie and Nordic leagues.")
+    jsonld = {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": title,
+        "description": desc,
+        "url": canonical,
+    }
+    parts = [_head(
+        title, desc, canonical, f"{site}/assets/og/og-image.png", jsonld)]
+    parts.append("<h1>Football forecasts beyond the usual five leagues</h1>")
+    parts.append(
+        '<div class="sub">Title races, promotion fights and relegation danger '
+        'across the full English pyramid and under-covered European leagues. '
+        'Every forecast is updated from match data and graded after the fact.</div>')
+    parts.append('<div class="callouts">'
+                 f'<div class="callout"><div class="k">European coverage</div>'
+                 f'<div class="v">{covered}</div><div class="t">competitions on this page</div></div>'
+                 '<div class="callout"><div class="k">Public record</div>'
+                 '<div class="v">Every week</div><div class="t">hits and misses together</div></div>'
+                 '</div>')
+    for group, league_ids in _EUROPE_FORECAST_GROUPS:
+        rows = []
+        for league_id in league_ids:
+            payload = payloads.get(league_id)
+            if not payload:
+                continue
+            aliases = _LOCAL_NAMES.get(league_id) or []
+            note = (" · " + " / ".join(aliases)) if aliases else ""
+            lead = _lead_line(payload) or "current season forecast"
+            rows.append(
+                f'<div class="fxrow"><span class="t"><a href="/leagues/{E(league_id)}/">'
+                f'{E(names.get(league_id, league_id))}</a>'
+                f'<span class="sub">{E(note.lstrip(" ·"))}</span></span>'
+                f'<span class="p">{E(lead)}</span></div>')
+        if rows:
+            parts.append(f'<h2>{E(group)}</h2><div class="fx">'
+                         + "".join(rows) + "</div>")
+    parts.append(f'<h2>How these forecasts work</h2>'
+                 f'<p class="sub">{E(_METHOD_NOTE)}</p>')
+    parts.append('<a class="cta" href="/leagues/">Browse all competitions →</a>')
+    parts.append(_footer(_today()))
+    return "".join(parts)
+
+
+# ── betting-free first-party RSS ─────────────────────────────────────────────
+
+def forecast_rss(recaps: list[tuple[str, dict]], site: str) -> str:
+    items = []
+    for path, recap in recaps[:20]:
+        headline = _public_copy(
+            recap.get("headline") or recap.get("week_label")
+            or "This week across world football")
+        generated = recap.get("generated") or ""
+        try:
+            parsed = datetime.fromisoformat(
+                generated.replace(" UTC", "+00:00"))
+        except ValueError:
+            parsed = datetime.now(timezone.utc)
+        link = f"{site}/{path}"
+        summary = (
+            f"{headline}. The closest league races and this week's "
+            "high-confidence forecast record.")
+        items.append(
+            "<item>"
+            f"<title>{E(headline)}</title>"
+            f"<link>{E(link)}</link><guid>{E(link)}</guid>"
+            f"<pubDate>{email.utils.format_datetime(parsed)}</pubDate>"
+            f"<description>{E(summary)}</description>"
+            "</item>")
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0"><channel>'
+        '<title>Entenser football forecasts</title>'
+        f'<link>{E(site)}/football-forecasts/</link>'
+        '<description>Independently graded football forecasts, league races, '
+        'and weekly model accountability.</description>'
+        + "".join(items) + "</channel></rss>\n"
+    )
 
 
 # ── sitemap ───────────────────────────────────────────────────────────────────
@@ -834,6 +963,7 @@ def main(argv: list[str] | None = None) -> int:
     extra: list[tuple[str, str]] = []
     archive_dir = Path(args.weekly_archive)
     archive_links: list[tuple[str, str]] = []
+    rss_recaps: list[tuple[str, dict]] = []
     if archive_dir.is_dir():
         for jf in sorted(archive_dir.glob("*.json"), reverse=True):
             date = jf.stem
@@ -851,6 +981,7 @@ def main(argv: list[str] | None = None) -> int:
                 weekly_page(aw, site, page_path), encoding="utf-8")
             extra.append((f"{site}/{page_path}", date))
             archive_links.append((f"/{page_path}", date))
+            rss_recaps.append((page_path, aw))
 
     w = read_js_payload(out / "data" / "weekly.js")
     if w and w.get("status") == "ok":
@@ -858,8 +989,20 @@ def main(argv: list[str] | None = None) -> int:
         (out / "weekly" / "index.html").write_text(
             weekly_page(w, site, "weekly/", archive_links), encoding="utf-8")
         extra.append((f"{site}/weekly/", (w.get("generated") or "")[:10]))
+        rss_recaps.insert(0, ("weekly/", w))
+    (out / "forecast-feed.xml").write_text(
+        forecast_rss(rss_recaps, site), encoding="utf-8")
     if exported:
         extra.append((f"{site}/open-data/", max_lastmod))
+
+    # Forecast-first European acquisition page. It deliberately links into the
+    # existing league documents rather than creating a second data experience.
+    if any(league_id in payloads for _, league_ids in _EUROPE_FORECAST_GROUPS
+           for league_id in league_ids):
+        (out / "football-forecasts").mkdir(parents=True, exist_ok=True)
+        (out / "football-forecasts" / "index.html").write_text(
+            europe_forecast_page(payloads, names, site), encoding="utf-8")
+        extra.append((f"{site}/football-forecasts/", max_lastmod))
 
     # World Cup → domestic on-ramp (launch plan H2) — needs the US leagues.
     if any(lid in payloads for lid, _ in _WC_ONRAMP):
@@ -874,7 +1017,7 @@ def main(argv: list[str] | None = None) -> int:
     (out / "sitemap.xml").write_text(sitemap(entries), encoding="utf-8")
     print(f"wrote {len(pages)} league pages + hub"
           f"{' + weekly' if w and w.get('status') == 'ok' else ''}"
-          f" + {len(exported)} CSV exports + open-data + sitemap "
+          f" + {len(exported)} CSV exports + European forecasts + RSS + sitemap "
           f"({len(entries)} URLs, lastmod {max_lastmod})")
     return 0
 

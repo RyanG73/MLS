@@ -1,5 +1,16 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-26 — product-strategy recommendations shipped end to end.** Intel's "since your last
+> visit" view now reads and advances a durable league-qualified cursor; followed clubs get a
+> three-branch pre-match stakes card plus one deduplicated briefing in their own local matchday
+> morning. A no-refit fast path reuses the daily fixture probability matrix, advances completed
+> results, re-simulates the table, and publishes a one-snapshot `live-data` branch every 15 minutes
+> in match windows / hourly otherwise; the public UI labels forecast and fitted-model clocks
+> separately and leaves market prices on their daily clock. The acquisition layer is now
+> forecast-first: crawlable pages, RSS and share cards contain no trading vocabulary, local names
+> such as Segunda División are indexed, and `/football-forecasts/` presents the UK-first European
+> breadth strategy. The authenticated comparison layer requires an explicit `?market=1` request.
+
 > **2026-07-26 — global ELO is now the website’s published rating.** Restored a discoverable
 > **Global Power** route as one continuous, searchable ladder: 892 clubs across 50 leagues with
 > measured league/tier bridges, with confederation filters preserving the actual global rank.

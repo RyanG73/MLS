@@ -5,11 +5,21 @@ for Intel subscribers, European market entry, and how often the site can update.
 same session shipped the masthead, RSS, crest, Leagues Cup, playoff-bracket and Transfermarkt fixes;
 numbers here are measured against this repo, not estimated.
 
+> **Implementation status — shipped 2026-07-26.** The four immediate recommendations are now
+> implemented in order: (1) "since your last visit" consumes a durable, league-qualified user
+> cursor; (2) followed clubs receive a win/draw/loss stakes card in the hub and a timezone-aware
+> match-morning briefing; (3) a cached-probability fast path publishes result-driven projections
+> from a one-snapshot `live-data` branch every 15 minutes in match windows and hourly otherwise,
+> without refitting or refreshing prices; and (4) public acquisition pages, RSS and share cards
+> are forecast-first, with local league aliases and a European coverage landing page. The
+> authenticated comparison layer remains available only after an explicit `?market=1` request.
+
 ---
 
-## 1. "Matches to Watch" — draft feature
+## 1. "Matches to Watch" — shipped feature
 
-**Status: working prototype, `scripts/match_leverage.py`. Not wired into any build.**
+**Status: built by `scripts/build_match_leverage.py`, wired into both refresh paths, and rendered
+as three rails on the Matches page.**
 
 ### The metric
 

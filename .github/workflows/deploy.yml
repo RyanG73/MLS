@@ -29,12 +29,12 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      # Crawlable per-league pages + hub + sitemap (launch plan C2/C7).
+      # Crawlable league, forecast, weekly, feed and sitemap surfaces.
       # Generated at deploy time — never committed — so every data-refresh
       # deploy regenerates them for free. stdlib-only: no pip install needed.
       # A failure here MUST fail the deploy: shipping the site without its
       # canonical league pages would orphan every indexed /leagues/ URL.
-      - name: Build static league pages + sitemap
+      - name: Build static acquisition pages + sitemap
         run: python3 scripts/build_static_pages.py
       # Stamp the service-worker cache with the deploy SHA. webapp/sw.js caches
       # /index.html -- the file carrying the pricing UI and checkout button --

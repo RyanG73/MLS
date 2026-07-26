@@ -6,6 +6,23 @@ unreviewed; all numbers measured, read twice, never taken from a screenshot.
 
 ## Verdicts
 
+### 2026-07-26 — Forecast-first public layer and live data clocks · FIXED
+
+The public acquisition path now reads as an independent football forecasting product: page
+metadata, crawlable league and weekly pages, RSS, share cards, home and match cards all use
+probabilities and model accountability without trading language. Added a UK-first European
+forecast directory, searchable local competition aliases, and a first-party forecast RSS feed.
+The comparison controls, price formatting, edge chips and ledger render only for an authenticated
+Intel session that explicitly enters `?market=1`.
+
+League pages now show the publication contract directly: the latest table forecast clock, the
+fitted-model clock it reuses, and—only in the comparison layer—the separate market-price clock.
+The runtime overlays a single-snapshot `live-data` branch while retaining the daily same-origin
+payload as a fail-safe, so frequent data publication does not redeploy or invalidate the site
+shell. The presentation stayed within the existing dense editorial system: no new tokens, cards
+or decorative treatments; the pre-match stakes module uses the established border-led hierarchy.
+Full suite: **1,670 passed, 14 skipped**; all **79 payloads valid**.
+
 ### 2026-07-26 — Global Power and shared ELO publication · FIXED
 
 Restored Global Power to both desktop and mobile navigation and replaced the independent

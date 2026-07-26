@@ -15,7 +15,7 @@ from server.kv_client import get_kv
 from server.send_ledger import already_sent, record_delivery, retry_allowed
 from server.unsubscribe import issue_unsubscribe_token
 
-TEMPLATE_VERSION = "personalized-briefing-v1"
+TEMPLATE_VERSION = "personalized-briefing-v2"
 MIN_DAYS = {
     "active_matchweek": 6,
     "short_lull": 10,
@@ -25,7 +25,10 @@ MIN_DAYS = {
 }
 
 
-def _cadence_allows(kv, user_id: str, modes: set[str]) -> bool:
+def _cadence_allows(kv, user_id: str, modes: set[str],
+                    prematch_due: bool = False) -> bool:
+    if prematch_due:
+        return True
     raw = kv.get(f"briefing:last:{user_id}")
     if raw is None:
         return True
@@ -39,9 +42,42 @@ def _render(user: dict, briefing: dict) -> tuple[str, str, str]:
     for row in briefing["teams"]:
         pulse = row["briefing"]["sections"]["team_pulse"]
         summary = pulse["summary"]
+        stake = row["briefing"]["sections"].get("prematch_stakes")
+        stake_html, stake_text = "", ""
+        if stake and stake.get("delivery_date") == briefing["local_date"]:
+            baseline = stake.get("baseline_pct")
+            baseline_text = (
+                "Unavailable" if baseline is None else f"{baseline:.1f}%")
+            outcome_html = []
+            outcome_text = []
+            for outcome in stake.get("outcomes", []):
+                pct = outcome.get("pct")
+                delta = outcome.get("delta_pp")
+                pct_text = "Unavailable" if pct is None else f"{pct:.1f}%"
+                delta_text = "" if delta is None else f" ({delta:+.1f}pp)"
+                outcome_html.append(
+                    f"<li><strong>{html.escape(outcome['label'])}:</strong> "
+                    f"{pct_text}{delta_text}</li>")
+                outcome_text.append(
+                    f"{outcome['label']}: {pct_text}{delta_text}")
+            target = str(stake.get("target_label") or stake.get(
+                "target_metric") or "target").replace("_", " ")
+            stake_html = (
+                f"<h3>What’s at stake: {html.escape(stake['home'])} vs "
+                f"{html.escape(stake['away'])}</h3>"
+                f"<p>Scenario baseline for {html.escape(target)}: "
+                f"{baseline_text}</p><ul>"
+                + "".join(outcome_html) + "</ul>"
+            )
+            stake_text = (
+                f"\nWhat’s at stake: {stake['home']} vs {stake['away']}\n"
+                f"Scenario baseline for {target}: {baseline_text}\n"
+                + "\n".join(outcome_text)
+            )
         html_rows.append(
-            f"<h2>{html.escape(row['team'])}</h2><p>{html.escape(summary)}</p>")
-        text_rows.append(f"{row['team']}\n{summary}")
+            f"<h2>{html.escape(row['team'])}</h2><p>{html.escape(summary)}</p>"
+            + stake_html)
+        text_rows.append(f"{row['team']}\n{summary}" + stake_text)
     token = issue_unsubscribe_token(user["user_id"], "weekly")
     base = os.environ.get("PUBLIC_API_URL", "https://api.entenser.com/v1").rstrip("/")
     url = f"{base}/public/unsubscribe?token={token}"
@@ -69,12 +105,13 @@ def process_user(user_id: str, send: bool) -> dict:
     if not briefing["should_send"]:
         return {"status": "skipped", "reason": briefing["skip_reason"]}
     modes = {row["calendar_mode"]["mode"] for row in briefing["teams"]}
-    if not _cadence_allows(kv, user_id, modes):
+    if not _cadence_allows(
+            kv, user_id, modes, prematch_due=briefing["prematch_due"]):
         return {"status": "skipped", "reason": "adaptive cadence cap"}
     event_ids = sorted({
         row["briefing"]["sections"]["team_pulse"]["snapshot_id"]
         for row in briefing["teams"]
-    })
+    } | set(briefing["due_fixture_ids"]))
     team_ids = [row["team_id"] for row in briefing["teams"]]
     if already_sent(kv, user_id, event_ids, TEMPLATE_VERSION, include_shadow=not send):
         return {"status": "skipped", "reason": "deduplicated"}

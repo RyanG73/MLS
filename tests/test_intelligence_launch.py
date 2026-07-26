@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from api.intel import events as events_api
 from api.intel import team as team_api
 from api.pub import card as public_card_api
 from scripts.intelligence.builder import _hydrate_fixture_ids
@@ -59,6 +60,46 @@ def test_canceled_plan_cannot_read_team_endpoint(monkeypatch):
         {"league_id": "epl", "team_id": "v1:club"})
     assert status == 401
     assert "does not meet" in json.loads(body)["error"]
+
+
+def test_since_last_visit_cursor_is_league_qualified(monkeypatch):
+    def fake_team(league_id, team_id, feature_id=None):
+        assert feature_id == 2
+        return {
+            "league_id": league_id,
+            "team_id": team_id,
+            "feature": {"data": {"events": [
+                {"event_id": f"{league_id}:new"},
+                {"event_id": f"{league_id}:old"},
+            ]}},
+        }
+
+    monkeypatch.setattr(events_api._service, "get_team", fake_team)
+    headers = _authorization(plan="trial")
+
+    status, _, body = events_api.handle(
+        "GET", headers, {"league_id": "epl", "team_id": "v1:club"})
+    assert status == 200
+    assert [row["event_id"] for row in json.loads(body)["events"]] == [
+        "epl:new", "epl:old"]
+
+    status, _, _ = events_api.handle(
+        "POST", headers, {},
+        json.dumps({
+            "league_id": "epl", "team_id": "v1:club",
+            "event_id": "epl:new",
+        }).encode())
+    assert status == 200
+
+    _, _, body = events_api.handle(
+        "GET", headers, {"league_id": "epl", "team_id": "v1:club"})
+    assert json.loads(body)["events"] == []
+
+    # Same stable team id in another league is a separate event stream.
+    _, _, body = events_api.handle(
+        "GET", headers, {"league_id": "championship", "team_id": "v1:club"})
+    assert [row["event_id"] for row in json.loads(body)["events"]] == [
+        "championship:new", "championship:old"]
 
 
 def test_checkout_uses_server_price_and_subscription_metadata(monkeypatch):
@@ -238,13 +279,30 @@ def test_workflows_include_launch_gates_and_protected_delivery():
         assert "publish_intelligence_artifacts.py" in workflow
         assert "report_intelligence_shadow.py" in workflow
     assert "ENABLE LIVE INTELLIGENCE" in delivery
-    assert "cron: '30 12 * * *'" in delivery
+    assert "cron: '30 * * * *'" in delivery
+    assert "06:00–10:59 local window" in delivery
     assert "vars.INTELLIGENCE_LIVE_SENDS == 'true'" in delivery
     assert "environment: intelligence-production" in delivery
     assert "INTELLIGENCE_SENDS_OWNER_APPROVED: 'true'" in delivery
     assert "UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}" in delivery
     assert "UNSUBSCRIBE_TOKEN_SECRET" not in delivery
     assert "vercel deploy --prebuilt --prod" in api_deploy
+
+
+def test_fast_refresh_uses_cached_probabilities_and_data_only_branch():
+    root = Path(__file__).resolve().parent.parent
+    workflow = (root / ".github/workflows/refresh-fast.yml").read_text()
+    shell = (root / "webapp/index.html").read_text()
+    assert "cron: '*/15 * * * *'" in workflow
+    assert "scripts/fast_refresh.py --select" in workflow
+    assert "scripts/fast_refresh.py --refresh-selected" in workflow
+    assert workflow.count("pip install -r requirements.txt") == 1
+    assert "git push --force origin HEAD:live-data" in workflow
+    assert "deploy-pages" not in workflow
+    assert "ODDS_API_KEY" not in workflow
+    assert "raw.githubusercontent.com/RyanG73/MLS/live-data" in shell
+    assert "fitted model" in shell
+    assert "market prices" in shell
 
 
 def test_vercel_bundle_excludes_private_artifacts():

@@ -329,7 +329,7 @@ class TestLeaguePageRaceFirstLayout:
         assert gate.count() == 1
         assert gate.locator(".sg-boxes i").count() == 5
         assert (
-            "See how odds change based on upcoming performances across the league"
+            "See how probabilities change based on upcoming performances across the league"
             in (gate.text_content() or "")
         )
         assert gate.get_attribute("href") == "?league=intel"
@@ -415,10 +415,11 @@ class TestLeaguePageRaceFirstLayout:
         _load_route(page, webapp_url, "epl")
         identity = page.locator(".brand")
         assert identity.locator("#leagueTitle").inner_text() == "Premier League"
-        assert identity.locator("#sub span").all_inner_texts() == [
+        assert identity.locator("#sub > span:not(.data-clock)").all_inner_texts() == [
             "ENGLAND",
             "DIVISION 1",
         ]
+        assert "Forecast" in identity.locator("#sub .data-clock").inner_text()
         status = page.locator("#acc")
         assert "PROJECTED SEASON\n26–27" in status.inner_text()
         assert "NEXT MATCH\nAug 21, 2026" in status.inner_text()
@@ -441,8 +442,32 @@ class TestLeaguePageRaceFirstLayout:
         text = performance.inner_text()
         assert "MODEL PERFORMANCE" in text
         assert "Model" in text
-        assert "Market" in text
         assert "Naive" in text
+        assert "Market" not in text
+
+    def test_market_comparison_requires_entitlement_and_explicit_mode(
+        self, page: Page, webapp_url: str
+    ):
+        page.add_init_script(
+            """(() => {
+                const payload = btoa(JSON.stringify({exp: 4102444800, plan: 'intel'}))
+                    .replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
+                localStorage.setItem('entenser.intel.access', `e30.${payload}.sig`);
+            })()"""
+        )
+        _load_route(page, webapp_url, "epl&market=1")
+        page.get_by_role("tab", name="Trust").click()
+        assert "Market" in page.locator(".trust-performance").inner_text()
+
+    def test_market_query_without_valid_entitlement_stays_forecast_first(
+        self, page: Page, webapp_url: str
+    ):
+        page.add_init_script(
+            "localStorage.setItem('entenser.intel.access', 'not-a-token')"
+        )
+        _load_route(page, webapp_url, "epl&market=1")
+        page.get_by_role("tab", name="Trust").click()
+        assert "Market" not in page.locator(".trust-performance").inner_text()
 
     def test_midseason_masthead_uses_average_team_games_played(
         self, page: Page, webapp_url: str
@@ -865,6 +890,43 @@ class TestTeamsDashboard:
         )
         assert layout["columns"] == 1
         assert layout["width"] <= layout["viewport"] + 1
+
+
+class TestForecastFirstPublicLayer:
+    _TRADING_TERMS = re.compile(
+        r"\b(odds|bet|betting|edge|kelly|stake|staking|bookmaker|sportsbook|"
+        r"wager|roi|clv|market)\b",
+        re.IGNORECASE,
+    )
+
+    @pytest.mark.parametrize("route", ["command", "support", "account", "about"])
+    def test_default_public_routes_are_forecast_first(
+        self, page: Page, webapp_url: str, route: str
+    ):
+        _load_route(page, webapp_url, route)
+        active = page.locator("#view-outlook")
+        assert active.is_visible()
+        match = self._TRADING_TERMS.search(active.inner_text())
+        assert match is None, f"?league={route} exposes '{match.group(0)}'"
+
+    def test_default_league_analysis_tabs_are_forecast_first(
+        self, page: Page, webapp_url: str
+    ):
+        _load_route(page, webapp_url, "epl")
+        for view, label in (
+            ("outlook", "League Projections"),
+            ("matches", "Match Projections"),
+            ("teams", "Teams"),
+            ("health", "Trust"),
+        ):
+            page.get_by_role("tab", name=label, exact=True).click()
+            surface = page.locator(f"#view-{view}")
+            text = surface.inner_text()
+            match = self._TRADING_TERMS.search(text)
+            assert match is None, (
+                f"EPL {label} exposes '{match.group(0)}': "
+                f"{text[max(0, match.start() - 80):match.end() + 80]}"
+            )
 
 
 class TestMatchesGroupedByDateAndLeague:
