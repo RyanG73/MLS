@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-25 12:09 UTC","teams":{"Celtic":[],"Rangers":[],"Heart of Midlothian":[],"St Johnstone":[],"Motherwell":[],"Hibernian":[],"Falkirk":[],"Kilmarnock":[],"Dundee United":[],"Dundee":[],"Aberdeen":[],"St Mirren":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-26 12:08 UTC","teams":{"Celtic":[],"Rangers":[],"Heart of Midlothian":[],"St Johnstone":[],"Motherwell":[],"Hibernian":[],"Falkirk":[],"Kilmarnock":[],"Dundee United":[],"Dundee":[],"Aberdeen":[],"St Mirren":[]}};
