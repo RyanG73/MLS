@@ -106,13 +106,28 @@ def fit_dc(matches, decay_hl=DEFAULT_DC_DECAY_HL, recent_seasons=4):
 
 
 def _dc_predict(ht, at, atk, dfd, ha, rho, max_g=8):
+    # Vectorized for the same reason _dc_nll above is, and it was the far bigger
+    # cost: the old body was an 81-cell Python loop making two
+    # scipy.stats.poisson.pmf SCALAR calls per cell — 162 per match, ~1.9M per
+    # league build, 52s of a 67s run (profiled 2026-07-26). scipy's pmf carries
+    # a large per-call validation overhead that dwarfs the arithmetic.
+    #
+    # Identical arithmetic, done once per match instead of 162 times: the
+    # Poisson term is the closed form exp(k·ln(m) − m − lgamma(k+1)) as an outer
+    # product, and Dixon-Coles τ only ever touches the low-score 2×2 block, so
+    # it is patched in directly rather than branched on per cell.
     lam = math.exp(atk.get(ht, 0) + dfd.get(at, 0) + ha)
     mu = math.exp(atk.get(at, 0) + dfd.get(ht, 0))
-    M = np.zeros((max_g + 1, max_g + 1))
-    for i in range(max_g + 1):
-        for j in range(max_g + 1):
-            M[i, j] = max(_dc_tau(i, j, lam, mu, rho), 1e-10) * \
-                poisson.pmf(i, lam) * poisson.pmf(j, mu)
+    k = np.arange(max_g + 1)
+    ph_v = np.exp(k * math.log(lam) - lam - gammaln(k + 1))
+    pa_v = np.exp(k * math.log(mu) - mu - gammaln(k + 1))
+    M = np.outer(ph_v, pa_v)
+    tau = np.ones((max_g + 1, max_g + 1))
+    tau[0, 0] = 1 - lam * mu * rho
+    tau[0, 1] = 1 + lam * rho
+    tau[1, 0] = 1 + mu * rho
+    tau[1, 1] = 1 - rho
+    M *= np.maximum(tau, 1e-10)
     M = np.clip(M, 1e-15, None)
     M /= M.sum()
     ph = float(np.tril(M, -1).sum())
@@ -266,9 +281,12 @@ def walk_forward_predictions(df, feat_base, test_seasons, weight_hl=DEFAULT_WEIG
         y_cal_oh = np.eye(3)[y_cal]
 
         atk, dfd, ha, rho = fit_dc(train, decay_hl=dc_decay_hl)
-        dc_cal = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
-                                       dc_predict_batch(cal, atk, dfd, ha, rho))
-        dc_te = calibrate_temperature(dc_predict_batch(cal, atk, dfd, ha, rho), y_cal,
+        # The cal-fold DC prediction was recomputed three times here for two
+        # calibrations that both fit on it; it is deterministic given
+        # (cal, atk, dfd, ha, rho), so compute once.
+        dc_cal_pred = dc_predict_batch(cal, atk, dfd, ha, rho)
+        dc_cal = calibrate_temperature(dc_cal_pred, y_cal, dc_cal_pred)
+        dc_te = calibrate_temperature(dc_cal_pred, y_cal,
                                       dc_predict_batch(test, atk, dfd, ha, rho))
 
         clfs, _ = fit_xgb(train, feat, weight_hl=weight_hl, n_jobs=n_jobs, seed=seed,
