@@ -218,6 +218,18 @@ DATA_STATUS = {
 }
 
 
+# Women's competitions. Derived-from-espn_code (".w." infix) would be wrong for
+# nwsl ("usa.nwsl") and brittle for anything else that changes slug, so the set
+# is explicit. Consumed by the masthead menus (a "W" badge, so a reader scanning
+# "Barcelona" or "Arsenal" can tell the women's side from the men's at a glance)
+# and by the logo resolver, which must never let a women's row inherit the men's
+# club crest. Add every new women's league here at the same time as REGISTRY.
+WOMENS = {
+    "nwsl", "wsl", "liga-f", "france-premiere-ligue", "vrouwen-eredivisie",
+    "australia-aleague-women", "northern-super-league", "usl-super-league",
+}
+
+
 def _get(url):
     return requests.get(url, headers=_HDR, verify=False, timeout=25).json()
 
@@ -265,7 +277,8 @@ def main():
         registry.append({"id": lid, "name": name, "confederation": conf, "group": group,
                          "status": status, "logo": logo, "espn_code": code,
                          "country": country, "tier": tier,
-                         "data_status": DATA_STATUS.get(lid, "full_forecast")})
+                         "data_status": DATA_STATUS.get(lid, "full_forecast"),
+                         "women": lid in WOMENS})
         if status == "live":
             print(f"  {lid:18s} live   · logo {'ok' if logo else 'none'} (data built separately: MLS→build_dashboard_data, others→build_league_data)")
             continue

@@ -202,9 +202,16 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mb-portal{display:none;position:fixed;z-index:60;min-width:210px;max-width:min(90vw,260px);background:var(--ink-1);border:1px solid var(--line-3);border-radius:var(--r-md);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:6px 0;max-height:60vh;overflow-y:auto}
 .mb-portal.open{display:block}
 /* Long menus (Europe/Americas) stack their leagues into columns (2026-07-17) */
-.mb-portal.open.cols2,.mb-portal.open.cols3{display:grid;column-gap:4px;max-width:min(94vw,760px);padding:6px 4px}
-.mb-portal.open.cols2{grid-template-columns:repeat(2,minmax(200px,1fr))}
-.mb-portal.open.cols3{grid-template-columns:repeat(3,minmax(200px,1fr))}
+/* Country sections must not be split down the middle of a column, so the
+   multi-column layout replaced the old grid: CSS columns honour
+   break-inside:avoid, a grid cell per section would leave ragged gaps. */
+.mb-portal.open.cols2,.mb-portal.open.cols3{max-width:min(94vw,760px);padding:6px 6px;column-gap:14px}
+.mb-portal.open.cols2{columns:2}
+.mb-portal.open.cols3{columns:3}
+.mb-sec{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;padding-bottom:4px}
+.mb-ctry{display:flex;align-items:center;gap:6px;padding:6px 12px 3px;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-3)}
+.mb-t{display:flex;align-items:center;gap:5px;min-width:0}
+.w-tag{flex:none;font-family:var(--mono);font-size:8.5px;font-weight:800;letter-spacing:.04em;color:var(--txt-1);background:var(--ink-3,rgba(255,255,255,.10));border:1px solid var(--line-2);border-radius:3px;padding:0 3px;line-height:1.5}
 .mb-portal a{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12.5px;color:var(--txt-2);text-decoration:none}
 .mb-portal a:hover{background:var(--ink-2);color:var(--txt-1)}
 .mb-portal a .mb-flag{min-width:16px;flex:none;text-align:center;font-size:15px;line-height:1}
@@ -1450,18 +1457,21 @@ function teamGateCardHTML(team){
   const _euroCups=(groups['Cups']||[]).filter(l=>_EURO_CUPS.has(l.id));
   const _amCups=(groups['Cups']||[]).filter(l=>!_EURO_CUPS.has(l.id));
   // [nav-key, icon, label, leagues[]] — nav-key doubles as the portal lookup.
+  // Continent buckets carry NO icon (2026-07-25 feedback): the REGION_MARK boxes
+  // ("NA"/"EU"/"AS") read as a different visual language than the country flags
+  // beside them, and the row is legible without them. Country items keep flags.
   const MAST_GROUPS=[
     ['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}','England',groups['England']||[]],
     ['Spain','\u{1F1EA}\u{1F1F8}','Spain',groups['Spain']||[]],
     ['Italy','\u{1F1EE}\u{1F1F9}','Italy',groups['Italy']||[]],
     ['Germany','\u{1F1E9}\u{1F1EA}','Germany',groups['Germany']||[]],
     ['France','\u{1F1EB}\u{1F1F7}','France',groups['France']||[]],
-    ['Americas',NORTH_AMERICA_ICON,'Americas',
+    ['Americas','','Americas',
       [...(groups['MLS']||[]),...(groups['Americas']||[]),...(groups['South America']||[]),..._amCups]],
-    ['Europe',EUROPE_ICON,'Europe',[...(groups['Other Europe']||[]),..._euroCups]],
-    ['Asia',ASIA_ICON,'Asia',groups['Asia']||[]],
+    ['Europe','','Europe',[...(groups['Other Europe']||[]),..._euroCups]],
+    ['Asia','','Asia',groups['Asia']||[]],
     // Round 6 (2026-07-24): first CAF league on the platform.
-    ['Africa','\u{1F30D}','Africa',groups['Africa']||[]],
+    ['Africa','','Africa',groups['Africa']||[]],
   ];
   // Which nav item highlights for the current league page.
   const _NAV_OF_GROUP={'England':'England','Spain':'Spain','Italy':'Italy','Germany':'Germany',
@@ -1469,9 +1479,33 @@ function teamGateCardHTML(team){
     'Other Europe':'Europe','Asia':'Asia','Africa':'Africa'};
   const navKeyFor=l=>l.group==='Cups'?(_EURO_CUPS.has(l.id)?'Europe':'Americas'):(_NAV_OF_GROUP[l.group]||'Europe');
   const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
-  const menuLink=l=>{const flag=COUNTRY_FLAG[l.country]||'';
-    const icon=flag?`<span class="mb-flag">${flag}</span>`:'';
-    return `<a href="?league=${l.id}">${icon}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':dsTag(l)}</a>`;};
+  // Women's competitions carry a "W" badge (2026-07-25 feedback). A badge beats
+  // an "(W)" name suffix here because several women's sides share their club
+  // name with the men's side outright — "Barcelona" (Liga F), "Arsenal" (WSL),
+  // "Tenerife" (Liga F vs Segunda) — so the marker has to survive name
+  // truncation and stay scannable in a dense menu.
+  const wTag=l=>l&&l.women?'<span class="w-tag" title="Women’s competition">W</span>':'';
+  window.wTag=wTag;
+  // Rows sit under a country heading now, so repeating the country per row is
+  // noise — the subtitle drops to the tier alone.
+  const rowSub=l=>l.tier?`Tier ${l.tier}`:'';
+  const menuRow=l=>`<a href="?league=${l.id}"><span class="mb-nm"><span class="mb-t">${l.name}${wTag(l)}</span>${rowSub(l)?`<em>${rowSub(l)}</em>`:''}</span>${l.status!=='live'?'<span class="soon-tag">soon</span>':dsTag(l)}</a>`;
+  // Menus group by country, countries A–Z (2026-07-25 feedback). Continental
+  // cups have no single country, so they collect into one trailing section.
+  const menuSections=ls=>{
+    const by={};
+    ls.forEach(l=>{const k=l.group==='Cups'?'Continental':(l.country||'Other');
+      (by[k]=by[k]||[]).push(l);});
+    return Object.keys(by)
+      .sort((a,b)=>(a==='Continental')-(b==='Continental')||a.localeCompare(b))
+      .map(k=>{
+        const flag=COUNTRY_FLAG[k]||'';
+        const rows=by[k].slice()
+          .sort((a,b)=>(a.tier||99)-(b.tier||99)||a.name.localeCompare(b.name))
+          .map(menuRow).join('');
+        return `<div class="mb-sec"><div class="mb-ctry">${flag?`<span class="mb-flag">${flag}</span>`:''}${k}</div>${rows}</div>`;
+      }).join('');
+  };
   const _curLeague=(!_homeDataRoute&&!_isEdgeBoard&&!_infoPage&&LID!=='power')
     ? (window.LEAGUES||[]).find(l=>l.id===LID) : null;
   const activeGroup=_curLeague?navKeyFor(_curLeague):null;
@@ -1487,13 +1521,21 @@ function teamGateCardHTML(team){
   const menuHTML={}, menuCols={};
   let bar=`<div class="mb-item"><a href="${location.pathname}" class="${_isHome?'active':''}">\u{1F3E0} Home</a></div>`
          +`<div class="mb-item"><a href="?league=command" class="${_isEdgeBoard?'active':''}">⚽ Matches</a></div>`;
+  const _mlsActive=!_isEdgeBoard&&!_homeDataRoute&&!_infoPage&&LID==='mls';
+  const _hasMLS=(window.LEAGUES||[]).some(l=>l.id==='mls');
   MAST_GROUPS.forEach(([g,flag,label,ls])=>{ if(!ls.length) return;
-    menuHTML[g]=ls.map(menuLink).join('');
+    menuHTML[g]=menuSections(ls);
     // Long menus (Europe, Americas) stack into columns instead of one endless
-    // list (2026-07-17 feedback: "so many leagues that it should stack").
-    menuCols[g]=ls.length>=14?3:ls.length>=7?2:1;
-    bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${ls[0].id}" class="${activeGroup===g?'active':''}">${flag} ${label}</a></div>`;});
-  bar+=`<div class="mb-item"><a href="?league=power" class="${!_isEdgeBoard&&!_homeDataRoute&&!_infoPage&&LID==='power'?'active':''}">\u{1F30D} Rankings</a></div>`;
+    // list (2026-07-17 feedback: "so many leagues that it should stack"). The
+    // unit is now the country SECTION, not the league row, so the thresholds
+    // count sections — Europe's ~20 countries still earn three columns.
+    const nSec=new Set(ls.map(l=>l.group==='Cups'?'Continental':(l.country||'Other'))).size;
+    menuCols[g]=nSec>=9?3:nSec>=4?2:1;
+    bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${ls[0].id}" class="${activeGroup===g&&!_mlsActive?'active':''}">${flag?flag+' ':''}${label}</a></div>`;
+    // MLS rides in the top bar directly after England (2026-07-25 feedback). It
+    // stays inside the Americas menu as well, so both routes still reach it.
+    if(g==='England'&&_hasMLS)
+      bar+=`<div class="mb-item"><a href="?league=mls" class="${_mlsActive?'active':''}">MLS</a></div>`;});
   // Intel (paywalled hub mockup) + Account replace the old News/Subscribe pair (2026-07-18)
   bar+=`<div class="mb-item"><a href="?league=intel" class="${_isIntel?'active':''}">\u{1F4E1} Intel<span class="intel-tag">PRO</span></a></div>`
       +`<div class="mb-item"><a href="?league=account" class="${_isAccount?'active':''}">\u{1F464} Account</a></div>`;
@@ -2113,6 +2155,26 @@ function promoWinner(seeds,prng){
   if(s.length===6)s=[s[0],s[1],host(s[2],s[5]),host(s[3],s[4])]; // Serie B prelims
   return host(host(s[0],s[3]),host(s[1],s[2]));                  // 4-team bracket
 }
+// Championship-playoff bracket — MUST mirror scripts/build_league_data.py
+// _championship_winner (SIM PORTING CONTRACT). One general RE-SEEDED ladder:
+// each round the survivors re-sort by original seed, the top seeds take byes
+// until the field is a power of two, and best-remaining plays worst-remaining
+// with the better seed hosting (P(host advances) = pH + 0.5·pD). That is how
+// the Liguilla actually works, and it handles any field size.
+function champWinner(seeds,prng){
+  const win=(hi,lo)=>{const c=SIM.pmatrix[hi][lo];return prng()<(c[0]+0.5*c[1])/1000?hi:lo;};
+  let alive=[...seeds].slice(0,8);
+  if(!alive.length)return undefined;
+  const rank=new Map(alive.map((t,i)=>[t,i]));
+  while(alive.length>1){
+    alive.sort((a,b)=>rank.get(a)-rank.get(b));
+    const byes=(1<<(32-Math.clz32(alive.length-1)))-alive.length;
+    const nxt=alive.slice(0,byes), rest=alive.slice(byes);
+    while(rest.length)nxt.push(win(rest.shift(),rest.pop()));
+    alive=nxt;
+  }
+  return alive[0];
+}
 // Single-table what-if Monte-Carlo (the table analog of MLS runSim): start from
 // current points, apply forced results, sample remaining via the pmatrix, rank
 // the one table → Title / Top-N (UCL) / bottom-M (relegation) frequencies.
@@ -2135,6 +2197,11 @@ function runSimTable(N=10000,seed=null){
         const seeds=order.slice(c.playoff_band[0]-1,Math.min(c.playoff_band[1],NT));
         if(seeds.length&&prng()<(c.barrage_win_rate??1))
           acc[SIM.teams[promoWinner(seeds,prng)]][c.key]++;
+        return;
+      }
+      if(c.champ_playoff!==undefined){   // title decided in a post-season bracket
+        const seeds=order.slice(0,Math.min(c.champ_playoff,NT));
+        if(seeds.length)acc[SIM.teams[champWinner(seeds,prng)]][c.key]++;
         return;
       }
       if(c.top!==undefined){lo=0;hi=Math.min(c.top,NT);}
@@ -3630,7 +3697,7 @@ if (_isPower && window.POWER_DATA) {
   const seg=$('#seg'); if(seg) seg.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent='Cross-League Power Rankings';
-  const sub=$('#sub'); if(sub) sub.textContent='Domestic ELO + cross-league offset · comparable within a confederation (the scales don’t connect across)';
+  const sub=$('#sub'); if(sub) sub.textContent='Domestic ELO + cross-league offset · one shared ladder, with the gap between confederations fitted on the Club World Cup';
   const panels = (window.POWER_DATA.groups||[]).map(g=>{
     const max=g.teams[0].strength, min=g.teams[g.teams.length-1].strength, span=Math.max(1,max-min);
     const rows = g.teams.map(t=>{
@@ -3646,7 +3713,7 @@ if (_isPower && window.POWER_DATA) {
   const target=$('#view-outlook')||$('main.wrap');
   if(target){
     target.classList.remove('hidden');
-    target.innerHTML='<div class="pr-intro">Every team on one comparable strength scale — domestic ELO plus the league’s cross-league offset (the same strength the continental model uses), so a Premier League side can be compared directly against La Liga or Bundesliga. Scales are <b>confederation-relative</b>: UEFA and Concacaf never meet in the data, so they’re ranked separately.</div><div class="pr-grid">'+panels+'</div>';
+    target.innerHTML='<div class="pr-intro">Every team on one comparable strength scale — domestic ELO plus the league’s cross-league offset (the same strength the continental model uses), so a Premier League side can be compared directly against La Liga or Bundesliga. Confederations are now on <b>one shared ladder</b>: the gap between them is fitted on the Club World Cup, the only competition where they actually meet, so a Liga MX or Brasileirão side can be read against a European one. That link rests on 60 matches — treat cross-continental gaps as the roughest number on this page.</div><div class="pr-grid">'+panels+'</div>';
   }
 }
 </script>
@@ -4680,7 +4747,7 @@ if(_isLeagues){
   const render=()=>{
     const favs=FavStore.leagues();
     const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
-    const link=l=>`<a class="lx-lg" href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span class="mb-nm">${l.name}<em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':dsTag(l)}<span class="lx-star${favs.has(l.id)?' on':''}" data-lid="${l.id}" role="button" tabindex="0" aria-pressed="${favs.has(l.id)}" aria-label="${favs.has(l.id)?'Unpin':'Pin'} ${commandEsc(l.name)} ${favs.has(l.id)?'from':'to'} favorites" title="${favs.has(l.id)?'Unpin':'Pin to favorites'}">${favs.has(l.id)?'★':'☆'}</span></a>`;
+    const link=l=>`<a class="lx-lg" href="?league=${l.id}">${l.logo?`<img src="${l.logo}" alt="" onerror="this.remove()">`:''}<span class="mb-nm"><span class="mb-t">${l.name}${window.wTag?window.wTag(l):''}</span><em>${tierTxt(l)}</em></span>${l.status!=='live'?'<span class="soon-tag">soon</span>':dsTag(l)}<span class="lx-star${favs.has(l.id)?' on':''}" data-lid="${l.id}" role="button" tabindex="0" aria-pressed="${favs.has(l.id)}" aria-label="${favs.has(l.id)?'Unpin':'Pin'} ${commandEsc(l.name)} ${favs.has(l.id)?'from':'to'} favorites" title="${favs.has(l.id)?'Unpin':'Pin to favorites'}">${favs.has(l.id)?'★':'☆'}</span></a>`;
     const favLg=(window.LEAGUES||[]).filter(l=>favs.has(l.id));
     // Headline coverage stat (2026-07-19 feedback): one big brag line.
     const _all=window.LEAGUES||[];
