@@ -1,5 +1,17 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-26 — cross-league ELO now spans confederations.** The four league-offset scales
+> were each anchored at their own reference pinned to 0.0, so MLS and EPL both read 0.0 without
+> that meaning anything. `scripts/eval/interconf_calibrate.py` fits one whole-scale shift per
+> confederation on the FIFA Club World Cup (the only competition where confederations meet):
+> 60 inter-confederation matches, UEFA = 0, **CONMEBOL −110 · AFC −228 · CAF −268 · Concacaf −275**,
+> ridge-shrunk toward a conventional-wisdom prior. Held-out Brier over 200 random splits
+> **0.5411 vs 0.6056** for the previous all-zero behaviour. Cannot move a within-confederation
+> projection (the constant cancels in the strength difference). Power rankings gained CONMEBOL,
+> AFC and CAF panels, which were previously unshowable. Also fixed: `team_name_index` defaulted
+> MLS to the ESPN source and raised "Unknown league 'mls'", silently dropping every MLS club from
+> every Concacaf cross-league fit.
+
 > **2026-07-25c — No waitlist. The site sells from day one.** Owner decision: Aug 17 begins doing
 > business, so the demand-test scaffolding comes out rather than being relabelled. Removed both
 > waitlist captures (`supportCardHTML`, `intelHookHTML`) and every "Nothing is for sale yet /

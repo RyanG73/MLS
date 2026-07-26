@@ -69,6 +69,26 @@ definitions, data sources, and run commands. Update it when any of these change.
   Re-run with `python -m scripts.eval.league_bridge --conf CONMEBOL` — **always scope with `--conf`**:
   each run's "prior" is the previous run's fitted value, so an unscoped re-fit walks every league a
   little every time. The run merges into the existing file rather than overwriting it.
+- **Inter-confederation link (2026-07-26) — the four scales now connect.** Every group above is
+  anchored at its own reference pinned to 0.0, so MLS and EPL both read 0.0 without that meaning
+  they are equal — no match in the fitting data joined them. `scripts/eval/interconf_calibrate.py`
+  adds ONE whole-scale shift per confederation, fitted on the **FIFA Club World Cup**
+  (`club-world-cup`, ESPN `fifa.cwc`) — the only competition where confederations actually meet.
+  133 completed matches 2015-2025 → **60 inter-confederation** after resolving both clubs by ESPN
+  team id. Fitted, UEFA = 0: **CONMEBOL −110 · AFC −228 · CAF −268 · Concacaf −275**
+  (`experiments/confederation_offsets.json`; `coefficients.confederation_shift` applies it inside
+  `league_offset`). Ridge-regularised toward an explicit conventional-wisdom prior because 60
+  matches for four parameters is thin and CAF has three. Validated on the **mean of 200 random 25%
+  splits** — a single split is meaningless at this n: fitted **0.5411 ± 0.0033** vs prior-only
+  0.5453, all-zero 0.6056, naive 0.5961. Adoption requires beating all three, the prior by more
+  than its own SEM.
+  **This cannot move a within-confederation projection** — `match_lambdas` consumes the strength
+  difference, so a constant added to every league in a group cancels; asserted in
+  `tests/test_interconf_calibrate.py`. Every continental comp we build is single-confederation, so
+  no existing projection changed. Re-run manually (like `continental_calibrate`, not in CI) after a
+  new CWC edition: `python -m scripts.eval.interconf_calibrate`.
+  Least certain number on the platform is Concacaf's −275 (Liga MX went W2 D4 L11 across 23
+  matches); treat cross-continental gaps accordingly.
 - **AFC and CAF continental cups remain blocked, and the gate — not judgement — says so.**
   AFC Champions League: the fit beats its prior but LOSES to a naive base-rate predictor
   (+0.0020 on a 76-match holdout), and only **54%** of the field resolves to a modeled league —
