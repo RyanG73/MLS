@@ -1438,6 +1438,35 @@ def main():
             except Exception as _espn_err:
                 print(f"[{lid}] ESPN next-season check failed (staying on {ts}): {_espn_err}")
 
+    elif cfg["source"] == "espn" and args.season is None:
+        # ESPN-sourced leagues had NO preseason flip at all — 30 of the 78
+        # leagues, the largest source group. `ts` is derived from
+        # max_played_season, so a league sat on its last completed season until
+        # ESPN began reporting RESULTS for the next one, which is weeks after
+        # the schedule is published and can be a year or more for a league
+        # between editions. Nine leagues were stuck this way on 2026-07-26 with
+        # fixtures already public: Eerste Divisie (380), Saudi Pro League (306),
+        # Liga F (240), A-League (156), Première Ligue (132), Venezuela (116),
+        # USL Super League (56), Honduras (30).
+        #
+        # espn_results_frame already returns played AND scheduled rows for every
+        # season, so no extra fetch is needed — the fixtures are in `frame`, the
+        # season selector simply never advanced to them.
+        #
+        # The guard is `_cur_left == 0`: only roll forward when the CURRENT
+        # season has nothing left to play. Several leagues publish next season's
+        # full fixture list months ahead (the J-League hazard documented in the
+        # footballdata_intl block below), so "next season has fixtures" on its
+        # own would end an in-progress season early.
+        _next = max_played_season + 1
+        _cur_left = int(((frame["season"] == ts) & (~frame["is_result"])).sum())
+        _next_sched = int(((frame["season"] == _next) & (~frame["is_result"])).sum())
+        if _cur_left == 0 and _next_sched > 0:
+            ts = _next
+            is_preseason = True
+            print(f"[{lid}] pre-season mode: ts={ts}, {_next_sched} ESPN fixtures "
+                  f"(season {max_played_season} has no matches left to play)")
+
     # ASA leagues: ASA serves played games only — the scheduled remainder of
     # the season comes from ESPN (mid-season forward sim, NOT preseason mode:
     # A10(b)'s widening correctly stays off once real results exist).
@@ -1483,6 +1512,29 @@ def main():
             print(f"[{lid}] ESPN remainder: {len(_sched)} scheduled fixtures for {ts} (FDI-mapped)")
         except Exception as _espn_err:
             print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
+
+        # Roll forward when THIS season is played out and the next one is
+        # published. The note above says a flip-ahead check "would fire
+        # mid-season and wrongly treat an in-progress season as done" — true of
+        # an unguarded check, since some leagues publish next season's fixtures
+        # months ahead, but the hazard is removed by requiring the current
+        # season to have nothing left to play. Without this, austria-bundesliga
+        # sat on its 2025 final table for 70 days while ESPN carried 132
+        # scheduled 2026 fixtures (2026-07-26); the backfill step above only
+        # helps once the new season starts producing RESULTS.
+        if args.season is None and (espn_upcoming is None or not len(espn_upcoming)):
+            try:
+                _nxt = ts + 1
+                _espn_n = european_fixtures(lid, _nxt, use_cache=False)
+                _sched_n = _espn_n[~_espn_n["is_result"]] if not _espn_n.empty else _espn_n
+                if len(_sched_n) > 0 and int((played_all["season"] == _nxt).sum()) == 0:
+                    ts = _nxt
+                    is_preseason = True
+                    espn_upcoming = _espn_names_to_fdintl(lid, _sched_n.copy())
+                    print(f"[{lid}] pre-season mode: ts={ts}, {len(_sched_n)} ESPN "
+                          f"fixtures (FDI-mapped; season {ts - 1} is played out)")
+            except Exception as _nxt_err:
+                print(f"[{lid}] next-season check failed (staying on {ts}): {_nxt_err}")
 
     # Fixture-override leagues (Finland): results+odds from `source`, but upcoming
     # fixtures from a secondary provider because ESPN has no slug. Only fires when
