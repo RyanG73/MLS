@@ -399,7 +399,12 @@ _PROMO = lambda promo, play, rel, barrage=None: [
      "promo_top": promo, "playoff_band": play,
      **({"barrage_win_rate": barrage} if barrage else {})},
     {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}]
+# Liga MX / Liga de Expansión: top 8 reach the Liguilla, and the Liguilla — not
+# the table — decides the champion. `title` is simulated by _championship_winner
+# (2026-07-25); before that the site showed who would QUALIFY but never who
+# would win, which is the number a reader actually wants.
 _LIGUILLA = lambda: [
+    {"key": "title", "label": "Champion", "col": "Champ", "champ_playoff": 8},
     {"key": "liguilla", "label": "Liguilla", "col": "Liguilla", "top": 8}]
 # Non-UEFA single tables (Tier-1 expansion, 2026-07-10): _TOP's bucket labels
 # ("Champions Lg"/"Europa Lg"/"Conference Lg") are UEFA-specific and would be
@@ -425,7 +430,15 @@ _PROMO_DIRECT = lambda promo, rel=0: [
 # not play (unlike the *promotion* playoff, which `_promo_playoff_winner` does
 # simulate). Same presentation as australia-aleague / canadian-pl, generalised.
 # `best` = the regular-season-winner bucket, `play` = playoff berths.
-_PLAYOFFS = lambda play, best_label="Best Record", rel=0: [
+# `champ` = size of the championship bracket. Pass it wherever the post-season
+# shape is a standard re-seeded ladder that _championship_winner models (2/3/4/
+# 6/8 seeds, better seed hosts). Leave it None for formats that are genuinely
+# different — a double-chance finals series, a per-conference bracket, a
+# two-legged final between Apertura and Clausura winners — so those leagues keep
+# honest qualification-only odds rather than a confidently wrong champion number.
+_PLAYOFFS = lambda play, best_label="Best Record", rel=0, champ=None: (
+    [{"key": "title", "label": "Champion", "col": "Champ", "champ_playoff": champ}]
+    if champ else []) + [
     {"key": "premiers", "label": best_label, "col": "Best", "top": 1},
     {"key": "playoffs", "label": "Playoffs", "col": "Playoffs", "top": play}] + (
     [{"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}] if rel else [])
@@ -534,17 +547,22 @@ OUTLOOK = {
     "liga-mx":      {"name": "Liga MX", "source": "espn", "n": 18, "confederation": "Concacaf",
                      "buckets": _LIGUILLA(), "green_line": 8, "red_line": None,
                      "eval_seasons": None,
-                     "rules": "Top 8 reach the Liguilla (championship playoff) · no relegation (suspended through 2026)"},
+                     "rules": "Top 8 reach the Liguilla, a re-seeded knockout that decides the title — the table decides only seeding · quarter-finals, semi-finals and final are two-legged with the higher seed at home in the second leg; the sim collapses each tie to one match with the higher seed favoured · no relegation (suspended through 2026)"},
     # C2 — ASA leagues (goals + ASA xG; played rows from ASA, scheduled
     # remainder from ESPN). No relegation. Family champions:
     # experiments/champion_nwsl.json / champion_usl.json.
     "nwsl":         {"name": "NWSL", "source": "asa", "asa_key": "nwsl", "n": 16,
                      "confederation": "Concacaf",
                      "buckets": [
+                         # Top-8 single-elimination, higher seed hosts — the shape
+                         # _championship_winner models. The Shield stays the
+                         # table's own prize; the title is won in the bracket.
+                         {"key": "title", "label": "Champion", "col": "Champ", "champ_playoff": 8},
                          {"key": "shield", "label": "Shield", "col": "Shield", "top": 1},
                          {"key": "playoffs", "label": "Playoffs", "col": "Playoffs", "top": 8}],
                      "green_line": 8, "red_line": None, "eval_seasons": None,
-                     "rules": "Top 8 make the playoffs · Shield = best regular-season record · no relegation"},
+                     "rules": "Top 8 make the playoffs, which decide the championship (the table decides "
+                              "only seeding) · Shield = best regular-season record · no relegation"},
     # USL playoffs are top-8 PER CONFERENCE (M4 2026-07-07: conference-aware —
     # `per_conf_top` counts within ESPN's Eastern/Western groups; falls back
     # to pooled top-16 if the conference fetch fails).
@@ -784,7 +802,7 @@ OUTLOOK = {
                           "rules": "Top 8 reach the Liguilla (championship playoff, not modeled — the table only decides who qualifies) · promotion to Liga MX returns from 2026-27 following the CAS ruling, but is won in the Liguilla and remains conditional on stadium/financial certification, so no promotion bucket is shown · no relegation · Apertura/Clausura season combined into one table"},
     "usl-league-one": {"name": "USL League One", "source": "espn", "n": 17,
                        "confederation": "Concacaf",
-                       "buckets": _PLAYOFFS(8), "green_line": 8, "red_line": None,
+                       "buckets": _PLAYOFFS(8, champ=8), "green_line": 8, "red_line": None,
                        "eval_seasons": None,
                        "rules": "32-game full-table regular season · top 8 reach the playoffs, a single-elimination fixed bracket where the higher seed hosts (the championship is decided there, not by the table) · no promotion or relegation yet — USL has announced it from 2028 · calendar-year season"},
     # Central America. All four run Apertura (Aug-Dec) + Clausura (Jan-May) with
@@ -818,7 +836,7 @@ OUTLOOK = {
                          "rules": "Top 2 reach the CAF Champions League and the next 2 the CAF Confederation Cup (approximate — one Confederation Cup berth actually goes to the Nedbank Cup winner, which isn't modeled) · bottom club relegated directly, 15th enters a promotion/relegation playoff (shown together as the bottom 2) · 30-round double round-robin, Aug-May"},
     "india-isl": {"name": "Indian Super League", "source": "espn", "n": 14,
                   "confederation": "AFC",
-                  "buckets": _PLAYOFFS(6, best_label="Shield"),
+                  "buckets": _PLAYOFFS(6, best_label="Shield", champ=6),
                   "green_line": 6, "red_line": None, "eval_seasons": None,
                   "rules": "League Shield = best regular-season record · top 6 reach the playoffs (the championship is decided there, not by the table) · no relegation (franchise league) · the 2025-26 edition was cut to a three-month Feb-May campaign by the AIFF administrative dispute, so recent history is thinner than the match counts suggest; the 2026-27 season returns to a full Sep-Apr calendar"},
     # Women's leagues — projections-only family (the wsl/nwsl precedent): no xG
@@ -845,12 +863,12 @@ OUTLOOK = {
                                 "rules": "Premiers Plate = best regular-season record · top 6 reach the finals series (the championship is decided there, not by the table) · no relegation (closed league) · runs Nov-May, mirroring the men's A-League · goals-only (no xG source for this league)"},
     "northern-super-league": {"name": "Northern Super League", "source": "espn", "n": 6,
                               "confederation": "Concacaf",
-                              "buckets": _PLAYOFFS(4), "green_line": 4, "red_line": None,
+                              "buckets": _PLAYOFFS(4, champ=4), "green_line": 4, "red_line": None,
                               "eval_seasons": None,
                               "rules": "Canada's women's first division, founded 2025 · single table of 6 clubs; top 4 reach the playoffs (two-legged semifinals then a final at a neutral host — not modeled) · no relegation · calendar-year season · only two seasons of history exist, so ELO priors are thin"},
     "usl-super-league": {"name": "USL Super League", "source": "espn", "n": 8,
                          "confederation": "Concacaf",
-                         "buckets": _PLAYOFFS(6), "green_line": 6, "red_line": None,
+                         "buckets": _PLAYOFFS(6, champ=6), "green_line": 6, "red_line": None,
                          "eval_seasons": None,
                          "rules": "US women's Division One, founded 2024 · top sides reach the playoffs (the championship is decided there, not by the table) · no relegation · Aug-May season · only two completed seasons of history exist, so ELO priors are thin"},
 }
@@ -1226,6 +1244,60 @@ def _promo_playoff_winner(seeds, PM, rng):
         s = [s[0], s[1], host(s[2], s[5]), host(s[3], s[4])]
     # 4-team bracket (also the tail of the 6-team format)
     return host(host(s[0], s[3]), host(s[1], s[2]))
+
+
+def _championship_winner(seeds, PM, rng):
+    """Simulate a championship playoff among `seeds` (best seed first) and
+    return the winning team index.
+
+    Until 2026-07-25 no domestic championship bracket was simulated anywhere
+    except MLS: leagues whose title is decided in a post-season — Liga MX's
+    Liguilla, the NWSL, USL, the Indian Super League — published only
+    *qualification* odds, so the site could say who would reach the playoff but
+    never who would win the league. That is the headline number for a third of
+    the competitions on the platform.
+
+    Same abstraction as _promo_playoff_winner: every tie collapses to one
+    virtual match with the better seed hosting, P(host advances) = pH + 0.5·pD
+    from the DC pairing matrix. Real formats differ in the details (two-legged
+    semis, neutral-site finals, away goals, re-seeding between rounds); the
+    seed-hosting bias stands in for the higher seed's aggregate edge, and the
+    league's `rules` string carries the caveat.
+
+    MUST stay mirrored in webapp/index.html champWinner — SIM PORTING CONTRACT.
+
+    One general RE-SEEDED ladder rather than a table of hand-written shapes.
+    Each round the survivors are re-sorted by their original seed, the top
+    seeds take byes until the field is a power of two, and the best remaining
+    plays the worst remaining with the better seed hosting. That is literally
+    how the Liguilla works — Liga MX re-seeds after every round rather than
+    holding a fixed bracket — and it degrades sensibly for any field size,
+    including the odd ones (5, 7) that a shape table crashed on.
+
+    Fixed-bracket leagues (NWSL, USL) differ only in who meets whom in the
+    semi-finals; at this level of abstraction the champion distribution is
+    materially the same, and each league's `rules` string carries the caveat.
+
+      2 → one final          · 3 → s0 bye, s1-s2, then the final
+      4 → s0-s3, s1-s2       · 6 → s0/s1 bye, s2-s5, s3-s4
+      8 → s0-s7, s1-s6, s2-s5, s3-s4, then re-seeded semis and a final
+    """
+    def win(hi, lo):                     # `hi` is the better seed, and hosts
+        p = PM[hi, lo]
+        return hi if rng.random() < p[0] + 0.5 * p[1] else lo
+
+    alive = list(seeds)[:8]              # larger fields are not a modelled format
+    if not alive:
+        return None
+    rank = {t: i for i, t in enumerate(alive)}
+    while len(alive) > 1:
+        alive.sort(key=lambda t: rank[t])            # re-seed: best first
+        byes = (1 << (len(alive) - 1).bit_length()) - len(alive)
+        nxt, rest = alive[:byes], alive[byes:]
+        while rest:
+            nxt.append(win(rest.pop(0), rest.pop()))  # best vs worst remaining
+        alive = nxt
+    return alive[0]
 
 
 def _stub_team_meta(league_id: str) -> dict[str, dict]:
@@ -1788,6 +1860,13 @@ def main():
                 _seeds = list(order[_band[0] - 1:_band[1]])
                 if _seeds and rng.random() < b.get("barrage_win_rate", 1.0):
                     counts[b["key"]][_promo_playoff_winner(_seeds, PM, rng)] += 1
+            elif "champ_playoff" in b:
+                # Title decided in a post-season bracket, not by the table: seed
+                # the top N off the simulated final table and play it out.
+                _seeds = list(order[:min(b["champ_playoff"], nT)])
+                _w = _championship_winner(_seeds, PM, rng)
+                if _w is not None:
+                    counts[b["key"]][_w] += 1
             elif _conf_arrays is not None and "per_conf_top" in b:
                 counts[b["key"]][_per_conf_members(key, _conf_arrays,
                                                    b["per_conf_top"])] += 1
@@ -2213,8 +2292,14 @@ def main():
                     "cards": [{"key": b["key"], "label": b["label"]}
                               for b in buckets if b.get("card", True)],
                     "columns": [{"key": b["key"], "label": b.get("col", b["label"]),
+                                 # Every key the CLIENT sim needs to reproduce this
+                                 # column must be listed here — a bucket field that
+                                 # is not forwarded leaves runSimTable with nothing
+                                 # to branch on, and the what-if silently reports 0
+                                 # (how champ_playoff shipped broken on 2026-07-25).
                                  **{k: b[k] for k in ("top", "bottom", "band", "promo_top",
-                                                      "playoff_band", "barrage_win_rate")
+                                                      "playoff_band", "barrage_win_rate",
+                                                      "champ_playoff")
                                     if k in b}}
                                 for b in buckets]},
         "perf_by_year": perf_by_year,
