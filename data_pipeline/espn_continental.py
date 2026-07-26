@@ -31,6 +31,13 @@ SLUGS = {
     "libertadores": "conmebol.libertadores",
     "sudamericana": "conmebol.sudamericana",
     "afc-champions": "afc.champions",
+    # FIFA Club World Cup (2026-07-26). NOT a league we publish — this is the
+    # only competition in the dataset where clubs from different CONFEDERATIONS
+    # actually play each other, so it is the evidence that links the four
+    # separately-anchored league-offset scales into one comparable ladder.
+    # 133 completed matches 2015-2025, 64 of them from the expanded 32-club 2025
+    # edition. See scripts/eval/interconf_calibrate.py.
+    "club-world-cup": "fifa.cwc",
 }
 
 # Comps whose season is a CALENDAR YEAR rather than the Aug–May straddle the
@@ -41,7 +48,10 @@ SLUGS = {
 # stage landing in season N-1 and the knockouts in season N. AFC Champions
 # League Elite is a genuine Sep–May straddle (Sep–Dec then Feb–May) and stays on
 # the default window.
-CALENDAR_YEAR_COMPS = {"libertadores", "sudamericana"}
+# club-world-cup: every edition sits inside one calendar year — December for the
+# old 7-club format, June-July for the expanded 2025 one — so the Aug-May window
+# would split an edition across two "seasons".
+CALENDAR_YEAR_COMPS = {"libertadores", "sudamericana", "club-world-cup"}
 
 
 def _fetch(slug: str, y0: int, y1: int, calendar_year: bool = False) -> list[dict]:

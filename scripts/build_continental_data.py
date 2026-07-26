@@ -12,6 +12,8 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pandas as pd
+
 from data_pipeline.espn_continental import (
     continental_results, continental_fixtures, latest_season)
 from data_pipeline.understat import canonical_frame
@@ -597,7 +599,21 @@ def _resolve_field(comp_id: str, season: int):
     # the season + round filter below is REQUIRED to isolate this season's field.
     df = continental_results(comp_id, range(season, season + 1))
     if df.empty:
-        return []
+        # A DRAWN BUT NOT YET STARTED edition has fixtures and no results.
+        # Deriving the field from the fixture list is what allows a new season
+        # to be projected before its opening kickoff; without it the builder
+        # sat on the previous completed bracket indefinitely — Leagues Cup was
+        # 327 days stale this way, still showing the 2025 champion while the
+        # 2026 draw had been public for weeks.
+        try:
+            fx = continental_fixtures(comp_id, season)
+        except Exception:
+            fx = pd.DataFrame()
+        if fx.empty:
+            return []
+        logger.info("[%s] %d season has no results yet — resolving the field "
+                    "from %d published fixtures", comp_id, season, len(fx))
+        df = fx
 
     # Prefer the league-phase round (new 36-team UEFA format) if present.
     lp = df[(df["season"] == season) & (df["round"] == _LEAGUE_PHASE_ROUND)]
@@ -723,9 +739,34 @@ def _resolve_actual(comp_id: str, played):
             "field": field, "champion": champion}
 
 
+def _roll_forward(comp_id: str, cached: int | None) -> int | None:
+    """Advance to a newer edition once its fixtures are published.
+
+    latest_season() reads RESULTS, and an edition that has not kicked off has
+    none — so on its own it pins the builder to the last COMPLETED season for
+    ever. That is why Leagues Cup still showed 2025 in late July 2026 with the
+    2026 field already drawn. Probes next year then this year, newest first,
+    and only ever moves forward.
+    """
+    year = datetime.now(timezone.utc).year
+    for cand in (year + 1, year):
+        if cached is not None and cand <= cached:
+            continue
+        try:
+            fx = continental_fixtures(comp_id, cand)
+        except Exception as e:                      # network/parse — keep cached
+            logger.debug("[%s] %d fixture probe failed: %s", comp_id, cand, e)
+            continue
+        if not fx.empty:
+            logger.info("[%s] rolling forward %s -> %d (%d fixtures published)",
+                        comp_id, cached, cand, len(fx))
+            return cand
+    return cached
+
+
 def build(comp_id: str, season: int | None, sims: int):
     if season is None:
-        season = latest_season(comp_id)
+        season = _roll_forward(comp_id, latest_season(comp_id))
         if season is None:
             raise SystemExit(f"[{comp_id}] no cached results — run the ESPN adapter first.")
     played = continental_results(comp_id, range(season, season + 1))
@@ -869,6 +910,13 @@ def build(comp_id: str, season: int | None, sims: int):
             "rounds": [r["round"] for r in bs.FORMATS[comp_id]["ko"]],
             "advance_per_table": (bs.FORMATS[comp_id]["phase"].get("advance_per_group")
                                   or bs.FORMATS[comp_id]["phase"].get("advance_per_table")),
+            # The concluded path labels the edition from the final's date; an
+            # edition that has not kicked off has no final, so it shipped a null
+            # label and the page had nothing to say which year it was showing.
+            # Derive it from the season integer instead.
+            "concluded": False,
+            "season_label": (f"{season}-{str(season + 1)[2:]}"
+                             if META[comp_id]["confederation"] == "UEFA" else str(season)),
         },
         "standings": result["standings"],
         "field": result["field"],
