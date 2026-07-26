@@ -28,6 +28,12 @@ def load(path):
     return json.loads(text)
 
 
+def _league_meta():
+    """{league_id: {country, confederation, women}} from the registry."""
+    reg = load(os.path.join(ROOT, "webapp", "leagues.js"))
+    return {r["id"]: r for r in reg}
+
+
 # Common club-type tokens stripped during normalization so e.g. "FC Porto" ↔ "Porto",
 # "AS Roma" ↔ "Roma", "SC Freiburg" ↔ "Freiburg" resolve to the same key.
 _CLUB_TOKENS = {
@@ -57,6 +63,13 @@ ALIAS = {
     # MLS teams that appear in Leagues Cup / Concacaf under a shorter name
     "LAFC": "Los Angeles FC",
     "Red Bull New York": "New York Red Bulls",
+    # Women's side of a men's club already in the pool, where the only source
+    # name is a single token and therefore no longer substring-matchable
+    # (2026-07-25, see _sub_match). Same club, same crest — safe to alias.
+    "OL Lyonnes": "Lyon",
+    # Spelling variant the token-boundary prefix rule cannot bridge
+    # ("sheffield wed" vs "sheffield weds"). Unambiguous: one English club.
+    "Sheffield Weds": "Sheffield Wednesday",
 }
 
 # Manual supplement for teams absent from every league file AND from foreign_logos.json
@@ -93,8 +106,15 @@ SUPPLEMENT = {
 def main():
     logos = {}          # exact team name -> logo url (harvested from domestic files)
     all_names = set()   # every team name seen anywhere (incl. logo-less continental rows)
+    # Where each name was seen, so resolution can be scoped instead of global.
+    # origin_conf[name] = set of confederations, origin_country[name] = set of countries.
+    origin_conf = {}
+    origin_country = {}
+    league_meta = _league_meta()
+
     for path in sorted(glob.glob(os.path.join(DATA, "*.js"))):
-        if os.path.basename(path) in ("logos.js", "leagues.js"):
+        base = os.path.basename(path)
+        if base in ("logos.js", "leagues.js"):
             continue
         try:
             d = load(path)
@@ -105,11 +125,22 @@ def main():
         # archive_odds_snapshot.py / validate_payloads.py.
         if not isinstance(d, dict):
             continue
+        file_lid = base[:-3]
+        file_meta = league_meta.get(file_lid, {})
         rows = (d.get("standings") or []) + (d.get("field") or [])
         for s in rows:
             name, logo = s.get("team"), s.get("logo")
             if not name:
                 continue
+            # Continental payloads tag each club with its DOMESTIC league
+            # (Libertadores rows carry league="ecuador-ligapro"). That is the
+            # only thing that separates Barcelona SC from FC Barcelona, so it
+            # wins over the file's own metadata whenever it is present.
+            row_meta = league_meta.get(s.get("league")) or file_meta
+            if row_meta.get("confederation"):
+                origin_conf.setdefault(name, set()).add(row_meta["confederation"])
+            if row_meta.get("country"):
+                origin_country.setdefault(name, set()).add(row_meta["country"])
             all_names.add(name)
             if logo and name not in logos:
                 logos[name] = logo
@@ -130,28 +161,124 @@ def main():
 
     # normalized index of teams that DO have a logo (key -> url); keep the shortest
     # source name per key as the canonical (usually the cleaner domestic name).
+    # Built three ways — by country, by confederation, and globally — because a
+    # flat global index is exactly what made lower-league clubs wear big clubs'
+    # crests: norm() strips "SC"/"CD"/"FC", so "Barcelona SC" (Ecuador) collapsed
+    # onto "barcelona" and inherited FC Barcelona's badge. Same for Everton CD
+    # (Chile) -> Everton FC, Liverpool FC (Uruguay) -> Liverpool FC, and
+    # "Athletic" (Brazil Série B) -> Athletic Club Bilbao.
     norm_index = {}
+    by_country = {}
+    by_conf = {}
     for name, url in logos.items():
         k = norm(name)
-        if k and (k not in norm_index or len(name) < norm_index[k][1]):
-            norm_index[k] = (url, len(name))
-
-    def resolve(name):
-        """Find a logo for a logo-less name via normalized exact then substring match."""
-        k = norm(name)
         if not k:
+            continue
+        if k not in norm_index or len(name) < norm_index[k][1]:
+            norm_index[k] = (url, len(name))
+        for c in origin_country.get(name, ()):
+            d_ = by_country.setdefault(c, {})
+            if k not in d_ or len(name) < d_[k][1]:
+                d_[k] = (url, len(name))
+        for f in origin_conf.get(name, ()):
+            d_ = by_conf.setdefault(f, {})
+            if k not in d_ or len(name) < d_[k][1]:
+                d_[k] = (url, len(name))
+
+    # A normalized key claimed by clubs in more than one country is ambiguous:
+    # resolving it globally is a coin flip, and the loser wears the wrong crest.
+    ambiguous = set()
+    key_countries = {}
+    for name in all_names:
+        k = norm(name)
+        if k:
+            key_countries.setdefault(k, set()).update(origin_country.get(name, ()))
+    for k, cs in key_countries.items():
+        if len(cs) > 1:
+            ambiguous.add(k)
+
+    def _sub_match(k, index, multi_token_query=False):
+        """Longest-key substring containment within one scoped index.
+
+        Two constraints, both load-bearing:
+
+        1. the matched INDEX key must be at least two tokens. The old rule was
+           a bare ">= 4 characters", and short-name aliases in the pool are
+           single generic words — "United", "Sporting", "Atlético", "Union",
+           "América", "Orlando" — so "united" matched straight into Bangkok
+           United, Buriram United, Chippa United and ten more, all of which
+           then wore Carlisle United's crest.
+
+        2. containment must be a whole-token PREFIX. Interior and suffix hits
+           are almost always different clubs that merely end the same way:
+           "albion" sits inside "west bromwich albion" (Albion FC of Uruguay
+           wore West Brom's crest) and "adt" inside "darmstadt 98" (ADT of Peru
+           wore Darmstadt's). Requiring the prefix to end on a token boundary
+           additionally rejects "port" -> "portland timbers" (Port FC of
+           Thailand wore the Timbers' crest) while keeping "oxford" ->
+           "oxford united".
+
+        Anything these two rules cost is recoverable by hand in ALIAS, which is
+        human-verified; a wrong crest rendered confidently is not recoverable.
+        """
+        def _tok_prefix(a, b):
+            """True when `a` is a whole-token prefix of `b`."""
+            return b.startswith(a) and (len(b) == len(a) or b[len(a)] == " ")
+
+        # Unscoped (global) matching additionally refuses a single-token QUERY.
+        # A bare "port" prefix-matches "port vale" and a bare "athletic"
+        # matches "athletic club" — fine inside one country, a cross-border
+        # error out of it. Single-token names still resolve through the
+        # country and confederation passes, which run first.
+        if multi_token_query and " " not in k:
             return None
-        if k in norm_index:
-            return norm_index[k][0]
-        # substring containment in either direction, longest token-key wins, guard >=4 chars
+
         best = None
-        for ik, (url, _) in norm_index.items():
-            if len(ik) < 4:
+        for ik, (url, _) in index.items():
+            if len(ik) < 4 or " " not in ik:
                 continue
-            if (ik in k or k in ik):
+            if _tok_prefix(k, ik) or _tok_prefix(ik, k):
                 if best is None or len(ik) > best[1]:
                     best = (url, len(ik))
         return best[0] if best else None
+
+    def resolve(name):
+        """Resolve a logo-less name, narrowest scope first.
+
+        country -> confederation -> global, and the global step is skipped for
+        ambiguous keys. Substring matching never runs globally: it was the
+        biggest false-positive source (a >=4-char containment test happily
+        matched "america" into "america mineiro").
+        """
+        k = norm(name)
+        if not k:
+            return None
+        countries = origin_country.get(name, set())
+        confs = origin_conf.get(name, set())
+
+        for c in countries:                      # 1. same country, exact
+            hit = by_country.get(c, {}).get(k)
+            if hit:
+                return hit[0]
+        for f in confs:                          # 2. same confederation, exact
+            hit = by_conf.get(f, {}).get(k)
+            if hit:
+                return hit[0]
+        if k in norm_index and k not in ambiguous:   # 3. global, unambiguous only
+            return norm_index[k][0]
+        for c in countries:                      # 4. same country, substring
+            hit = _sub_match(k, by_country.get(c, {}))
+            if hit:
+                return hit
+        for f in confs:                          # 5. same confederation, substring
+            hit = _sub_match(k, by_conf.get(f, {}))
+            if hit:
+                return hit
+        # 6. global substring, last resort. Safe now that _sub_match refuses
+        #    single-token keys, and it is the only route for the ~600 entries
+        #    from foreign_logos.json, which carry no country/confederation at
+        #    all (they never appear in a payload row).
+        return _sub_match(k, norm_index, multi_token_query=True)
 
     # apply explicit aliases first (authoritative for no-overlap cases)
     for alias, canon in ALIAS.items():
