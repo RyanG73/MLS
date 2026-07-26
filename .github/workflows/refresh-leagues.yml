@@ -96,6 +96,24 @@ jobs:
       - name: Validate history growth + season bounds
         run: python scripts/validate_history_growth.py
 
+      # Continental competitions + logo map + news all lived only in local build
+      # scripts, so none of them refreshed on a CI-driven deploy. See
+      # refresh-daily.yml for the full note. Every step here is non-fatal.
+      - name: Continental competitions (non-fatal)
+        run: |
+          CUR=$(date -u +%Y); PREV=$((CUR-1))
+          for C in ucl europa conference concacaf-champions leagues-cup libertadores sudamericana; do
+            python -m data_pipeline.espn_continental --comp "$C" \
+              --from-year "$PREV" --to-year "$CUR" || echo "$C cache refresh failed (non-fatal)"
+            python scripts/build_continental_data.py --comp "$C" --sims 20000 \
+              || echo "$C build failed (non-fatal)"
+          done
+
+      - name: Logo map + curated news feeds (non-fatal)
+        run: |
+          python scripts/build_logo_map.py || echo "build_logo_map failed (non-fatal)"
+          python scripts/build_news.py || echo "build_news failed (non-fatal)"
+
       - name: Build, validate, publish, and shadow Intelligence
         env:
           UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}

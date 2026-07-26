@@ -143,6 +143,28 @@ jobs:
           python scripts/bet_ledger.py
           python scripts/build_edge_board.py
           python scripts/build_weekly_recap.py
+          # Continental competitions. Same omission as build_news below: these
+          # rebuilt ONLY in the local scripts/build_all.sh, so on a CI-driven
+          # site they never refreshed at all — Leagues Cup sat on its 2025 final
+          # bracket for 327 days while the 2026 draw was public. Each comp does
+          # a merge-refresh of the current season's ESPN cache, then rebuilds
+          # (the builder auto-detects concluded vs in-progress vs not-started).
+          # Non-fatal per comp: one competition's feed must not cost the run.
+          CUR=$(date -u +%Y); PREV=$((CUR-1))
+          for C in ucl europa conference concacaf-champions leagues-cup libertadores sudamericana; do
+            python -m data_pipeline.espn_continental --comp "$C" \
+              --from-year "$PREV" --to-year "$CUR" || echo "$C cache refresh failed (non-fatal)"
+            python scripts/build_continental_data.py --comp "$C" --sims 20000 \
+              || echo "$C build failed (non-fatal)"
+          done
+          python scripts/build_logo_map.py || echo "logo map failed (non-fatal)"
+          # Curated RSS feeds. Ran ONLY in the local scripts/daily_build.sh until
+          # 2026-07-25, so webapp/data/news/ went stale the moment the live site
+          # moved to CI refresh+deploy — payloads rebuilt nightly while the news
+          # rail sat 12 days old. Non-fatal on purpose: an outlet changing its
+          # RSS path must never cost the run its payload commit (see bug #2 note
+          # below), and per-feed failures are already warnings inside the script.
+          python scripts/build_news.py || echo "build_news failed (non-fatal)"
           python scripts/validate_payloads.py
           python scripts/validate_history_growth.py
           python scripts/archive_intelligence_state.py
