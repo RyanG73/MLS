@@ -159,7 +159,9 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
                   fmt: dict | None = None,
                   sigma_decay: bool = False,
                   value_map: dict | None = None,
-                  value_beta: float = 0.0) -> list[dict]:
+                  value_beta: float = 0.0,
+                  value_gate: str = "all",
+                  value_min_gap: float = 0.0) -> list[dict]:
     """Rows of {season, checkpoint, outcome, team, pred, actual} for one league.
 
     `frame` is a canonical played-match frame (goals filled). Playoff rows
@@ -252,18 +254,42 @@ def replay_league(frame: pd.DataFrame, buckets: list[dict],
                         ys.append(r_elo)
                 if len(xs) >= 6 and float(np.std(xs)) > 1e-9:
                     b_, a_ = np.polyfit(np.array(xs), np.array(ys), 1)
-                    # Bottom-half targeting: the measured location error lives
-                    # in bottom-table outcomes (fallen giants seeded too low);
-                    # the top of the table already carries strong skill and an
-                    # untargeted tilt drags title odds toward the richest club
-                    # (title Brier +0.005 at β=0.5 in the untargeted A/B).
+                    # Which clubs the tilt is allowed to touch. "bottom" is the
+                    # production default since 2026-07-07: the measured location
+                    # error lived in bottom-table outcomes (fallen giants seeded
+                    # too low), the top already carries strong skill, and an
+                    # untargeted tilt dragged title odds toward the richest club
+                    # (title Brier +0.005 at β=0.5).
+                    #
+                    # That A/B was run on a CORRUPT value table, though — the
+                    # scrape was reading Transfermarkt's per-player average, so
+                    # Manchester City read €44m and the log(value)→ELO fit was
+                    # badly flattened (fixed 2026-07-26). The gate is now a knob
+                    # so the rejection can be re-tested on clean data, and so
+                    # the "rich club stuck on bad form" case (AC Milan: largest
+                    # positive value-vs-ELO gap in Serie A, and above the median,
+                    # so it receives nothing) can be targeted directly:
+                    #
+                    #   bottom  at/below median ELO           (production)
+                    #   all     every club                    (the rejected A/B)
+                    #   up      only positive corrections     (never demote)
+                    #   gap     only where |value_elo − elo| ≥ value_min_gap
+                    #   up-gap  both of the above
                     _med = float(np.median([elo_now.get(t, 1500.0) for t in teams]))
                     for i, t in enumerate(teams):
                         v_new = value_map.get((t, S))
-                        if (v_new and v_new > 0 and t in elo_now
-                                and elo_now[t] <= _med):
-                            value_delta[i] = value_beta * (
-                                (a_ + b_ * _math.log(v_new)) - elo_now[t])
+                        if not (v_new and v_new > 0 and t in elo_now):
+                            continue
+                        delta = value_beta * (
+                            (a_ + b_ * _math.log(v_new)) - elo_now[t])
+                        if value_gate == "bottom" and elo_now[t] > _med:
+                            continue
+                        if value_gate in ("up", "up-gap") and delta <= 0:
+                            continue
+                        if (value_gate in ("gap", "up-gap")
+                                and abs(delta) < value_beta * value_min_gap):
+                            continue
+                        value_delta[i] = delta
 
             P_raw = dc_predict_batch(remaining, atk, dfd, ha, rho)
             lp = np.log(np.clip(P_raw, 1e-9, 1.0)) / T

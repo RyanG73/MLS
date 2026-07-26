@@ -1839,12 +1839,34 @@ def main():
         except Exception as _conf_err:
             print(f"[{lid}] conference fetch failed (pooled fallback): {_conf_err}")
 
-    # M2/A10(a) (2026-07-07, KEEP at both seeds on the outcome replay):
-    # preseason value-informed strength correction, BOTTOM-HALF-rated teams
-    # only. Fit log(squad value of ts-1) → current ELO, tilt fixture log-odds
-    # by β·(value_elo − elo) for teams rated at/below the league median —
-    # relegation Brier −0.0055 with title flat (an untargeted tilt drags
-    # title odds toward the richest club: +0.005 title, rejected).
+    # M2/A10(a): preseason value-informed strength correction. Fit
+    # log(squad value of ts-1) → current ELO, then tilt fixture log-odds by
+    # β·(value_elo − elo).
+    #
+    # 2026-07-26: the bottom-half gate is REMOVED. It existed because an
+    # untargeted tilt measured +0.005 title Brier in the 2026-07-07 A/B — but
+    # that A/B ran on a CORRUPT value table. The scrape was reading
+    # Transfermarkt's per-player average column, so Manchester City read €44m
+    # and Real Madrid €45m, which flattened the log(value)→ELO slope and made
+    # the untargeted tilt push nonsense at the top of the table. With the parse
+    # fixed, the season-outcome replay (big-5, 2018-2025, 800 team-seasons)
+    # says the opposite:
+    #
+    #   arm              title      ucl    releg      sum
+    #   no tilt        0.03162  0.09436  0.11426  0.24024
+    #   bottom-half    0.03166  0.09459  0.10305  0.22930   <- old production
+    #   UNTARGETED     0.03224  0.08728  0.10198  0.22150   <- now promoted
+    #
+    # The title penalty is +0.0006, an eighth of what was measured on corrupt
+    # data, and it buys −0.0073 on UCL qualification and −0.0011 on relegation
+    # against the old gate. Confirmed at a second seed (0.22980 → 0.22178) and
+    # broad-based: 4 of 5 leagues improve on UCL (Bundesliga −0.0148, Serie A
+    # −0.0132, Ligue 1 −0.0112, EPL −0.0072; La Liga +0.0090 is the exception).
+    #
+    # This is the AC Milan case: a rich club whose ELO has fallen but which sits
+    # ABOVE the league median received exactly zero correction under the old
+    # gate, while having the largest positive value-vs-ELO gap in Serie A.
+    # `--value-gate` in eval_season_outcomes.py re-runs any of the arms.
     if is_preseason and len(remaining):
         try:
             from scripts.eval.tm_value_backfill import OUT as _VOUT, TM_TO_FD, map_to_fd
@@ -1862,19 +1884,18 @@ def main():
                             _xs.append(_math.log(_v)); _ys.append(_r)
                     if len(_xs) >= 6 and float(np.std(_xs)) > 1e-9:
                         _b, _a = np.polyfit(np.array(_xs), np.array(_ys), 1)
-                        _med = float(np.median([elo_now.get(t, 1500.0) for t in tids]))
                         _vdelta = np.zeros(nT)
                         _VALUE_BETA = 0.5
                         for _i, _t in enumerate(tids):
                             _vn = _vmap.get((_t, ts))
-                            if _vn and _vn > 0 and _t in elo_now and elo_now[_t] <= _med:
+                            if _vn and _vn > 0 and _t in elo_now:
                                 _vdelta[_i] = _VALUE_BETA * (
                                     (_a + _b * _math.log(_vn)) - elo_now[_t])
                         if _vdelta.any():
                             RP = perturb_probs(np.log(np.clip(RP, 1e-12, 1.0)),
                                                RH, RA, _vdelta)
                             print(f"[{lid}] value tilt applied to "
-                                  f"{int((_vdelta != 0).sum())} bottom-half teams")
+                                  f"{int((_vdelta != 0).sum())} teams")
         except Exception as _vt_err:
             print(f"[{lid}] value tilt skipped: {_vt_err}")
 

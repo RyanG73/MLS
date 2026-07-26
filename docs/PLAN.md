@@ -1,5 +1,14 @@
 # MLS Prediction Dashboard — Implementation Plan
 
+> **2026-07-26 — the AC Milan fix: value tilt un-gated.** The preseason value tilt was
+> restricted to bottom-half-rated clubs on the strength of a 2026-07-07 A/B measuring +0.005
+> title Brier for the untargeted variant. That A/B ran on a corrupt squad-value table (the
+> scrape read Transfermarkt's per-player average, so Man City read EUR44m). With the parse
+> fixed the season-outcome replay reverses it: untargeted **0.03224 title / 0.08728 ucl /
+> 0.10198 releg** vs the gate's 0.03166 / 0.09459 / 0.10305 — sum **0.22150 vs 0.22930**,
+> confirmed at a second seed, 4 of 5 leagues improving on UCL. Gate removed. AC Milan
+> preseason 2026: **UCL 26.6% -> 37.8%**, title 1.0% -> 3.0%, proj 58.0 -> 60.8.
+
 > **2026-07-26 — cross-league ELO now spans confederations.** The four league-offset scales
 > were each anchored at their own reference pinned to 0.0, so MLS and EPL both read 0.0 without
 > that meaning anything. `scripts/eval/interconf_calibrate.py` fits one whole-scale shift per

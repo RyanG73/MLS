@@ -563,3 +563,68 @@ resting on 23 matches. Revisit after the next edition.
   wandered more than 100 points from the prior.
 
 Suite: **1487 passed, 7 skipped**.
+
+---
+
+## 19. Season rollover — SHIPPED (2026-07-26)
+
+24 leagues were showing a dead final table 45+ days old; nine had next-season fixtures already
+public. Two source paths never consulted the feed for a NEW season:
+
+- **`source == "espn"` had no pre-season flip at all** — 30 of 78 leagues, the largest source
+  group. `ts` derives from max_played_season, so they waited for ESPN to report RESULTS rather
+  than a schedule. `espn_results_frame` already returns played AND scheduled rows, so the
+  fixtures were in `frame` the whole time; the season selector never advanced to them.
+- **`footballdata_intl` only ever asked ESPN for the CURRENT season.** Its comment argued a
+  flip-ahead check "would fire mid-season and wrongly treat an in-progress season as done" —
+  true unguarded, since some leagues publish fixtures months ahead.
+
+Both now roll forward **guarded on the current season having nothing left to play**, which
+removes exactly that hazard. Controls verify it: chile-primera and brazil-serie-b (espn,
+mid-season) and japan-j1 (FDI, 200 played + 200 upcoming) all stay put.
+
+Rolled: eerste-divisie (380 fixtures), saudi-pro (306), liga-f (240), australia-aleague (156),
+austria-bundesliga (132), france-premiere-ligue (132), usl-super-league (56), honduras-liga (30).
+**24 → 16 idle.** The rest are genuine source gaps — eight feeds with nothing published, the
+UEFA cups (2026-27 draw is late August; `_roll_forward` takes them automatically), and three on
+SOURCE_BLOCKED where API-Football's free plan caps out.
+
+`tests/test_season_rollover.py` — no league two seasons stale, "preseason" payloads have
+fixtures, "completed" ones do not, and the blocked list stays honest (that last test immediately
+rejected finland-veikkausliiga, which tracks fine via FIXTURE_OVERRIDE).
+
+## 20. AC Milan / value tilt — the gate was wrong, and the corrupt data is why
+
+The original request: recalibrate post-season ELO so underperforming rich clubs aren't pinned to
+bad form. The mechanism already existed and was **gated to below-median-ELO clubs**, so AC Milan
+— above the median, and holding the largest positive value-vs-ELO gap in Serie A — received
+exactly zero correction.
+
+That gate came from a 2026-07-07 A/B measuring +0.005 title Brier for the untargeted variant.
+**That A/B ran on the corrupt value table** fixed in item 15: Manchester City read €44m, Real
+Madrid €45m, which flattened the log(value)→ELO slope and made an untargeted tilt push nonsense
+at the top of the table. Re-run on clean data (big-5, 2018–2025, 800 team-seasons, preseason):
+
+| arm | title | ucl | releg | sum |
+|---|---:|---:|---:|---:|
+| no tilt | 0.03162 | 0.09436 | 0.11426 | 0.24024 |
+| bottom-half (old production) | 0.03166 | 0.09459 | 0.10305 | 0.22930 |
+| **untargeted — promoted** | 0.03224 | **0.08728** | **0.10198** | **0.22150** |
+| up (never demote) | 0.03153 | 0.08950 | 0.10720 | 0.22823 |
+| gap ≥ 40 | 0.03258 | 0.08848 | 0.10292 | 0.22398 |
+
+The title penalty is **+0.0006** — an eighth of the corrupt-data figure — and buys −0.0073 on
+UCL qualification. Confirmed at seed 7 (0.22980 → 0.22178, same margin). Broad-based: Bundesliga
+−0.0148, Serie A −0.0132, Ligue 1 −0.0112, EPL −0.0072 on UCL; La Liga +0.0090 the exception.
+
+Gate removed. **AC Milan preseason 2026: UCL 26.6% → 37.8%, title 1.0% → 3.0%, proj 58.0 → 60.8.**
+Como stays high (22.7% title) — that is *supported* by the value data, not a model error: Como's
+€437.9m squad is 5th in Serie A after heavy spending.
+
+The tilt gate is now a knob (`--value-gate bottom|all|up|gap`) so this is re-testable rather than
+re-argued, and `tests/test_value_tilt.py` fails loudly if the median gate returns without a fresh
+A/B. Tracked baseline `experiments/season-outcomes-baseline.report.json` regenerated.
+
+**The general lesson worth keeping:** a modelling decision is only as good as the data it was
+measured on. This gate looked like a considered trade-off for nineteen days and was actually an
+artefact of a regex reading the wrong HTML column.

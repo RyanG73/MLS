@@ -143,12 +143,31 @@ definitions, data sources, and run commands. Update it when any of these change.
   with no regression anywhere). The γ gap-scaled variant remains DROPPED. MLS (`build_dashboard_data.py`)
   gained the same widening 2026-07-07 (KEEP at both seeds on the outcome replay: preseason
   playoffs Brier −0.011, shield −0.0013).
-- **Value-informed preseason tilt (M2/A10a, 2026-07-07):** big-5 preseason sims tilt
-  bottom-half-rated teams' fixture log-odds by 0.5·(value_elo − elo), value_elo from a
-  walk-forward log(squad value)→ELO fit (`scripts/eval/tm_value_backfill.py`, era-clean TM
-  backfill). KEEP at both seeds: releg Brier −0.0055, title flat; the untargeted variant was
-  rejected (drags title odds toward the richest club). Spurs preseason relegation 16.5%
-  (campaign start: 42%). ELO regression rate stays 0.40 for all families (M3 validated null).
+- **Value-informed preseason tilt (M2/A10a; gate REVERSED 2026-07-26):** big-5 preseason sims
+  tilt fixture log-odds by 0.5·(value_elo − elo), value_elo from a walk-forward
+  log(squad value)→ELO fit (`scripts/eval/tm_value_backfill.py`). The tilt now applies to
+  **every** club, not just bottom-half-rated ones.
+  The 2026-07-07 restriction rested on an A/B measuring +0.005 title Brier for the untargeted
+  variant — but that A/B ran on a **corrupt value table**: the scrape read Transfermarkt's
+  per-player *average* column, so Manchester City read €44m and Real Madrid €45m, flattening
+  the log(value)→ELO slope. With the parse fixed the replay reverses the verdict
+  (big-5, 2018–2025, 800 team-seasons, preseason checkpoint):
+
+  | arm | title | ucl | releg | sum |
+  |---|---:|---:|---:|---:|
+  | no tilt | 0.03162 | 0.09436 | 0.11426 | 0.24024 |
+  | bottom-half (old prod) | 0.03166 | 0.09459 | 0.10305 | 0.22930 |
+  | **untargeted (promoted)** | 0.03224 | **0.08728** | **0.10198** | **0.22150** |
+
+  Title cost is +0.0006 (an eighth of the corrupt-data figure) and buys −0.0073 UCL and
+  −0.0011 relegation against the old gate. Confirmed at seed 7 (0.22980 → 0.22178); 4 of 5
+  leagues improve on UCL (Bundesliga −0.0148, Serie A −0.0132, Ligue 1 −0.0112, EPL −0.0072;
+  La Liga +0.0090 is the exception). This is the **AC Milan** case: a rich club whose ELO has
+  fallen but which sits ABOVE the median got zero correction while having the largest positive
+  value-vs-ELO gap in Serie A. Milan preseason 2026: UCL **26.6% → 37.8%**, title 1.0% → 3.0%.
+  Re-test any arm with `scripts/eval_season_outcomes.py --value-gate {bottom,all,up,gap}`;
+  `tests/test_value_tilt.py` fails loudly if the median gate is reinstated without one.
+  ELO regression rate stays 0.40 for all families (M3 validated null).
 - **Season-outcome evaluation (user directive 2026-07-06):** team-level outcomes (champion,
   promotion, relegation, top-N) are an optimization target alongside match Brier.
   `scripts/eval_season_outcomes.py` replays 2018–2025 through production-mirrored sims at 4

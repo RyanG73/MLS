@@ -110,6 +110,15 @@ def main() -> None:
                          "beta*(value_elo - elo), bottom-half-rated teams only "
                          "— the production default since 2026-07-07 (M2 KEEP). "
                          "Needs the TM backfill (big-5); 0 disables.")
+    ap.add_argument("--value-gate", type=str, default="all",
+                    choices=["bottom", "all", "up", "gap", "up-gap"],
+                    help="Which clubs the value tilt may touch. 'bottom' is the "
+                         "production default (at/below median ELO); 'all' is the "
+                         "variant rejected in 2026-07 on a CORRUPT value table; "
+                         "'up' never demotes; 'gap' fires only on a large "
+                         "value-vs-ELO divergence. See season_outcomes.py.")
+    ap.add_argument("--value-min-gap", type=float, default=40.0,
+                    help="ELO divergence threshold for --value-gate gap/up-gap.")
     ap.add_argument("--out", type=str, default=None)
     args = ap.parse_args()
 
@@ -129,6 +138,8 @@ def main() -> None:
             bridge = _bridge_for(lid)
         kw = {"sigma_decay": args.sigma_decay,
               "value_beta": args.value_beta,
+              "value_gate": args.value_gate,
+              "value_min_gap": args.value_min_gap,
               "value_map": _value_map_for(lid) if args.value_beta > 0 else None,
               "preseason_sigma": (args.sigma if args.sigma is not None else
                                   preseason_sigma_for_source(
@@ -161,6 +172,8 @@ def main() -> None:
                        "sims": args.sims, "seed": args.seed,
                        "sigma": args.sigma, "sigma_decay": args.sigma_decay,
                        "value_beta": args.value_beta,
+                       "value_gate": args.value_gate,
+                       "value_min_gap": args.value_min_gap,
                        "checkpoints": [0.0, 0.25, 0.5, 0.75],
                        "bridge_replayed": True, "formats_replayed": True},
             "pooled": pooled,
