@@ -65,4 +65,4 @@ jobs:
           git add -f webapp/data
           TREE=$(git write-tree)
           COMMIT=$(git commit-tree "$TREE" -m "chore(data): fast live snapshot [$(date -u +%Y-%m-%dT%H:%MZ)]")
-          git push --force origin "$COMMIT":live-data
+          git push --force origin "$COMMIT":refs/heads/live-data
