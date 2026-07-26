@@ -27,10 +27,37 @@ def test_unknown_club_strength_returns_baseline():
     assert co.club_strength("FC Nonexistent") == co.BASELINE_STRENGTH
 
 
-def test_concacaf_offsets_are_relative_not_uefa_scale():
-    assert co.league_offset("mls") == 0.0
-    assert co.league_offset("liga-mx") > co.league_offset("mls")
-    assert co.league_offset("liga-mx") <= 60  # modest, not a UEFA-sized gap
+def test_concacaf_internal_gap_survives_the_confederation_shift():
+    """Liga MX keeps its modest edge over MLS on the new one-ladder scale.
+
+    Rewritten 2026-07-26. This test used to assert `league_offset("mls") == 0.0`
+    — i.e. that Concacaf sat on its OWN scale, uncomparable to UEFA's. That was
+    the limitation, not the contract: MLS and EPL both reading 0.0 never meant
+    they were equal, it meant no match had ever connected them. A whole-scale
+    confederation shift now places them on one ladder
+    (scripts/eval/interconf_calibrate.py).
+
+    What must still hold is the part that was actually calibrated: the gap
+    BETWEEN Concacaf leagues is unchanged, because a constant added to every
+    league in a confederation cancels in any within-confederation comparison.
+    """
+    gap = co.league_offset("liga-mx") - co.league_offset("mls")
+    assert gap > 0, "Liga MX should still rate above MLS"
+    assert gap <= 60, "the internal gap should stay modest, not UEFA-sized"
+
+
+def test_concacaf_now_sits_below_uefa_on_one_ladder():
+    """The point of the shift: cross-confederation offsets are comparable."""
+    assert co.league_offset("mls") < co.league_offset("epl")
+    assert co.league_offset("liga-mx") < co.league_offset("epl")
+    # CONMEBOL's champions are closer to UEFA than Concacaf's — the ordering the
+    # Club World Cup data produced, and the one conventional wisdom expects.
+    assert co.league_offset("brazil-serie-a") > co.league_offset("mls")
+
+
+def test_confederation_shift_is_zero_for_the_anchor_and_unknowns():
+    assert co.confederation_shift("epl") == 0.0
+    assert co.confederation_shift("not-a-league") == 0.0
 
 
 def test_concacaf_club_strength_below_modeled_top():

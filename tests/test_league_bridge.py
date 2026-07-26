@@ -304,7 +304,14 @@ class TestJsonWireIn:
         assert co.league_offset("epl") == 0.0
 
     def test_mls_anchor_zero_from_json(self, tmp_path, monkeypatch):
-        """MLS should be 0 whether from the JSON or the prior."""
+        """MLS is 0 on its CONFEDERATION's scale, whether from JSON or prior.
+
+        Updated 2026-07-26: `league_offset` now also adds a whole-scale
+        confederation shift so the four separately-anchored scales are mutually
+        comparable (scripts/eval/interconf_calibrate.py). The anchor property
+        being asserted here is about the Concacaf-internal scale, so the shift
+        is subtracted back off — the raw return is no longer expected to be 0.
+        """
         import data_pipeline.coefficients as co
 
         json_file = tmp_path / "league_offsets.json"
@@ -314,7 +321,25 @@ class TestJsonWireIn:
         monkeypatch.setattr(co, "_FITTED_OFFSETS", None)
         monkeypatch.setattr(co, "_FITTED_OFFSETS_LOADED", False)
 
-        assert co.league_offset("mls") == 0.0
+        within = co.league_offset("mls") - co.confederation_shift("mls")
+        assert within == 0.0
+
+    def test_confederation_shift_cancels_within_a_confederation(self):
+        """The safety property the whole design rests on.
+
+        match_lambdas works on the strength DIFFERENCE, so a constant added to
+        every league in a confederation cannot change any domestic or
+        same-confederation continental projection. If this ever fails, the shift
+        has started moving numbers it was never meant to touch.
+        """
+        import data_pipeline.coefficients as co
+
+        for a, b in [("epl", "la-liga"), ("mls", "liga-mx"),
+                     ("brazil-serie-a", "argentina-primera")]:
+            with_shift = co.league_offset(a) - co.league_offset(b)
+            within = ((co.league_offset(a) - co.confederation_shift(a))
+                      - (co.league_offset(b) - co.confederation_shift(b)))
+            assert abs(with_shift - within) < 1e-9, f"{a} vs {b} moved"
 
 
 class TestVectorizedObjective:

@@ -3,9 +3,16 @@
 
 The platform's unique cross-league capability: put teams from different leagues on
 ONE comparable strength scale (domestic ELO + the league's cross-league offset, the
-same strength the continental model uses). Rankings are CONFEDERATION-RELATIVE — UEFA
-anchors to EPL=0, Concacaf to MLS=0, and the two scales don't connect (the
-confederations don't meet in our data), so they're shown as two separate panels.
+same strength the continental model uses).
+
+Panels are still grouped by confederation for READABILITY, but as of 2026-07-26 the
+scales do connect: coefficients.league_offset adds a whole-scale confederation shift
+fitted on the FIFA Club World Cup — the only competition where confederations
+actually meet — so a Liga MX side can now be read against a European one. See
+scripts/eval/interconf_calibrate.py. The link rests on 60 matches, so cross-
+confederation gaps are the least certain numbers on the page; within a confederation
+nothing changed, because a constant added to every league in a group cancels in the
+strength difference the match model consumes.
 
 Aggregates the already-built per-league webapp/data/<id>.js files (each carries team
 ELO + crest + colour), so it's cheap and always consistent with the live dashboards.
@@ -31,6 +38,20 @@ _GROUPS = {
              ("super-lig", "Süper Lig"), ("scottish-prem", "SPFL"),
              ("belgian-pro", "Pro League"), ("greek-super", "Super League GR")],
     "Concacaf": [("mls", "MLS"), ("liga-mx", "Liga MX")],
+    # CONMEBOL, AFC and CAF join 2026-07-26. They were absent while their scales
+    # had no link to UEFA's — a Brazilian club's number would have been an
+    # uninterpretable 0.0-anchored figure sitting next to a European one. The
+    # Club World Cup fit supplies that link, so they can be shown.
+    "CONMEBOL": [("brazil-serie-a", "Brasileirão"), ("argentina-primera", "Liga Argentina"),
+                 ("colombia-primera-a", "Primera A"), ("chile-primera", "Liga de Primera"),
+                 ("uruguay-primera", "Primera Uruguay"), ("peru-liga1", "Liga 1"),
+                 ("ecuador-ligapro", "LigaPro"), ("paraguay-primera", "División de Honor"),
+                 ("bolivia-profesional", "División Profesional")],
+    "AFC": [("japan-j1", "J1 League"), ("saudi-pro", "Saudi Pro League"),
+            ("k-league-1", "K League 1"), ("china-super", "Chinese Super League"),
+            ("australia-aleague", "A-League"), ("thai-league-1", "Thai League 1"),
+            ("india-isl", "Indian Super League")],
+    "CAF": [("south-africa-psl", "Betway Premiership")],
 }
 
 # Tier-2 European leagues (Championship, 2.Bundesliga, Serie B).
@@ -82,7 +103,10 @@ def build():
             continue
         data["groups"].append({
             "confederation": conf,
-            "anchor": "EPL = 0" if conf == "UEFA" else "MLS = 0",
+            # One global anchor now that the confederation shift links the
+            # scales; the old per-confederation label ("MLS = 0") was already
+            # wrong for CONMEBOL/AFC/CAF the moment they were added.
+            "anchor": "EPL = 0",
             "n_leagues": len({r["league"] for r in ranked}),
             "teams": ranked,
         })

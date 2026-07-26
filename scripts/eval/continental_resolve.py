@@ -74,9 +74,25 @@ def norm_team(name: str) -> str:
 def team_name_index(league_id: str) -> dict[str, str]:
     """{normalized_name: frame_key} for a modeled league's domestic frame."""
     if league_id not in _NAME_INDEX:
-        from scripts.build_league_data import OUTLOOK, _load_frame
-        cfg = OUTLOOK.get(league_id, {})
-        frame = _load_frame(league_id, cfg.get("source", "espn"), cfg.get("asa_key"))
+        # MLS and Liga MX are NOT in build_league_data.OUTLOOK — MLS is built by
+        # build_dashboard_data.py off the ASA parity frame, Liga MX by
+        # espn_soccer.liga_mx_frame. Without this branch `cfg` came back empty,
+        # `source` defaulted to "espn", and `_load_frame` raised "Unknown league
+        # 'mls'": every MLS club failed to resolve and silently dropped out of
+        # every cross-league fit that touched Concacaf (found 2026-07-26 while
+        # collecting Club World Cup matches — 12 Concacaf-UEFA meetings became
+        # 7). Mirrors the identical routing in league_bridge._build_elo_history;
+        # the two must agree or a club resolves in one and not the other.
+        if league_id == "mls":
+            from scripts.eval.league_bridge import _load_mls_frame
+            frame = _load_mls_frame()
+        elif league_id == "liga-mx":
+            from data_pipeline.espn_soccer import liga_mx_frame
+            frame = liga_mx_frame()
+        else:
+            from scripts.build_league_data import OUTLOOK, _load_frame
+            cfg = OUTLOOK.get(league_id, {})
+            frame = _load_frame(league_id, cfg.get("source", "espn"), cfg.get("asa_key"))
         names = set(frame["home_team"]) | set(frame["away_team"])
         _NAME_INDEX[league_id] = {norm_team(t): t for t in names if isinstance(t, str)}
     return _NAME_INDEX[league_id]

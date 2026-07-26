@@ -57,6 +57,10 @@ experiments/*.json
 !experiments/league_offsets.json
 # Track the tier-2 → tier-1 ELO offsets (small, deterministic output of tier_bridge.py)
 !experiments/tier2_offsets.json
+# Track the inter-confederation shifts (interconf_calibrate.py). coefficients.py
+# reads this at BUILD time; without it every confederation silently falls back to
+# a 0.0 shift and the cross-league scales stop connecting on the deployed site.
+!experiments/confederation_offsets.json
 # Track the postgame win-expectancy fitted coefficients — build_league_data.py /
 # build_dashboard_data.py read this at build time via compute_we() to populate
 # every completed game's we_h/we_a fields (small, deterministic output of

@@ -45,6 +45,59 @@ def _load_fitted() -> dict[str, float] | None:
     return _FITTED_OFFSETS
 
 
+# ── inter-confederation shift (2026-07-26) ───────────────────────────────────
+# league_offsets.json is fitted INSIDE each confederation against its own anchor
+# (UEFA→epl, CONMEBOL→brazil-serie-a, Concacaf→mls, AFC→japan-j1), every anchor
+# pinned at 0.0 — so MLS and EPL both read 0.0 without that meaning they are
+# equal. This file adds one whole-scale shift per confederation, fitted on the
+# FIFA Club World Cup (the only competition where confederations actually meet)
+# by scripts/eval/interconf_calibrate.py, which puts all four scales on one
+# ladder.
+#
+# It cannot regress a within-confederation projection: match_lambdas works on
+# the strength DIFFERENCE, so a constant added to both sides of a domestic or
+# same-confederation continental tie cancels exactly. The only predictions that
+# move are the cross-confederation ones that were previously unfounded.
+_CONF_SHIFT: dict[str, float] | None = None
+_CONF_SHIFT_LOADED: bool = False
+_CONF_JSON = Path(__file__).parent.parent / "experiments" / "confederation_offsets.json"
+
+# league_id → confederation, read from the published registry so a new league is
+# covered without editing this module.
+_LEAGUE_CONF: dict[str, str] | None = None
+_REGISTRY_JS = Path(__file__).parent.parent / "webapp" / "leagues.js"
+
+
+def _load_conf_shift() -> dict[str, float]:
+    global _CONF_SHIFT, _CONF_SHIFT_LOADED
+    if _CONF_SHIFT_LOADED:
+        return _CONF_SHIFT or {}
+    _CONF_SHIFT_LOADED = True
+    try:
+        _CONF_SHIFT = json.loads(_CONF_JSON.read_text()).get("shifts") or {}
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        _CONF_SHIFT = {}
+    return _CONF_SHIFT
+
+
+def _league_conf(league_id: str) -> str | None:
+    global _LEAGUE_CONF
+    if _LEAGUE_CONF is None:
+        try:
+            txt = _REGISTRY_JS.read_text(encoding="utf-8")
+            rows = json.loads(txt.split("=", 1)[1].rstrip().rstrip(";"))
+            _LEAGUE_CONF = {r["id"]: r.get("confederation") for r in rows}
+        except Exception:          # noqa: BLE001 — registry absent in some test envs
+            _LEAGUE_CONF = {}
+    return _LEAGUE_CONF.get(league_id)
+
+
+def confederation_shift(league_id: str) -> float:
+    """Whole-scale shift putting `league_id`'s confederation on the UEFA ladder."""
+    conf = _league_conf(league_id)
+    return float(_load_conf_shift().get(conf, 0.0)) if conf else 0.0
+
+
 # ELO points per UEFA-coefficient point (calibrated in validate_continental.py,
 # a later task; this is the starting prior).
 _K_COEFF = 3.0
@@ -151,17 +204,21 @@ def league_offset(league_id: str) -> float:
     there the UEFA path is tried; unknown leagues return 0.0 rather than
     raising.
     """
+    # The confederation shift is added to EVERY path below, so the within-
+    # confederation number each path produces keeps its meaning and only the
+    # cross-confederation comparison changes (see _CONF_SHIFT).
+    shift = confederation_shift(league_id)
     fitted = _load_fitted()
     if fitted is not None and league_id in fitted:
-        return float(fitted[league_id])
+        return float(fitted[league_id]) + shift
     # Prior fallback
     if league_id in _CONCACAF_OFFSET:
-        return _CONCACAF_OFFSET[league_id]
+        return _CONCACAF_OFFSET[league_id] + shift
     if league_id in _MANUAL_LEAGUE_OFFSET:
-        return _MANUAL_LEAGUE_OFFSET[league_id]
+        return _MANUAL_LEAGUE_OFFSET[league_id] + shift
     if league_id not in _LEAGUE_COEFF:
-        return 0.0
-    return _K_COEFF * (_LEAGUE_COEFF[league_id] - _LEAGUE_COEFF[_REF_LEAGUE])
+        return 0.0 + shift
+    return _K_COEFF * (_LEAGUE_COEFF[league_id] - _LEAGUE_COEFF[_REF_LEAGUE]) + shift
 
 
 def club_strength(club: str) -> float:

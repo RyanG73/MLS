@@ -1,0 +1,36 @@
+{
+  "anchor": "UEFA",
+  "holdout_brier_mean": {
+    "fitted": 0.5410653592769497,
+    "naive": 0.596088888888889,
+    "prior_only": 0.5453443367697324,
+    "zero": 0.6055964760902994
+  },
+  "holdout_brier_sem": {
+    "fitted": 0.003332092376839603,
+    "naive": 0.0034136342459953296,
+    "prior_only": 0.0031451403807426924,
+    "zero": 0.002245064770447609
+  },
+  "lam": 0.05,
+  "n_holdout": 15,
+  "n_matches": 60,
+  "prior": {
+    "AFC": -210.0,
+    "CAF": -250.0,
+    "CONMEBOL": -80.0,
+    "Concacaf": -210.0,
+    "OFC": -450.0,
+    "UEFA": 0.0
+  },
+  "shifts": {
+    "AFC": -227.92815889043,
+    "CAF": -268.4061521752196,
+    "CONMEBOL": -110.35379383604344,
+    "Concacaf": -274.6357637997382,
+    "UEFA": 0.0
+  },
+  "source": "FIFA Club World Cup 2015-2025 (ESPN fifa.cwc)",
+  "splits": 200,
+  "verdict": "ADOPT fitted shifts"
+}
