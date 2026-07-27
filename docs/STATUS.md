@@ -34,9 +34,9 @@ No new feature outranks that milestone.
 | Fast result/projection refresh | ✅ Live | Final workflow run `30205921705` published `live-data` successfully on 2026-07-26 |
 | Intelligence API on Vercel host | ✅ Reachable | `https://mls-five.vercel.app/v1/public/config` returns 200 |
 | `api.entenser.com` | ✅ Live | HTTPS GET returns 200; CORS preflight from `https://entenser.com` returns 204 |
-| Production application configuration | ❌ Incomplete | Vercel lists only `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, and `RESEND_FROM_EMAIL` |
+| Production application configuration | ✅ Core runtime configured | Upstash, token, admin, unsubscribe, API URL, and production-mode variables are Production-only |
 | Public pricing configuration | ❌ Empty | Production `/v1/public/config` returns `"pricing": {}` |
-| Paid transaction path | ❌ Not operable | Blocked by DNS, persistence, secrets, Stripe configuration, and legal publication |
+| Paid transaction path | ❌ Not operable | Durable auth is working; blocked by Stripe configuration and legal publication |
 
 ## Launch blockers, in order
 
@@ -49,9 +49,9 @@ the exact allowed origin.
 
 **Exit test:** ✅ passed.
 
-### 2. Provision durable storage and production secrets
+### 2. Provision durable storage and production secrets — completed 2026-07-26
 
-Create the Upstash Redis database and configure these Vercel Production variables together:
+The Upstash database is live and the required variables are configured Production-only:
 
 - `ENTENSER_ENV=production`
 - `UPSTASH_REDIS_REST_URL`
@@ -61,8 +61,11 @@ Create the Upstash Redis database and configure these Vercel Production variable
 - `UNSUBSCRIBE_SECRET`
 - `PUBLIC_API_URL=https://api.entenser.com/v1`
 
-Do not set `ENTENSER_ENV=production` by itself: production mode correctly fails closed when its
-required services are missing.
+The latest Production deployment is Ready. With `ENTENSER_ENV=production`, the custom-domain
+`GET /v1/public/config` returns 200 through Upstash; a production magic-link request completed and
+its email arrived, proving the deployed application can write durable auth state as well as read it.
+
+**Exit test:** ✅ passed.
 
 ### 3. Activate and configure Stripe
 
@@ -109,18 +112,17 @@ blocks launch.
 
 These require account access or business decisions and cannot be completed from the repository:
 
-1. Upstash account/database creation.
-2. Stripe activation, Price creation, webhook registration, and Customer Portal settings.
-3. Confirm Vercel Pro rather than Hobby.
-4. Confirm Resend capacity for launch-day magic links.
-5. Decide the legal draft's open terms.
-6. Create or confirm GA4 and Google Search Console access; submit the sitemap.
-7. Approve any broadcast email. No broadcast is sent without explicit approval.
+1. Stripe activation, Price creation, webhook registration, and Customer Portal settings.
+2. Confirm Vercel Pro rather than Hobby.
+3. Confirm Resend capacity for launch-day magic links.
+4. Decide the legal draft's open terms.
+5. Create or confirm GA4 and Google Search Console access; submit the sitemap.
+6. Approve any broadcast email. No broadcast is sent without explicit approval.
 
 ## Agent work immediately after owner setup
 
 1. Publish Terms, refund, and corrected privacy routes.
-2. Deploy the API with production configuration and verify fail-closed behavior.
+2. Verify the remaining authenticated production paths and fail-closed error behavior.
 3. Execute the monthly and annual dress rehearsals with Ryan.
 4. Verify the GA4 funnel: `view_pricing → begin_checkout → purchase`.
 5. Confirm the custom domain, CORS, auth, checkout, webhook, portal, export, cancellation, and

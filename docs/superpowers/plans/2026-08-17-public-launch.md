@@ -17,7 +17,7 @@ manage billing, cancel, and receive a refund through the production domain.
 Launch only when all five are proven:
 
 - [x] `api.entenser.com` resolves and serves the production API.
-- [ ] Production uses durable KV, strong secrets, and fail-closed configuration.
+- [x] Production uses durable KV, strong secrets, and fail-closed configuration.
 - [ ] Monthly and annual Stripe prices, webhook, and Customer Portal work.
 - [ ] Terms, refund policy, and accurate privacy policy are public.
 - [ ] Monthly and annual dress rehearsals complete through refund and entitlement reconciliation.
@@ -27,6 +27,10 @@ Launch only when all five are proven:
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, or test result. Do not copy implementation history from `PROJECT_HISTORY.md`.
 
+- **2026-07-26 — durable production auth storage verified.** All seven core runtime variables are
+  Production-only, the resulting Production deployment is Ready, and `ENTENSER_ENV=production`
+  serves `/v1/public/config` through Upstash with HTTP 200. A production magic-link request
+  delivered its email, proving the deployed Standard token can write as well as read durable state.
 - **2026-07-26 — production API domain and CORS verified.** Namecheap CNAME resolves through local,
   Cloudflare, and Google DNS; HTTPS `GET /v1/public/config` returns 200. Browser-origin preflight
   returns 204 with `Access-Control-Allow-Origin: https://entenser.com` and `Vary: Origin`.
@@ -54,17 +58,17 @@ These steps require Ryan's external account access or decisions.
 
 - [x] Attach `api.entenser.com` to the Vercel project.
 - [x] Add the DNS record required by Vercel.
-- [ ] Create an Upstash Redis database.
-- [ ] Add its REST URL and token to Vercel Production.
+- [x] Create an Upstash Redis database.
+- [x] Add its REST URL and token to Vercel Production.
 
 **Proof:** custom-domain config endpoint returns 200; a test entitlement survives a new process.
 
 ### B. Secrets and runtime mode
 
-- [ ] Generate strong independent values for `ACCESS_TOKEN_SECRET`, `ADMIN_TOKEN`, and
+- [x] Generate strong independent values for `ACCESS_TOKEN_SECRET`, `ADMIN_TOKEN`, and
   `UNSUBSCRIBE_SECRET`.
-- [ ] Set `PUBLIC_API_URL=https://api.entenser.com/v1`.
-- [ ] Set `ENTENSER_ENV=production` only after its dependencies exist.
+- [x] Set `PUBLIC_API_URL=https://api.entenser.com/v1`.
+- [x] Set `ENTENSER_ENV=production` only after its dependencies exist.
 - [ ] Confirm the Vercel project is on a commercial plan.
 - [ ] Confirm Resend has sufficient launch-day magic-link capacity.
 
@@ -93,7 +97,7 @@ healthy after restoration.
 - [ ] Publish Terms of Service.
 - [ ] Publish the 30-day refund policy.
 - [ ] Replace the outdated privacy language.
-- [ ] Deploy the API with production configuration.
+- [x] Deploy the API with production configuration.
 - [ ] Verify custom-domain CORS and browser authentication.
 - [ ] Verify the GA4 funnel: `view_pricing → begin_checkout → purchase`.
 - [ ] Audit paid-tier copy against the archive's measured depth.
