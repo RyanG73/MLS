@@ -4,7 +4,9 @@
 
 **How to read this report.** *Verified* = observed on a cited public page or in this repository. *Self-reported* = published by the company about itself, not independently audited. *Observed* = a live-site or search test performed during the reviews. *Inference* = analytical conclusion, labeled. All market-size dollar figures are scenario models — no credible public source measures "consumer football projection products" as a category. Competitive data has a short shelf life; re-check quarterly.
 
-**Action:** the recommendations in §8 are superseded by the execution plan at `docs/superpowers/plans/2026-08-17-public-launch.md` (public launch target: Mon 2026-08-17). This document is the strategic evidence base.
+**Action:** the recommendations in §8 are superseded by the active plan at
+`docs/superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.md`. This document is the
+strategic evidence base.
 
 ---
 
@@ -199,7 +201,11 @@ Directional analyst judgments of publicly visible products: **1 = weak/absent, 3
 
 ## 8. Strategic recommendations (superseded by the execution plan)
 
-Both reports' prioritized recommendations were merged into the launch execution plan at `docs/superpowers/plans/2026-08-17-public-launch.md` (workstreams A–I: measurement truth; data-status contract; crawlable pages/SEO; messaging/trust on-ramp; Resend email capture; locale basics; supporter-tier waitlist; distribution content; QA/launch). Consensus priority order preserved there: **measurement + honesty + crawlability first; distribution second; monetization tests third; ads/localization expansion later.** Decision gates adopted from Report 2:
+Both reports' prioritized recommendations are mapped to owner, task, and gate in
+`docs/superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.md`. The consensus order is
+preserved there: **measurement + honesty + crawlability first; proposition and retention proof
+second; repeatable distribution third; discounts, ads, and localization later.** Decision gates
+adopted from Report 2:
 
 - **Build the paid tier** only if ≥2% of returning users join the waitlist (or ≥1% complete a real checkout at the proposed price).
 - **Scale a locale** only if localized pages produce material non-branded impressions and comparable email conversion after a full competition cycle.

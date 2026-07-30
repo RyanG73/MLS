@@ -20,7 +20,9 @@
 
 
 **Date:** 2026-07-17 · **Purpose:** the 12-month feature roadmap for converting free
-users into paying supporters. Picks up where `docs/superpowers/plans/2026-08-17-public-launch.md`
+users into paying supporters. The current execution order now lives in
+`docs/superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.md`; this dated roadmap is
+evidence and does not override it. It originally picked up where the public-launch checklist
 ends. Evidence base: `docs/competitive-intelligence-2026-07-combined.md` (cited as
 "CI report") plus a full inventory of the shipped webapp.
 

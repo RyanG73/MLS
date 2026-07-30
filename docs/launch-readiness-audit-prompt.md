@@ -195,7 +195,8 @@ Also update, per `CLAUDE.md`'s documentation convention:
 - `docs/PROJECT_HISTORY.md` — a dated durable-decision entry for the paid-launch reversal.
 - `docs/product-roadmap-2026-07.md` — reconcile §4's Oct 31 gate, §5's Nov–Feb schedule, and
   §1's 14-day-trial spec plus M1's trial UX rules (all superseded by §0b).
-- `docs/superpowers/plans/2026-08-17-public-launch.md` — the active launch plan; append verdicts.
+- `docs/superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.md` — the active launch and
+  growth plan; append verdicts.
 - `docs/remaining-external-dependencies-2026-07-11.md` — the spend/decision ledger, now that
   legal review and Stripe activation have moved onto the critical path.
 - `docs/data-sources.md` — record the §0c export-scope constraint as a standing rule, and refresh

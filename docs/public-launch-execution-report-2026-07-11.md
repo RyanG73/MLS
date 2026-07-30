@@ -6,8 +6,8 @@ Date: 2026-07-11
 
 - Refreshed MLS champion report Brier: 0.6331. Previous checkpoint was 0.632977, so this is flat/slightly worse by +0.000106 and not a model improvement.
 - MLS significant underdogs: 24.2% predicted vs 24.8% observed, n=1358.
-- Edge-board 7-day slate: 241 matches across 25 leagues.
-- Current risk flags: away_model_underdog=32, draw_heavy=40, home_model_underdog=7, low_total_draw_setup=40, no_line=87.
+- Edge-board 7-day slate: 242 matches across 25 leagues.
+- Current risk flags: away_model_underdog=9, draw_heavy=16, home_model_underdog=5, low_total_draw_setup=18, no_line=29.
 - Tier-family row-level market buckets: 0 buckets; market status no_market.
 
 ## 18-Step Execution Status

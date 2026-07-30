@@ -1,6 +1,6 @@
 # Entenser — Current Status
 
-**Last verified:** 2026-07-26 · **Owner:** Ryan · **Target:** paid public launch on 2026-08-17
+**Last verified:** 2026-07-27 · **Owner:** Ryan · **Target:** paid public launch on 2026-08-17
 
 This is the canonical answer to four questions:
 
@@ -10,7 +10,7 @@ This is the canonical answer to four questions:
 4. What evidence supports those claims?
 
 Historical narrative belongs in `PROJECT_HISTORY.md`. Detailed execution belongs in the single
-active plan, `superpowers/plans/2026-08-17-public-launch.md`.
+active plan, `superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.md`.
 
 ---
 
@@ -35,6 +35,7 @@ No new feature outranks that milestone.
 | Intelligence API on Vercel host | ✅ Reachable | `https://mls-five.vercel.app/v1/public/config` returns 200 |
 | `api.entenser.com` | ✅ Live | HTTPS GET returns 200; CORS preflight from `https://entenser.com` returns 204 |
 | Production application configuration | ✅ Core runtime configured | Upstash, token, admin, unsubscribe, API URL, and production-mode variables are Production-only |
+| Legal business entity | 🟡 Formation chosen | Owner chose an Ohio single-member LLC; legal name remains open |
 | Public pricing configuration | ❌ Empty | Production `/v1/public/config` returns `"pricing": {}` |
 | Paid transaction path | ❌ Not operable | Durable auth is working; blocked by Stripe configuration and legal publication |
 
@@ -67,7 +68,107 @@ its email arrived, proving the deployed application can write durable auth state
 
 **Exit test:** ✅ passed.
 
-### 3. Activate and configure Stripe
+### 3. Form the Ohio single-member LLC without publishing the home address
+
+The owner decision is an Ohio single-member LLC with its default federal tax treatment. Do not elect
+S-corporation taxation during formation unless a CPA later recommends it based on sustained profit.
+Ryan lives and operates in Ohio, so use Ohio rather than adding the fees and filings required to form
+elsewhere and then qualify the foreign LLC in Ohio.
+
+#### Address-privacy setup — complete before filing
+
+1. Choose a reputable Ohio statutory-agent service. “Statutory agent” is Ohio's term for a
+   registered agent.
+   - The service receives lawsuits and official state documents; it is not automatically the
+     company's ordinary mailing address.
+   - The agent must accept the appointment and provide an Ohio street address where an authorized
+     person is normally present during business hours.
+   - The agent's name and address appear in the public Ohio business record. Using a professional
+     service keeps Ryan's home address out of that required public field.
+2. Obtain a separate business mailbox from a Commercial Mail Receiving Agency (CMRA) or
+   privacy-oriented virtual-mail provider.
+   - Prefer a real street-style address with a unique PMB or suite number, mail scanning, check
+     deposit or forwarding if needed, and preferably an Ohio location.
+   - Complete USPS Form 1583 and its identity check. A CMRA receives ordinary business mail; it is
+     not a valid Ohio statutory-agent address. A provider offering both services must use its actual
+     staffed Ohio office—not the rented private-mailbox address—for the statutory-agent role.
+3. Ask both providers exactly which filing fields their addresses may be used for. Some registered
+   agents also sell a permitted business-address service; do not assume the basic agent plan includes
+   it.
+4. Preview Ohio Articles of Organization Form 610 and identify which entered fields will become
+   public. Ohio law requires the LLC name plus the statutory agent's name, Ohio street address, and
+   signed acceptance; avoid adding optional personal information to the Articles.
+5. Use the CMRA address for public business/mailing fields only where the state permits it, and use
+   the registered-agent address only in fields the agent authorizes.
+6. Do not put the home address, personal phone number, or personal email in an optional public field.
+   Create an LLC-specific email and use the Entenser support email or business mailbox where accepted.
+7. Never provide a false address. The IRS, bank, Stripe, and other identity checks may privately
+   require Ryan's real residential or physical address. Give it to them when required; the goal is
+   to keep it out of public records and marketing lists, not to conceal the owner from regulators or
+   financial institutions. The IRS permits a separate mailing address but requires a physical street
+   address when it differs and does not allow a P.O. box in that physical-address field.
+
+#### Formation checklist
+
+1. Use the [Ohio Secretary of State filing page](https://www.ohiosos.gov/business/business-filing-forms)
+   and Ohio Business Central. File domestic LLC Articles of Organization, Form 610; the current
+   standard filing fee is $99. Avoid third-party formation sites unless deliberately hiring one.
+2. Choose the exact LLC name, search the state database, and search the
+   [USPTO trademark database](https://www.uspto.gov/trademarks/search) for confusingly similar
+   names. Decide whether the legal name will include `Entenser`; record the final spelling exactly.
+3. Confirm whether `Entenser` needs a state or local DBA/assumed-name filing if it differs from the
+   LLC's legal name.
+4. Hire the registered agent and open the CMRA/virtual mailbox before submitting the state filing.
+5. File the Articles of Organization directly through the official state site. Use the approved
+   privacy addresses in the correct fields, select member-managed unless counsel recommends
+   otherwise, save the submitted form and receipt, and decline unnecessary third-party upsells.
+6. After approval, download and securely store the stamped Articles/Certificate of Organization and
+   state entity ID.
+7. Sign a single-member operating agreement naming Ryan as the sole member and documenting initial
+   ownership, management authority, and the tax year. Keep it internally; do not publish it unless
+   the state requires filing.
+8. Apply for the EIN free through the [official IRS EIN application](https://www.irs.gov/businesses/employer-identification-number)
+   only after the LLC is approved. Use the LLC's exact legal name, save the EIN confirmation
+   immediately, use the business mailbox for IRS correspondence where allowed, and provide the real
+   physical address where the application requires it.
+9. Open a business checking account in the LLC's legal name using the approved formation document,
+   EIN confirmation, operating agreement, and Ryan's identity documents. Fund it with a documented
+   owner contribution and do not mix personal and LLC transactions.
+10. Register or verify requirements with the Ohio Department of Taxation and the relevant city or
+    municipality. Ask a CPA about Ohio's Commercial Activity Tax, municipal net-profits tax,
+    whether Entenser subscriptions are taxable, and when multistate or international sales-tax/VAT
+    registration could be triggered.
+11. Check the current [FinCEN BOI page](https://www.fincen.gov/boi). As verified 2026-07-27,
+    U.S.-created entities are currently exempt from federal BOI reporting, but recheck because this
+    rule can change.
+12. Create a compliance calendar for the statutory-agent renewal, mailbox renewal, federal and Ohio
+    tax deadlines, municipal filings, license renewals, and domain renewals. The Ohio Secretary of
+    State's current LLC guide says Ohio LLCs do not file annual or biennial reports, but recheck this
+    each year because the rule can change.
+13. Ignore official-looking formation solicitations until independently verified on the relevant
+    government website. State filings commonly trigger private mail selling certificates, posters,
+    filing services, or other items that may not be required.
+14. Update Stripe, the business bank account, Terms, Privacy Policy, refund policy, invoices, support
+    footer, and tax records with the exact LLC name and business mailing address. Keep residential
+    information in private verification fields only.
+
+Official references: the
+[Ohio LLC guide](https://www.ohiosos.gov/assets/business-start-a-llc.pdf) and
+[Ohio business FAQ](https://www.ohiosos.gov/business/ohio-business-roadmap/frequently-asked-questions)
+define the statutory-agent and filing requirements; the
+[SBA registration guide](https://www.sba.gov/business-guide/launch-your-business/register-your-business)
+explains state filing and registered-agent basics; the
+[USPS CMRA guide](https://faq.usps.com/articles/Knowledge/Commercial-Mail-Receiving-Agency-CMRA)
+explains private mailboxes and Form 1583; and the
+[IRS SS-4 instructions](https://www.irs.gov/instructions/iss4) distinguish mailing and physical
+addresses.
+
+**Exit test:** the Ohio business database shows the LLC active; the formation approval,
+operating agreement, and EIN notice are securely saved; the LLC bank account is open; the registered
+agent and business mailbox both work; and a review of the public state record confirms the home
+address does not appear except where the state expressly requires it.
+
+### 4. Activate and configure Stripe
 
 - Finish Stripe business, bank, and identity activation.
 - Create four immutable Prices:
@@ -82,7 +183,7 @@ its email arrived, proving the deployed application can write durable auth state
 **Exit test:** `/v1/public/config` exposes monthly and annual launch prices, and a test Checkout
 Session returns a Stripe URL.
 
-### 4. Publish the legal contract
+### 5. Publish the legal contract
 
 Resolve the owner decisions in `legal-copy-draft-2026-07-25.md`, then publish:
 
@@ -93,7 +194,7 @@ Resolve the owner decisions in `legal-copy-draft-2026-07-25.md`, then publish:
 The current privacy language predates accounts and paid subscriptions and cannot remain the
 customer contract.
 
-### 5. Run the production dress rehearsal
+### 6. Run the production dress rehearsal
 
 On a real device and cold browser session, run both monthly and annual:
 
@@ -112,12 +213,14 @@ blocks launch.
 
 These require account access or business decisions and cannot be completed from the repository:
 
-1. Stripe activation, Price creation, webhook registration, and Customer Portal settings.
-2. Confirm Vercel Pro rather than Hobby.
-3. Confirm Resend capacity for launch-day magic links.
-4. Decide the legal draft's open terms.
-5. Create or confirm GA4 and Google Search Console access; submit the sitemap.
-6. Approve any broadcast email. No broadcast is sent without explicit approval.
+1. Form the single-member LLC, establish its private mailing setup, obtain its EIN, and open its bank
+   account.
+2. Stripe activation, Price creation, webhook registration, and Customer Portal settings.
+3. Confirm Vercel Pro rather than Hobby.
+4. Confirm Resend capacity for launch-day magic links.
+5. Decide the legal draft's remaining open terms using the LLC's final legal name and jurisdiction.
+6. Create or confirm GA4 and Google Search Console access; submit the sitemap.
+7. Approve any broadcast email. No broadcast is sent without explicit approval.
 
 ## Agent work immediately after owner setup
 
@@ -164,14 +267,14 @@ These are preserved from the retired UX plans and should not interrupt the trans
 
 | Date | Gate |
 |---|---|
-| By 2026-08-02 | DNS, Upstash, Stripe, production secrets, and legal decisions complete |
+| By 2026-08-02 | LLC, business bank account, DNS, Upstash, Stripe, production secrets, and legal decisions complete |
 | 2026-08-03–09 | Legal pages shipped; first full production transaction |
 | 2026-08-10 | Monthly and annual dress rehearsal, including cancellation and refund |
 | 2026-08-14 | Content freeze |
 | 2026-08-15 | Code freeze; money-path fixes only |
 | 2026-08-16 | Production preflight and checkout-disable rehearsal |
 | 2026-08-17 | Launch only if the transaction path is green and Ryan can monitor for three hours |
-| 2026-09-30 | Paid-tier keep/change/kill decision using observed conversion and retention |
+| 2026-09-30 | Interim paid-tier keep/change/kill/extend decision using observed transaction, conversion, concierge, and available early-retention evidence; set the definitive D60 review date |
 
 ## Launch safety rule
 

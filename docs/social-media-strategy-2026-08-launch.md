@@ -7,7 +7,8 @@
 This strategy builds on:
 
 - `docs/launch-announcements.md` for launch-post drafts.
-- `docs/superpowers/plans/2026-08-17-public-launch.md` for launch workstreams and metrics.
+- `docs/superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.md` for the current launch
+  gates, audience, proposition, and metrics.
 - `docs/competitive-intelligence-2026-07-combined.md` for positioning and audience evidence.
 - `docs/product-roadmap-2026-07.md` for the post-launch free habit loop and supporter waitlist gates.
 
