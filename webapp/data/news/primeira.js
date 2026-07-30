@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"primeira","generated":"2026-07-29 13:07 UTC","items":[]};
+window.NEWS_DATA = {"league":"primeira","generated":"2026-07-30 12:37 UTC","items":[{"title":"Report Lazio want Ivanovic on loan after struggle for Benfica playing time","link":"https://football-italia.net/lazio-want-ivanovic-on-loan-struggle-benfica/","desc":"Lazio have reportedly set their sights on Benfica striker Franjo Ivanovic, hoping they can offer...","published":"2026-07-29T19:17:09+00:00","source":"Football Italia","is_analysis":false}]};

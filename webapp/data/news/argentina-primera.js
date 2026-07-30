@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"argentina-primera","generated":"2026-07-29 13:07 UTC","items":[]};
+window.NEWS_DATA = {"league":"argentina-primera","generated":"2026-07-30 12:37 UTC","items":[]};
