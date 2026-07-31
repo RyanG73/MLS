@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-31 13:03 UTC","teams":{"KuPS":[],"Inter Turku":[],"HJK":[],"Gnistan":[],"VPS":[],"AC Oulu":[],"Lahti":[],"TPS":[],"Ilves":[],"Jaro":[],"SJK":[],"Mariehamn":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-31 15:50 UTC","teams":{"KuPS":[],"Inter Turku":[],"HJK":[],"Gnistan":[],"VPS":[],"AC Oulu":[],"Lahti":[],"TPS":[],"Ilves":[],"Jaro":[],"SJK":[],"Mariehamn":[]}};
