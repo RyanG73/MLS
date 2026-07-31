@@ -61,15 +61,14 @@ jobs:
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
       - name: Deploy production function
         run: vercel deploy --prebuilt --prod --archive=tgz --token=${{ secrets.VERCEL_TOKEN }}
-      # The scheduled refresh runner does not own the authenticated API's
-      # Upstash credentials. Publish from this production environment instead:
-      # vercel pull writes the same verified variables used by the live API.
+      # Sensitive Upstash values are intentionally non-exportable from Vercel.
+      # Send compiled records through a narrow authenticated live-API relay so
+      # those database credentials never leave the production function.
       - name: Publish Club Watch team records
-        shell: bash
+        env:
+          INTELLIGENCE_PUBLISH_TOKEN: ${{ secrets.INTELLIGENCE_PUBLISH_TOKEN }}
         run: |
-          test -f .vercel/.env.production.local
-          set -a
-          source .vercel/.env.production.local
-          set +a
+          test -n "$INTELLIGENCE_PUBLISH_TOKEN"
           python scripts/build_team_intelligence.py
-          python scripts/publish_intelligence_artifacts.py
+          python scripts/publish_intelligence_artifacts.py \
+            --endpoint https://api.entenser.com/v1/admin/intelligence-artifacts

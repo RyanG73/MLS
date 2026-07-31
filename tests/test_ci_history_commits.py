@@ -34,10 +34,11 @@ def test_league_refresh_commits_match_prob_history():
 
 def test_api_deploy_rebuilds_and_publishes_club_watch_records():
     workflow = (REPO_ROOT / ".github" / "workflows" / "deploy-api.yml").read_text()
-    assert "source .vercel/.env.production.local" in workflow
     assert "PYTHONPATH: ${{ github.workspace }}" in workflow
+    assert "INTELLIGENCE_PUBLISH_TOKEN: ${{ secrets.INTELLIGENCE_PUBLISH_TOKEN }}" in workflow
     assert "python scripts/build_team_intelligence.py" in workflow
     assert "python scripts/publish_intelligence_artifacts.py" in workflow
+    assert "--endpoint https://api.entenser.com/v1/admin/intelligence-artifacts" in workflow
     assert "publish_intelligence_artifacts.py --allow-missing-config" not in workflow
     assert workflow.index("Deploy production function") < workflow.index(
         "Publish Club Watch team records")

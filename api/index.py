@@ -17,6 +17,7 @@ from api.admin import pricing as admin_pricing
 from api.admin import checkout as admin_checkout
 from api.admin import delivery as admin_delivery
 from api.admin import growth as admin_growth
+from api.admin import intelligence_artifacts as admin_intelligence_artifacts
 from api.pub import card as public_card
 from api.pub import config as public_config
 from api.pub import subscribe as public_subscribe
@@ -98,6 +99,8 @@ def _dispatch(method: str, path: str, headers: dict, body: bytes):
         return admin_delivery.handle(method, headers, body)
     if route == "/admin/growth":
         return admin_growth.handle(method, headers)
+    if route == "/admin/intelligence-artifacts":
+        return admin_intelligence_artifacts.handle(method, headers, body)
     if route == "/public/card":
         return public_card.handle(method, headers, query)
     if route == "/public/unsubscribe":
