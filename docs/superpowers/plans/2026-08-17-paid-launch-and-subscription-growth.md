@@ -26,8 +26,9 @@ HTTP response, experiment sample, cohort date, or decision memo.
   Chromium covers the MLS dashed-to-solid path, the free sample, and mobile overflow. Pages run
   `30643779327` and API run `30643779410` deployed commit `2e5f14a`. Refresh run `30643892020`
   rebuilt all team records but exposed that its Upstash publisher had no credentials; publication
-  now runs from the API deployment after pulling its verified production environment. Record
-  publication is pending; this changes no paid-launch gate.
+  now runs from the API deployment after pulling its verified production environment. The first
+  publication attempt reached that step but lacked the repository import path; the runner now sets
+  it explicitly. Record publication is pending; this changes no paid-launch gate.
 - **2026-07-31 — point-in-time season history deployed.** Added leakage-safe Dixon–Coles
   matchday replays for all 71 domestic league race pages, kept them in a provenance-labeled dataset
   separate from the authoritative nightly archive, and merged them with archive precedence. Thirty-

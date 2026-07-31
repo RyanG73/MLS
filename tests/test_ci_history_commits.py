@@ -35,6 +35,7 @@ def test_league_refresh_commits_match_prob_history():
 def test_api_deploy_rebuilds_and_publishes_club_watch_records():
     workflow = (REPO_ROOT / ".github" / "workflows" / "deploy-api.yml").read_text()
     assert "source .vercel/.env.production.local" in workflow
+    assert "PYTHONPATH: ${{ github.workspace }}" in workflow
     assert "python scripts/build_team_intelligence.py" in workflow
     assert "python scripts/publish_intelligence_artifacts.py" in workflow
     assert "publish_intelligence_artifacts.py --allow-missing-config" not in workflow
