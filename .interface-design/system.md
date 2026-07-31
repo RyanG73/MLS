@@ -157,6 +157,18 @@ Club Watch:
 - Notification controls may be previewed and saved, but alerts and briefings must be labeled unavailable until the shadow-run reliability gate and owner approval are complete.
 - Account identity, plan, followed clubs, notification preferences, export, deletion, and billing are server-authoritative. Browser favorites remain explicitly local unless the user chooses to import them.
 
+Club Watch Season Forecast History:
+
+- Treat history as part of the club-season watch tape, not as a detached analytics dashboard. It should answer how belief in a specific outcome changed from the beginning of the season to today.
+- Use a date-proportional horizontal axis from the first available season checkpoint through the latest forecast. Do not space irregular snapshots evenly or imply observations on dates that were never modeled.
+- Distinguish provenance in both stroke and point treatment: reconstructed point-in-time replays use dashed lines and hollow points; exact archived forecasts use solid lines and filled points.
+- Label reconstructed history as a replay based only on information available at that checkpoint. Never present it as the literal forecast originally published that day.
+- When reconstructed and exact archives share a date, the exact archived forecast wins. Do not draw duplicate or conflicting points.
+- Give the viewer a compact outcome selector. If the current pinned target has no useful historical coverage, automatically select the available outcome with the most informative historical movement instead of showing an avoidable empty chart.
+- Keep the current value, opening value, provenance counts, and season span scannable around the chart; use `Spline Sans Mono` for dates and probabilities.
+- Preserve the public boundary: current league-page history remains free, and the complete free Club Watch sample contains a frozen history view. Paid Club Watch sells the continuously updating, integrated club-season record—not exclusive ownership of public historical forecasts.
+- On mobile, stack controls and metadata without clipping the plot. Preserve the full date span and provenance legend rather than hiding either to save width.
+
 Model Weak Spots:
 
 - Surface weak spots with human-readable club names, not internal IDs.
