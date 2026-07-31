@@ -1,6 +1,6 @@
 # Entenser — Current Status
 
-**Repository verified:** 2026-07-29 · **Production last verified:** 2026-07-27 ·
+**Repository verified:** 2026-07-31 · **Production last verified:** 2026-07-31 ·
 **Owner:** Ryan · **Approved direction:** controlled Club Watch beta no earlier than 2026-08-17,
 pending every commercial, production, customer-evidence, and launch gate
 
@@ -34,7 +34,7 @@ outranks that milestone.
 |---|---|---|
 | Public site | ✅ Live | `https://entenser.com/` returns 200 |
 | Forecast landing page and RSS | ✅ Live | `/football-forecasts/` and `/forecast-feed.xml` return 200 |
-| Crawlable club forecast pages | 🟡 Built, not yet live | Static build emits 1,444 competition-scoped club pages and a 1,536-URL sitemap; deployment pending |
+| Crawlable club forecast pages | ✅ Live | Static build emits 1,446 competition-scoped club pages and a 1,543-URL sitemap; Pages run `30627028178` deployed them successfully |
 | Global Power and shared ELO | ✅ Live | 892 clubs across 50 leagues; shared `global_elo` displayed throughout relevant public surfaces |
 | Fast result/projection refresh | ✅ Live | Final workflow run `30205921705` published `live-data` successfully on 2026-07-26 |
 | Intelligence API on Vercel host | ✅ Reachable | `https://mls-five.vercel.app/v1/public/config` returns 200 |
@@ -43,16 +43,24 @@ outranks that milestone.
 | Legal business entity | 🟡 Formation chosen | Owner chose an Ohio single-member LLC; legal name remains open |
 | Public pricing configuration | ❌ Empty | Production `/v1/public/config` returns `"pricing": {}` |
 | Paid transaction path | ❌ Not operable | Durable auth is working; blocked by Stripe configuration and legal publication |
-| Club Watch repository packaging | ✅ Implemented, not deployed | Club-first intent, one durable free sample, outcome-triggered conversion moments, coherent free/paid boundary, authenticated Account, and customer-facing naming are covered by repository tests |
-| Checkout safety | ✅ Implemented, not production-rehearsed | Production requires four immutable Prices, Stripe/webhook/auth/KV dependencies, three approved policy versions, and an owner switch; public config never exposes missing secret names |
-| Growth measurement | ✅ Repository foundation | Canonical funnel/lifecycle dictionaries, privacy-limited server ledger, cancellation/support/testimonial capture, Stripe/delivery events, shadow-review evidence, and owner scorecard exist; GA4/GSC production inputs remain missing |
+| Club Watch repository packaging | ✅ Deployed and smoke-verified | Club-first intent, one durable free sample, outcome-triggered conversion moments, coherent free/paid boundary, authenticated Account, and customer-facing naming shipped in commit `1d954fa` |
+| Checkout safety | ✅ Deployed, not production-rehearsed | Production requires four immutable Prices, Stripe/webhook/auth/KV dependencies, three approved policy versions, and an owner switch; live config reports checkout disabled without exposing missing secret names |
+| Growth measurement | ✅ Deployed foundation | Canonical funnel/lifecycle dictionaries, privacy-limited server ledger, cancellation/support/testimonial capture, Stripe/delivery events, shadow-review evidence, and owner scorecard shipped; GA4/GSC production inputs remain missing |
 | Live alerts and briefings | ❌ Not offered | UI labels delivery unavailable; live scripts require both protected send switches, two matchweeks of shadow QA, one quiet cycle, and owner approval |
 
-**Repository verification proof (2026-07-29):** 1,627 non-browser tests
-passed with 14 intentional skips; 81 Chromium browser flows passed; JavaScript
-syntax and `git diff --check` passed. A manual local-browser check also verified
-the signed-out Club Watch sample CTA, withdrawn Creator claim, zero horizontal
-overflow, and zero browser console errors.
+**Repository verification proof (2026-07-31):** the integrated release passed
+1,708 tests with 14 intentional skips; all 79 public payloads, the Intelligence
+artifact contract, history-growth gate, promotion-gate self-test, Python
+compilation, JavaScript syntax, and `git diff --check` passed. The static build
+emitted 78 league pages, 1,446 club pages, and a 1,543-URL sitemap.
+
+**Production verification proof (2026-07-31):** GitHub Pages run `30627028178`
+and Vercel API run `30627028137` completed successfully for commit `1d954fa`.
+The live homepage serves the Club Watch promise, and
+`https://api.entenser.com/v1/public/config` returns the deployed checkout
+contract with `enabled: false` and `reason: owner_disabled`. This proves the
+release and kill switch are live; it does not pass pricing, legal, transaction,
+delivery, or customer-evidence gates.
 
 **Owner decision recorded (2026-07-29):** Ryan approved the paid-launch decision record as written:
 7,000 active paid is the objective; Club Watch, its primary audience, boundary, launch pricing,

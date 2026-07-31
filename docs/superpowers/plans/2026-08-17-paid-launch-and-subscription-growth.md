@@ -16,6 +16,13 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-07-31 — Club Watch foundation and site refresh deployed.** Commit `1d954fa` passed 1,708
+  tests with 14 intentional skips, all 79 payload checks, the Intelligence artifact contract,
+  history-growth and promotion gates, compilation, JavaScript syntax, and the exact static build.
+  GitHub Pages run `30627028178` and Vercel API run `30627028137` completed successfully. The live
+  homepage serves the Club Watch promise; the production config serves the new checkout contract
+  with `enabled: false` and `reason: owner_disabled`. Deployment and fail-closed safety are proven;
+  pricing, legal, transaction, delivery, and customer-evidence gates remain open.
 - **2026-07-29 — approved repository tranche completed.** Applied the signed boundary to
   value-triggered conversion moments after a real mover, match-stakes preview, one-match scenario,
   complete sample, and additional-club limit; added consent-aware customer evidence capture,
@@ -54,16 +61,17 @@ HTTP response, experiment sample, cohort date, or decision memo.
 
 ## Current execution state and next-action queue
 
-**As of 2026-07-29, the repository-safe foundation and recommended launch direction are approved,
-but `G0` still needs an explicit target date and no business, commercial, customer-evidence,
-production, or launch gate has passed.** Repository readiness is not permission to open checkout.
+**As of 2026-07-31, the repository-safe foundation and recommended launch direction are approved
+and deployed with checkout disabled, but `G0` still needs an explicit target date and no business,
+commercial, customer-evidence, transaction, delivery, or launch gate has passed.** Deployment is
+not permission to open checkout.
 
 | Track | Current state | What unlocks the next stage |
 |---|---|---|
 | `G0` strategy | Direction approved and recorded; exact 7,000-subscriber target date remains open | Ryan supplies the `G0.2` date; then the `G0` exit gate is complete |
 | `C1` commercial | Checkout and entitlement code fail closed; production pricing and legal contract remain absent | Entity/bank/vendor setup, four Stripe Prices, approved policies, then monthly and annual transaction rehearsals |
 | `M1` measurement | Event dictionary, server ledger, lifecycle joins, categorized feedback/consent capture, and missing-data scorecard exist | Ryan supplies baseline exports and GA4/GSC access; production funnel and Stripe reconciliation pass |
-| `T1` trust/claims | Repository trust repairs, canonical cross-surface contract, Club Watch claim cleanup, and automated coverage are green | Ryan's Account/claim approval, deployment, and production verification |
+| `T1` trust/claims | Repository trust repairs, canonical cross-surface contract, Club Watch claim cleanup, automated coverage, deployment, and public/API smoke verification are green | Ryan's Account/claim approval and the complete transaction/preflight evidence in `C1.16–C1.23` |
 | `D2` discovery | Screener, recent-behavior guide, and provisional club shortlist are ready | Recruit at least 21 participants, conduct interviews, and pass the 10-of-15 job gate |
 | `E3` concierge | Operating templates and delivery measurement are ready | `D2` and the commercial gate pass; then obtain at least 10 real full-price buyers |
 | `P4/B4` product | Sample-first Club Watch, durable account state, outcome-triggered conversion, stakes, timeline, safe notification controls, delivery outcomes, and shadow-review tooling exist in the repository | Concierge evidence defines the committed loop; delivery then passes two shadow matchweeks, 50 reviews, and one quiet cycle |
@@ -126,16 +134,16 @@ ordinary-price customers repeatedly consume and retain the core outcome.
 - Planned launch pricing is $5.99/month or $59.99/year; $7.99/$79.99 exists as a later test.
 - Current forecasts, club pages, public grading, open data, RSS, and one-match scenarios are strong
   free discovery and trust assets.
-- Repository copy now reconciles Home, Account, Support, pricing, and Intel around the approved
+- Production copy now reconciles Home, Account, Support, pricing, and Intel around the approved
   Club Watch direction; final Account behavior and legal/customer claims still need explicit owner
-  approval, and the packaging is not deployed.
+  approval.
 - Unapproved live delivery and Creator claims have been removed from the offer; notification
   delivery remains visibly unavailable pending its evidence gate.
 - Durable followed-team stakes, briefings, alerts, and since-last-visit mechanics exist in some
   form, but the recurring customer loop has not been proven with paying users.
 - Repository fixes and regressions now cover wrong-sport news, reset-like ±100 percentage-point
-  movers, honest data states, and core identity/timestamp/probability contracts; production has not
-  been reverified against the new source.
+  movers, honest data states, and core identity/timestamp/probability contracts; the public site and
+  API were smoke-verified after deployment, while the paid transaction remains unrehearsed.
 - The repository contains no dependable baseline for traffic, registration, paid conversion,
   engagement, cancellation, churn, cohort retention, support themes, or testimonial volume.
 
