@@ -35,7 +35,8 @@ DATA = ROOT / "webapp" / "data"
 SOURCE_BLOCKED = {
     "canadian-pl": "API-Football free plan: newest season is 2024",
     "k-league-1": "API-Football free plan: 2022-2024 only",
-    "poland-ekstraklasa": "no ESPN slug — results-only, no forward fixtures",
+    # Poland remains results-only, but its results source now supplies the
+    # current 2026 season, so it is no longer blocked on season rollover.
     # finland-veikkausliiga is deliberately NOT here: it has no ESPN slug either,
     # but FIXTURE_OVERRIDE supplies its schedule from API-Football and it tracks
     # the current season fine. It was listed on first draft and this file's own

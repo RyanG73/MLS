@@ -1,9 +1,10 @@
 # Club Watch paid-launch decision record
 
-**Prepared:** 2026-07-29  
-**Status:** Awaiting owner sign-off  
-**Decision owner:** Ryan  
-**Execution owner:** repository agent  
+**Prepared:** 2026-07-29
+**Approved:** 2026-07-29
+**Status:** Approved as written; explicit `G0.2` target date still required
+**Decision owner:** Ryan
+**Execution owner:** repository agent
 **Source:** `superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.md`
 
 This page turns `G0.1–G0.10` into one signable record. The recommended answers below are the
@@ -14,16 +15,16 @@ exists.
 
 | ID | Decision | Recommended answer | Owner sign-off |
 |---|---|---|---|
-| `G0.1` | Objective | 7,000 **active paid** subscribers; report revenue and engaged paid alongside it | [ ] |
-| `G0.2` | Target date | Set an explicit date; use 24 months only as a provisional planning horizon | [ ] Date: |
-| `G0.3` | Primary audience | Committed supporters of under-covered clubs in consequential season races; bettors remain secondary and non-public | [ ] |
-| `G0.4` | Paid job and name | “Tell me what changed, why, and what the next match can change without making me remember to check.” Customer name: **Entenser Club Watch** | [ ] |
-| `G0.5` | Boundary | Public current answer and one-match scenario; registered one synced club and one complete sample; paid continuous monitoring, explanation, stakes, continuity, and additional clubs | [ ] |
-| `G0.6` | Ordinary price | $5.99 monthly and $59.99 annual, resolved from immutable Stripe Prices | [ ] |
-| `G0.7` | Risk reversal | No launch trial; publish a 30-day first-billing-period guarantee | [ ] |
-| `G0.8` | Validation clubs | Start with the provisional eight-club shortlist in `customer-discovery-kit.md`, then replace clubs that fail reachability or data QA | [ ] |
-| `G0.9` | Scope freeze | No new leagues, extra paid modules, Creator tier, localization, group pricing, or betting-led acquisition before their gates | [ ] |
-| `G0.10` | August 17 | Treat 2026-08-17 as the earliest controlled, full-price beta date—not an automatic broad launch | [ ] |
+| `G0.1` | Objective | 7,000 **active paid** subscribers; report revenue and engaged paid alongside it | [x] |
+| `G0.2` | Target date | Set an explicit date; use 24 months only as a provisional planning horizon | [x] Direction approved; exact date pending |
+| `G0.3` | Primary audience | Committed supporters of under-covered clubs in consequential season races; bettors remain secondary and non-public | [x] |
+| `G0.4` | Paid job and name | “Tell me what changed, why, and what the next match can change without making me remember to check.” Customer name: **Entenser Club Watch** | [x] |
+| `G0.5` | Boundary | Public current answer and one-match scenario; registered one synced club and one complete sample; paid continuous monitoring, explanation, stakes, continuity, and additional clubs | [x] |
+| `G0.6` | Ordinary price | $5.99 monthly and $59.99 annual, resolved from immutable Stripe Prices | [x] |
+| `G0.7` | Risk reversal | No launch trial; publish a 30-day first-billing-period guarantee | [x] |
+| `G0.8` | Validation clubs | Start with the provisional eight-club shortlist in `customer-discovery-kit.md`, then replace clubs that fail reachability or data QA | [x] |
+| `G0.9` | Scope freeze | No new leagues, extra paid modules, Creator tier, localization, group pricing, or betting-led acquisition before their gates | [x] |
+| `G0.10` | August 17 | Treat 2026-08-17 as the earliest controlled, full-price beta date—not an automatic broad launch | [x] |
 
 ## Metric contract
 
@@ -43,11 +44,11 @@ decision after two complete shadow matchweeks, one quiet-mode cycle, and explici
 
 ## Signature
 
-Decision: [ ] approve as written  [ ] approve with attached changes  [ ] reject
+Decision: [x] approve as written  [ ] approve with attached changes  [ ] reject
 
-Owner: ____________________  Date: ____________________
+Owner: Ryan  Date: 2026-07-29
 
 Changes or conditions:
 
-________________________________________________________________________________
-
+No changes. The exact target date required by `G0.2` remains to be supplied; the approved
+24-month horizon is provisional rather than a silently inferred deadline.

@@ -16,6 +16,29 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-07-29 — approved repository tranche completed.** Applied the signed boundary to
+  value-triggered conversion moments after a real mover, match-stakes preview, one-match scenario,
+  complete sample, and additional-club limit; added consent-aware customer evidence capture,
+  canonical cross-surface club contracts, and reviewable delivery outcomes/shadow QA. Checkout
+  remains fail closed and the scenario just used remains free. Proof: 1,627 non-browser tests passed
+  with 14 intentional skips, all 81 Chromium flows passed, standalone JavaScript syntax and
+  `git diff --check` passed. Production evidence and external gates remain pending.
+- **2026-07-29 — paid-launch direction approved as written.** Ryan approved the audience, Club Watch
+  job and name, free/registered/paid boundary, $5.99/$59.99 ordinary-price baseline, no-trial
+  guarantee treatment, eight-club validation shortlist, scope freeze, and August 17 as an earliest
+  controlled-beta date. The explicit 7,000-subscriber target date required by `G0.2` remains open;
+  the 24-month horizon is only provisional. Approved decisions are recorded in the decision record
+  and canonical status; this approval does not pass any commercial, production, customer-evidence,
+  or launch gate.
+- **2026-07-29 — repository foundation executed; external gates remain.** Added the `G0` decision
+  record, measurement contract, experiment/concierge/discovery/incident assets, Club Watch
+  sample-first packaging, authenticated Account, production checkout kill switch and four-Price
+  fail-closed gate, privacy-limited lifecycle scorecard, Stripe/delivery instrumentation, trust
+  repairs, and cross-surface regression coverage. Proof: 1,627 non-browser tests passed with 14
+  intentional skips, all 81 Chromium flows passed, JavaScript syntax and `git diff --check` passed,
+  and a manual local-browser check found no console error or horizontal overflow in the Club Watch
+  entry path. Production pricing/legal/Stripe rehearsal, owner approvals, interviews, concierge
+  evidence, two-matchweek shadow evidence, and any paid launch remain incomplete.
 - **2026-07-27 — subscription program consolidated.** The launch-only checklist was replaced by this
   owner-versus-Claude plan. No proposition, beta, or Club Rate gate has yet passed.
 - **2026-07-26 — durable production auth storage verified.** Production configuration serves through
@@ -29,10 +52,46 @@ HTTP response, experiment sample, cohort date, or decision memo.
 - **2026-07-25 — paid-path code hardened, configuration absent.** Billing lifecycle and funnel code
   exist; production pricing remains empty.
 
+## Current execution state and next-action queue
+
+**As of 2026-07-29, the repository-safe foundation and recommended launch direction are approved,
+but `G0` still needs an explicit target date and no business, commercial, customer-evidence,
+production, or launch gate has passed.** Repository readiness is not permission to open checkout.
+
+| Track | Current state | What unlocks the next stage |
+|---|---|---|
+| `G0` strategy | Direction approved and recorded; exact 7,000-subscriber target date remains open | Ryan supplies the `G0.2` date; then the `G0` exit gate is complete |
+| `C1` commercial | Checkout and entitlement code fail closed; production pricing and legal contract remain absent | Entity/bank/vendor setup, four Stripe Prices, approved policies, then monthly and annual transaction rehearsals |
+| `M1` measurement | Event dictionary, server ledger, lifecycle joins, categorized feedback/consent capture, and missing-data scorecard exist | Ryan supplies baseline exports and GA4/GSC access; production funnel and Stripe reconciliation pass |
+| `T1` trust/claims | Repository trust repairs, canonical cross-surface contract, Club Watch claim cleanup, and automated coverage are green | Ryan's Account/claim approval, deployment, and production verification |
+| `D2` discovery | Screener, recent-behavior guide, and provisional club shortlist are ready | Recruit at least 21 participants, conduct interviews, and pass the 10-of-15 job gate |
+| `E3` concierge | Operating templates and delivery measurement are ready | `D2` and the commercial gate pass; then obtain at least 10 real full-price buyers |
+| `P4/B4` product | Sample-first Club Watch, durable account state, outcome-triggered conversion, stakes, timeline, safe notification controls, delivery outcomes, and shadow-review tooling exist in the repository | Concierge evidence defines the committed loop; delivery then passes two shadow matchweeks, 50 reviews, and one quiet cycle |
+| `R5` and later | Not started and deliberately gated | A trustworthy transaction, validated job, paid concierge evidence, and reliable delivery all pass first |
+
+### Immediate queue — execute in this order
+
+| Priority | Owner | Action | Tasks and required evidence |
+|---:|---|---|---|
+| 1 | Ryan | Supply the explicit 7,000-subscriber target date still required by the approved [`../../paid-launch-decision-record.md`](../../paid-launch-decision-record.md) | Complete `G0.2`; the approved 24-month horizon remains provisional until a calendar date is recorded |
+| 2 | Ryan | Complete the business, legal, Stripe, support, vendor-capacity, and source-license decisions | `C1.1–C1.9`; entity/bank proof, four Price IDs, webhook/Portal settings, approved policy versions, and vendor confirmations |
+| 3 | Ryan | Supply existing analytics, search, waitlist, support, and customer evidence; confirm GA4/GSC access | `M1.1`, `C1.8`, `D2.1`; exports or explicit “missing” entries plus working production access |
+| 4 | Ryan + Claude | Apply the signed decisions to canonical docs and every customer/account surface; publish only the approved legal and pricing contract | `G0.15`, `C1.10–C1.11`, `M1.8`, `T1.3`, `T1.10`, `P4.10–P4.11` |
+| 5 | Ryan | Recruit the discovery sample while commercial setup proceeds; do not pitch features during recruitment | `D2.2`; at least 15 primary supporters plus approximately 3 quantitative users and 3 creators |
+| 6 | Joint | Run one real monthly transaction, then the complete monthly and annual cold-session rehearsals | `C1.12–C1.22`, `M1.9`; Stripe event IDs, amounts, receipts, durable entitlement, portal, cancel/refund results, webhook replay, GA4 events, and checkout-disable timing |
+| 7 | Ryan + Claude | Conduct and synthesize recent-behavior interviews | `D2.3–D2.10`; consented notes, coded evidence, 10-of-15 recurring-job result, and at least 5 paid-pilot acceptances |
+| 8 | Ryan + Claude | Only if priorities 1–7 pass, run the full-price concierge and record a go/iterate/kill verdict | `E3.1–E3.8`; at least 10 real buyers plus repeat-consumption and continuation evidence |
+| 9 | Claude, then Ryan | Complete delivery-state tracking and shadow Club Watch notifications; Ryan alone approves live sends | `B4.9–B4.11`; two clean matchweeks, one quiet cycle, at least 50 reviewed updates, and the automation thresholds below |
+| 10 | Joint | Only after all preceding gates pass, recruit and operate the ordinary-price controlled beta | `R5`; first 100 users, minimum 60-day cohort, support/refund coverage, and retention verdict |
+
+**Do not begin yet:** live notification sends, broad launch, Creator, new paid modules, dynamic
+pricing, Run-in/trial tests, Club Rate, paid community acquisition, or scale work. Those actions
+remain downstream of evidence—not calendar—gates.
+
 ## Outcome and strategic decision
 
-The business objective is **7,000 active paid subscribers**. Ryan still needs to set the target date
-and approve the exact definitions; until then, use both:
+The approved business objective is **7,000 active paid subscribers**. Ryan still needs to set its
+explicit target date. The approved definitions are:
 
 - **Active paid:** a subscriber with a current paid entitlement who is not refunded, expired, or in
   an unrecovered failed-payment state. A scheduled cancellation remains active until the paid
@@ -67,13 +126,16 @@ ordinary-price customers repeatedly consume and retain the core outcome.
 - Planned launch pricing is $5.99/month or $59.99/year; $7.99/$79.99 exists as a later test.
 - Current forecasts, club pages, public grading, open data, RSS, and one-match scenarios are strong
   free discovery and trust assets.
-- Customer-facing paid claims conflict across Home, Account, Support, pricing, and Intel.
-- Some advertised paid benefits are already free, unavailable, too thin, or not approved for live
-  delivery.
+- Repository copy now reconciles Home, Account, Support, pricing, and Intel around the approved
+  Club Watch direction; final Account behavior and legal/customer claims still need explicit owner
+  approval, and the packaging is not deployed.
+- Unapproved live delivery and Creator claims have been removed from the offer; notification
+  delivery remains visibly unavailable pending its evidence gate.
 - Durable followed-team stakes, briefings, alerts, and since-last-visit mechanics exist in some
   form, but the recurring customer loop has not been proven with paying users.
-- Trust defects include wrong-sport news, reset-like ±100 percentage-point movers, and
-  cross-surface data inconsistencies.
+- Repository fixes and regressions now cover wrong-sport news, reset-like ±100 percentage-point
+  movers, honest data states, and core identity/timestamp/probability contracts; production has not
+  been reverified against the new source.
 - The repository contains no dependable baseline for traffic, registration, paid conversion,
   engagement, cancellation, churn, cohort retention, support themes, or testimonial volume.
 
@@ -88,7 +150,7 @@ ordinary-price customers repeatedly consume and retain the core outcome.
 
 ### Recommended treatment of the 2026-08-17 milestone
 
-Ryan must approve or reject this in task `G0.10`:
+Ryan approved this treatment in task `G0.10` on 2026-07-29:
 
 > Use 2026-08-17 as the earliest date for a **controlled, full-price Club Watch beta**, not an
 > automatic broad public launch. Transaction readiness proves Entenser can take money; it does not
@@ -207,27 +269,27 @@ interpretation, not picks, staking, profit, or affiliate conversion.
 
 ### Ryan checklist
 
-- [ ] `G0.1` Define whether the objective is subscriber count, revenue, or both.
+- [x] `G0.1` Define whether the objective is subscriber count, revenue, or both.
 - [ ] `G0.2` Set a target date for 7,000; use 24 months only as a provisional model horizon.
-- [ ] `G0.3` Approve the primary audience above and keep bettors secondary/non-public.
-- [ ] `G0.4` Approve the core paid job and Club Watch customer-facing name.
-- [ ] `G0.5` Approve the free/registered/paid boundary in `P4`.
-- [ ] `G0.6` Approve $5.99/month and $59.99/year as the clean ordinary-price baseline.
-- [ ] `G0.7` Confirm no trial at initial launch; keep the 30-day guarantee and test a trial later.
-- [ ] `G0.8` Select 5–8 validation clubs with consequential races, good data, and reachable fans.
-- [ ] `G0.9` Freeze new leagues, additional Intel modules, Creator, and dynamic pricing until their gates.
-- [ ] `G0.10` Decide whether 2026-08-17 becomes the recommended controlled beta or remains a broad
+- [x] `G0.3` Approve the primary audience above and keep bettors secondary/non-public.
+- [x] `G0.4` Approve the core paid job and Club Watch customer-facing name.
+- [x] `G0.5` Approve the free/registered/paid boundary in `P4`.
+- [x] `G0.6` Approve $5.99/month and $59.99/year as the clean ordinary-price baseline.
+- [x] `G0.7` Confirm no trial at initial launch; keep the 30-day guarantee and test a trial later.
+- [x] `G0.8` Select 5–8 validation clubs with consequential races, good data, and reachable fans.
+- [x] `G0.9` Freeze new leagues, additional Intel modules, Creator, and dynamic pricing until their gates.
+- [x] `G0.10` Decide whether 2026-08-17 becomes the recommended controlled beta or remains a broad
   launch target.
 
 ### Claude checklist
 
 - [x] `G0.11` Consolidate the audit, launch plan, competitive analysis, and Club Rate into this one
   active plan.
-- [ ] `G0.12` Draft the one-page decision record for `G0.1`–`G0.10`.
-- [ ] `G0.13` Preserve `intel` as an internal entitlement alias if a rename would create migration
+- [x] `G0.12` Draft the one-page decision record for `G0.1`–`G0.10`.
+- [x] `G0.13` Preserve `intel` as an internal entitlement alias if a rename would create migration
   risk.
-- [ ] `G0.14` Create a growth-experiment ledger separate from the model experiment protocol.
-- [ ] `G0.15` Add every approved durable decision to the correct canonical documentation.
+- [x] `G0.14` Create a growth-experiment ledger separate from the model experiment protocol.
+- [x] `G0.15` Add every approved durable decision to the correct canonical documentation.
 
 **Exit gate:** one audience, one job, one ordinary price, one boundary, one target definition, and
 one commercialization decision are signed. No downstream experiment may silently change more than
@@ -273,7 +335,7 @@ These tracks run in parallel after `G0`. No broad promotion starts until all fou
   IDs and resulting entitlement states.
 - [ ] `C1.14` Rehearse disabling new checkout in under five minutes without revoking valid
   entitlements.
-- [ ] `C1.15` Verify production fails closed if a required pricing, webhook, or entitlement dependency
+- [x] `C1.15` Verify production fails closed if a required pricing, webhook, or entitlement dependency
   is absent.
 
 ### M1 — Instrument before experimenting
@@ -283,61 +345,61 @@ unless Ryan deliberately chooses to add a second tool.
 
 - [ ] `M1.1` Ryan supplies or exports all available traffic, search, waitlist, email, support,
   subscription, refund, cancellation, and engagement data. Missing data is recorded as missing.
-- [ ] `M1.2` Claude writes a data dictionary for qualified club-intent visitor, newly eligible
+- [x] `M1.2` Claude writes a data dictionary for qualified club-intent visitor, newly eligible
   visitor, registration, activation, paid start, active paid, retained paid, voluntary churn,
   involuntary churn, pause, reactivation, and referral acquisition.
-- [ ] `M1.3` Define activation as: user follows a club and consumes one complete personalized Club
+- [x] `M1.3` Define activation as: user follows a club and consumes one complete personalized Club
   Watch update.
-- [ ] `M1.4` Instrument:
+- [x] `M1.4` Instrument:
   `club_page_view → track_club → registration_start → registration_complete → sample_update_view →
   upgrade_view → checkout_start → purchase`.
-- [ ] `M1.5` Instrument core value events: material-change explanation viewed, match-stakes viewed,
+- [x] `M1.5` Instrument core value events: material-change explanation viewed, match-stakes viewed,
   since-last-visit viewed, scenario run/saved, alert or briefing sent/delivered/opened/clicked,
   return visit, and notification-setting change.
-- [ ] `M1.6` Join Stripe lifecycle states: purchase, renewal, cancellation requested, expiration,
+- [x] `M1.6` Join Stripe lifecycle states: purchase, renewal, cancellation requested, expiration,
   refund, failed payment, recovery, pause, and reactivation.
-- [ ] `M1.7` Attach club, competition, country, device, landing page, campaign, referrer, creator,
+- [x] `M1.7` Attach club, competition, country, device, landing page, campaign, referrer, creator,
   experiment cell, and Club Rate milestone to relevant events.
-- [ ] `M1.8` Add cancellation reasons, support taxonomy, and consented testimonial capture.
+- [x] `M1.8` Add cancellation reasons, support taxonomy, and consented testimonial capture.
 - [ ] `M1.9` Verify the complete GA4 funnel and Stripe reconciliation in production before reading an
   experiment.
-- [ ] `M1.10` Create baseline and weekly scorecards with known/estimated/missing labels.
+- [x] `M1.10` Create baseline and weekly scorecards with known/estimated/missing labels.
 
 ### T1 — Claude repairs trust and product truth before acquisition; Ryan owns incident response
 
-- [ ] `T1.1` Fix non-football stories entering league news.
-- [ ] `T1.2` Fix ±100 percentage-point mover artifacts; label first observations, resets, and missing
+- [x] `T1.1` Fix non-football stories entering league news.
+- [x] `T1.2` Fix ±100 percentage-point mover artifacts; label first observations, resets, and missing
   baselines instead of presenting them as real movement.
-- [ ] `T1.3` Reconcile club numbers, timestamps, names, and competition identity across static,
+- [x] `T1.3` Reconcile club numbers, timestamps, names, and competition identity across static,
   interactive, personalized, email, and share-card surfaces.
-- [ ] `T1.4` Replace a universal “live” claim with honest states such as fully simulated, fixtures
+- [x] `T1.4` Replace a universal “live” claim with honest states such as fully simulated, fixtures
   limited, results only, stale, or unavailable.
-- [ ] `T1.5` Show freshness, supported depth, and known league limitations before checkout.
-- [ ] `T1.6` Add cross-surface regression tests for probabilities, trajectories, mover values,
+- [x] `T1.5` Show freshness, supported depth, and known league limitations before checkout.
+- [x] `T1.6` Add cross-surface regression tests for probabilities, trajectories, mover values,
   timestamps, club identity, and competition identity.
-- [ ] `T1.7` Create an incident checklist for bad data or notifications; Ryan owns customer response
+- [x] `T1.7` Create an incident checklist for bad data or notifications; Ryan owns customer response
   and Claude owns diagnosis and correction.
-- [ ] `T1.8` Preserve public methodology, calibration, model health, misses, and model-vs-market
+- [x] `T1.8` Preserve public methodology, calibration, model health, misses, and model-vs-market
   evidence as free trust assets.
 
 ### T1 — Reconcile every paid claim
 
-- [ ] `T1.9` Claude creates a claim matrix for Home, pricing, Account, Support, Intel, email capture,
+- [x] `T1.9` Claude creates a claim matrix for Home, pricing, Account, Support, Intel, email capture,
   legal pages, team pages, runbooks, and launch announcements.
 - [ ] `T1.10` Ryan approves one behavior for Account, billing management, cancellation, exports,
   notification state, and local-versus-durable favorites; Claude makes every surface match.
-- [ ] `T1.11` Remove “full team pages” as a paid benefit.
-- [ ] `T1.12` Keep current/open CSVs free; promise historical or bulk derived exports only after
+- [x] `T1.11` Remove “full team pages” as a paid benefit.
+- [x] `T1.12` Keep current/open CSVs free; promise historical or bulk derived exports only after
   license review and implementation.
-- [ ] `T1.13` Keep one-match/current what-if free; gate only saved or multi-match paths.
-- [ ] `T1.14` Do not sell “ad-free” as a feature when no ads exist. If retained, frame it only as
+- [x] `T1.13` Keep one-match/current what-if free; gate only saved or multi-match paths.
+- [x] `T1.14` Do not sell “ad-free” as a feature when no ads exist. If retained, frame it only as
   supporter-funded independence.
-- [ ] `T1.15` Describe history as accumulating private continuity, not a mature “vault.”
-- [ ] `T1.16` Either pass two matchweeks of shadow email QA plus one quiet-mode cycle and obtain
+- [x] `T1.15` Describe history as accumulating private continuity, not a mature “vault.”
+- [x] `T1.16` Either pass two matchweeks of shadow email QA plus one quiet-mode cycle and obtain
   Ryan's live-send approval, or remove alerts/briefings from paid claims until approved.
-- [ ] `T1.17` Replace stale outward-facing “no paywall/no backend/non-commercial” launch copy.
-- [ ] `T1.18` Update the old Creator/two-price runbook to the one-plan, four-price reality or retire it.
-- [ ] `T1.19` Unify Account with real authenticated state and put billing self-service where the site
+- [x] `T1.17` Replace stale outward-facing “no paywall/no backend/non-commercial” launch copy.
+- [x] `T1.18` Update the old Creator/two-price runbook to the one-plan, four-price reality or retire it.
+- [x] `T1.19` Unify Account with real authenticated state and put billing self-service where the site
   says it lives.
 
 ### August operational gates retained from the prior launch plan
@@ -398,9 +460,9 @@ This work can start while Ryan finishes external commercial setup.
 
 ### Claude
 
-- [ ] `D2.6` Create segment screeners and a recent-behavior interview guide that avoids pitching
+- [x] `D2.6` Create segment screeners and a recent-behavior interview guide that avoids pitching
   features.
-- [ ] `D2.7` Prepare the club/user shortlist using race stakes, data quality, site traffic if
+- [x] `D2.7` Prepare the club/user shortlist using race stakes, data quality, site traffic if
   available, and community reachability.
 - [ ] `D2.8` Code notes into recurring jobs, triggers, alternatives, dissatisfaction, payment
   evidence, objections, offseason behavior, and disconfirming evidence.
@@ -443,10 +505,10 @@ pilot commitments.
 
 ### Claude
 
-- [ ] `E3.5` Build club-selection, briefing, evidence-review, delivery, and feedback templates.
+- [x] `E3.5` Build club-selection, briefing, evidence-review, delivery, and feedback templates.
 - [ ] `E3.6` Generate candidate explanations and stakes; flag low-confidence or trivial changes for
   manual review.
-- [ ] `E3.7` Track delivered, viewed, clicked, ignored, corrected, and support-triggering updates.
+- [x] `E3.7` Track delivered, viewed, clicked, ignored, corrected, and support-triggering updates.
 - [ ] `E3.8` Produce weekly evidence and a final go/iterate/kill memo.
 
 **Go:** at least 20% buy, at least 60% consume half or more of updates, and at least 70% of buyers
@@ -476,15 +538,15 @@ Claude must encode one entitlement matrix used by product, pricing, copy, suppor
 
 ### P4 — Claude implements conversion moments after Ryan approves the boundary
 
-- [ ] `P4.1` After a fan selects or pins a club: show the personalized home and sample.
-- [ ] `P4.2` After a meaningful movement: reveal the movement, preview the cause, and offer continuous
+- [x] `P4.1` After a fan selects or pins a club: show the personalized home and sample.
+- [x] `P4.2` After a meaningful movement: reveal the movement, preview the cause, and offer continuous
   explanation.
-- [ ] `P4.3` Before a high-leverage match: show one free stake preview and offer ongoing club/rival
+- [x] `P4.3` Before a high-leverage match: show one free stake preview and offer ongoing club/rival
   monitoring.
-- [ ] `P4.4` After a one-match scenario: offer saved paths and automatic monitoring, not access to the
+- [x] `P4.4` After a one-match scenario: offer saved paths and automatic monitoring, not access to the
   scenario just used.
-- [ ] `P4.5` After the first complete personalized update: ask whether Entenser should keep watch.
-- [ ] `P4.6` At a genuine limit such as additional clubs, private continuity, or delivery frequency;
+- [x] `P4.5` After the first complete personalized update: ask whether Entenser should keep watch.
+- [x] `P4.6` At a genuine limit such as additional clubs, private continuity, or delivery frequency;
   never at an arbitrary pageview count.
 
 ### P4 — Messaging pack
@@ -538,27 +600,27 @@ Secondary CTA: **Explore free forecasts**
 
 ### P4 — Claude implementation
 
-- [ ] `P4.7` Replace generic forecast/model-first hero copy with the approved outcome and proof.
-- [ ] `P4.8` Replace the 26-module bundle with the three benefits above.
-- [ ] `P4.9` Add “Track this club” to every static and interactive club page.
-- [ ] `P4.10` Rename customer-facing Intel references to Club Watch after Ryan approves.
+- [x] `P4.7` Replace generic forecast/model-first hero copy with the approved outcome and proof.
+- [x] `P4.8` Replace the 26-module bundle with the three benefits above.
+- [x] `P4.9` Add “Track this club” to every static and interactive club page.
+- [x] `P4.10` Rename customer-facing Intel references to Club Watch after Ryan approves.
 - [ ] `P4.11` Make prices, guarantee, cancellation, coverage, and free boundary explicit everywhere.
-- [ ] `P4.12` Add the objection answers to pricing/support and remove any claim not currently
+- [x] `P4.12` Add the objection answers to pricing/support and remove any claim not currently
   deliverable.
 
 ### B4 — Claude product implementation
 
-- [ ] `B4.1` Unify local favorites and authenticated account state around one durable club identity.
-- [ ] `B4.2` Build club-first registration and migrate existing favorites without silent loss.
-- [ ] `B4.3` Deliver one complete free personalized sample immediately after club selection.
-- [ ] `B4.4` Harden material-change detection with percentage-point and target-threshold rules.
-- [ ] `B4.5` Generate evidence-linked causes: own result, rival result, schedule change, or new model
+- [x] `B4.1` Unify local favorites and authenticated account state around one durable club identity.
+- [x] `B4.2` Build club-first registration and migrate existing favorites without silent loss.
+- [x] `B4.3` Deliver one complete free personalized sample immediately after club selection.
+- [x] `B4.4` Harden material-change detection with percentage-point and target-threshold rules.
+- [x] `B4.5` Generate evidence-linked causes: own result, rival result, schedule change, or new model
   evidence; do not invent certainty.
-- [ ] `B4.6` Deliver match-morning win/draw/loss stakes.
-- [ ] `B4.7` Deliver a since-last-visit summary and start a private timeline at paid activation.
-- [ ] `B4.8` Add material-only, weekly-only, match-morning, quiet, pause, and unsubscribe controls
+- [x] `B4.6` Deliver match-morning win/draw/loss stakes.
+- [x] `B4.7` Deliver a since-last-visit summary and start a private timeline at paid activation.
+- [x] `B4.8` Add material-only, weekly-only, match-morning, quiet, pause, and unsubscribe controls
   with frequency caps.
-- [ ] `B4.9` Track sent, delivered, opened, clicked, failed, corrected, duplicated, and suppressed
+- [x] `B4.9` Track sent, delivered, opened, clicked, failed, corrected, duplicated, and suppressed
   states.
 - [ ] `B4.10` Run two matchweeks plus one quiet-mode cycle in shadow; review at least 50
   representative updates before Ryan approves live email.

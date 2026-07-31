@@ -8,6 +8,7 @@ from server.intel_auth import issue_access_token, issue_refresh_token, verify_ma
 from server.intel_store import get_or_create_user
 from server.config import access_token_secret
 from server.kv_client import get_kv
+from server.growth_events import record_event
 
 
 def handle(method: str, headers: dict, query: dict) -> tuple[int, dict, bytes]:
@@ -21,6 +22,9 @@ def handle(method: str, headers: dict, query: dict) -> tuple[int, dict, bytes]:
         return 401, {}, b'{"error":"invalid or expired token"}'
     user_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"mailto:{email}"))
     user = get_or_create_user(get_kv(), user_id, email)
+    record_event(get_kv(), "registration_complete",
+                 event_id=f"registration_complete:{user_id}",
+                 user_id=user_id, properties={"source": "magic_link"})
     access_token = issue_access_token(access_token_secret(), user_id, user["plan"])
     refresh_token = issue_refresh_token(get_kv(), user_id)
     return 200, {}, json.dumps({"access_token": access_token, "refresh_token": refresh_token}).encode()

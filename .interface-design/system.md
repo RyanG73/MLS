@@ -2,19 +2,19 @@
 
 ## Direction
 
-Entenser should feel like a football probability command center: dense, auditable, fast, and calm. The primary user is a serious bettor, analyst, fantasy player, or data-curious fan checking what changed before a matchday or preseason decision. The interface should lead with probability movement, model trust, race fragility, and market-line status rather than generic dashboard decoration.
+Entenser should feel like a football probability command center: dense, auditable, fast, and calm. The primary user is a committed supporter returning after a result or before kickoff. The interface should answer what changed, why it matters, and what comes next before it exposes deeper analysis. Analysts and betting-adjacent readers remain supported, but market status is secondary to club-season continuity.
 
 ## Domain Signature
 
-Use a trust tape pattern across landing and league pages:
+Use a club-season watch tape across Club Watch, club pages, and relevant landing surfaces:
 
-- Upcoming match context.
-- Season-race uncertainty.
-- Projection movement.
-- Model-family weak spots.
-- Data and market availability.
+- Current season target and probability.
+- What changed since the saved reference.
+- Why it changed, with evidence or an explicit quiet/unsupported state.
+- What comes next, including match stakes when available.
+- Snapshot receipt and honest data-state label.
 
-This is the product's signature: the model does not just quote probabilities; it explains whether today's probabilities are stable enough to trust.
+This is the product's signature: the model does not just quote probabilities; it keeps a supporter oriented in the club's season without requiring them to reconstruct the story.
 
 ## Palette
 
@@ -97,7 +97,7 @@ League Tables:
 - Team names use the strongest row typography; do not place metadata footnotes beneath them.
 - Keep headers compact but no smaller than 10px, with enough contrast and weight to scan.
 - Put supporting trajectory, projected-finish, and schedule analysis below the ladder.
-- Premium table controls remain visible as muted previews for free readers, with a compact lock marker and a direct path to the relevant entitlement page.
+- Paid table controls remain visible as muted previews for free readers, with a compact lock marker and a direct path to Club Watch.
 - Explain locked table controls in a compact card that physically overlaps the disabled control column, revealed only when the column is hovered or keyboard-focused; a detached or permanently open banner is too distracting.
 - Disabled previews must not mutate state; entitled and open-access readers receive the same control in its active state.
 
@@ -143,7 +143,19 @@ Team Dashboards:
 - Keep club news full-width immediately below the Outlook/Trajectory pair.
 - Replace separate upcoming/recent cards with one full-season fixture ledger. Keep rows neutral and put the semantic tone only on the pre-match win value: green when the selected club exceeds 50%, amber when neither side exceeds 50%, and red when the opponent exceeds 50%. Use a sufficiently dark tinted badge to remain legible on the dark panel.
 - Fixture rows pair the selected club's pre-match win probability with a compact result marker: green W, amber T, red L, or a muted dash when unplayed.
-- Random matchup odds belong only in the Intel hub.
+- Random matchup odds belong only in the internal `intel` route, whose customer-facing name is Club Watch.
+
+Club Watch:
+
+- Customer-facing name is always “Club Watch”; `intel` remains an internal route, entitlement, and storage alias only.
+- Signed-out intent is club-first. Preserve the selected club through magic-link registration.
+- A free account can follow one server-backed club and receives one complete, frozen sample update.
+- Show the sample before the paid continuation. Never make the first signed-in screen a generic pricing wall.
+- Paid continuation is continuous monitoring, supported causes, match stakes, continuity across visits, saved scenarios, and up to ten clubs.
+- Current public forecasts, club pages, the current one-match what-if, and the saved sample remain free.
+- Checkout is disabled when a verified amount or any production prerequisite is missing. Never use “see price at checkout.”
+- Notification controls may be previewed and saved, but alerts and briefings must be labeled unavailable until the shadow-run reliability gate and owner approval are complete.
+- Account identity, plan, followed clubs, notification preferences, export, deletion, and billing are server-authoritative. Browser favorites remain explicitly local unless the user chooses to import them.
 
 Model Weak Spots:
 
@@ -164,7 +176,7 @@ Mobile should preserve complete cards and readable text:
 
 Lead with:
 
-"Market-blind football probabilities, explained and audited."
+"What changed, why it matters, and what comes next for your club."
 
 Avoid:
 
@@ -174,6 +186,10 @@ Avoid:
 
 Preferred framing:
 
+- "Current answer stays free."
+- "Keep this club on watch."
+- "No supported cause yet."
+- "First saved sample."
 - "Model-market disagreement."
 - "No line yet."
 - "Thin sample."

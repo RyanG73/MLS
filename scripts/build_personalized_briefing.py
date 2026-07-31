@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from server.intel_store import export_user_data
 from server.intelligence_service import ArtifactNotFound, IntelligenceService
 from server.kv_client import get_kv
+from server.surface_contract import club_surface_contract
 
 
 def _local_now(timezone_name: str, now: dt.datetime | None = None) -> dt.datetime:
@@ -56,9 +57,10 @@ def build_user_briefing(user_id: str, now: dt.datetime | None = None) -> dict:
         section = record["features"]["8"]["data"]
         if not section:
             continue
+        contract = club_surface_contract(record)
         teams.append({
-            "league_id": record["league_id"], "team_id": record["team_id"],
-            "team": record["team"], "calendar_mode": record["calendar_mode"],
+            **contract,
+            "calendar_mode": record["calendar_mode"],
             "materiality": max([
                 event.get("materiality_score", 0)
                 for event in (record["features"]["2"]["data"] or {}).get("events", [])

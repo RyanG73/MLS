@@ -10,8 +10,14 @@ ALLOWED_EVENTS = {
     "alert_clicked", "receipt_opened", "card_created", "card_shared",
     "thesis_opened", "watchpoint_opened", "analog_opened",
     "journal_checkpoint_created", "creator_exported", "return_30d", "return_90d",
+    "material_change_explanation_viewed", "match_stakes_viewed",
+    "since_last_visit_viewed", "scenario_run", "scenario_saved",
+    "return_visit", "notification_setting_change", "sample_update_view",
+    "upgrade_view",
 }
-ALLOWED_PROPERTIES = {"feature_id", "league_id", "calendar_mode", "plan", "surface"}
+ALLOWED_PROPERTIES = {
+    "feature_id", "league_id", "team_id", "calendar_mode", "plan", "surface",
+}
 
 
 def record(kv: KVStore, event: str, properties: dict) -> int:

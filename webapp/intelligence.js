@@ -42,7 +42,11 @@
     error: "",
     selectedTarget: "",
     pricing: {},
-    interval: "annual"
+    checkout: {enabled: false},
+    interval: "annual",
+    sample: null,
+    upgradeTracked: false,
+    valueEvents: {}
   };
 
   // Price quoted to the customer comes from Stripe's own Price object via
@@ -77,12 +81,12 @@
     var price = planPrice(interval);
     return price
       ? price + " per " + intervalWord(interval) + "."
-      : "The exact price and currency are shown on the secure checkout page before you pay.";
+      : "Checkout is unavailable until a verified price can be shown here.";
   }
 
   function subscribeLabel(interval) {
     var price = planPrice(interval);
-    return price ? "Subscribe — " + price + " / " + intervalWord(interval) : "Subscribe";
+    return price ? "Continue with Club Watch — " + price + " / " + intervalWord(interval) : "Checkout unavailable";
   }
 
   // Annual is preselected deliberately (roadmap §0b, hard annual push). It is
@@ -238,6 +242,9 @@
     }
     var candidates = [];
     if (params.get("intelLeague") && params.get("team")) candidates.push({league_id: params.get("intelLeague"), team_id: params.get("team")});
+    if (params.get("intelLeague") && params.get("teamName")) candidates.push({
+      league_id: params.get("intelLeague"), team: params.get("teamName")
+    });
     if (stored) candidates.push(stored);
     (state.prefs.teams || []).forEach(function (entry) { candidates.push(entry); });
     favoriteCandidates().forEach(function (entry) { candidates.push(entry); });
@@ -264,17 +271,17 @@
   }
 
   function signInView() {
-    document.title = "Intelligence Hub · Entenser";
+    document.title = "Club Watch · Entenser";
     root.classList.remove("hidden");
     root.innerHTML = '<div class="ed-wrap intel-app">' +
       '<header class="intel-command"><div class="intel-command-copy">' +
-      '<div class="intel-eyebrow">Private team intelligence</div><h1>Intelligence Hub</h1>' +
-      '<p>Your teams, monitored. Every conclusion links back to a forecast snapshot or fixture.</p></div></header>' +
-      '<section class="intel-auth" id="intel-auth"><h2>Sign in or create an account</h2>' +
-      '<p>One secure email link does both — no password is stored. New here? The same link creates your account.</p>' +
+      '<div class="intel-eyebrow">Your club, kept current</div><h1>Club Watch</h1>' +
+      '<p>See what changed, why it matters, and what comes next without rechecking every forecast.</p></div></header>' +
+      '<section class="intel-auth" id="intel-auth"><h2>Save one club and get a complete sample</h2>' +
+      '<p>One secure email link signs you in or creates your free account. No password is stored.</p>' +
       '<form id="intel-signin" class="intel-form-row"><div class="intel-field"><label for="intel-email">Email</label>' +
       '<input class="intel-input" id="intel-email" type="email" autocomplete="email" required></div>' +
-      '<button class="intel-action primary" type="submit">Send secure link</button></form>' +
+      '<button class="intel-action primary" type="submit">Email my secure link</button></form>' +
       (state.notice ? '<div class="intel-success">' + escapeHtml(state.notice) + "</div>" : "") +
       (state.error ? '<div class="intel-error">' + escapeHtml(state.error) + "</div>" : "") +
       '<div class="intel-note">The link expires in 15 minutes and can be used once.</div></section>' +
@@ -322,53 +329,156 @@
       '<tr><td>Aug 9</td><td><strong>Away vs Rival D</strong></td><td>Own match</td><td class="num">5.2pp</td><td class="num">-1.1pp</td></tr>' +
       "</tbody></table></div></section>";
     var more = '<div class="intel-locked-more"><div class="intel-eyebrow">Also inside</div><div class="intel-tagchips">' +
-      ["Scenario studio", "Paths to the target", "Alerts & briefings", "Rival race", "Forecast time machine",
-       "Pre-match receipts", "Ask the model", "Confidence panel", "Private journal", "Creator exports"].map(function (label) {
+      ["Scenario studio", "Paths to the target", "Notification controls", "Rival race", "Forecast time machine",
+       "Pre-match receipts", "Ask the model", "Confidence panel", "Private journal", "Source-linked evidence"].map(function (label) {
         return "<span>" + escapeHtml(label) + "</span>";
       }).join("") + "</div></div>";
-    return '<section class="intel-locked" aria-label="Locked preview of Intelligence Hub features">' +
+    return '<section class="intel-locked" aria-label="Preview of Club Watch">' +
       '<div class="intel-locked-head"><div class="intel-eyebrow">Locked preview · sample data</div>' +
-      "<h2>What members see</h2><p>A live version of this workspace — for the teams you follow — unlocks with an account and an Intelligence subscription.</p></div>" +
+      "<h2>The Club Watch answer</h2><p>Members get a durable view of what changed, the evidence behind it, and the next fixture that can matter.</p></div>" +
       '<div class="intel-locked-stage"><div class="intel-locked-overlay">' +
-      '<button class="intel-action primary" type="button" data-action="focus-signin">🔒 Sign in to unlock</button></div>' +
+      '<button class="intel-action primary" type="button" data-action="focus-signin">Choose my club</button></div>' +
       '<div class="intel-locked-body" inert aria-hidden="true">' + tabs + trust + brief + tape + leverage + "</div></div>" + more + "</section>";
   }
 
+  function freeClubPickerHTML() {
+    var selection = defaultSelection();
+    if (!selection) return empty("No forecast clubs are available right now.");
+    state.leagueId = selection.league.league_id;
+    state.teamId = selection.team.team_id;
+    return '<section class="intel-auth"><div class="intel-eyebrow">Step 1 of 2</div>' +
+      '<h2>Which club should Club Watch remember?</h2>' +
+      '<p>Your free account can follow one club and keeps one complete sample update. Public forecasts remain free.</p>' +
+      '<div class="intel-field"><label for="intel-free-team">Club</label>' +
+      '<select class="intel-team-select" id="intel-free-team">' + teamOptions() + '</select></div>' +
+      '<button class="intel-action primary" data-action="track-free-club">Track this club</button> ' +
+      '<button class="intel-action" data-action="logout">Sign out</button></section>';
+  }
+
+  function sampleTapeHTML(sample) {
+    var current = sample.features.current && sample.features.current.data || {};
+    var changed = sample.features.what_changed && sample.features.what_changed.data || {};
+    var why = sample.features.why && sample.features.why.data || {};
+    var next = sample.features.what_next && sample.features.what_next.data || {};
+    var event = (changed.events || [])[0];
+    var cause = (why.events || [])[0] || event;
+    var fixture = (next.fixtures || [])[0] || current.next_high_impact_fixture;
+    var change = event && event.delta_pp != null ? pp(event.delta_pp) :
+      current.seven_day_change_pp != null ? pp(current.seven_day_change_pp) : "Baseline saved";
+    return '<div class="intel-trust-tape" aria-label="Club Watch sample summary">' +
+      tapeStep("Current", pct(current.current_pct), String(current.target_label || current.target_metric || sample.target_metric || "season target").replace(/_/g, " ")) +
+      tapeStep("What changed", change, event ? shortDate(event.effective_at) : "first saved sample") +
+      tapeStep("Why", cause ? String(cause.cause_class || cause.event_type || "supported evidence").replace(/_/g, " ") : "No supported cause yet", cause ? "evidence recorded" : "quiet state") +
+      tapeStep("What next", fixture ? fixture.home + " vs " + fixture.away : "No fixture signal", fixture ? shortDate(fixture.date) + " · " + number(fixture.leverage_pp, 1) + "pp range" : "check back after new evidence") +
+      "</div>";
+  }
+
+  function upgradeMomentCopy(sample) {
+    var changed = sample.features.what_changed && sample.features.what_changed.data || {};
+    var why = sample.features.why && sample.features.why.data || {};
+    var next = sample.features.what_next && sample.features.what_next.data || {};
+    var event = (changed.events || [])[0];
+    var cause = (why.events || [])[0] || event;
+    var fixture = (next.fixtures || [])[0];
+    var movement = event && event.delta_pp != null ? pp(event.delta_pp) : "";
+    var causeLabel = cause
+      ? String(cause.cause_class || cause.event_type || "supported evidence").replace(/_/g, " ")
+      : "the next supported cause";
+    var fixtureLabel = fixture ? fixture.home + " vs " + fixture.away : "the next high-leverage match";
+    var leverage = fixture && fixture.leverage_pp != null
+      ? " (" + number(fixture.leverage_pp, 1) + "pp range)" : "";
+    var moment = params.get("moment") || "";
+
+    if (moment === "movement") {
+      return {
+        eyebrow: "Meaningful movement, already explained",
+        title: movement ? sample.team + " moved " + movement : sample.team + "'s latest movement is in your sample",
+        body: "This movement and its " + causeLabel +
+          " explanation stay free in your saved sample. Club Watch paid keeps monitoring future material changes and attaches supported causes when they are established."
+      };
+    }
+    if (moment === "match") {
+      return {
+        eyebrow: "Before a high-leverage match",
+        title: fixtureLabel + leverage,
+        body: "This match-stakes preview stays free. Club Watch paid keeps watching what this match and relevant rival results actually change, then preserves the evidence across visits."
+      };
+    }
+    if (moment === "scenario") {
+      return {
+        eyebrow: "After your one-match scenario",
+        title: "The scenario you just ran stays free",
+        body: "Return to the public forecast whenever you want to rerun it. Club Watch paid adds saved multi-match paths across devices, private history, and monitoring after real results arrive."
+      };
+    }
+    if (moment === "club_limit") {
+      return {
+        eyebrow: "You reached a real continuity limit",
+        title: "Your free account keeps one Club Watch club",
+        body: "That club and its complete sample stay free. Club Watch paid syncs and monitors up to ten followed clubs; browser favorites remain local and are never removed."
+      };
+    }
+    return {
+      eyebrow: "Keep the watch running",
+      title: "Club Watch continues after this sample",
+      body: "Paid access adds continuous change monitoring, cause and evidence, match stakes, continuity across visits, saved scenarios, and up to ten followed clubs. Current forecasts and this sample stay free."
+    };
+  }
+
   function freeView() {
-    document.title = "Intelligence Hub · Entenser";
-    // Top of the funnel: this is the pricing surface for a signed-in free
-    // account. Fired once per render so visitor -> checkout -> paid is a
-    // complete, standard GA4 funnel by launch week.
-    track("view_pricing", funnelPayload(state.interval));
+    document.title = "Club Watch · Entenser";
     root.classList.remove("hidden");
+    if (!state.sample) {
+      root.innerHTML = '<div class="ed-wrap intel-app">' +
+        commandHeader("Club Watch", "Free account · one followed club") +
+        (state.notice ? '<div class="intel-success">' + escapeHtml(state.notice) + "</div>" : "") +
+        (state.error ? '<div class="intel-error">' + escapeHtml(state.error) + "</div>" : "") +
+        freeClubPickerHTML() + "</div>";
+      return;
+    }
+    if (!state.upgradeTracked) {
+      track("sample_update_view", {
+        club_id: state.sample.team_id, club_name: state.sample.team,
+        competition_id: state.sample.league_id, surface: "club_watch_sample"
+      });
+      track("upgrade_view", funnelPayload(state.interval));
+      analytics("upgrade_view", {
+        league_id: state.sample.league_id,
+        team_id: state.sample.team_id,
+        surface: "club_watch_sample"
+      });
+      state.upgradeTracked = true;
+    }
+    var canCheckout = !!(state.checkout && state.checkout.enabled && priceRecord(state.interval));
+    var upgradeMoment = upgradeMomentCopy(state.sample);
     root.innerHTML = '<div class="ed-wrap intel-app">' +
-      commandHeader("Intelligence Hub", "Free account") +
-      '<section class="intel-auth"><h2>Start Intelligence access</h2>' +
-      '<p>Your account is active. Current forecasts remain free; monitoring, scenarios, private history, alerts, and saved work require an Intelligence subscription.</p>' +
-      // Pre-purchase disclosure. US negative-option rules and EU/UK distance-
-      // selling rules require price, renewal cadence and the cancellation
-      // method to be visible BEFORE the customer commits, not only on Stripe's
-      // page. Keep this adjacent to the button -- never behind a link.
-      intervalChooserHTML() +
-      '<p class="intel-terms">' + escapeHtml(priceSentence(state.interval)) +
-      ' Renews automatically every ' + escapeHtml(intervalWord(state.interval)) +
-      ' until cancelled. Cancel any time in one click from your account. ' +
-      '30-day money-back guarantee.</p>' +
-      // NOTE (launch audit 2026-07-25): the Terms and Refund-policy routes do
-      // not exist yet -- drafts are in docs/legal-copy-draft-2026-07-25.md and
-      // need owner sign-off. Link them here the moment they ship; publishing
-      // paid checkout without them is a Track 6 blocker.
-      '<button class="intel-action primary" data-action="checkout" data-plan="intel">' + escapeHtml(subscribeLabel(state.interval)) + '</button> ' +
-      '<button class="intel-action" data-action="logout">Sign out</button>' +
+      commandHeader(state.sample.team + " Club Watch", state.sample.league_name + " · saved sample · " + state.sample.generated) +
       (state.notice ? '<div class="intel-success">' + escapeHtml(state.notice) + "</div>" : "") +
       (state.error ? '<div class="intel-error">' + escapeHtml(state.error) + "</div>" : "") +
-      '</section></div>';
+      '<section class="intel-feature"><div class="intel-feature-head"><span class="intel-feature-num">01</span>' +
+      '<div class="intel-feature-title"><h2>Your complete sample update</h2></div>' +
+      '<span class="intel-state thin_history">saved</span></div>' +
+      sampleTapeHTML(state.sample) +
+      '<div class="intel-note">This sample is frozen to snapshot ' + escapeHtml(state.sample.snapshot_id) +
+      '. It will not silently change underneath you.</div></section>' +
+      '<section class="intel-auth" data-upgrade-moment="' + attr(params.get("moment") || "sample") + '">' +
+      '<div class="intel-eyebrow">' + escapeHtml(upgradeMoment.eyebrow) + '</div>' +
+      '<h2>' + escapeHtml(upgradeMoment.title) + '</h2>' +
+      '<p>' + escapeHtml(upgradeMoment.body) + '</p>' +
+      intervalChooserHTML() +
+      '<p class="intel-terms">' + escapeHtml(priceSentence(state.interval)) +
+      (canCheckout ? ' Renews automatically every ' + escapeHtml(intervalWord(state.interval)) +
+        ' until cancelled. Cancel any time from your account. 30-day money-back guarantee.' : "") + "</p>" +
+      '<button class="intel-action primary" data-action="checkout" data-plan="intel"' +
+      (canCheckout ? "" : " disabled aria-disabled=\"true\"") + ">" +
+      escapeHtml(subscribeLabel(state.interval)) + '</button> ' +
+      '<a class="intel-action" href="?league=account">Account</a></section></div>';
   }
 
   function commandHeader(title, subtitle) {
     var plan = state.me ? state.me.plan : "";
     return '<header class="intel-command"><div class="intel-command-copy">' +
-      '<div class="intel-eyebrow">Personal Intelligence Hub</div><h1>' + escapeHtml(title) + "</h1>" +
+      '<div class="intel-eyebrow">Personal Club Watch</div><h1>' + escapeHtml(title) + "</h1>" +
       '<p>' + escapeHtml(subtitle || "") + '</p></div><div class="intel-command-actions">' +
       '<span class="intel-session"><strong>' + escapeHtml(plan) + '</strong> plan</span>' +
       // Self-service cancellation must be no harder to find than signup was.
@@ -587,9 +697,13 @@
     return '<div class="intel-tool"><div class="intel-form-row"><div class="intel-field"><label for="intel-threshold">Minimum move (percentage points)</label>' +
       '<input class="intel-input" id="intel-threshold" type="number" min="1" max="50" step="0.5" value="' + attr(state.prefs.threshold_pp == null ? 5 : state.prefs.threshold_pp) + '"></div>' +
       '<label><input id="intel-material-alert" type="checkbox"' + (notifications.material_change !== false ? " checked" : "") + '> Material changes</label>' +
-      '<label><input id="intel-weekly-alert" type="checkbox"' + (notifications.weekly !== false ? " checked" : "") + '> Adaptive briefing</label>' +
-      '<button class="intel-action primary" data-action="save-alerts">Save delivery rules</button></div>' +
-      '<div class="intel-note">Current delivery state: ' + escapeHtml(data.send_state || "shadow") + " · cap " + escapeHtml(data.default_cap || "configured") + "</div></div>";
+      '<label><input id="intel-weekly-alert" type="checkbox"' + (notifications.weekly !== false ? " checked" : "") + '> Weekly watch</label>' +
+      '<label><input id="intel-match-alert" type="checkbox"' + (notifications.match_morning ? " checked" : "") + '> Match morning</label>' +
+      '<label><input id="intel-quiet-alert" type="checkbox"' + (notifications.quiet ? " checked" : "") + '> Quiet mode</label>' +
+      '<label><input id="intel-pause-alert" type="checkbox"' + (notifications.paused ? " checked" : "") + '> Pause all</label>' +
+      '<button class="intel-action primary" data-action="save-alerts">Save notification preferences</button></div>' +
+      '<div class="intel-note">Preview only · current delivery state: ' + escapeHtml(data.send_state || "shadow") +
+      ". Live alerts and briefings remain unavailable until the reliability gate and owner approval are complete.</div></div>";
   }
 
   function renderBriefing(data) {
@@ -981,10 +1095,10 @@
     var selection = findSelection(state.leagueId, state.teamId);
     var mode = state.record.calendar_mode || {};
     var features = TABS[state.tab].map(function (id) { return state.record.features[String(id)]; }).filter(Boolean);
-    document.title = state.record.team + " Intelligence · Entenser";
+    document.title = state.record.team + " Club Watch · Entenser";
     root.classList.remove("hidden");
     root.innerHTML = '<div class="ed-wrap intel-app">' +
-      commandHeader(state.record.team + " Intelligence", state.record.league_name + " · " + modeLabel(mode.mode) + " · snapshot " + state.record.generated) +
+      commandHeader(state.record.team + " Club Watch", state.record.league_name + " · " + modeLabel(mode.mode) + " · snapshot " + state.record.generated) +
       mergeBanner() +
       (state.notice ? '<div class="intel-success">' + escapeHtml(state.notice) + "</div>" : "") +
       (state.error ? '<div class="intel-error">' + escapeHtml(state.error) + "</div>" : "") +
@@ -992,7 +1106,7 @@
       '<select class="intel-team-select" id="intel-team">' + teamOptions() + '</select></div></div><div class="intel-toolbar-meta"><b>' +
       escapeHtml(selection ? selection.league.league : state.record.league_name) + '</b><span class="intel-mode ' +
       attr(mode.mode || "") + '">' + escapeHtml(modeLabel(mode.mode)) + "</span></div></div>" +
-      '<nav class="intel-tabs" aria-label="Intelligence views">' +
+      '<nav class="intel-tabs" aria-label="Club Watch views">' +
       Object.keys(TABS).map(function (tab) {
         return '<button class="intel-tab' + (tab === state.tab ? " on" : "") + '" data-action="tab" data-tab="' + tab + '">' +
           escapeHtml(tab.charAt(0).toUpperCase() + tab.slice(1)) + "</button>";
@@ -1003,7 +1117,7 @@
   async function loadTeam(leagueId, teamId) {
     state.busy = true;
     state.error = "";
-    loading("Loading team intelligence");
+    loading("Loading Club Watch");
     try {
       var record = await api("/intel/team?league_id=" + encodeURIComponent(leagueId) + "&team_id=" + encodeURIComponent(teamId));
       // Feature 2 is a per-user view, not a static artifact. The team record
@@ -1037,6 +1151,20 @@
       persistDeepLink();
       localStorage.setItem(LAST_TEAM_KEY, JSON.stringify({league_id: leagueId, team_id: teamId, team: record.team}));
       analytics("hub_activation", {league_id: leagueId, calendar_mode: record.calendar_mode.mode});
+      [
+        ["since_last_visit_viewed", "2"],
+        ["material_change_explanation_viewed", "3"],
+        ["match_stakes_viewed", "4"]
+      ].forEach(function (item) {
+        var key = record.snapshot_id + ":" + item[0];
+        if (!state.valueEvents[key] && record.features[item[1]]) {
+          state.valueEvents[key] = true;
+          analytics(item[0], {
+            league_id: leagueId, team_id: teamId,
+            feature_id: Number(item[1]), surface: "club_watch"
+          });
+        }
+      });
       await loadJournal();
       hubView();
       markEventsSeen();
@@ -1046,7 +1174,7 @@
         localStorage.removeItem(ACCESS_KEY);
         signInView();
       } else {
-        root.innerHTML = '<div class="ed-wrap intel-app">' + commandHeader("Intelligence Hub", "Team data unavailable") +
+        root.innerHTML = '<div class="ed-wrap intel-app">' + commandHeader("Club Watch", "Team data unavailable") +
           '<div class="intel-error">' + escapeHtml(error.message) + '</div><button class="intel-action" data-action="refresh">Retry</button></div>';
       }
     } finally {
@@ -1139,8 +1267,10 @@
       if (!response.ok) return;
       var config = await response.json();
       state.pricing = (config && config.pricing) || {};
+      state.checkout = (config && config.checkout) || {enabled: false};
     } catch (error) {
       state.pricing = {};   // quote nothing rather than quote wrong
+      state.checkout = {enabled: false};
     }
     // If the selected cadence has no Stripe Price, fall back to one that does
     // rather than rendering a Subscribe button that cannot complete.
@@ -1205,6 +1335,7 @@
         var pair = await api("/auth/callback?token=" + encodeURIComponent(magicToken));
         localStorage.setItem(ACCESS_KEY, pair.access_token);
         localStorage.setItem(REFRESH_KEY, pair.refresh_token);
+        track("registration_complete", {surface: "club_watch"});
         params.delete("token");
         history.replaceState(null, "", location.pathname + "?" + params.toString() + location.hash);
       } catch (error) {
@@ -1252,13 +1383,46 @@
       }
     }
     if (["trial", "intel", "creator"].indexOf(state.me.plan) < 0) {
+      var freeSelection = defaultSelection();
+      var followed = state.prefs.teams || [];
+      if (!followed.length && params.get("track") === "1" && freeSelection) {
+        try {
+          state.prefs = await api("/intel/preferences", {
+            method: "PATCH",
+            body: JSON.stringify({teams: [{
+              league_id: freeSelection.league.league_id,
+              team_id: freeSelection.team.team_id,
+              team: freeSelection.team.team
+            }]})
+          });
+          followed = state.prefs.teams || [];
+          track("track_club", {
+            club_id: freeSelection.team.team_id,
+            club_name: freeSelection.team.team,
+            competition_id: freeSelection.league.league_id,
+            surface: "club_page"
+          });
+        } catch (error) {
+          setMessage(error.message, true);
+        }
+      }
+      if (followed.length) {
+        var savedClub = followed[0];
+        try {
+          state.sample = await api("/intel/sample?league_id=" +
+            encodeURIComponent(savedClub.league_id) + "&team_id=" +
+            encodeURIComponent(savedClub.team_id));
+        } catch (error) {
+          setMessage(error.message, true);
+        }
+      }
       freeView();
       return;
     }
     await loadWorkspaces();
     var selection = defaultSelection();
     if (!selection) {
-      root.innerHTML = '<div class="ed-wrap intel-app">' + commandHeader("Intelligence Hub", "No forecast competitions are available") +
+      root.innerHTML = '<div class="ed-wrap intel-app">' + commandHeader("Club Watch", "No forecast competitions are available") +
         empty("The team catalog did not contain a live forecast route.") + "</div>";
       return;
     }
@@ -1270,7 +1434,14 @@
     event.preventDefault();
     var email = document.getElementById("intel-email").value.trim();
     try {
-      await api("/auth/request", {method: "POST", body: JSON.stringify({email: email})});
+      track("registration_start", {surface: "club_watch"});
+      await api("/auth/request", {
+        method: "POST",
+        body: JSON.stringify({
+          email: email,
+          return_to: location.pathname + location.search + location.hash
+        })
+      });
       setMessage("Check your email for the secure sign-in link.", false);
     } catch (error) {
       setMessage(error.message, true);
@@ -1279,6 +1450,11 @@
   });
 
   root.addEventListener("change", async function (event) {
+    if (event.target.id === "intel-free-team") {
+      var freeParts = event.target.value.split("|");
+      state.leagueId = freeParts[0];
+      state.teamId = freeParts[1];
+    }
     if (event.target.id === "intel-team") {
       var parts = event.target.value.split("|");
       await loadTeam(parts[0], parts[1]);
@@ -1334,7 +1510,11 @@
         state.me = null;
         signInView();
       } else if (action === "checkout") {
+        if (!(state.checkout && state.checkout.enabled && priceRecord(state.interval))) {
+          throw new Error("Checkout is not available yet.");
+        }
         var plan = button.getAttribute("data-plan") || "intel";
+        track("checkout_start", funnelPayload(state.interval));
         track("begin_checkout", funnelPayload(state.interval));
         var checkout = await api("/billing/checkout", {
           method: "POST",
@@ -1343,6 +1523,32 @@
         location.assign(checkout.url);
       } else if (action === "set-interval") {
         state.interval = button.getAttribute("data-interval") === "monthly" ? "monthly" : "annual";
+        freeView();
+        return;
+      } else if (action === "track-free-club") {
+        var club = findSelection(state.leagueId, state.teamId);
+        if (!club) throw new Error("Choose a club first.");
+        state.prefs = await api("/intel/preferences", {
+          method: "PATCH",
+          body: JSON.stringify({teams: [{
+            league_id: club.league.league_id,
+            team_id: club.team.team_id,
+            team: club.team.team
+          }]})
+        });
+        track("track_club", {
+          club_id: club.team.team_id,
+          club_name: club.team.team,
+          competition_id: club.league.league_id,
+          surface: "club_watch"
+        });
+        state.sample = await api("/intel/sample?league_id=" +
+          encodeURIComponent(club.league.league_id) + "&team_id=" +
+          encodeURIComponent(club.team.team_id));
+        params.set("intelLeague", club.league.league_id);
+        params.set("team", club.team.team_id);
+        params.delete("track");
+        history.replaceState(null, "", location.pathname + "?" + params.toString());
         freeView();
         return;
       } else if (action === "billing-portal") {
@@ -1390,12 +1596,16 @@
         });
         state.busy = false;
         setMessage(action === "scenario-save" ? "Scenario receipt saved." : "Scenario complete.", false);
-        analytics("scenario_completed", {league_id: state.leagueId, surface: "hub"});
+        analytics(action === "scenario-save" ? "scenario_saved" : "scenario_run",
+          {league_id: state.leagueId, team_id: state.teamId, surface: "club_watch"});
         hubView();
       } else if (action === "save-alerts") {
         var notifications = Object.assign({}, state.prefs.notifications || {}, {
           material_change: document.getElementById("intel-material-alert").checked,
-          weekly: document.getElementById("intel-weekly-alert").checked
+          weekly: document.getElementById("intel-weekly-alert").checked,
+          match_morning: document.getElementById("intel-match-alert").checked,
+          quiet: document.getElementById("intel-quiet-alert").checked,
+          paused: document.getElementById("intel-pause-alert").checked
         });
         state.prefs = await api("/intel/preferences", {
           method: "PATCH",

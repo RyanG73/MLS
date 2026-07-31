@@ -12,7 +12,8 @@ from server.intel_store import export_user_data, update_preferences
 from server.intelligence_service import ArtifactNotFound, IntelligenceService
 from server.kv_client import get_kv
 from server.send_ledger import (
-    already_sent, record_delivery, retry_allowed, within_team_cap,
+    already_sent, record_delivery, record_delivery_outcome, retry_allowed,
+    within_team_cap,
 )
 from server.unsubscribe import issue_unsubscribe_token
 
@@ -69,19 +70,41 @@ def process_user(user_id: str, send: bool) -> dict:
     user = export_user_data(kv, user_id)
     if user is None or user.get("plan") not in {"trial", "intel", "creator"}:
         return {"status": "skipped", "reason": "not entitled"}
+    followed_ids = [row.get("team_id") for row in user.get("teams", [])
+                    if row.get("team_id")]
+    def suppressed(reason: str) -> dict:
+        record_delivery_outcome(
+            kv, user_id=user_id, team_ids=followed_ids, event_ids=[],
+            template_version=TEMPLATE_VERSION, status="suppressed",
+            reason=reason)
+        return {"status": "skipped", "reason": reason}
+    if user.get("notifications", {}).get("paused"):
+        return suppressed("delivery paused")
+    if user.get("notifications", {}).get("quiet"):
+        return suppressed("quiet mode")
     if not user.get("notifications", {}).get("material_change", False):
-        return {"status": "skipped", "reason": "notifications disabled"}
+        return suppressed("notifications disabled")
     if user.get("unsubscribe_state", {}).get("material_change"):
-        return {"status": "skipped", "reason": "unsubscribed"}
+        return suppressed("unsubscribed")
     if user.get("alert_state", {}).get("bounced"):
-        return {"status": "skipped", "reason": "bounced"}
+        return suppressed("bounced")
     groups = candidates_for_user(user)
     if not groups:
         return {"status": "skipped", "reason": "no uncapped material events"}
     event_ids = sorted({event["event_id"] for group in groups for event in group["events"]})
     if already_sent(kv, user_id, event_ids, TEMPLATE_VERSION, include_shadow=not send):
+        record_delivery_outcome(
+            kv, user_id=user_id,
+            team_ids=[group["record"]["team_id"] for group in groups],
+            event_ids=event_ids, template_version=TEMPLATE_VERSION,
+            status="duplicated", reason="deduplicated")
         return {"status": "skipped", "reason": "deduplicated"}
     if not retry_allowed(kv, user_id, event_ids, TEMPLATE_VERSION):
+        record_delivery_outcome(
+            kv, user_id=user_id,
+            team_ids=[group["record"]["team_id"] for group in groups],
+            event_ids=event_ids, template_version=TEMPLATE_VERSION,
+            status="suppressed", reason="retry limit reached")
         return {"status": "skipped", "reason": "retry limit reached"}
     team_ids = [group["record"]["team_id"] for group in groups]
     if not send:

@@ -26,13 +26,13 @@ payment-processor-terms problem, independent of whether any customer ever compla
 
 > **30-day money-back guarantee**
 >
-> If Entenser Intel isn't for you, email [SUPPORT ADDRESS] within **30 days of your first charge**
+> If Entenser Club Watch isn't for you, email [SUPPORT ADDRESS] within **30 days of your first charge**
 > and we'll refund it in full. No form, no questions, no "tell us why".
 >
 > - The guarantee covers your **first billing period**, monthly or annual.
 > - Refunds are issued to the original payment method, normally within one business day of your
 >   email; your bank may take a further 5–10 days to show it.
-> - Your Intel access ends when the refund is issued. Your public forecasts — every league, every
+> - Your Club Watch access ends when the refund is issued. Your public forecasts — every league, every
 >   match probability, every published grade — stay free, as they always are.
 > - Renewals after the first period are not covered by the guarantee, but you can cancel any time
 >   in one click and keep access until the end of the period you've paid for.
@@ -40,10 +40,9 @@ payment-processor-terms problem, independent of whether any customer ever compla
 **Implementation contract (must match the words above exactly):**
 - Any refund request inside the window is **approved automatically**. A guarantee with a
   discretionary approver is not a guarantee. No owner judgement call in the loop.
-- Issued in Stripe → `charge.refunded` → entitlement revoked. **Note:** revocation on refund is
-  *not yet wired* — `server/stripe_webhook.py` handles no refund event. Either add
-  `charge.refunded` → `set_plan(canceled)`, or the runbook carries a manual step someone is on
-  the hook for. **Decide before Aug 10's dress rehearsal, and rehearse whichever you pick.**
+- Issued in Stripe → full `charge.refunded` → entitlement revoked. This lifecycle
+  path is wired in `server/stripe_webhook.py` and covered by automated tests;
+  it still requires a Stripe test-mode and production rehearsal before launch.
 
 ## D2 — Terms of service (skeleton — needs L1/L2)
 
@@ -59,17 +58,17 @@ The two clauses that matter most for this product:
 > probabilities, they are frequently wrong about single matches, and we publish our own accuracy
 > record precisely so you can judge them. Nothing on Entenser is a recommendation to place a bet.
 
-> **Subscription and renewal.** Entenser Intel is a recurring subscription. You will be charged the
+> **Subscription and renewal.** Entenser Club Watch is a recurring subscription. You will be charged the
 > price shown at checkout, in the currency shown at checkout, at the start of each billing period,
 > automatically, until you cancel. You can cancel at any time in one click from your account; access
 > continues to the end of the period you have paid for. We will email you before any price change.
 
 ## D3 — Privacy policy (REWRITE — the current page is now false)
 
-The live page at `?league=privacy` says Entenser *"does not require an account and does not collect
-personal information"* and that preferences are *"never sent to us"*. Both become false the moment
-accounts and subscriptions exist. The account page's own "Data & privacy" line has already been
-corrected in this audit; **the policy page itself still needs the rewrite below.**
+The implementation copy at `?league=privacy` now distinguishes public forecasts,
+local browser preferences, and server-backed Club Watch data. The final policy
+still needs owner/legal approval and the processor, legal-basis, retention, and
+rights details below before paid checkout can be enabled.
 
 Must now disclose:
 
@@ -90,11 +89,12 @@ Must now disclose:
 
 ## D4 — Auto-renewal pre-purchase disclosure ✅ SHIPPED
 
-Already implemented in `webapp/intelligence.js` `freeView()`: price, currency, renewal cadence, the
+Implemented in `webapp/intelligence.js` `freeView()`: price, currency, renewal cadence, the
 one-click cancellation method and the guarantee all render adjacent to the Subscribe button, before
 any commitment. Price and currency are read from the **live Stripe Price object** via
-`/v1/public/config`, so the quoted figure cannot drift from what is charged; when Stripe is
-unconfigured the copy says the price is shown at checkout rather than inventing one.
+`/v1/public/config`, so the quoted figure cannot drift from what is charged; when
+Stripe or any production prerequisite is unconfigured, checkout is visibly
+disabled rather than hiding the amount on the checkout page.
 
 **Remaining:** link Terms and Refund policy from that block once D1/D2 publish. The exact insertion
 point is marked with a `NOTE (launch audit 2026-07-25)` comment in `freeView()`.

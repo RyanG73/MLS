@@ -13,6 +13,7 @@ from pathlib import Path
 from scripts.intelligence.simulation import run_simulation
 from scripts.payload_utils import read_js_payload
 from server.config import intelligence_root
+from server.surface_contract import club_surface_contract
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9:_-]+$")
 
@@ -54,6 +55,13 @@ class IntelligenceService:
             except (ValueError, json.JSONDecodeError, OSError) as exc:
                 raise ArtifactNotFound(
                     f"invalid intelligence artifact for {league_id}/{team_id}") from exc
+        contract = club_surface_contract(record)
+        if (
+            contract["league_id"] != league_id
+            or contract["team_id"] != team_id
+        ):
+            raise ArtifactNotFound(
+                f"artifact identity mismatch for {league_id}/{team_id}")
         if feature_id is None:
             return record
         key = str(int(feature_id))
@@ -219,6 +227,7 @@ class IntelligenceService:
     def public_card_payload(self, league_id: str, team_id: str,
                             template: str) -> dict:
         record = self.get_team(league_id, team_id)
+        contract = club_surface_contract(record)
         allowed = set(record["features"]["20"]["data"]["approved_templates"])
         if template not in allowed:
             raise ValueError("unsupported conversation-card template")
@@ -229,7 +238,7 @@ class IntelligenceService:
         source = record["features"][feature_key]
         return {
             "schema_version": 1, "public_safe": True, "template": template,
-            "team": record["team"], "league": record["league_name"],
-            "generated": record["generated"], "snapshot_id": record["snapshot_id"],
+            **contract,
+            "league": contract["league_name"],
             "insight": source["data"], "evidence_ids": self._evidence_ids(source["data"]),
         }

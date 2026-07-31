@@ -9,11 +9,16 @@ from production configuration by api/stripe/webhook.py.
 """
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import hmac
 import time
 
-from server.intel_store import set_plan, set_stripe_customer, user_for_stripe_customer
+from server.growth_events import record_event
+from server.intel_store import (
+    set_plan, set_stripe_customer, update_subscription_lifecycle,
+    user_for_stripe_customer,
+)
 from server.kv_store import KVStore
 
 REPLAY_TOLERANCE_SECONDS = 5 * 60   # Stripe's own documented default
@@ -100,12 +105,84 @@ def handle_event(kv: KVStore, event: dict) -> str | None:
         set_stripe_customer(kv, user_id, customer_id)
 
     requested_plan = metadata.get("plan", "intel")
+    occurred_at = dt.datetime.fromtimestamp(
+        int(event.get("created") or time.time()), tz=dt.timezone.utc).isoformat()
+    growth_properties = {
+        key: value for key, value in {
+            "plan": requested_plan,
+            "interval": metadata.get("interval"),
+            "price_tier": metadata.get("price_tier"),
+            "currency": str(data.get("currency") or "").upper() or None,
+            "value": (
+                float(data["amount_total"]) / 100
+                if isinstance(data.get("amount_total"), (int, float))
+                else None
+            ),
+            "provider": "stripe",
+            "status": data.get("status"),
+        }.items() if value is not None
+    }
+    cancellation_details = data.get("cancellation_details") or {}
+    cancellation_reason = str(
+        cancellation_details.get("feedback")
+        or cancellation_details.get("reason")
+        or ""
+    ).strip()[:80]
+    cancellation_comment = str(
+        cancellation_details.get("comment") or ""
+    ).strip()[:1000]
     if event_type == "checkout.session.completed":
         set_plan(kv, user_id, requested_plan if requested_plan in {"intel", "creator"} else "intel")
+        update_subscription_lifecycle(
+            kv, user_id, status="active", paid_started_at=occurred_at,
+            last_paid_at=occurred_at, interval=metadata.get("interval"),
+            price_tier=metadata.get("price_tier"))
+        record_event(
+            kv, "purchase", event_id=f"stripe:{event_id}:purchase",
+            user_id=user_id, properties=growth_properties,
+            occurred_at=occurred_at)
     elif event_type == "customer.subscription.updated":
-        set_plan(kv, user_id, _plan_for_status(data.get("status", "canceled"), requested_plan))
+        status = data.get("status", "canceled")
+        previous = (event.get("data") or {}).get("previous_attributes") or {}
+        set_plan(kv, user_id, _plan_for_status(status, requested_plan))
+        update_subscription_lifecycle(
+            kv, user_id, status=status,
+            current_period_end=data.get("current_period_end"),
+            cancel_at_period_end=bool(data.get("cancel_at_period_end")),
+            paused=bool(data.get("pause_collection")),
+            cancellation_reason=cancellation_reason or None,
+            cancellation_comment=cancellation_comment or None)
+        if data.get("cancel_at_period_end") and not previous.get("cancel_at_period_end"):
+            cancellation_properties = dict(growth_properties)
+            if cancellation_reason:
+                cancellation_properties["reason"] = cancellation_reason
+            record_event(
+                kv, "cancellation_requested",
+                event_id=f"stripe:{event_id}:cancellation_requested",
+                user_id=user_id, properties=cancellation_properties,
+                occurred_at=occurred_at)
+        if data.get("pause_collection") and not previous.get("pause_collection"):
+            record_event(
+                kv, "pause", event_id=f"stripe:{event_id}:pause",
+                user_id=user_id, properties=growth_properties,
+                occurred_at=occurred_at)
+        if (status in {"active", "trialing"}
+                and previous.get("status") in {"canceled", "unpaid", "paused"}):
+            record_event(
+                kv, "reactivation", event_id=f"stripe:{event_id}:reactivation",
+                user_id=user_id, properties=growth_properties,
+                occurred_at=occurred_at)
     elif event_type == "customer.subscription.deleted":
         set_plan(kv, user_id, "canceled")
+        update_subscription_lifecycle(
+            kv, user_id, status="expired", expired_at=occurred_at,
+            cancel_at_period_end=False,
+            cancellation_reason=cancellation_reason or None,
+            cancellation_comment=cancellation_comment or None)
+        record_event(
+            kv, "expiration", event_id=f"stripe:{event_id}:expiration",
+            user_id=user_id, properties=growth_properties,
+            occurred_at=occurred_at)
     elif event_type == "charge.refunded":
         # A refund under the 30-day guarantee. Stripe cancels no subscription
         # of its own accord when a charge is refunded, so without this the
@@ -115,12 +192,40 @@ def handle_event(kv: KVStore, event: dict) -> str | None:
         if REVOKE_ACCESS_ON_REFUND and data.get("refunded") is True:
             set_plan(kv, user_id, "canceled")
             kv.set(f"refunded:{user_id}", "1", ex=400 * 24 * 60 * 60)
+            update_subscription_lifecycle(
+                kv, user_id, status="refunded", refunded_at=occurred_at)
+            record_event(
+                kv, "refund", event_id=f"stripe:{event_id}:refund",
+                user_id=user_id, properties=growth_properties,
+                occurred_at=occurred_at)
     elif event_type == "invoice.payment_failed":
         # Dunning has started but Stripe is still retrying. Access is governed
         # by the subscription status (see _plan_for_status), so deliberately do
         # not downgrade here -- record it so support and the ops digest can see
         # who is at risk before Stripe gives up and sends `unpaid`.
         kv.set(f"dunning:{user_id}", "1", ex=45 * 24 * 60 * 60)
+        update_subscription_lifecycle(
+            kv, user_id, payment_status="failed",
+            payment_failed_at=occurred_at)
+        record_event(
+            kv, "failed_payment",
+            event_id=f"stripe:{event_id}:failed_payment",
+            user_id=user_id, properties=growth_properties,
+            occurred_at=occurred_at)
+    elif event_type in {"invoice.paid", "invoice.payment_succeeded"}:
+        recovered = kv.exists(f"dunning:{user_id}")
+        kv.delete(f"dunning:{user_id}")
+        update_subscription_lifecycle(
+            kv, user_id, payment_status="paid", last_paid_at=occurred_at)
+        lifecycle_event = "payment_recovered" if recovered else "renewal"
+        # The first invoice is paired with checkout.session.completed and is not
+        # renewal evidence.
+        if recovered or data.get("billing_reason") == "subscription_cycle":
+            record_event(
+                kv, lifecycle_event,
+                event_id=f"stripe:{event_id}:{lifecycle_event}",
+                user_id=user_id, properties=growth_properties,
+                occurred_at=occurred_at)
     else:
         return None
 

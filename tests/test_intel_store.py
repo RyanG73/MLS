@@ -13,7 +13,13 @@ def test_get_or_create_user_creates_default_record():
     assert user["user_id"] == "user-1" and user["email"] == "a@example.com"
     assert user["plan"] == "free"
     assert user["teams"] == [] and user["leagues"] == []
-    assert user["notifications"] == {"weekly": True, "material_change": True}
+    assert user["notifications"] == {
+        "weekly": True,
+        "material_change": True,
+        "match_morning": False,
+        "quiet": False,
+        "paused": False,
+    }
 
 
 def test_get_or_create_user_is_idempotent():

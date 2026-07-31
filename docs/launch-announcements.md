@@ -1,8 +1,11 @@
 # Launch announcement drafts (launch plan H4)
 
-**These are drafts for you to post.** I don't publish to external platforms.
-Target date: Monday 2026-08-17. Post to one or two places first (not all at
-once) so you can respond to comments and refine before the wider push.
+**HOLD — owner approval required.** These are drafts for the free public
+forecast surface, not approval for a broad paid launch. The current recommendation
+uses 2026-08-17 only as the earliest controlled, full-price Club Watch beta.
+Post nowhere until the active plan's commercial, legal, claim-truth, and
+data-quality gates pass. When approved, use one or two places first so Ryan can
+respond and refine before any wider push.
 
 Live surfaces to link:
 - Home: https://entenser.com/
@@ -33,8 +36,10 @@ Live surfaces to link:
 **Title:** I built a free, market-blind MLS forecast that publishes its own hits and misses — feedback welcome
 
 **Body:**
-> Mod note first: this is my own project, not a commercial product — no ads, no
-> paywall, no affiliate links. Happy to take it down if it's not welcome.
+> Mod note first: this is my own project. The public forecasts linked here are
+> free, and there are no affiliate links. Entenser also has an optional paid
+> Club Watch beta; this post is not an affiliate or betting promotion. Happy to
+> take it down if it is not welcome.
 >
 > After the World Cup I wanted a "what happens next" view of the MLS race that
 > wasn't just vibes or repackaged betting odds, so I built one. It runs playoff,
@@ -60,7 +65,8 @@ Live surfaces to link:
 **Title:** Free NWSL Shield + playoff projections, updated daily — and it shows every time it's wrong
 
 **Body:**
-> (My own project — no ads or paywall. Mods, remove if not allowed.)
+> (My own project. The linked forecasts are free; an optional paid Club Watch
+> beta is separate. Mods, remove if not allowed.)
 >
 > There's almost no public probabilistic modeling for NWSL, which bugged me, so
 > the model I run for the men's leagues now covers NWSL too: Shield and playoff
@@ -81,11 +87,12 @@ Live surfaces to link:
 **Title:** A football forecast model that publishes its own track record — every league, every miss
 
 **Body:**
-> Disclosure: my project, free, no ads/paywall.
+> Disclosure: my project. The linked forecasts and public grading are free; an
+> optional paid Club Watch beta is separate.
 >
 > Since FiveThirtyEight's SPI shut down there hasn't really been a free,
 > transparent, always-on club-forecast site. I tried to build the thing I missed:
-> title/relegation/qualification odds across ~50 competitions, a model that's
+> title/relegation/qualification odds across 70+ competitions, a model that's
 > never trained on betting odds, and — the point — a public grade on every
 > forecast, misses included.
 >
@@ -103,7 +110,7 @@ Live surfaces to link:
 **Title:** Show HN: Entenser – a market-blind football forecast that grades itself in public
 
 **Body:**
-> It forecasts title/qualification/relegation odds for ~50 football leagues. Two
+> It forecasts title/qualification/relegation odds for 70+ football competitions. Two
 > things make it unusual:
 >
 > 1. The model never sees betting odds. Most public "predictions" either are
@@ -116,9 +123,10 @@ Live surfaces to link:
 >    aggregate (Brier trails a sharp book by ~2%) and the site says so — the point
 >    is a transparent track record, not profit.
 >
-> Stack is deliberately boring: a static PWA on GitHub Pages, per-league JSON
-> payloads rebuilt nightly by a Python pipeline, pre-rendered per-league HTML +
-> sitemap for crawlability, Plausible for analytics. No backend, no database.
+> Stack is deliberately boring: a static PWA and crawlable league/club pages,
+> per-league payloads rebuilt by a Python pipeline, plus a small Vercel API for
+> magic-link accounts, durable preferences, and Stripe-authoritative
+> entitlements in managed KV. Aggregate production analytics use GA4.
 >
 > Live: https://entenser.com/  · Methodology: https://entenser.com/?league=about
 > Open data (CSV): https://entenser.com/open-data/
@@ -132,7 +140,7 @@ Live surfaces to link:
 
 **1/**
 Since 538's soccer model died, there's been no free, transparent, always-on club
-forecast. So I built one: title, playoff & relegation odds for ~50 leagues.
+forecast. So I built one: title, playoff & relegation odds for 70+ competitions.
 
 It never sees betting odds. And it grades every forecast in public — misses too.
 
@@ -154,7 +162,9 @@ This week's movers + how the calls did → https://entenser.com/weekly/
 Just finished the World Cup and want somewhere to point that new interest?
 Live MLS / NWSL / Liga MX races here → https://entenser.com/after-the-world-cup/
 
-Free, no ads, no paywall. Data's downloadable too. Tell me where it's wrong.
+The current forecasts, public grading, and current open data remain free.
+Optional Club Watch adds continuity after a complete free sample. Tell me where
+the forecasts are wrong.
 
 ---
 

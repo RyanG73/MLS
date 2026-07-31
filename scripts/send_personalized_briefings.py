@@ -12,7 +12,9 @@ from scripts.build_personalized_briefing import build_user_briefing
 from server.email_client import get_magic_link_sender
 from server.intel_store import export_user_data
 from server.kv_client import get_kv
-from server.send_ledger import already_sent, record_delivery, retry_allowed
+from server.send_ledger import (
+    already_sent, record_delivery, record_delivery_outcome, retry_allowed,
+)
 from server.unsubscribe import issue_unsubscribe_token
 
 TEMPLATE_VERSION = "personalized-briefing-v2"
@@ -76,17 +78,21 @@ def _render(user: dict, briefing: dict) -> tuple[str, str, str]:
             )
         html_rows.append(
             f"<h2>{html.escape(row['team'])}</h2><p>{html.escape(summary)}</p>"
+            f"<p><small>Forecast as of {html.escape(row['generated'])} · "
+            f"Snapshot {html.escape(row['snapshot_id'])}</small></p>"
             + stake_html)
-        text_rows.append(f"{row['team']}\n{summary}" + stake_text)
+        text_rows.append(
+            f"{row['team']}\n{summary}\nForecast as of {row['generated']} · "
+            f"Snapshot {row['snapshot_id']}" + stake_text)
     token = issue_unsubscribe_token(user["user_id"], "weekly")
     base = os.environ.get("PUBLIC_API_URL", "https://api.entenser.com/v1").rstrip("/")
     url = f"{base}/public/unsubscribe?token={token}"
-    subject = "Your Entenser team briefing"
+    subject = "Your Entenser Club Watch briefing"
     return (
         subject,
-        "<h1>Your team briefing</h1>" + "".join(html_rows)
+        "<h1>Your Club Watch briefing</h1>" + "".join(html_rows)
         + f'<p><a href="{html.escape(url, quote=True)}">Unsubscribe</a></p>',
-        "Your team briefing\n\n" + "\n\n".join(text_rows)
+        "Your Club Watch briefing\n\n" + "\n\n".join(text_rows)
         + f"\n\nUnsubscribe: {url}",
     )
 
@@ -96,26 +102,57 @@ def process_user(user_id: str, send: bool) -> dict:
     user = export_user_data(kv, user_id)
     if user is None or user.get("plan") not in {"trial", "intel", "creator"}:
         return {"status": "skipped", "reason": "not entitled"}
-    if not user.get("notifications", {}).get("weekly", False):
-        return {"status": "skipped", "reason": "briefing disabled"}
+    followed_ids = [row.get("team_id") for row in user.get("teams", [])
+                    if row.get("team_id")]
+    def suppressed(reason: str) -> dict:
+        record_delivery_outcome(
+            kv, user_id=user_id, team_ids=followed_ids, event_ids=[],
+            template_version=TEMPLATE_VERSION, status="suppressed",
+            reason=reason)
+        return {"status": "skipped", "reason": reason}
+    if user.get("notifications", {}).get("paused"):
+        return suppressed("delivery paused")
+    if user.get("notifications", {}).get("quiet"):
+        return suppressed("quiet mode")
+    notifications = user.get("notifications", {})
+    if not (notifications.get("weekly", False)
+            or notifications.get("match_morning", False)):
+        return suppressed("briefing disabled")
     if (user.get("unsubscribe_state", {}).get("weekly")
             or user.get("alert_state", {}).get("bounced")):
-        return {"status": "skipped", "reason": "suppressed"}
+        return suppressed("unsubscribed or bounced")
     briefing = build_user_briefing(user_id)
     if not briefing["should_send"]:
         return {"status": "skipped", "reason": briefing["skip_reason"]}
+    if briefing["prematch_due"] and not notifications.get(
+            "match_morning", False):
+        briefing["prematch_due"] = False
+        briefing["due_fixture_ids"] = []
+        for row in briefing["teams"]:
+            (row.get("briefing") or {}).get("sections", {}).pop(
+                "prematch_stakes", None)
+    if not notifications.get("weekly", False) and not briefing["prematch_due"]:
+        return {"status": "skipped", "reason": "match morning not due"}
     modes = {row["calendar_mode"]["mode"] for row in briefing["teams"]}
     if not _cadence_allows(
             kv, user_id, modes, prematch_due=briefing["prematch_due"]):
-        return {"status": "skipped", "reason": "adaptive cadence cap"}
+        return suppressed("adaptive cadence cap")
     event_ids = sorted({
         row["briefing"]["sections"]["team_pulse"]["snapshot_id"]
         for row in briefing["teams"]
     } | set(briefing["due_fixture_ids"]))
     team_ids = [row["team_id"] for row in briefing["teams"]]
     if already_sent(kv, user_id, event_ids, TEMPLATE_VERSION, include_shadow=not send):
+        record_delivery_outcome(
+            kv, user_id=user_id, team_ids=team_ids, event_ids=event_ids,
+            template_version=TEMPLATE_VERSION, status="duplicated",
+            reason="deduplicated")
         return {"status": "skipped", "reason": "deduplicated"}
     if not retry_allowed(kv, user_id, event_ids, TEMPLATE_VERSION):
+        record_delivery_outcome(
+            kv, user_id=user_id, team_ids=team_ids, event_ids=event_ids,
+            template_version=TEMPLATE_VERSION, status="suppressed",
+            reason="retry limit reached")
         return {"status": "skipped", "reason": "retry limit reached"}
     if not send:
         record_delivery(

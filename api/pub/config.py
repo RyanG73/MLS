@@ -13,6 +13,7 @@ import json
 from server.kv_client import get_kv
 from server import open_access
 from server.stripe_prices import pricing
+from server.checkout_control import public_state as checkout_state
 
 
 def handle(method: str, headers: dict) -> tuple[int, dict, bytes]:
@@ -21,9 +22,13 @@ def handle(method: str, headers: dict) -> tuple[int, dict, bytes]:
     kv = get_kv()
     # `pricing` is what Stripe will actually charge, read from the Price object
     # itself, so no surface can quote a number we won't bill. Empty when Stripe
-    # is unconfigured -- the client shows "see price at checkout" rather than
-    # inventing one.
-    payload = {"open_access": open_access.get_state(kv), "pricing": pricing(kv)}
+    # is unconfigured -- the client keeps checkout and price claims disabled
+    # rather than inventing one.
+    payload = {
+        "open_access": open_access.get_state(kv),
+        "pricing": pricing(kv),
+        "checkout": checkout_state(kv),
+    }
     headers_out = {
         "Content-Type": "application/json",
         # short public cache: a promo flip should reach visitors within a

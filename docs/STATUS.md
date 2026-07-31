@@ -1,6 +1,8 @@
 # Entenser — Current Status
 
-**Last verified:** 2026-07-27 · **Owner:** Ryan · **Target:** paid public launch on 2026-08-17
+**Repository verified:** 2026-07-29 · **Production last verified:** 2026-07-27 ·
+**Owner:** Ryan · **Approved direction:** controlled Club Watch beta no earlier than 2026-08-17,
+pending every commercial, production, customer-evidence, and launch gate
 
 This is the canonical answer to four questions:
 
@@ -16,12 +18,15 @@ active plan, `superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.m
 
 ## Current objective
 
-Complete one production transaction through the real customer path:
+Complete one production transaction through the real Club Watch customer path:
 
-> A new visitor signs in at `entenser.com`, pays through `api.entenser.com`, receives Intel
-> access, manages billing, cancels, and receives a refund with the entitlement updated correctly.
+> A supporter selects a club, signs in at `entenser.com`, receives one complete
+> frozen sample, sees the exact Club Watch amount, pays through
+> `api.entenser.com`, receives durable access, manages billing, cancels, and
+> receives a refund with the entitlement updated correctly.
 
-No new feature outranks that milestone.
+No new feature, live notification claim, Club Rate test, or broad promotion
+outranks that milestone.
 
 ## Production state
 
@@ -38,6 +43,22 @@ No new feature outranks that milestone.
 | Legal business entity | 🟡 Formation chosen | Owner chose an Ohio single-member LLC; legal name remains open |
 | Public pricing configuration | ❌ Empty | Production `/v1/public/config` returns `"pricing": {}` |
 | Paid transaction path | ❌ Not operable | Durable auth is working; blocked by Stripe configuration and legal publication |
+| Club Watch repository packaging | ✅ Implemented, not deployed | Club-first intent, one durable free sample, outcome-triggered conversion moments, coherent free/paid boundary, authenticated Account, and customer-facing naming are covered by repository tests |
+| Checkout safety | ✅ Implemented, not production-rehearsed | Production requires four immutable Prices, Stripe/webhook/auth/KV dependencies, three approved policy versions, and an owner switch; public config never exposes missing secret names |
+| Growth measurement | ✅ Repository foundation | Canonical funnel/lifecycle dictionaries, privacy-limited server ledger, cancellation/support/testimonial capture, Stripe/delivery events, shadow-review evidence, and owner scorecard exist; GA4/GSC production inputs remain missing |
+| Live alerts and briefings | ❌ Not offered | UI labels delivery unavailable; live scripts require both protected send switches, two matchweeks of shadow QA, one quiet cycle, and owner approval |
+
+**Repository verification proof (2026-07-29):** 1,627 non-browser tests
+passed with 14 intentional skips; 81 Chromium browser flows passed; JavaScript
+syntax and `git diff --check` passed. A manual local-browser check also verified
+the signed-out Club Watch sample CTA, withdrawn Creator claim, zero horizontal
+overflow, and zero browser console errors.
+
+**Owner decision recorded (2026-07-29):** Ryan approved the paid-launch decision record as written:
+7,000 active paid is the objective; Club Watch, its primary audience, boundary, launch pricing,
+no-trial guarantee treatment, validation shortlist, scope freeze, and earliest controlled-beta
+milestone are approved. The exact target date for reaching 7,000 remains open; 24 months is only a
+provisional planning horizon.
 
 ## Launch blockers, in order
 
@@ -213,26 +234,66 @@ blocks launch.
 
 These require account access or business decisions and cannot be completed from the repository:
 
-1. Form the single-member LLC, establish its private mailing setup, obtain its EIN, and open its bank
+1. Supply the explicit target date for reaching 7,000 active paid subscribers. All other
+   `G0.1–G0.10` decisions are approved and recorded.
+2. Form the single-member LLC, establish its private mailing setup, obtain its EIN, and open its bank
    account.
-2. Stripe activation, Price creation, webhook registration, and Customer Portal settings.
-3. Confirm Vercel Pro rather than Hobby.
-4. Confirm Resend capacity for launch-day magic links.
-5. Decide the legal draft's remaining open terms using the LLC's final legal name and jurisdiction.
-6. Create or confirm GA4 and Google Search Console access; submit the sitemap.
-7. Approve any broadcast email. No broadcast is sent without explicit approval.
+3. Activate Stripe; create the four immutable Prices; register the webhook; configure the Customer
+   Portal, receipts, refunds, and failed-payment behavior.
+4. Decide the legal draft's remaining open terms using the LLC's final legal name and jurisdiction,
+   then approve the Terms, Privacy, refund, cancellation, renewal, and affiliation language.
+5. Confirm Vercel Pro, Resend capacity, `support@entenser.com`, and the support/refund schedule.
+6. Create or confirm GA4 and Google Search Console access; submit the sitemap; export all available
+   analytics, search, waitlist, support, and customer evidence or explicitly mark it missing.
+7. Recruit the `D2` discovery sample using `docs/customer-discovery-kit.md`: at least 15 primary
+   supporters plus approximately 3 quantitative users and 3 creators.
+8. Approve any broadcast email. No broadcast is sent without explicit approval.
 
-## Agent work immediately after owner setup
+## Agent work immediately after owner decisions and access
 
-1. Publish Terms, refund, and corrected privacy routes.
-2. Verify the remaining authenticated production paths and fail-closed error behavior.
-3. Execute the monthly and annual dress rehearsals with Ryan.
-4. Verify the GA4 funnel: `view_pricing → begin_checkout → purchase`.
-5. Confirm the custom domain, CORS, auth, checkout, webhook, portal, export, cancellation, and
-   deletion paths in production.
+1. Record approved `G0` decisions in canonical documentation and reconcile final Account, claim,
+   cancellation-reason, support-taxonomy, testimonial-consent, and local-versus-durable behavior.
+2. Populate public pricing and publish the approved Terms, refund, and corrected privacy routes.
+3. Verify the remaining authenticated production paths and fail-closed error behavior.
+4. Execute the monthly and annual dress rehearsals with Ryan, including the checkout-disable test.
+5. Verify the complete GA4 funnel and Stripe reconciliation.
+6. Confirm the custom domain, CORS, auth, checkout, webhook, portal, export, cancellation, refund,
+   deletion, and entitlement paths in production.
+7. Code the discovery evidence and issue the `D2` go/iterate/kill recommendation before any
+   concierge or automated-delivery expansion.
 
 ## Recently completed
 
+- Approved outcome conversion: meaningful movers, high-leverage match previews,
+  one-match scenarios, complete samples, and a real additional-club boundary now
+  route into club-specific Club Watch continuation copy without paywalling the
+  value just consumed.
+- Customer evidence and delivery review: categorized cancellation/support
+  reasons, explicit anonymous-testimonial consent, corrected/duplicated/
+  suppressed delivery states, bounded shadow-candidate reviews, and automated
+  threshold reporting are implemented. Live sends still require the complete
+  manual evidence gate and Ryan's separate approval.
+- Cross-surface contract: static, interactive, personalized, email, and share
+  card paths use tested club, competition, probability, timestamp, generated,
+  and snapshot identity fields.
+- Club Watch packaging and durable activation: club-first magic-link intent,
+  one server-backed free club, one frozen sample, sample-first upgrade, up to ten
+  paid clubs, and explicit import of browser favorites.
+- Production checkout fail-closed control: owner kill switch, four-Price
+  requirement, approved-policy version gates, public readiness state, and
+  owner-only lifecycle scorecard.
+- Account truth: server-authoritative plan/email/followed clubs/notification
+  preferences, billing portal, export, active-paid deletion protection, and
+  refresh/private-ledger cleanup on erasure.
+- Measurement and lifecycle foundation: canonical funnel and core-value events,
+  Stripe purchase/renewal/cancellation/expiration/refund/dunning/recovery state,
+  and notification provider delivery events.
+- Trust repair: explicit non-football news rejection, word-boundary routing,
+  reset/bootstrap diagnostics that suppress ±100pp movers, honest forecast-state
+  badges, canonical club-page events, and cross-surface claim tests.
+- Operating assets: paid-launch decision record, growth measurement contract,
+  experiment ledger, claim matrix, discovery kit, concierge kit, and data/
+  notification incident checklist.
 - Competition-scoped club acquisition pages: 1,444 self-canonical club forecasts with unique
   metadata, `SportsTeam`/dataset schema, match and season outlooks, league-table links, interactive
   dashboard handoff, and sitemap coverage. Repository verification is green; production deployment
@@ -273,7 +334,7 @@ These are preserved from the retired UX plans and should not interrupt the trans
 | 2026-08-14 | Content freeze |
 | 2026-08-15 | Code freeze; money-path fixes only |
 | 2026-08-16 | Production preflight and checkout-disable rehearsal |
-| 2026-08-17 | Launch only if the transaction path is green and Ryan can monitor for three hours |
+| 2026-08-17 | Earliest controlled full-price Club Watch beta; broad launch requires a separate Ryan decision |
 | 2026-09-30 | Interim paid-tier keep/change/kill/extend decision using observed transaction, conversion, concierge, and available early-retention evidence; set the definitive D60 review date |
 
 ## Launch safety rule

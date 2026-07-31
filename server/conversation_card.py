@@ -64,7 +64,7 @@ def card_copy(payload: dict) -> tuple[str, str, str]:
         "race_comparison": "The race, in one gap",
         "receipt": "The model receipt",
     }
-    title = titles.get(template, "Intelligence receipt")
+    title = titles.get(template, "Club Watch receipt")
     primary = "Evidence recorded"
     detail = "Open the verification record for the underlying snapshot."
 
@@ -103,7 +103,7 @@ def render_card_png(payload: dict, verification_url: str) -> bytes:
     draw.rectangle((0, 0, 8, HEIGHT), fill=ACCENT)
     draw.rectangle((64, 52, WIDTH - 64, HEIGHT - 62), fill=PANEL, outline=LINE, width=2)
 
-    draw.text((98, 84), "ENTENSER  /  INTELLIGENCE RECEIPT",
+    draw.text((98, 84), "ENTENSER  /  CLUB WATCH RECEIPT",
               font=_font(20, True), fill=ACCENT)
     team = str(payload.get("team") or "Team")
     team_font = _fit_font(draw, team, 1000, 58, 34, True)
@@ -140,7 +140,7 @@ def render_verification_html(payload: dict, image_url: str) -> bytes:
     serialized = html.escape(json.dumps(payload, sort_keys=True, indent=2))
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{html.escape(payload.get("team", "Team"))} intelligence receipt · Entenser</title>
+<title>{html.escape(payload.get("team", "Team"))} Club Watch receipt · Entenser</title>
 <meta name="robots" content="index,follow"><meta property="og:image" content="{html.escape(image_url)}">
 <style>
 *{{box-sizing:border-box}}body{{margin:0;background:{INK};color:{TEXT};font:15px Inter,system-ui,sans-serif}}
@@ -149,12 +149,12 @@ main{{max-width:920px;margin:0 auto;padding:32px 20px 64px}}header{{border-botto
 .receipt{{border-top:2px solid {ACCENT};border-bottom:1px solid {LINE};padding:24px 0;margin:28px 0}}
 .receipt h2{{font-size:24px;margin:6px 0}}p,li{{color:{MUTED};line-height:1.55}}img{{width:100%;height:auto;border:1px solid {LINE}}}code{{color:{ACCENT}}}details{{margin-top:24px}}
 a{{color:{ACCENT}}}button{{background:{ACCENT};color:#06120b;border:0;border-radius:4px;padding:10px 14px;font-weight:700}}
-</style></head><body><main><header><div class="eyebrow">Public intelligence receipt</div>
+</style></head><body><main><header><div class="eyebrow">Public Club Watch receipt</div>
 <h1>{html.escape(payload.get("team", "Team"))}</h1><p>{html.escape(payload.get("league", ""))} · generated {html.escape(payload.get("generated", ""))}</p></header>
 <section class="receipt"><div class="eyebrow">{html.escape(title)}</div><h2>{html.escape(primary)}</h2><p>{html.escape(detail)}</p>
 <p>Snapshot <code>{html.escape(payload.get("snapshot_id", ""))}</code></p></section>
 <img src="{html.escape(image_url)}" width="1200" height="630" alt="{html.escape(title)}">
 <h2>Evidence references</h2><ul>{evidence_html}</ul>
-<p><a href="https://entenser.com/?league=intel">Open the Intelligence Hub</a></p>
+<p><a href="https://entenser.com/?league=intel">Open Club Watch</a></p>
 <details><summary>Public-safe record</summary><pre>{serialized}</pre></details></main></body></html>"""
     return page.encode()

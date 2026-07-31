@@ -1102,7 +1102,7 @@ footer a:hover{color:var(--txt-2)}
   .wbox.w .wb-l,.wbox.d .wb-l,.wbox.l .wb-l{color:#06121d}
 }
 </style>
-<link rel="stylesheet" href="intelligence.css">
+<link rel="stylesheet" href="intelligence.css?v=20260729">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -1321,7 +1321,7 @@ const _isPower = new URLSearchParams(location.search).get('league')==='power';
 // below no-ops; renderPower()/renderEdgeBoard() (appended at the end of the page) then
 // hide the league UI and draw the real view.
 const D = (_isPower || _isEdgeBoard || _infoPage || _homeDataRoute)
-  ? {league:{name:_isHome?"Home":_isEdgeBoard?"Command Center":_infoPage?'Info':_isLeagues?'Leagues':_isFavs?'Favorites':_isNews?'News':_isIntel?'Intel':_isAccount?'Account':'Cross-League Power Rankings'},
+  ? {league:{name:_isHome?"Home":_isEdgeBoard?"Command Center":_infoPage?'Info':_isLeagues?'Leagues':_isFavs?'Favorites':_isNews?'News':_isIntel?'Club Watch':_isAccount?'Account':'Cross-League Power Rankings'},
      outlook:{mode:_isHome?'home':_isEdgeBoard?'edge-board':_isLeagues?'leagues':_isFavs?'favorites':_isNews?'news':_isIntel?'intel':_isAccount?'account':'power'}, standings:[], games:[],
      sim:{teams:[],pmatrix:[]}, model:null, perf_by_year:[], elo_history:{},
      health:null, model_card:{}, in_season_brier:{}, season:2026}
@@ -1410,9 +1410,10 @@ const OpenAccess={
         try{s&&s.active?localStorage.setItem(this.KEY,JSON.stringify(s))
                        :localStorage.removeItem(this.KEY);}catch(e){}
         PriceStore.set(j&&j.pricing);
+        CheckoutStore.set(j&&j.checkout);
         // Pricing surfaces paint before this fetch resolves, so a first-time
-        // visitor would otherwise read "See price at checkout" and never see
-        // the annual option at all. Repaint them once the real price lands.
+        // visitor would otherwise see checkout disabled after the verified
+        // amount arrives. Repaint every pricing surface with the same record.
         syncPricingSurfaces();
         document.documentElement.classList.toggle('open-access',this.active());
         syncOpenAccessBanner();
@@ -1429,13 +1430,18 @@ const PriceStore={
   all(){try{return JSON.parse(localStorage.getItem(this.KEY)||'null')||null;}catch(e){return null;}},
   rec(interval){const p=this.all();if(!p)return null;
     return p[interval==='annual'?'intel_annual':'intel']||null;},
-  // Empty string when we genuinely do not know. Callers show "See price at
-  // checkout" rather than inventing a number — an absent price is honest, a
-  // wrong one is a chargeback.
+  // Empty string when we genuinely do not know. Callers disable purchase
+  // instead of hiding an unverified amount on the checkout page.
   display(interval){const r=this.rec(interval);return r&&r.display?r.display:'';},
   word(interval){const r=this.rec(interval);
     return (r&&r.interval)||(interval==='annual'?'year':'month');},
   has(interval){return !!this.rec(interval);},
+};
+const CheckoutStore={
+  KEY:'entenser.checkout',
+  set(checkout){if(!checkout)return;try{localStorage.setItem(this.KEY,JSON.stringify(checkout));}catch(e){}},
+  state(){try{return JSON.parse(localStorage.getItem(this.KEY)||'null')||{enabled:false};}catch(e){return{enabled:false};}},
+  enabled(){return !!this.state().enabled;}
 };
 // Repaint anything that quotes a price, once the price is actually known.
 // Defined here beside PriceStore but called from an async continuation, so the
@@ -1454,7 +1460,7 @@ function syncPricingSurfaces(){
   if(planPrice){
     const d=PriceStore.display('monthly');
     planPrice.innerHTML=d?`${d}<small> / ${PriceStore.word('monthly')}</small>`
-                        :'See price at checkout';
+                        :'Checkout unavailable';
   }
 }
 // One builder, used both by the masthead's initial render and by the async
@@ -1464,9 +1470,9 @@ function oaBannerHTML(){
   const s=OpenAccess.state(); if(!s) return '';
   const days=Math.max(1,Math.ceil((s.until*1000-Date.now())/86400000));
   const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  return `<div class="oa-banner"><b>Intel is open to everyone${s.note?` — ${esc(s.note)}`:''}.</b>`
+  return `<div class="oa-banner"><b>Club Watch is open to everyone${s.note?` — ${esc(s.note)}`:''}.</b>`
     +`<span class="why">Every paid feature, free for the next ${days} ${days===1?'day':'days'}.</span>`
-    +`<a href="?league=intel">Open Intel →</a></div>`;
+    +`<a href="?league=intel">Open Club Watch →</a></div>`;
 }
 // Reconcile the banner with current state after an async refresh.
 function syncOpenAccessBanner(){
@@ -1499,8 +1505,8 @@ OpenAccess.refresh();
 function teamGateCardHTML(team){
   const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   return `<div class="intel-gatecard"><span class="lk">🔒</span>
-    <div class="gc-t"><b>Full team pages are part of Entenser Intel</b>
-      <span class="t">The complete ${esc(team)} dashboard — deeper club outlook, history, what-ifs and news — unlocks with Intel. The league forecasts stay free.</span></div>
+    <div class="gc-t"><b>Keep ${esc(team)} on Club Watch</b>
+      <span class="t">The club page and current forecast stay free. Club Watch adds continuous monitoring, cause and evidence, match stakes, saved scenarios, and continuity across visits.</span></div>
     <a class="intel-btn" href="?league=intel">See what's inside →</a>
     <a class="intel-btn ghost" href="?league=account#acct-subs">Manage plan</a></div>`;
 }
@@ -1624,7 +1630,7 @@ function teamGateCardHTML(team){
     if(g==='England'&&_hasMLS)
       bar+=`<div class="mb-item"><a href="?league=mls" class="${_mlsActive?'active':''}">MLS</a></div>`;});
   // Intel (paywalled hub mockup) + Account replace the old News/Subscribe pair (2026-07-18)
-  bar+=`<div class="mb-item"><a href="?league=intel" class="${_isIntel?'active':''}">\u{1F4E1} Intel<span class="intel-tag">PRO</span></a></div>`
+  bar+=`<div class="mb-item"><a href="?league=intel" class="${_isIntel?'active':''}">\u{1F4E1} Club Watch<span class="intel-tag">PRO</span></a></div>`
       +`<div class="mb-item"><a href="?league=account" class="${_isAccount?'active':''}">\u{1F464} Account</a></div>`;
   const live=(H&&H.fixtures&&H.fixtures.length&&!_isLeagues)
     ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">Upcoming: ${H.fixtures.length} fixtures projected</a><span>· ${H.stats.leagues} leagues</span></div>`:'';
@@ -1704,7 +1710,7 @@ function teamGateCardHTML(team){
      <a href="?league=command" class="${_isEdgeBoard?'active':''}"><span class="ico">⚽</span>Matches</a>
      <a href="?league=power" class="${_isPower?'active':''}"><span class="ico">↗</span>Power</a>
      <a href="?league=leagues" class="${_isLeagues?'active':''}"><span class="ico">\u{1F4CA}</span>Leagues</a>
-     <a href="?league=intel" class="${_isIntel?'active':''}"><span class="ico">\u{1F4E1}</span>Intel</a>
+     <a href="?league=intel" class="${_isIntel?'active':''}"><span class="ico">\u{1F4E1}</span>Club Watch</a>
      <a href="?league=account" class="bn-sub${_isAccount?' active':''}">Account</a>`;
 })();
 // ── League header (title + logo + % complete) ──
@@ -2063,6 +2069,13 @@ function scheduleSim(){clearTimeout(simTimer);simTimer=setTimeout(()=>{
   if(n===0){simVals=null;}else{simVals=(isTable?runSimTable:runSim)(10000);}
   $('#wbanner').classList.toggle('on',n>0);
   $('#wcount').textContent=n?`· ${n} result${n>1?'s':''} forced`:'';
+  const firstForced=UPCOMING.find(g=>forced[g.id]);
+  const scenarioUpsell=document.querySelector('[data-upsell="saved-scenarios"]');
+  if(scenarioUpsell&&firstForced){
+    scenarioUpsell.href='?league=intel&intelLeague='+encodeURIComponent(LID)+
+      '&teamName='+encodeURIComponent(firstForced.home)+'&track=1&moment=scenario';
+    scenarioUpsell.innerHTML='★ This scenario stays free. Save multi-match paths <em>Club Watch →</em>';
+  }
   (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();},150);}
 
 /* favorites — five title races: MLS Cup · Shield · Eastern Conf · Western Conf · Spoon */
@@ -2085,7 +2098,7 @@ function renderFavs(){
 $('#laddernote').textContent=`Top ${D.playoff_slots} per conference make the playoffs · seeds 8–9 play a wild-card play-in · top ${D.hfa_slots} host round one · `+
   (IntelStore.unlocked()
     ?`use Next 5 Sim to force results (win/draw/loss) and resimulate`
-    :`Next 5 Sim is available with Entenser Intel`);
+    :`Saved multi-match scenarios are available with Club Watch`);
 
 /* ladders with heat-mapped odds */
 const MAX={po:Math.max(...D.standings.map(s=>s.playoff),1),hfa:Math.max(...D.standings.map(s=>s.hfa),1),
@@ -2104,7 +2117,7 @@ function simGateNote(overlay=false){
     `<span class="sg-boxes" aria-hidden="true">${'<i></i>'.repeat(5)}</span>`+
     `<span class="sg-copy"><b>See how probabilities change based on upcoming performances across the league.</b> `+
     `<span>Force results, then rerun the season 10,000 times.</span></span>`+
-    `<span class="sg-cta">🔒 Entenser Intel →</span>`);
+    `<span class="sg-cta">🔒 Club Watch →</span>`);
   a.href='?league=intel';
   a.dataset.upsell='next-5-sim';
   return a;
@@ -2117,11 +2130,11 @@ function whatifCell(team){
     const st=!f?'':(f==='D'?'d':((f==='H')===homePOV?'w':'l'));
     const opp=homePOV?g.away:g.home;
     const attrs=locked?'':` data-gid="${g.id}" data-team="${team}"`;
-    const title=`${homePOV?'vs':'@'} ${opp} · ${g.date}${locked?' · Unlock Next 5 Sim with Entenser Intel':''}`;
+    const title=`${homePOV?'vs':'@'} ${opp} · ${g.date}${locked?' · Save multi-match scenarios with Club Watch':''}`;
     return `<span class="wbox ${st}"${attrs} title="${title}"><span class="wb-l">${homePOV?'v':'@'}${monogram(opp)}</span></span>`;
   }).join('');
   return locked
-    ?`<a class="wgroup wlocked" href="?league=intel" data-upsell="next-5-sim" aria-label="Unlock Next 5 Sim with Entenser Intel">${cells}</a>`
+    ?`<a class="wgroup wlocked" href="?league=intel&intelLeague=${encodeURIComponent(LID)}&teamName=${encodeURIComponent(team)}&track=1&moment=scenario" data-upsell="next-5-sim" aria-label="Save multi-match scenarios with Club Watch">${cells}</a>`
     :`<span class="wgroup">${cells}</span>`;
 }
 function ladder(conf){
@@ -2467,7 +2480,7 @@ function renderTableOutlook(){
   $('#laddernote').textContent=`${ol.n_teams}-team single table`+(note?` · ${note}`:'')+
     (NF>0?(IntelStore.unlocked()
       ?` · use Next 5 Sim to force results and resimulate`
-      :` · Next 5 Sim is available with Entenser Intel`):'');
+      :` · Saved multi-match scenarios are available with Club Watch`):'');
   const l=$('#ladders');
   l.innerHTML='';
   l.style.gridTemplateColumns='minmax(0,1fr)';
@@ -3636,6 +3649,8 @@ function renderProfile(team,scroll){
   const n=(D.outlook||{}).n_teams||D.standings.length,elo=currentElo(team);
   const projRank=s.proj_rank!=null?s.proj_rank.toFixed(1):'—';
   const projPts=s.proj_pts!=null?s.proj_pts.toFixed(1):'—';
+  const watchHref='?league=intel&intelLeague='+encodeURIComponent(LID)+
+    '&team='+encodeURIComponent(s.team_id||team)+'&track=1';
   const chart=eloChartSVG(team).svg;
   const outcomeCards=((D.outlook||{}).cards||[])
     .filter(c=>s[c.key]!=null);
@@ -3650,7 +3665,8 @@ function renderProfile(team,scroll){
     </div>${oddsRows||'<div class="hnote">No headline projection categories for this competition.</div>'}
     ${squadValueSummaryHTML(team)}</div>`;
   $('#teamProfile').innerHTML=
-    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">Projected #${projRank} of ${n} · Global ELO ${Number.isFinite(elo)?Math.round(elo):'—'}</div></div>
+    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">Projected #${projRank} of ${n} · Global ELO ${Number.isFinite(elo)?Math.round(elo):'—'}</div>
+      <a class="intel-btn" id="profileClubWatch" href="${watchHref}">Track this club</a></div>
       <span class="fav-team-star${FavStore.hasTeam(LID,team)?' on':''}" id="favTeamStar" title="Pin to Favorites">${FavStore.hasTeam(LID,team)?'★':'☆'}</span></div>
     <div class="pcard elo-panel"><div class="elo-panel-h"><div><h3>Global ELO history</h3><div class="hnote">Hover the line for the EPL-anchored rating on any date.</div></div>
       <div class="elo-now"><b style="color:${eloTier(elo)}">${Number.isFinite(elo)?Math.round(elo):'—'}</b><span>Current global ELO</span></div></div>
@@ -3660,6 +3676,9 @@ function renderProfile(team,scroll){
       <div class="pcard full team-news"><h3>Club news</h3><div id="clubNews" class="hnote">Loading…</div></div>
       ${seasonFixturesHTML(team,gms)}</div>`;
   fillClubNews(team);
+  track('club_page_view',{club_id:s.team_id||team,club_name:team,competition_id:LID,surface:'interactive_club'});
+  const watch=$('#profileClubWatch');if(watch)watch.onclick=()=>track('track_club',{
+    club_id:s.team_id||team,club_name:team,competition_id:LID,surface:'interactive_club'});
   const _fts=$('#favTeamStar'); if(_fts) _fts.onclick=()=>{const on=FavStore.toggleTeam(LID,team);_fts.classList.toggle('on',on);_fts.textContent=on?'★':'☆';};
   if(scroll)$('#teamProfile').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -4081,8 +4100,11 @@ if (_isPower && window.POWER_DATA) {
 .acct-sec>.d{font-size:11.5px;color:var(--txt-3);margin-bottom:12px}
 .acct-field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
 .acct-field label{font-size:10px;font-weight:700;color:var(--txt-3);text-transform:uppercase;letter-spacing:.06em}
-.acct-field input,.acct-field select{background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:9px 11px;font-size:13px;outline:none;max-width:380px}
-.acct-field input:focus,.acct-field select:focus{border-color:var(--txt-3)}
+.acct-field input,.acct-field select,.acct-field textarea{background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:9px 11px;font:13px/1.45 var(--sans);outline:none;max-width:380px}
+.acct-field textarea{width:min(100%,380px);resize:vertical}
+.acct-field input:focus,.acct-field select:focus,.acct-field textarea:focus{border-color:var(--txt-3)}
+.acct-check{display:flex;align-items:flex-start;gap:8px;max-width:640px;margin-top:8px;color:var(--txt-2);font-size:12px;line-height:1.45}
+.acct-check input{margin-top:2px}
 .acct-btn{display:inline-flex;align-items:center;gap:6px;background:var(--ink-2);color:var(--txt-1);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
 .acct-btn:hover{background:var(--ink-3)}
 .acct-btn.primary{background:var(--qualify);color:#06120b;border-color:transparent;font-weight:800}
@@ -4172,7 +4194,7 @@ if (_isPower && window.POWER_DATA) {
 .mv-col-h{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
 .mv-col-h.up{color:var(--qualify)}
 .mv-col-h.down{color:#e25f4f}
-.mv-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-3)}
+.mv-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line-3);text-decoration:none;color:inherit}
 .mv-row .crest{width:24px;height:24px;font-size:8.5px}
 .mv-row .nm{flex:1;min-width:0}
 .mv-row .nm b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -4387,26 +4409,10 @@ if (_isPower && window.POWER_DATA) {
 // B2's bag-spread and B3's why-attribution extend ebRow()'s .eb-expand block once shipped.
 function commandEsc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function commandSignupHTML(){
-  const saved=localStorage.getItem('entenser_email_interest');
-  return `<form class="cc-email" id="ccEmailForm">
-    <input type="email" name="email" placeholder="Email for weekly model movement" value="${commandEsc(saved||'')}" aria-label="Email for weekly model movement">
-    <button type="submit">${saved?'Saved':'Notify me'}</button>
-  </form>${upsellHTML('weekly-briefing','Get this as a personalized weekly briefing')}`;
+  return `<p class="cc-panel-note">Save one club and get a complete Club Watch sample before any upgrade offer.</p>
+    <a class="intel-btn primary" href="?league=intel">Track my club</a>`;
 }
-function bindCommandSignup(){
-  const form=document.getElementById('ccEmailForm');
-  if(!form)return;
-  form.addEventListener('submit',ev=>{
-    ev.preventDefault();
-    const input=form.querySelector('input[name="email"]');
-    const email=(input&&input.value||'').trim();
-    if(email)localStorage.setItem('entenser_email_interest',email);
-    if(email)captureEmail(email,['weekly-digest'].concat(typeof LID==='string'&&LID?['lg-'+LID]:[]));
-    if(email)track('email_signup');
-    const btn=form.querySelector('button');
-    if(btn)btn.textContent='Saved';
-  });
-}
+function bindCommandSignup(){}
 // ── Supporter-tier waitlist (launch plan G) — a demand test, NOT a paywall.
 //    The public forecasts stay free; this measures willingness to pay before
 //    any checkout is built. Superseded 2026-07-25: the tier is on sale, so
@@ -4421,21 +4427,20 @@ function bindCommandSignup(){
 //    fire the funnel event, go to the Intel pricing card; the source tag rides
 //    through to select_plan (reading: which feature actually pulls hardest). ──
 function upsellHTML(source,text){
-  return `<a class="upsell-link" href="?league=support" data-upsell="${source}">★ ${text} <em>Intel feature →</em></a>`;
+  return `<a class="upsell-link" href="?league=support" data-upsell="${source}">★ ${text} <em>Club Watch →</em></a>`;
 }
 // Price and renewal copy render from one pair of helpers, so the cadence
 // toggle can never leave the price and the renewal terms disagreeing.
 function _priceBlockHTML(interval){
   const d=PriceStore.display(interval);
   return d?`<b>${d}</b><span>/ ${PriceStore.word(interval)}</span>`
-          :`<b>See price at checkout</b>`;
+          :`<b>Checkout unavailable</b>`;
 }
 function _renewalSentence(interval){
   const d=PriceStore.display(interval), w=PriceStore.word(interval);
-  return (d?`${d} per ${w}. `
-           :'The exact price and currency are shown on the secure checkout page before you pay. ')+
-    `Renews automatically every ${w} until cancelled. Cancel any time in one click `+
-    `from your account. 30-day money-back guarantee.`;
+  if(!d)return 'Checkout stays disabled until a verified price, policies, and billing configuration are available.';
+  return `${d} per ${w}. Renews automatically every ${w} until cancelled. `+
+    `Cancel any time from your account. 30-day money-back guarantee.`;
 }
 function supportCardHTML(){
   // Annual is preselected (roadmap §0b hard annual push) and is only offered
@@ -4443,8 +4448,8 @@ function supportCardHTML(){
   // environment shows one honest option rather than a broken choice.
   const annual=PriceStore.has('annual'), sel=annual?'annual':'monthly';
   return `
-    <h2>Entenser Intel</h2>
-    <p class="lead">The forecasts stay free — every league race, every match probability, every public grade. Intel is the personal layer on top, for readers who want alerts, history and control, and who want to keep an independent model running.</p>
+    <h2>Club Watch</h2>
+    <p class="lead">The current answer stays free — every league race, match probability, club page, and public grade. Club Watch is the continuity layer for supporters who want to know what changed, why it matters, and what comes next without checking again.</p>
     <div class="sup-cadence" id="supCadence" data-cadence="${sel}">
       <button type="button" class="sc-opt${annual?'':' on'}" data-c="monthly">Monthly</button>
       ${annual?'<button type="button" class="sc-opt on" data-c="annual">Annual <em>2 months free</em></button>':''}
@@ -4452,14 +4457,21 @@ function supportCardHTML(){
     <div class="sup-price" id="supPrice">${_priceBlockHTML(sel)}</div>
     <h3>What's included</h3>
     <ul class="sup-feats">
-      <li><b>Saved teams &amp; leagues</b> with email alerts when a title, playoff or relegation chance moves past a threshold you set.</li>
-      <li><b>Forecast-change history</b> — see how a club's probability shifted week by week, not just where they stand today.</li>
-      <li><b>Weekly "model changed its mind" briefing</b> — the biggest movers, what changed, and why, in your inbox.</li>
-      <li><b>Data downloads</b> — projections and probabilities as CSV for your own analysis.</li>
-      <li><b>Ad-free, always</b> — the site stays fast and free of gambling creative.</li>
+      <li><b>Continuous club monitoring</b> for material probability and season-state changes.</li>
+      <li><b>Cause and evidence</b> attached to supported movement, with quiet states when no cause is established.</li>
+      <li><b>Match stakes</b> showing how the next relevant result can move the season target.</li>
+      <li><b>Continuity across visits</b> with private history, saved scenarios, and up to ten followed clubs.</li>
+      <li><b>One complete free sample</b> remains yours even if you do not subscribe.</li>
     </ul>
+    <h3>Before you decide</h3>
+    <p class="fine"><b>The forecasts are already free.</b> They remain free. Club Watch replaces repeated monitoring and interpretation, not access to today's number.</p>
+    <p class="fine"><b>Scores and ordinary alerts are free elsewhere.</b> Club Watch is about what a result changed in the season race, the supported cause, and the next match's stakes.</p>
+    <p class="fine"><b>Predictions can be wrong.</b> Entenser publishes calibration, limitations, and misses. Paid continuity makes the record easier to follow, not more certain.</p>
+    <p class="fine"><b>Coverage varies.</b> Full-forecast and preseason clubs can use Club Watch. Results-only, archive, fixtures-limited, or unsupported states are labeled and are not sold as equivalent.</p>
     <p class="fine" id="supTerms">${_renewalSentence(sel)}</p>
-    <div class="sup-form"><a class="intel-btn primary" href="?league=intel" data-subscribe="support">Subscribe</a></div>
+    <div class="sup-form">${CheckoutStore.enabled()&&PriceStore.has(sel)
+      ?'<a class="intel-btn primary" href="?league=intel" data-subscribe="support">Continue with Club Watch</a>'
+      :'<button class="intel-btn primary" type="button" disabled aria-disabled="true">Checkout unavailable</button>'}</div>
     <p class="fine">The public site never gets paywalled. Current-season forecasts, tables and every published grade stay free, forever.</p>`;
 }
 function bindWaitlist(){
@@ -4492,13 +4504,15 @@ function intelHookHTML(){
   const annual=PriceStore.has('annual'), sel=annual?'annual':'monthly';
   return `<div class="intel-hook" id="intelHook">
     <div>
-      <div class="intel-kick">Entenser Intel · founding member</div>
+      <div class="intel-kick">Club Watch · controlled beta</div>
       <div class="ih-price">${_priceBlockHTML(sel)}</div>
-      <p>Custom deep dives, scenario what-ifs, a projection studio and full team pages for the clubs you follow — the same independently graded model, made personal.</p>
-      <div class="hnote">Every public forecast stays free. Intel adds the personal layer on top.</div>
+      <p>Continuous monitoring, supported causes, match stakes, saved scenarios, and continuity for the clubs you follow.</p>
+      <div class="hnote">Every current public forecast stays free. Start with one complete Club Watch sample.</div>
     </div>
     <div>
-      <div class="sup-form"><a class="intel-btn primary" href="?league=intel" data-subscribe="intel-hook">Subscribe</a></div>
+      <div class="sup-form">${CheckoutStore.enabled()&&PriceStore.has(sel)
+        ?'<a class="intel-btn primary" href="?league=intel" data-subscribe="intel-hook">Continue with Club Watch</a>'
+        :'<a class="intel-btn primary" href="?league=intel">Track my club</a>'}</div>
       <div class="hnote">Cancel any time · 30-day money-back guarantee · <a href="?league=account#acct-subs" style="color:var(--txt-2)">manage in Account</a></div>
     </div></div>`;
 }
@@ -4677,12 +4691,18 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
       ? rail('Your matches','pinned leagues and teams',mine)
       : `<div class="mtw-rail"><div class="mtw-h">Your matches<em>pinned leagues and teams</em></div>
          <div class="cc-panel-note" style="padding:10px 12px">Pin a league or team (★) and the fixtures that matter most to you appear here.</div></div>`;
+    const watchFixture=mine[0]||norm[0]||world[0];
+    const watchTeam=watchFixture&&(watchFixture.driver_team||watchFixture.home);
+    const watchCTA=watchFixture&&watchTeam
+      ? `<a class="upsell-link" href="?league=intel&intelLeague=${encodeURIComponent(watchFixture.league)}&teamName=${encodeURIComponent(watchTeam)}&track=1&moment=match" data-upsell="match-stakes">★ ${commandEsc(watchTeam)}'s free match-stakes preview <em>keep it monitored →</em></a>`
+      : '';
     return `<div class="eb-panel mtw">
       <div class="eb-h" style="padding:0 0 4px">Matches to watch</div>
       <div class="cc-panel-note" style="padding:0 0 10px">${commandEsc(ML.explainer)}</div>
       <div class="mtw-rails">${yours}
         ${rail('Biggest swing in each league','ranked within its own league',norm)}
-        ${rail('Around the world','raw leverage — expect the unfamiliar',world)}</div></div>`;
+        ${rail('Around the world','raw leverage — expect the unfamiliar',world)}</div>
+      <div style="padding-top:10px">${watchCTA}</div></div>`;
   };
   const target=$('#view-outlook')||$('main.wrap');
   if(target){
@@ -4692,9 +4712,9 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
     ${mtwHTML()}
     <div class="mxp-two">
       <div class="mxp-card">
-        <div class="eb-h" style="padding:0 0 8px">Weekly model movement, in your inbox</div>
+        <div class="eb-h" style="padding:0 0 8px">Keep one club current</div>
         ${commandSignupHTML()}
-        <div class="cc-panel-note" style="padding:8px 0 0">One email a week — biggest movers, closest races, and how our calls did.</div>
+        <div class="cc-panel-note" style="padding:8px 0 0">Current answer free. Continuous monitoring is the paid continuation.</div>
       </div>
       <div class="mxp-card">
         <div class="eb-h" style="padding:0 0 8px">Model mover</div>
@@ -4875,7 +4895,8 @@ if(_isHome && window.HOME_DATA){
   const MV_BAD_UP=/relegat/i;
   const moversRow=m=>{
     const good=MV_BAD_UP.test(m.metric_label||'')?m.delta<0:m.delta>=0;
-    return `<div class="mv-row">${crest(m.team,m.logo)}<span class="nm"><b>${m.team}</b><span>${nm(m.league)} · ${m.metric_label}</span></span><span class="d ${good?'up':'down'}">${m.delta>=0?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</span></div>`;
+    const href=`?league=intel&intelLeague=${encodeURIComponent(m.league)}&teamName=${encodeURIComponent(m.team)}&track=1&moment=movement`;
+    return `<a class="mv-row" href="${href}" data-upsell="movement-explanation">${crest(m.team,m.logo)}<span class="nm"><b>${commandEsc(m.team)}</b><span>${commandEsc(nm(m.league))} · ${commandEsc(m.metric_label)}</span></span><span class="d ${good?'up':'down'}">${m.delta>=0?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</span></a>`;
   };
   const moversBoardBody=()=>{
     const pool=(mvRegion==='Overall'?MVB.movers:(MVB.movers||[]).filter(m=>m.region===mvRegion))||[];
@@ -4924,8 +4945,12 @@ if(_isHome && window.HOME_DATA){
   if(target){ target.classList.remove('hidden'); target.innerHTML=`
     <div class="hx-wrap">
     <div class="hx-tag">${(()=>{const ls=liveStateHTML();return ls
-      ?`<h1 class="sr-only">Today on Entenser</h1>${ls}<p class="hx-sub">Football forecasts across 70+ competitions, explained and graded.</p>`
-      :`<h1>Title, qualification and relegation forecasts across world football.</h1>`;})()}</div>
+      ?`<h1>Know what every match means for your club's season.</h1>${ls}<p class="hx-sub">Follow your club once. Entenser shows what changed, why it matters, and what comes next. Current forecasts across 70+ competitions remain free.</p>`
+      :`<h1>Know what every match means for your club's season.</h1><p class="hx-sub">Current title, qualification, and relegation forecasts remain free. Track one club for a complete Club Watch sample.</p>`;})()}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <a class="intel-btn primary" href="?league=intel">Track my club</a>
+        <a class="intel-btn" href="?league=leagues">Explore free forecasts</a>
+      </div></div>
     <div class="hx-b">
       ${stripHTML()}
     </div>
@@ -5100,10 +5125,9 @@ if(_isNews){
 }
 
 // ── Account (?league=account, 2026-07-18 — was Subscribe): the user hub.
-//    Profile + favorites picker + subscriptions (free plan vs Intel, weekly
-//    email) + notification prefs + preferences + data/privacy. Everything is
-//    localStorage-backed ("saved on this device") until real accounts ship;
-//    ?league=subscribe old links land here via the _isAccount alias. ──
+//    The server is authoritative for identity, plan, followed clubs,
+//    notifications, export and deletion. Browser favorites remain explicitly
+//    local until the user chooses to import them.
 if(_isAccount){
   const seg=$('#seg'); if(seg) seg.style.display='none';
   const hd=document.querySelector('header'); if(hd) hd.style.display='none';
@@ -5118,6 +5142,29 @@ if(_isAccount){
     return {get:read,set:p=>{const v={...read(),...p};try{localStorage.setItem(K,JSON.stringify(v));}catch(e){} return v;}};
   })();
   const acct=AcctStore.get();
+  const acctApiBase=new URLSearchParams(location.search).get('api')||window.ENTENSER_API_BASE||OpenAccess.API;
+  const acctHeaders=()=>{const t=localStorage.getItem('entenser.intel.access');
+    return t?{Accept:'application/json',Authorization:'Bearer '+t}:{Accept:'application/json'};};
+  const acctApi=async(path,options={},retried=false)=>{
+    const headers={...acctHeaders(),...(options.headers||{})};
+    if(options.body)headers['Content-Type']='application/json';
+    const r=await fetch(acctApiBase+path,{...options,headers});
+    if(r.status===401&&!retried){
+      const refresh=localStorage.getItem('entenser.intel.refresh');
+      if(refresh){
+        const rr=await fetch(acctApiBase+'/auth/refresh',{method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({refresh_token:refresh})});
+        if(rr.ok){
+          const pair=await rr.json();localStorage.setItem('entenser.intel.access',pair.access_token);
+          return acctApi(path,options,true);
+        }
+      }
+    }
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data.error||`Request failed (${r.status})`);
+    return data;
+  };
   const initials=s=>{const w=String(s||'').replace(/@.*/,'').split(/[\s._-]+/).filter(Boolean);
     return ((w[0]?.[0]||'')+(w[1]?.[0]||'')).toUpperCase()||'⚽';};
   // Suggestion pool: popular leagues + each featured league's top clubs.
@@ -5145,22 +5192,22 @@ if(_isAccount){
     const rows=[...L,...T].join('');
     return rows?`<div class="sp-h">Matches</div><div class="sp-row">${rows}</div>`:`<div class="sp-h">${window.SEARCH_INDEX?'No matches.':'Loading team index…'}</div>`;
   };
-  const NOTIF_DEFS=[   // [key, label, description, default-on, intel-gated]
-    ['weekly','Weekly digest','The one honest email a week — biggest movers, closest races, every graded call.',true,false],
-    ['matchday','Matchday reminders','A morning note when a club you follow plays that day.',false,false],
-    ['odds_move','Threshold alerts','Email the moment a title / playoff / relegation probability crosses a level you set.',false,true],
-    ...(MARKET_MODE?[['market_gap','Model vs market alerts','When the model disagrees with the market by 8%+ on a club you follow.',false,true]]:[]),
-    ['product','Product updates','New leagues, new features, occasional launch news.',false,false],
+  const NOTIF_DEFS=[
+    ['weekly','Weekly watch','Receive the weekly Club Watch delivery once live sending is approved.',false,true],
+    ['material_change','Material changes','Receive supported probability changes once live sending is approved.',false,true],
+    ['match_morning','Match morning','Receive the next-match stakes view once live sending is approved.',false,true],
+    ['quiet','Quiet mode','Suppress all non-essential Club Watch delivery.',false,false],
+    ['paused','Pause delivery','Keep preferences but suppress every delivery.',false,false],
   ];
   const notifs={...Object.fromEntries(NOTIF_DEFS.map(d=>[d[0],d[3]])),...(acct.notifs||{})};
   const intelOn=IntelStore.unlocked();
   const notifRow=([k,label,desc,_def,gated])=>{
     const dis=gated&&!intelOn;
-    return `<div class="acct-row"><div class="ttl"><b>${label}${gated?'<span class="ilock">🔒 Intel</span>':''}</b><span>${desc}</span></div>
+    return `<div class="acct-row"><div class="ttl"><b>${label}${gated?'<span class="ilock">🔒 Club Watch</span>':''}</b><span>${desc}</span></div>
       <label class="tgl"><input type="checkbox" data-notif="${k}" ${notifs[k]&&!dis?'checked':''} ${dis?'disabled':''}><i></i></label></div>`;
   };
   const savedEmail=acct.email||localStorage.getItem('entenser_email_interest')||'';
-  const navItems=[['acct-profile','Profile'],['acct-favs','Favorites'],['acct-subs','Subscriptions'],['acct-notifs','Notifications'],['acct-prefs','Preferences'],['acct-data','Data & privacy']];
+  const navItems=[['acct-profile','Profile'],['acct-favs','Favorites'],['acct-subs','Subscriptions'],['acct-notifs','Notifications'],['acct-prefs','Preferences'],['acct-feedback','Feedback'],['acct-data','Data & privacy']];
   const target=$('#view-outlook');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="acct-wrap">
     <nav class="acct-nav" id="acctNav">${navItems.map(([id,l],i)=>`<a href="#${id}" class="${i===0?'on':''}">${l}</a>`).join('')}</nav>
@@ -5168,63 +5215,59 @@ if(_isAccount){
       <div class="acct-head">
         <div class="acct-ava" id="acctAva">${initials(acct.name||savedEmail)}</div>
         <div><h1>${commandEsc(acct.name||'Your account')}</h1>
-        <div class="sub">Saved on this device · syncs automatically when accounts launch</div></div>
+        <div class="sub" id="acctSyncState">Checking your server account…</div></div>
       </div>
 
       <section class="acct-sec" id="acct-profile">
         <h2><span class="dot"></span>Profile</h2>
-        <div class="d">Who the weekly email and alerts talk to.</div>
+        <div class="d">Your sign-in identity is server-managed. A display name is optional and stays on this device.</div>
         <div class="acct-field"><label for="acName">Display name</label>
           <input id="acName" type="text" placeholder="e.g. Ryan" value="${commandEsc(acct.name||'')}" autocomplete="name"></div>
         <div class="acct-field"><label for="acEmail">Email</label>
-          <input id="acEmail" type="email" placeholder="you@example.com" value="${commandEsc(savedEmail)}" autocomplete="email"></div>
-        <button class="acct-btn primary" id="acSave">Save profile</button>
+          <input id="acEmail" type="email" placeholder="Sign in to see your account email" value="" readonly></div>
+        <button class="acct-btn primary" id="acSave">Save display name</button>
         <span class="hnote" id="acSaved" style="margin-left:10px"></span>
       </section>
 
       <section class="acct-sec" id="acct-favs">
         <h2><span class="dot"></span>Favorites</h2>
-        <div class="d">Your teams &amp; leagues — personalizes the home page, sorts matchdays your way, tailors the weekly, and picks which club your Intel hub leads with.</div>
+        <div class="d">These browser favorites personalize this device. Club Watch follows server-backed clubs separately; import is always explicit.</div>
         <input id="spSearch" class="sp-search" type="search" placeholder="🔍 Search any club or league…" autocomplete="off" spellcheck="false">
         <div id="spResults"></div>
         <div id="spFavs">${favsHTML()}</div>
+        <button class="acct-btn" id="acImportFavs">Import browser clubs into Club Watch</button>
+        <span class="hnote" id="acImportState" style="margin-left:8px"></span>
       </section>
 
       <section class="acct-sec" id="acct-subs">
         <h2><span class="dot"></span>Subscriptions</h2>
-        <div class="d">Every public forecast stays free, forever. Intel is the personal layer on top.</div>
+        <div class="d">Every current public forecast stays free. Club Watch adds continuity after your complete free sample.</div>
         <div class="plan-grid">
-          <div class="plan"><span class="cur">current plan</span>
+          <div class="plan"><span class="cur" id="acctFreeState">checking</span>
             <div class="nm">Free</div><div class="pr">$0<small> / forever</small></div>
             <ul><li>Every league forecast, all ${(window.LEAGUES||[]).filter(l=>l.status==='live').length} live competitions</li>
               <li>Match win / draw / loss probabilities</li>
               <li>Public grading — every hit and miss</li>
-              <li>Favorites, news &amp; the weekly email</li></ul></div>
-          <div class="plan pro"><span class="cur">${intelOn?'active':'available'}</span>
-            <div class="nm" style="color:var(--intel)">Entenser Intel</div>
-            <div class="pr" id="acctIntelPrice">${PriceStore.display('monthly')||'See price at checkout'}${PriceStore.display('monthly')?`<small> / ${PriceStore.word('monthly')}</small>`:''}</div>
-            <ul><li>Custom deep dives &amp; scenario what-ifs</li>
-              <li>Full team pages for every club</li>
-              <li>Projection studio &amp; threshold alerts</li>
-              <li>CSV downloads of every projection</li></ul>
-            <div style="margin-top:12px">${intelOn
-              ? '<a class="intel-btn" href="?league=intel">Open the hub →</a>'
-              : '<a class="intel-btn primary" href="?league=intel" data-subscribe="account">Subscribe</a> <a class="intel-btn" href="?league=intel">Preview →</a>'}</div>
+              <li>One followed club and one complete saved sample</li></ul></div>
+          <div class="plan pro"><span class="cur" id="acctClubWatchState">${intelOn?'active':'available'}</span>
+            <div class="nm" style="color:var(--intel)">Club Watch</div>
+            <div class="pr" id="acctIntelPrice">${PriceStore.display('monthly')||'Checkout unavailable'}${PriceStore.display('monthly')?`<small> / ${PriceStore.word('monthly')}</small>`:''}</div>
+            <ul><li>Continuous monitoring and supported causes</li>
+              <li>Next-match stakes and continuity across visits</li>
+              <li>Saved scenarios and private history</li>
+              <li>Up to ten followed clubs</li></ul>
+            <div style="margin-top:12px" id="acctPlanAction">${intelOn
+              ? '<a class="intel-btn" href="?league=intel">Open Club Watch →</a> <button class="intel-btn" id="acBilling">Manage billing</button>'
+              : '<a class="intel-btn primary" href="?league=intel">Get my free sample</a>'}</div>
             ${intelOn?'':'<div class="hnote" style="margin-top:8px">Cancel any time · 30-day money-back guarantee</div>'}</div>
         </div>
         ${intelHookHTML()}
-        <div class="acct-row"><div class="ttl"><b>Weekly email</b><span>Sections reorder around your picks — no picks yet gets the global edition. Free, unsubscribe any time.</span></div></div>
-        ${commandSignupHTML()}
       </section>
 
       <section class="acct-sec" id="acct-notifs">
         <h2><span class="dot"></span>Notifications</h2>
-        <div class="d">What lands in your inbox. Nothing is sent without an email saved in Profile.</div>
+        <div class="d">These settings are durable. Live alerts and briefings are not offered until the shadow-run reliability gate and owner approval are complete.</div>
         ${NOTIF_DEFS.map(notifRow).join('')}
-        <div class="acct-row"><div class="ttl"><b>Alert threshold<span class="ilock">🔒 Intel</span></b><span>How big a probability move has to be before we email you.</span></div>
-          <select id="acThresh" ${intelOn?'':'disabled'} style="background:var(--ink-0);border:1px solid var(--line-2);border-radius:var(--r-sm);color:var(--txt-1);padding:7px 9px;font-size:12px">
-            ${['3','5','8','12'].map(v=>`<option value="${v}" ${String(acct.thresh||'5')===v?'selected':''}>±${v} pts</option>`).join('')}
-          </select></div>
       </section>
 
       <section class="acct-sec" id="acct-prefs">
@@ -5238,11 +5281,28 @@ if(_isAccount){
           <label class="tgl"><input type="checkbox" checked disabled><i></i></label></div>
       </section>
 
+      <section class="acct-sec" id="acct-feedback">
+        <h2><span class="dot"></span>Feedback &amp; research</h2>
+        <div class="d">Categorize a product problem or share an outcome in your own words. The message stays in your exportable, deletable account record. Aggregate measurement receives only the category and consent state.</div>
+        <div class="acct-field"><label for="acFeedbackKind">What are you sharing?</label>
+          <select id="acFeedbackKind"><option value="support">Product or account feedback</option><option value="testimonial">A result Entenser may quote</option></select></div>
+        <div class="acct-field"><label for="acFeedbackCategory">Category</label>
+          <select id="acFeedbackCategory"></select></div>
+        <div class="acct-field"><label for="acFeedbackMessage">What happened?</label>
+          <textarea id="acFeedbackMessage" maxlength="2000" rows="5" placeholder="Please include the club, page, or update involved when relevant."></textarea></div>
+        <label class="acct-check"><input type="checkbox" id="acFeedbackContact"> Entenser may contact me about this message.</label>
+        <label class="acct-check" id="acFeedbackPublishRow" hidden><input type="checkbox" id="acFeedbackPublish"> Entenser may publish these words as an anonymous testimonial. Separate permission is required before attaching my name or other identifying details.</label>
+        <div style="margin-top:12px"><button class="acct-btn primary" id="acFeedbackSubmit">Save feedback</button>
+          <span class="hnote" id="acFeedbackState" style="margin-left:8px"></span></div>
+        <div class="hnote" style="margin-top:8px">This records product evidence; it is not an emergency support channel. Cancellation reasons are collected separately during billing cancellation.</div>
+      </section>
+
       <section class="acct-sec" id="acct-data">
         <h2><span class="dot"></span>Data &amp; privacy</h2>
-        <div class="d">Your favourites and display preferences live only in this browser. If you create an Entenser account, your email, subscription status and saved Intel work are stored on our servers — you can export or delete them any time. <a href="?league=privacy" style="color:var(--txt-2)">Privacy policy →</a></div>
+        <div class="d">Account identity, plan, Club Watch clubs and saved work live on the server. Browser favorites and display preferences remain local unless you explicitly import them. <a href="?league=privacy" style="color:var(--txt-2)">Privacy policy →</a></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="acct-btn" id="acExport">Export my data (JSON)</button>
+          <button class="acct-btn" id="acExport">Export account data (JSON)</button>
+          <button class="acct-btn danger" id="acDeleteAccount">Delete server account</button>
           <button class="acct-btn danger" id="acClear">Clear all local data</button>
         </div>
       </section>
@@ -5268,37 +5328,129 @@ if(_isAccount){
       sq.addEventListener('input',()=>{ ensureIdx(); sr.innerHTML=searchHTML(sq.value); }); }
   };
   wirePicker();
-  bindCommandSignup();
   bindIntelWaitlist();
-  // profile save — name/email into the acct blob; email mirrored to the weekly-
-  // digest key so the existing signup flow and this page never disagree.
+  const acctNote=(text,error=false)=>{
+    const el=$('#acctSyncState');if(el){el.textContent=text;el.style.color=error?'var(--bad)':'';}
+  };
+  let serverAccountPlan='free';
+  // Display names are deliberately local. Account email and entitlement remain
+  // server-authoritative and are never overwritten from a browser profile form.
   const acSave=$('#acSave');
   if(acSave) acSave.addEventListener('click',()=>{
-    const name=($('#acName')||{}).value?.trim()||'', email=($('#acEmail')||{}).value?.trim()||'';
-    AcctStore.set({name,email});
-    if(email){try{localStorage.setItem('entenser_email_interest',email);}catch(e){} track('email_signup');}
+    const name=($('#acName')||{}).value?.trim()||'';
+    AcctStore.set({name});
+    const email=($('#acEmail')||{}).value||'';
     const av=$('#acctAva'); if(av) av.textContent=initials(name||email);
     const h1=document.querySelector('.acct-head h1'); if(h1) h1.textContent=name||'Your account';
-    const ok=$('#acSaved'); if(ok){ok.textContent='Saved ✓'; setTimeout(()=>ok.textContent='',2500);}
+    const ok=$('#acSaved'); if(ok){ok.textContent='Saved on this device ✓'; setTimeout(()=>ok.textContent='',2500);}
   });
-  // notification toggles + threshold
-  document.querySelectorAll('[data-notif]').forEach(cb=>cb.addEventListener('change',()=>{
+  // Notification settings write through to the account service. If there is
+  // no session, leave the control unchanged and send the user to sign in.
+  document.querySelectorAll('[data-notif]').forEach(cb=>cb.addEventListener('change',async()=>{
     const cur=AcctStore.get().notifs||{};
     AcctStore.set({notifs:{...cur,[cb.dataset.notif]:cb.checked}});
+    const notifications=Object.fromEntries(
+      [...document.querySelectorAll('[data-notif]')].map(x=>[x.dataset.notif,x.checked]));
+    try{
+      await acctApi('/intel/preferences',{method:'PATCH',body:JSON.stringify({notifications})});
+      track('notification_setting_change',{setting:cb.dataset.notif,surface:'account'});
+      acctNote('Account connected · notification setting saved');
+    }catch(e){acctNote('Sign in to save Club Watch notification settings.',true);}
   }));
-  const acThresh=$('#acThresh');
-  if(acThresh) acThresh.addEventListener('change',()=>AcctStore.set({thresh:acThresh.value}));
   // odds format pills (setOddsFmt flips the .on class on every [data-oddsfmt])
   document.querySelectorAll('.acct-sec [data-oddsfmt]').forEach(b=>
     b.addEventListener('click',()=>setOddsFmt(b.dataset.oddsfmt)));
   // data & privacy
   const _ourKeys=()=>Object.keys(localStorage).filter(k=>/^(entenser|pitchside)/i.test(k));
   const acExport=$('#acExport');
-  if(acExport) acExport.addEventListener('click',()=>{
-    const data=Object.fromEntries(_ourKeys().map(k=>[k,localStorage.getItem(k)]));
+  if(acExport) acExport.addEventListener('click',async()=>{
+    try{
+    const account=await acctApi('/account/data');
+    const data={account,browser:Object.fromEntries(_ourKeys().map(k=>[k,localStorage.getItem(k)]))};
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
     a.download='entenser-data.json'; a.click(); URL.revokeObjectURL(a.href);
+    }catch(e){acctNote('Sign in before exporting account data.',true);}
+  });
+  const acDeleteAccount=$('#acDeleteAccount');
+  if(acDeleteAccount)acDeleteAccount.addEventListener('click',async()=>{
+    if(!confirm('Permanently delete your Entenser server account? Active paid access must be cancelled and expired first. Browser favorites are not deleted.'))return;
+    try{
+      await acctApi('/account/data',{method:'DELETE',body:JSON.stringify({confirmation:'DELETE'})});
+      localStorage.removeItem('entenser.intel.access');localStorage.removeItem('entenser.intel.refresh');
+      acctNote('Server account deleted. Browser favorites remain on this device.');
+    }catch(e){acctNote(e.message,true);}
+  });
+  const acImportFavs=$('#acImportFavs');
+  if(acImportFavs)acImportFavs.addEventListener('click',async()=>{
+    const index=window.TEAM_CATALOG&&window.TEAM_CATALOG.leagues||[];
+    const clubs=FavStore.teams().map(f=>{
+      const league=index.find(l=>l.league_id===f.league);
+      const team=league&&league.teams.find(t=>t.team===f.team);
+      return team?{league_id:f.league,team_id:team.team_id,team:team.team}:null;
+    }).filter(Boolean);
+    const limit=['trial','intel','creator'].includes(serverAccountPlan)?10:1;
+    try{
+      await acctApi('/intel/preferences',{method:'PATCH',body:JSON.stringify({teams:clubs.slice(0,limit)})});
+      const imported=Math.min(clubs.length,limit),remaining=Math.max(0,clubs.length-limit);
+      const el=$('#acImportState');
+      if(el&&remaining&&!['trial','intel','creator'].includes(serverAccountPlan)){
+        el.innerHTML=`Imported ${imported} club ✓ · ${remaining} additional browser club${remaining===1?' remains':'s remain'} local. <a href="?league=intel&moment=club_limit" data-upsell="club-limit">Club Watch paid syncs up to ten →</a>`;
+      }else if(el){
+        el.textContent=`Imported ${imported} club${imported===1?'':'s'} ✓`;
+      }
+    }catch(e){const el=$('#acImportState');if(el)el.textContent=e.message;}
+  });
+  const acBilling=$('#acBilling');
+  if(acBilling)acBilling.addEventListener('click',async()=>{
+    try{const p=await acctApi('/billing/portal',{method:'POST',body:'{}'});location.assign(p.url);}
+    catch(e){acctNote(e.message,true);}
+  });
+  const FEEDBACK_CATEGORIES={
+    support:[
+      ['account_access','Account access'],['billing','Billing'],['refund','Refund'],
+      ['data_quality','Data quality'],['wrong_club','Wrong club'],
+      ['forecast_question','Forecast question'],['notification','Notification'],
+      ['privacy','Privacy'],['feature_request','Feature request'],['other','Other']
+    ],
+    testimonial:[
+      ['saved_time','Saved time'],['understood_change','Understood a change'],
+      ['prepared_for_match','Prepared for a match'],['followed_race','Followed a race'],
+      ['trusted_forecast','Trusted the forecast'],['other','Other']
+    ]
+  };
+  const feedbackKind=$('#acFeedbackKind'),feedbackCategory=$('#acFeedbackCategory');
+  const syncFeedbackForm=()=>{
+    const kind=feedbackKind?.value||'support';
+    if(feedbackCategory)feedbackCategory.innerHTML=(FEEDBACK_CATEGORIES[kind]||[]).map(
+      ([value,label])=>`<option value="${value}">${label}</option>`).join('');
+    const publishRow=$('#acFeedbackPublishRow'),publish=$('#acFeedbackPublish');
+    if(publishRow)publishRow.hidden=kind!=='testimonial';
+    if(publish&&kind!=='testimonial')publish.checked=false;
+  };
+  if(feedbackKind)feedbackKind.addEventListener('change',syncFeedbackForm);
+  syncFeedbackForm();
+  const feedbackSubmit=$('#acFeedbackSubmit');
+  if(feedbackSubmit)feedbackSubmit.addEventListener('click',async()=>{
+    const kind=feedbackKind?.value||'support';
+    const message=$('#acFeedbackMessage')?.value.trim()||'';
+    const stateEl=$('#acFeedbackState');
+    if(!message){if(stateEl)stateEl.textContent='Add a message first.';return;}
+    if(kind==='testimonial'&&!$('#acFeedbackPublish')?.checked){
+      if(stateEl)stateEl.textContent='Publication permission is required to save a testimonial.';
+      return;
+    }
+    feedbackSubmit.disabled=true;
+    try{
+      await acctApi('/account/feedback',{method:'POST',body:JSON.stringify({
+        kind,category:feedbackCategory?.value||'other',message,
+        contact_consent:!!$('#acFeedbackContact')?.checked,
+        publication_consent:kind==='testimonial'&&!!$('#acFeedbackPublish')?.checked
+      })});
+      $('#acFeedbackMessage').value='';
+      if(stateEl)stateEl.textContent=kind==='testimonial'?'Testimonial and permission saved ✓':'Feedback saved ✓';
+    }catch(e){if(stateEl)stateEl.textContent=e.message;}
+    finally{feedbackSubmit.disabled=false;}
   });
   const acClear=$('#acClear');
   if(acClear) acClear.addEventListener('click',()=>{
@@ -5306,6 +5458,35 @@ if(_isAccount){
     _ourKeys().forEach(k=>localStorage.removeItem(k));
     location.reload();
   });
+  (async()=>{
+    try{
+      const [me,data,prefs]=await Promise.all([
+        acctApi('/intel/me'),acctApi('/account/data'),acctApi('/intel/preferences')]);
+      const email=$('#acEmail');if(email)email.value=data.email||'';
+      const name=AcctStore.get().name||data.email||'Your account';
+      const av=$('#acctAva');if(av)av.textContent=initials(name);
+      serverAccountPlan=String(me.plan||'free');
+      const paid=['trial','intel','creator'].includes(me.plan);
+      const fs=$('#acctFreeState');if(fs)fs.textContent=paid?'included':'current plan';
+      const cs=$('#acctClubWatchState');if(cs)cs.textContent=paid?'active':me.plan==='canceled'?'expired':'available';
+      const action=$('#acctPlanAction');if(action)action.innerHTML=paid
+        ?'<a class="intel-btn" href="?league=intel">Open Club Watch →</a> <button class="intel-btn" id="acBillingLive">Manage billing</button>'
+        :'<a class="intel-btn primary" href="?league=intel">Get my free sample</a>';
+      const liveBilling=$('#acBillingLive');if(liveBilling)liveBilling.onclick=async()=>{
+        try{const p=await acctApi('/billing/portal',{method:'POST',body:'{}'});location.assign(p.url);}
+        catch(e){acctNote(e.message,true);}
+      };
+      const saved=prefs.notifications||{};
+      document.querySelectorAll('[data-notif]').forEach(cb=>{
+        cb.checked=!!saved[cb.dataset.notif];
+        cb.disabled=['weekly','material_change','match_morning'].includes(cb.dataset.notif)&&!paid;
+      });
+      acctNote(`Account connected · ${me.plan} plan · ${(prefs.teams||[]).length} Club Watch club${(prefs.teams||[]).length===1?'':'s'}`);
+    }catch(e){
+      acctNote('Browser preferences only · sign in through Club Watch to manage server data.');
+      const email=$('#acEmail');if(email)email.value='';
+    }
+  })();
   // scrollspy: highlight the section in view (top-most wins on ties)
   const _navLinks=[...document.querySelectorAll('#acctNav a')];
   const _secs=_navLinks.map(a=>document.getElementById(a.hash.slice(1))).filter(Boolean);
@@ -5397,12 +5578,13 @@ if(_infoPage){
     </ul>`;
   DOCS['privacy']=`
     <h2>Privacy</h2>
-    <p class="lead">Entenser is a static website. It does not require an account and does not collect personal information to show you projections.</p>
+    <p class="lead">Public Entenser forecasts do not require an account. Club Watch accounts use a secure email sign-in and store only the data needed to provide the account and subscription.</p>
     <h3>What is and isn't collected</h3>
     <ul>
-      <li>Your league favourites and collapsed-section preferences are stored <b>only in your own browser</b> (localStorage) and never sent to us.</li>
+      <li>Browser favorites, display settings, and collapsed-section preferences stay in localStorage unless you explicitly import club favorites into Club Watch.</li>
+      <li>A Club Watch account stores your email, entitlement, followed clubs, notification settings, and saved work. You can export that record or delete an eligible account from Account.</li>
+      <li>An active paid account must be cancelled and allowed to expire before deletion so billing and access state cannot become inconsistent.</li>
       <li>We may use aggregate analytics, currently Google Analytics on the live domain only, to understand page visits and interactions. We do not use analytics to identify individual visitors.</li>
-      <li>If you choose to submit your email for the weekly digest, it is used only to send that digest and nothing else.</li>
     </ul>
     <h3>Third parties</h3>
     <p>Pages link out to data sources and problem-gambling resources; those sites have their own privacy policies. We do not sell or share any information you provide.</p>
@@ -5411,7 +5593,7 @@ if(_infoPage){
     <h2>Contact</h2>
     <p class="lead">Questions, feedback, data-source concerns, or business inquiries — reach out directly.</p>
     <div class="callout"><b>Email:</b> <a href="mailto:entenser@gmail.com">entenser@gmail.com</a></div>
-    <p class="fine">This is a static site with no submission backend, so email is the fastest way to reach us. We read everything, though response time varies.</p>`;
+    <p class="fine">Email is the fastest way to reach us. We read everything, though response time varies.</p>`;
   DOCS['support']=supportCardHTML();
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`<div class="info-wrap">${nav}<div class="info-doc">${DOCS[_infoPage]||''}</div></div>`; }
@@ -5448,6 +5630,6 @@ if(_infoPage){
   }, true);
 })();
 </script>
-<script src="intelligence.js"></script>
+<script src="intelligence.js?v=20260729b"></script>
 </body>
 </html>

@@ -45,6 +45,17 @@ from scripts.payload_utils import read_js_payload  # noqa: E402
 SITE = "https://entenser.com"
 E = html.escape
 
+
+def _script_json(value: object) -> str:
+    """Serialize JSON safely for an inline script element."""
+    return (
+        json.dumps(value, separators=(",", ":"))
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+    )
+
+
 # MLS's flat payload carries no outlook.columns; these mirror outlook.cards.
 _MLS_COLS = [("playoff", "Playoff"), ("shield", "Shield"), ("cup", "MLS Cup")]
 
@@ -315,12 +326,29 @@ def _upcoming(d: dict, n: int = 8) -> list[dict]:
     return fx[:n]
 
 
+def _forecast_state_label(d: dict) -> str:
+    """Customer-facing data state without implying every route is live."""
+    data_status = d.get("data_status")
+    status = d.get("status")
+    if status == "completed":
+        return "final"
+    if data_status == "historical":
+        return "archive"
+    if data_status == "results_only":
+        return "results only"
+    if status == "preseason":
+        return "pre-season"
+    if d.get("no_fixture_feed"):
+        return "fixtures limited"
+    return "full forecast"
+
+
 # ── page fragments ────────────────────────────────────────────────────────────
 
 def _head(title: str, desc: str, canonical: str, og_image: str,
           jsonld: dict | None) -> str:
     ld = (f'<script type="application/ld+json">'
-          f'{json.dumps(jsonld, separators=(",", ":"))}</script>' if jsonld else "")
+          f'{_script_json(jsonld)}</script>' if jsonld else "")
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -529,8 +557,7 @@ def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
     # ── body ──
     parts = [_head(title, desc, canonical, f"{site}/assets/og/og-image.png",
                    _jsonld(lg, d, canonical, fx, site))]
-    badge = {"preseason": "pre-season", "completed": "final",
-             "knockout_live": "live bracket"}.get(status, "live")
+    badge = _forecast_state_label(d)
     parts.append(f'<h1>{E(name)} {E(season)} '
                  f'{"results" if completed else "forecast"}'
                  f'<span class="badge">{badge}</span></h1>')
@@ -820,12 +847,27 @@ def club_page(lg: dict, d: dict, row: dict, aliases: list[str],
         title, desc, canonical, f"{site}/assets/og/og-image.png",
         _club_jsonld(lg, d, row, canonical, site),
     )]
+    analytics_props = {
+        "club_id": row.get("team_id") or team,
+        "club_name": team,
+        "competition_id": lid,
+        "competition_name": league,
+        "country": lg.get("country") or "",
+        "surface": "club_page",
+        "data_state": _forecast_state_label(d),
+    }
+    safe_analytics = _script_json(analytics_props)
+    parts.append(
+        "<script>if(location.protocol==='https:'&&"
+        "location.hostname==='entenser.com'&&window.gtag){"
+        f"gtag('event','club_page_view',{safe_analytics});"
+        "}</script>"
+    )
     crest = (
         f'<img class="club-crest" src="{E(row["logo"])}" '
         f'alt="{E(team)} crest">' if row.get("logo") else ""
     )
-    badge = "final" if completed else (
-        "pre-season" if d.get("status") == "preseason" else "live")
+    badge = _forecast_state_label(d)
     parts.append(
         f'<div class="club-hd">{crest}<div><h1>{E(team)} forecast'
         f'<span class="badge">{badge}</span></h1>'
@@ -898,9 +940,26 @@ def club_page(lg: dict, d: dict, row: dict, aliases: list[str],
         )
         parts.append(f'<a href="/leagues/{E(lid)}/">Full {E(league)} forecast</a></div>')
 
+    watch_query = urlencode({
+        "league": "intel",
+        "intelLeague": lid,
+        "team": row.get("team_id") or team,
+        "track": "1",
+    })
+    parts.append(
+        f'<a class="cta" id="clubWatchCTA" href="/?{E(watch_query)}">'
+        f'Track {E(team)} with Club Watch →</a>'
+    )
+    parts.append(
+        "<script>document.getElementById('clubWatchCTA').addEventListener("
+        "'click',function(){if(location.protocol==='https:'&&"
+        "location.hostname==='entenser.com'&&window.gtag){"
+        f"gtag('event','track_club',Object.assign({safe_analytics},"
+        "{transport_type:'beacon'}));}});</script>"
+    )
     query = urlencode({"league": lid, "team": team})
     parts.append(
-        f'<a class="cta" href="/?{E(query)}">Open the interactive {E(team)} dashboard →</a>'
+        f'<p><a href="/?{E(query)}">Open the free interactive {E(team)} dashboard →</a></p>'
     )
     parts.append(f'<h2>How these forecasts work</h2>'
                  f'<p class="sub">{E(_METHOD_NOTE)}</p>')

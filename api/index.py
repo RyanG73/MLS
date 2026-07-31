@@ -6,13 +6,17 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 
 from api.account import data as account_data
+from api.account import feedback as account_feedback
 from api.auth import callback, logout, refresh, request
 from api.billing import checkout, portal as billing_portal
 from api.intel import (
-    analytics, ask, briefing, cards, events, export, journal, me, preferences, scenario, team, workspaces,
+    analytics, ask, briefing, cards, events, export, journal, me, preferences, sample, scenario, team, workspaces,
 )
 from api.admin import open_access as admin_open_access
 from api.admin import pricing as admin_pricing
+from api.admin import checkout as admin_checkout
+from api.admin import delivery as admin_delivery
+from api.admin import growth as admin_growth
 from api.pub import card as public_card
 from api.pub import config as public_config
 from api.pub import subscribe as public_subscribe
@@ -58,6 +62,8 @@ def _dispatch(method: str, path: str, headers: dict, body: bytes):
         return analytics.handle(method, headers, body)
     if route == "/intel/team":
         return team.handle(method, headers, query)
+    if route == "/intel/sample":
+        return sample.handle(method, headers, query)
     if route == "/intel/preferences":
         return preferences.handle(method, headers, body)
     if route == "/intel/scenario":
@@ -78,12 +84,20 @@ def _dispatch(method: str, path: str, headers: dict, body: bytes):
         return cards.handle(method, headers, body)
     if route == "/account/data":
         return account_data.handle(method, headers, body)
+    if route == "/account/feedback":
+        return account_feedback.handle(method, headers, body)
     if route == "/public/config":
         return public_config.handle(method, headers)
     if route in ("/admin/open-access", "/admin/open_access"):
         return admin_open_access.handle(method, headers, body)
     if route == "/admin/pricing":
         return admin_pricing.handle(method, headers, body)
+    if route == "/admin/checkout":
+        return admin_checkout.handle(method, headers, body)
+    if route == "/admin/delivery":
+        return admin_delivery.handle(method, headers, body)
+    if route == "/admin/growth":
+        return admin_growth.handle(method, headers)
     if route == "/public/card":
         return public_card.handle(method, headers, query)
     if route == "/public/unsubscribe":

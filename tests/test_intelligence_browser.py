@@ -35,6 +35,10 @@ def intelligence_urls():
     token = issue_access_token(
         "dev-only-insecure-secret", "browser-user", "creator",
         ttl_seconds=3600)
+    get_or_create_user(kv, "free-browser-user", "free-browser@example.test")
+    free_token = issue_access_token(
+        "dev-only-insecure-secret", "free-browser-user", "free",
+        ttl_seconds=3600)
 
     static_port, api_port = _port(), _port()
     static_origin = f"http://127.0.0.1:{static_port}"
@@ -57,6 +61,8 @@ def intelligence_urls():
         yield {
             "page": static_origin + "/" + query,
             "token": token,
+            "free_page": static_origin + "/" + query + "&track=1",
+            "free_token": free_token,
         }
     finally:
         static_server.shutdown()
@@ -72,7 +78,7 @@ def _open(page: Page, intelligence_urls, width=1280, height=900):
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     page.goto(intelligence_urls["page"], wait_until="networkidle")
-    expect(page.locator(".intel-command h1")).to_contain_text("Arsenal Intelligence")
+    expect(page.locator(".intel-command h1")).to_contain_text("Arsenal Club Watch")
     return errors
 
 
@@ -135,3 +141,60 @@ def test_hub_mobile_has_no_document_overflow(page: Page, intelligence_urls):
         assert overflow is False, tab
     assert not errors
     page.screenshot(path="/tmp/entenser-intelligence-mobile.png", full_page=True)
+
+
+def test_free_account_receives_one_frozen_club_watch_sample(
+    page: Page, intelligence_urls,
+):
+    page.add_init_script(
+        "localStorage.setItem('entenser.intel.access', " +
+        json.dumps(intelligence_urls["free_token"]) + ")")
+    page.goto(intelligence_urls["free_page"], wait_until="networkidle")
+    expect(page.locator(".intel-command h1")).to_contain_text(
+        "Arsenal Club Watch")
+    expect(page.get_by_text("Your complete sample update")).to_be_visible()
+    expect(page.locator(".intel-trust-tape")).to_contain_text("What changed")
+    expect(page.locator(".intel-trust-tape")).to_contain_text("What next")
+    expect(page.get_by_role("button", name="Checkout unavailable")).to_be_disabled()
+
+
+def test_free_sample_targets_upgrade_copy_to_the_value_moment(
+    page: Page, intelligence_urls,
+):
+    page.add_init_script(
+        "localStorage.setItem('entenser.intel.access', " +
+        json.dumps(intelligence_urls["free_token"]) + ")")
+    page.goto(
+        intelligence_urls["free_page"] + "&moment=movement",
+        wait_until="networkidle",
+    )
+    moment = page.locator('[data-upgrade-moment="movement"]')
+    expect(moment).to_contain_text("Meaningful movement, already explained")
+    expect(moment).to_contain_text("stay free in your saved sample")
+    expect(moment.get_by_role("button", name="Checkout unavailable")).to_be_disabled()
+
+
+def test_account_feedback_is_categorized_and_consent_aware(
+    page: Page, intelligence_urls,
+):
+    page.add_init_script(
+        "localStorage.setItem('entenser.intel.access', " +
+        json.dumps(intelligence_urls["token"]) + ")")
+    account_page = intelligence_urls["page"].replace(
+        "?league=intel", "?league=account")
+    page.goto(account_page, wait_until="networkidle")
+    expect(page.locator("#acct-feedback")).to_be_visible()
+    page.locator("#acFeedbackCategory").select_option("data_quality")
+    page.locator("#acFeedbackMessage").fill(
+        "The timestamp on my club update looked stale.")
+    page.locator("#acFeedbackContact").check()
+    page.locator("#acFeedbackSubmit").click()
+    expect(page.locator("#acFeedbackState")).to_have_text("Feedback saved ✓")
+
+    page.locator("#acFeedbackKind").select_option("testimonial")
+    expect(page.locator("#acFeedbackPublishRow")).to_be_visible()
+    page.locator("#acFeedbackMessage").fill(
+        "The movement explanation made the race easier to follow.")
+    page.locator("#acFeedbackSubmit").click()
+    expect(page.locator("#acFeedbackState")).to_have_text(
+        "Publication permission is required to save a testimonial.")

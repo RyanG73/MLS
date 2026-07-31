@@ -20,7 +20,13 @@ DEFAULT_RECORD = {
     "teams": [],
     "leagues": [],
     "targets": [],
-    "notifications": {"weekly": True, "material_change": True},
+    "notifications": {
+        "weekly": True,
+        "material_change": True,
+        "match_morning": False,
+        "quiet": False,
+        "paused": False,
+    },
     "threshold_pp": 5,
     "timezone": "UTC",
     "last_seen_event_id_by_team": {},
@@ -30,6 +36,9 @@ DEFAULT_RECORD = {
     "journal_entries": [],
     "alert_state": {"bounced": False, "last_sent_at_by_team": {}},
     "analytics_consent": False,
+    "club_watch_sample": None,
+    "subscription_lifecycle": {},
+    "customer_evidence": [],
 }
 
 
@@ -112,6 +121,42 @@ def export_user_data(kv: KVStore, user_id: str) -> dict | None:
 
 
 def delete_user_data(kv: KVStore, user_id: str) -> None:
+    record = export_user_data(kv, user_id) or {}
+    customer_id = record.get("stripe_customer_id")
+    if customer_id:
+        kv.delete(f"stripe_customer:{customer_id}")
+    for token_hash in kv.members(f"refresh_tokens:{user_id}"):
+        kv.delete(f"refresh:{token_hash}")
+    kv.delete(f"refresh_tokens:{user_id}")
+    for key in kv.members("send_ledger:index"):
+        try:
+            delivery = json.loads(kv.get(key) or "{}")
+        except (TypeError, ValueError):
+            continue
+        if delivery.get("user_id") == user_id:
+            if delivery.get("provider_id"):
+                kv.delete(f"provider_send:{delivery['provider_id']}")
+            kv.delete(key)
+    for key in kv.members("growth_events:index"):
+        try:
+            event = json.loads(kv.get(key) or "{}")
+        except (TypeError, ValueError):
+            continue
+        if event.get("user_id") == user_id:
+            kv.delete(key)
+    for event in (
+        "registration_complete", "sample_update_view", "activation",
+        "checkout_start", "purchase", "renewal", "cancellation_requested",
+        "expiration", "refund", "failed_payment", "payment_recovered",
+        "pause", "reactivation", "material_change_explanation_viewed",
+        "match_stakes_viewed", "since_last_visit_viewed", "scenario_run",
+        "scenario_saved", "return_visit", "notification_setting_change",
+        "cancellation_reason_submitted", "support_request_categorized",
+        "testimonial_consented",
+    ):
+        kv.delete(f"growth_last:{user_id}:{event}")
+    kv.delete(f"dunning:{user_id}")
+    kv.delete(f"refunded:{user_id}")
     kv.delete(_key(user_id))
     # The immutable index may retain a tombstone; jobs skip missing records.
 
@@ -140,11 +185,185 @@ _ALLOWED_PREFERENCE_KEYS = {
 }
 
 
-def update_public_preferences(kv: KVStore, user_id: str, updates: dict) -> dict:
+def _normalise_teams(value, plan: str) -> list[dict]:
+    if not isinstance(value, list):
+        raise ValueError("teams must be a list")
+    limit = 1 if plan == "free" else 10
+    if len(value) > limit:
+        raise ValueError(
+            "free accounts can follow one synced club"
+            if plan == "free" else f"at most {limit} clubs may be followed")
+    out, seen = [], set()
+    for row in value:
+        if not isinstance(row, dict):
+            raise ValueError("each followed club must be an object")
+        league_id = str(row.get("league_id") or "").strip()
+        team_id = str(row.get("team_id") or "").strip()
+        if not league_id or not team_id:
+            raise ValueError("followed clubs require league_id and team_id")
+        key = (league_id, team_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        clean = {"league_id": league_id, "team_id": team_id}
+        if row.get("team"):
+            clean["team"] = str(row["team"])[:120]
+        out.append(clean)
+    return out
+
+
+def _normalise_notifications(value) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError("notifications must be an object")
+    allowed = {"weekly", "material_change", "match_morning", "quiet", "paused"}
+    unknown = set(value) - allowed
+    if unknown:
+        raise ValueError(f"unsupported notification fields: {sorted(unknown)}")
+    if any(not isinstance(flag, bool) for flag in value.values()):
+        raise ValueError("notification values must be booleans")
+    return value
+
+
+def update_public_preferences(
+    kv: KVStore, user_id: str, updates: dict, plan: str = "free",
+) -> dict:
     unknown = set(updates) - _ALLOWED_PREFERENCE_KEYS
     if unknown:
         raise ValueError(f"unsupported preference fields: {sorted(unknown)}")
+    updates = dict(updates)
+    if "teams" in updates:
+        updates["teams"] = _normalise_teams(updates["teams"], plan)
+        record = export_user_data(kv, user_id)
+        sample = (record or {}).get("club_watch_sample")
+        if plan == "free" and sample:
+            sample_identity = (
+                str(sample.get("league_id") or ""),
+                str(sample.get("team_id") or ""),
+            )
+            requested_identity = (
+                str(updates["teams"][0].get("league_id") or ""),
+                str(updates["teams"][0].get("team_id") or ""),
+            ) if updates["teams"] else ("", "")
+            if requested_identity != sample_identity:
+                sample_label = sample.get("team") or sample_identity[1]
+                raise ValueError(
+                    "Your free Club Watch sample is already assigned to "
+                    f"{sample_label}. Upgrade to follow another club.")
+    if "notifications" in updates:
+        updates["notifications"] = _normalise_notifications(
+            updates["notifications"])
     return update_preferences(kv, user_id, **updates)
+
+
+def get_or_create_club_watch_sample(
+    kv: KVStore, user_id: str, league_id: str, team_id: str, builder,
+) -> dict:
+    record = export_user_data(kv, user_id)
+    if record is None:
+        raise KeyError(user_id)
+    existing = record.get("club_watch_sample")
+    if existing:
+        if (
+            existing.get("league_id") != league_id
+            or existing.get("team_id") != team_id
+        ):
+            sample_label = existing.get("team") or existing.get("team_id")
+            raise ValueError(
+                "Your free Club Watch sample is already assigned to "
+                f"{sample_label}. Upgrade to follow another club.")
+        return existing
+    sample = builder()
+    if sample.get("league_id") != league_id or sample.get("team_id") != team_id:
+        raise ValueError("sample identity did not match the followed club")
+    update_preferences(kv, user_id, club_watch_sample=sample)
+    return sample
+
+
+def update_subscription_lifecycle(kv: KVStore, user_id: str, **updates) -> dict:
+    record = export_user_data(kv, user_id)
+    if record is None:
+        raise KeyError(user_id)
+    lifecycle = dict(record.get("subscription_lifecycle") or {})
+    lifecycle.update({key: value for key, value in updates.items()
+                      if value is not None})
+    return update_preferences(kv, user_id, subscription_lifecycle=lifecycle)
+
+
+CANCELLATION_REASON_CATEGORIES = {
+    "too_expensive", "not_using_enough", "seasonal_pause",
+    "forecasts_not_useful", "notifications", "missing_club_or_league",
+    "technical_problem", "switched_product", "other",
+}
+
+SUPPORT_CATEGORIES = {
+    "account_access", "billing", "refund", "data_quality", "wrong_club",
+    "forecast_question", "notification", "privacy", "feature_request", "other",
+}
+
+TESTIMONIAL_CATEGORIES = {
+    "saved_time", "understood_change", "prepared_for_match",
+    "followed_race", "trusted_forecast", "other",
+}
+
+
+def append_customer_evidence(
+    kv: KVStore,
+    user_id: str,
+    *,
+    kind: str,
+    category: str,
+    message: str,
+    contact_consent: bool = False,
+    publication_consent: bool = False,
+) -> dict:
+    """Persist categorized evidence with explicit contact/publication consent.
+
+    Private message text stays in the user's exportable and deletable account
+    record. Aggregate growth events receive only category and consent state.
+    """
+    record = export_user_data(kv, user_id)
+    if record is None:
+        raise KeyError(user_id)
+    categories = {
+        "cancellation": CANCELLATION_REASON_CATEGORIES,
+        "support": SUPPORT_CATEGORIES,
+        "testimonial": TESTIMONIAL_CATEGORIES,
+    }
+    if kind not in categories:
+        raise ValueError("kind must be cancellation, support, or testimonial")
+    if category not in categories[kind]:
+        raise ValueError(f"unsupported {kind} category")
+    clean_message = str(message or "").strip()
+    if not clean_message:
+        raise ValueError("message is required")
+    if len(clean_message) > 2000:
+        raise ValueError("message must be at most 2000 characters")
+    if not isinstance(contact_consent, bool) or not isinstance(
+        publication_consent, bool
+    ):
+        raise ValueError("consent values must be booleans")
+    if kind == "testimonial" and not publication_consent:
+        raise ValueError(
+            "testimonial capture requires explicit publication consent")
+    if kind != "testimonial" and publication_consent:
+        raise ValueError(
+            "publication consent is accepted only for testimonials")
+
+    now = dt.datetime.now(dt.timezone.utc).isoformat()
+    evidence = {
+        "evidence_id": f"evidence:{uuid.uuid4()}",
+        "kind": kind,
+        "category": category,
+        "message": clean_message,
+        "contact_consent": contact_consent,
+        "publication_consent": publication_consent,
+        "consent_version": "customer-evidence-v1",
+        "created_at": now,
+    }
+    rows = list(record.get("customer_evidence") or [])
+    rows.append(evidence)
+    update_preferences(kv, user_id, customer_evidence=rows[-100:])
+    return evidence
 
 
 def event_cursor_key(league_id: str, team_id: str) -> str:

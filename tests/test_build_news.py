@@ -33,6 +33,14 @@ def test_no_match_routes_nowhere():
     assert route_item("Cricket world cup latest", "", KW) == set()
 
 
+def test_nonfootball_story_with_club_alias_is_rejected():
+    assert route_item("Arsenal cricket club wins county final", "", KW) == set()
+
+
+def test_short_alias_does_not_match_inside_an_unrelated_word():
+    assert route_item("New HTMLScriptElement browser API", "", KW) == set()
+
+
 def test_gossip_filter():
     assert is_gossip("Star striker linked with big-money move")
     assert is_gossip("Transfer talk: ten deals that could happen")

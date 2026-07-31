@@ -1,6 +1,8 @@
 """POST /v1/billing/checkout creates a server-priced hosted Checkout Session."""
 from __future__ import annotations
 
+import os
+
 from server.api_support import ApiError, bearer_user, body_json, guarded, response
 from server.kv_client import get_kv
 from server.pricing_tier import get_tier, normalise_interval
@@ -10,6 +12,8 @@ from server.stripe_checkout import (
     CheckoutProviderError,
     create_checkout_session,
 )
+from server.checkout_control import get_state as checkout_state
+from server.growth_events import record_event
 
 # `creator` ranks above `intel` in PLAN_RANK and the UI had an "Upgrade to
 # Creator" button, but the tier has no published price, no entitlement list and
@@ -40,6 +44,10 @@ def handle(method: str, headers: dict, body: bytes):
         # that could name its own tier could name the cheaper one.
         interval = normalise_interval(payload.get("interval"))
         tier = get_tier(get_kv())
+        readiness = checkout_state(get_kv())
+        if (not readiness["enabled"]
+                and os.environ.get("ENTENSER_ENV") == "production"):
+            raise ApiError(503, "checkout is not available")
         if not check_rate_limit(get_kv(), f"checkout:{user_id}",
                                 CHECKOUT_RATE_LIMIT_MAX,
                                 CHECKOUT_RATE_LIMIT_WINDOW_SECONDS):
@@ -50,5 +58,11 @@ def handle(method: str, headers: dict, body: bytes):
             raise ApiError(503, str(exc)) from exc
         except CheckoutProviderError as exc:
             raise ApiError(502, str(exc)) from exc
+        record_event(
+            get_kv(), "checkout_start",
+            event_id=f"checkout_start:{session['id']}",
+            user_id=user_id,
+            properties={"plan": plan, "interval": interval,
+                        "price_tier": tier, "provider": "stripe"})
         return response(201, {**session, "interval": interval, "tier": tier})
     return guarded(run)

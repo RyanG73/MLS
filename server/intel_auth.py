@@ -128,6 +128,7 @@ def issue_refresh_token(kv: KVStore, user_id: str) -> str:
     raw_token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
     kv.set(f"refresh:{token_hash}", user_id, ex=REFRESH_TOKEN_TTL_SECONDS)
+    kv.add_to_set(f"refresh_tokens:{user_id}", token_hash)
     return raw_token
 
 

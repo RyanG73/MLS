@@ -1,4 +1,4 @@
-# Intelligence Hub Launch Runbook
+# Club Watch Launch Runbook
 
 **Date:** 2026-07-18
 **Status:** Pre-launch; authenticated web implementation ready, live email disabled
@@ -7,15 +7,17 @@ Resend, DNS, and the GitHub production environments
 
 ## 1. Launch boundary
 
-There are two independent launch decisions:
+There are three independent launch decisions:
 
-1. **Authenticated web launch:** may proceed after production provider setup,
-   deployment, artifact publication, and the web smoke tests in this document.
-2. **Live email launch:** must remain disabled until S8 has accrued at least two
+1. **Registered sample launch:** one followed club and one frozen sample may
+   proceed after production auth/storage setup and the web smoke tests.
+2. **Paid Club Watch launch:** remains disabled until pricing, approved policy
+   versions, Stripe lifecycle, Account, and checkout-kill-switch checks pass.
+3. **Live notification launch:** must remain disabled until S8 has accrued at least two
    complete matchweeks, one quiet-mode cycle has been reviewed, and the owner
    explicitly approves delivery.
 
-All 26 features may appear in the web Hub before live email is approved. Features
+All 26 features may appear in paid Club Watch before live delivery is approved. Features
 without sufficient source evidence must stay in thin_history or unavailable
 state. Do not replace those states with samples.
 
@@ -29,11 +31,18 @@ Do not announce production availability until all applicable boxes are true:
       public/static bundle.
 - [ ] Magic-link request, callback, refresh, logout, account export, and account
       deletion pass against production.
-- [ ] Stripe test-mode Checkout and lifecycle webhooks update entitlement.
+- [ ] All four immutable Stripe Prices exist and `/v1/public/config` exposes the
+      exact active monthly and annual amounts.
+- [ ] Approved Terms, Privacy, and Refund policy versions are configured.
+- [ ] Checkout is owner-enabled and its disable rehearsal completes in under
+      five minutes without revoking current entitlements.
+- [ ] Stripe test-mode Checkout and lifecycle webhooks update entitlement,
+      dunning, cancellation, renewal, recovery, expiration, and refund state.
 - [ ] Resend test delivery and signed webhook status update pass.
 - [ ] Public card HTML and PNG verification URLs work without authentication.
 - [ ] Desktop and 375px mobile authenticated smoke checks pass.
-- [ ] INTELLIGENCE_LIVE_SENDS remains false until S8 approval.
+- [ ] `INTELLIGENCE_SENDS_ENABLED` and
+      `INTELLIGENCE_SENDS_OWNER_APPROVED` remain false until S8 approval.
 - [ ] The intelligence-production GitHub environment has a required reviewer.
 
 ## 3. Required configuration
@@ -53,8 +62,15 @@ Set these as production secrets or environment values on the API project:
 | RESEND_WEBHOOK_SECRET | Svix signing secret from the Resend webhook |
 | STRIPE_SECRET_KEY | Production Stripe restricted/secret key |
 | STRIPE_WEBHOOK_SECRET | Signing secret for the Stripe production endpoint |
-| STRIPE_INTEL_PRICE_ID | Server-selected recurring Intel price |
-| STRIPE_CREATOR_PRICE_ID | Server-selected recurring Creator price |
+| STRIPE_PRICE_INTEL_MONTHLY_LAUNCH | Immutable $5.99 launch monthly Price |
+| STRIPE_PRICE_INTEL_ANNUAL_LAUNCH | Immutable $59.99 launch annual Price |
+| STRIPE_PRICE_INTEL_MONTHLY_STANDARD | Immutable inactive $7.99 monthly Price |
+| STRIPE_PRICE_INTEL_ANNUAL_STANDARD | Immutable inactive $79.99 annual Price |
+| CHECKOUT_ENABLED | `true` requests checkout; production readiness can still block it |
+| ADMIN_TOKEN | Owner token for checkout state and growth scorecard endpoints |
+| CUSTOMER_TERMS_APPROVED_VERSION | Exact owner-approved Terms version |
+| PRIVACY_POLICY_APPROVED_VERSION | Exact owner-approved Privacy version |
+| REFUND_POLICY_APPROVED_VERSION | Exact owner-approved Refund policy version |
 | UNSUBSCRIBE_SECRET | At least 32 random bytes; also used by delivery jobs |
 | PUBLIC_SITE_URL | https://entenser.com |
 | PUBLIC_API_URL | https://api.entenser.com/v1 |
@@ -76,7 +92,8 @@ Repository secrets:
 Repository/environment variables:
 
 - PUBLIC_API_URL=https://api.entenser.com/v1
-- INTELLIGENCE_LIVE_SENDS=false
+- INTELLIGENCE_SENDS_ENABLED=false
+- INTELLIGENCE_SENDS_OWNER_APPROVED=false
 
 Protected environments:
 
@@ -84,9 +101,8 @@ Protected environments:
 - intelligence-production controls delivery and must require owner review during
   shadow mode.
 
-The scheduled delivery workflow runs daily, but it sends only when
-INTELLIGENCE_LIVE_SENDS is exactly true. Both process-level send switches are
-also required, and the delivery scripts still apply deduplication, entitlement,
+The scheduled delivery workflow runs daily, but both send switches are
+required, and the delivery scripts still apply deduplication, entitlement,
 unsubscribe, bounce, retry, and cadence checks.
 
 ## 4. Provisioning order
@@ -98,13 +114,15 @@ unsubscribe, bounce, retry, and cadence checks.
 3. Verify the Resend sending domain and sender. Create a webhook at
    https://api.entenser.com/v1/resend/webhook and subscribe to delivered,
    bounced, complained, and failed email events.
-4. Create recurring Stripe products/prices for Intel and Creator. Register
+4. Create the four immutable Club Watch prices above. Sell only the internal
+   `intel` entitlement; Creator remains unavailable. Register
    https://api.entenser.com/v1/stripe/webhook for:
-   checkout.session.completed, customer.subscription.updated, and
-   customer.subscription.deleted.
+   checkout.session.completed, customer.subscription.updated,
+   customer.subscription.deleted, invoice.paid, invoice.payment_failed, and
+   charge.refunded.
 5. Put the Stripe price IDs and webhook secret in Vercel. Never accept a price ID
    or entitlement from the browser.
-6. Keep INTELLIGENCE_LIVE_SENDS=false.
+6. Keep both notification send switches false.
 7. Deploy the API through the Deploy Intelligence API workflow.
 8. Run a full refresh so private artifacts are built, validated, and published
    to Upstash.
@@ -145,23 +163,28 @@ configuration is a failure in launch/CI usage.
 ### Authentication and account
 
 1. Request a magic link for a test address.
-2. Confirm the link opens the Hub, is single-use, and expires after 15 minutes.
+2. Confirm the link preserves the selected club, opens Club Watch, is
+   single-use, and expires after 15 minutes.
 3. Refresh the page after the access-token lifetime and verify refresh succeeds.
 4. Log out and confirm the refresh token is revoked.
-5. Export account data, then delete a disposable account and verify paid
-   endpoints reject its old token.
+5. Confirm an active paid account cannot be deleted; cancel and expire a
+   disposable account, export/delete it, and verify its refresh tokens and
+   private ledgers are removed.
 
 ### Entitlement and billing
 
 1. Use Stripe test mode first.
-2. Start Intel and Creator Checkout from authenticated accounts.
+2. Start monthly and annual Club Watch Checkout from authenticated accounts.
 3. Confirm success redirects do not grant access before the webhook arrives.
 4. Verify checkout completion grants the correct plan.
-5. Send past_due/canceled/deleted lifecycle events and verify access is revoked.
-6. Repeat the exact flow in production with an owner-controlled account before
+5. Send past_due, recovered invoice, cancellation-requested, deleted, and full
+   refund lifecycle events; verify the correct access and scorecard state.
+6. Disable checkout through `/v1/admin/checkout`; confirm new sessions stop and
+   current Club Watch access remains valid.
+7. Repeat the exact flow in production with an owner-controlled account before
    opening sales.
 
-### Hub and evidence
+### Club Watch and evidence
 
 1. Open Arsenal in the Premier League plus one live, one preseason, and one
    completed competition.
@@ -169,12 +192,13 @@ configuration is a failure in launch/CI usage.
 3. Run and save a scenario; reload and verify its snapshot/seed/version receipt.
 4. Create, view, and delete a Forecast Journal checkpoint.
 5. Create each conversation-card template and open both HTML and PNG public URLs.
-6. Save/delete a Creator workspace and export PNG, CSV, and JSON.
+6. Confirm Creator cannot be purchased. Existing Creator entitlements may still
+   exercise their legacy workspace/export paths.
 7. Confirm unavailable features contain no mock percentage.
 8. Confirm the browser cannot fetch private artifact keys or private journal data
    without a valid entitled token.
 
-### Email safety
+### Notification safety
 
 1. Run both send scripts without --send and confirm only shadow ledger records.
 2. Render a representative alert and briefing for every calendar mode.
@@ -188,6 +212,27 @@ configuration is a failure in launch/CI usage.
 Daily and weekly refresh workflows already generate shadow alert/briefing
 records and upload output/intelligence-shadow-report.json.
 
+For each representative candidate, post a bounded review to the owner-only
+`POST /v1/admin/delivery` route with:
+
+```json
+{
+  "action": "review_shadow",
+  "user_id": "reviewed-user-id",
+  "template_version": "material-alert-v1",
+  "event_ids": ["reviewed-event-id"],
+  "worth_sending": true,
+  "defects": [],
+  "notes": "Supported movement, correct club and outcome."
+}
+```
+
+Allowed defect codes are `wrong_team`, `wrong_outcome`, `wrong_price`,
+`duplicate`, `unsupported_cause`, `not_worth_sending`, and `other`. The report
+then calculates reviewed volume, worth-sending rate, critical defects, observed
+ISO weeks, and quiet-mode suppression evidence. Review notes stay in the
+private delivery ledger and never enter growth analytics.
+
 Review at least:
 
 - two complete matchweeks across active competitions;
@@ -199,15 +244,19 @@ Review at least:
 - empty or low-value briefings that should have been skipped;
 - representative rendering on desktop, mobile, HTML email, and plain text.
 
-The report intentionally keeps owner_signoff_ready false. Approval is a human
-decision recorded in the release issue/change record; do not edit generated
-history to manufacture a pass.
+The report intentionally keeps `owner_signoff_ready` false even when its
+automated thresholds pass. ISO-week and quiet-suppression counters help collect
+evidence, but Ryan still confirms that they represent two *complete*
+matchweeks and one real quiet-mode cycle. Approval is a human decision recorded
+in the release issue/change record; do not edit generated history to
+manufacture a pass.
 
 ## 8. Enable live delivery
 
 After S8 approval:
 
-1. Set INTELLIGENCE_LIVE_SENDS=true in the protected production environment.
+1. Set `INTELLIGENCE_SENDS_ENABLED=true` and
+   `INTELLIGENCE_SENDS_OWNER_APPROVED=true` in the protected production environment.
 2. Run Intelligence Live Delivery manually with the exact confirmation phrase
    ENABLE LIVE INTELLIGENCE.
 3. Review provider IDs and delivery status for that first cohort.
@@ -221,7 +270,7 @@ Authenticated web access does not depend on this switch.
 
 ### Stop email immediately
 
-Set INTELLIGENCE_LIVE_SENDS=false. Do not remove ledger records. If a manual job
+Set `INTELLIGENCE_SENDS_ENABLED=false`. Do not remove ledger records. If a manual job
 is currently awaiting environment approval, reject it.
 
 ### Pause a bad artifact build
@@ -240,7 +289,7 @@ refresh tokens or delete affected users as needed.
 
 ### Billing incident
 
-Disable Checkout at the API/environment level, leave webhook processing active,
+POST `{"enabled":false}` to `/v1/admin/checkout`, leave webhook processing active,
 and reconcile Stripe subscriptions against the authoritative user records.
 Browser redirects must never be used to repair entitlement.
 

@@ -4,8 +4,16 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import uuid
 
 from server.kv_store import KVStore
+from server.growth_events import record_event
+
+DELIVERY_OUTCOMES = {"corrected", "duplicated", "suppressed"}
+SHADOW_REVIEW_DEFECTS = {
+    "wrong_team", "wrong_outcome", "wrong_price", "duplicate",
+    "unsupported_cause", "not_worth_sending", "other",
+}
 
 
 def delivery_key(user_id: str, event_ids: list[str], template_version: str) -> str:
@@ -43,6 +51,7 @@ def record_delivery(kv: KVStore, *, user_id: str, team_ids: list[str],
         "template_version": template_version, "status": status,
         "provider_id": provider_id, "error_code": error_code,
         "attempts": int(previous.get("attempts", 0)) + 1,
+        "created_at": previous.get("created_at") or now,
         "updated_at": now,
     }
     kv.set(key, json.dumps(record, separators=(",", ":")), ex=180 * 24 * 3600)
@@ -50,6 +59,18 @@ def record_delivery(kv: KVStore, *, user_id: str, team_ids: list[str],
     if provider_id:
         kv.set(f"provider_send:{provider_id}", json.dumps(record, separators=(",", ":")),
                ex=180 * 24 * 3600)
+    kind = "briefing" if template_version.startswith("personalized-briefing") else "alert"
+    if status in {"sent", "failed"}:
+        record_event(
+            kv, f"{kind}_{status}",
+            event_id=f"{key}:{status}",
+            user_id=user_id,
+            properties={
+                "provider": "resend",
+                "template_version": template_version,
+                "status": status,
+            },
+            occurred_at=now)
     return record
 
 
@@ -64,6 +85,111 @@ def update_provider_status(kv: KVStore, provider_id: str, status: str) -> dict |
     kv.set(f"provider_send:{provider_id}", encoded, ex=180 * 24 * 3600)
     kv.set(delivery_key(record["user_id"], record["event_ids"],
                         record["template_version"]), encoded, ex=180 * 24 * 3600)
+    kind = ("briefing" if record["template_version"].startswith(
+        "personalized-briefing") else "alert")
+    event_status = {
+        "delivered": "delivered",
+        "opened": "opened",
+        "clicked": "clicked",
+        "failed": "failed",
+        "bounced": "failed",
+        "complained": "failed",
+    }.get(status)
+    if event_status:
+        record_event(
+            kv, f"{kind}_{event_status}",
+            event_id=f"provider:{provider_id}:{status}",
+            user_id=record["user_id"],
+            properties={
+                "provider": "resend",
+                "template_version": record["template_version"],
+                "status": status,
+            })
+    return record
+
+
+def record_delivery_outcome(
+    kv: KVStore,
+    *,
+    user_id: str,
+    template_version: str,
+    status: str,
+    reason: str,
+    team_ids: list[str] | None = None,
+    event_ids: list[str] | None = None,
+    delivery_ref: str | None = None,
+) -> dict:
+    """Record a non-provider delivery outcome for QA and suppression review."""
+    if status not in DELIVERY_OUTCOMES:
+        raise ValueError(f"unsupported delivery outcome: {status}")
+    clean_reason = str(reason or "").strip()[:160]
+    if not clean_reason:
+        raise ValueError("delivery outcome reason is required")
+    now = dt.datetime.now(dt.timezone.utc).isoformat()
+    key = f"send_outcome:{uuid.uuid4()}"
+    record = {
+        "user_id": user_id,
+        "team_ids": list(team_ids or []),
+        "event_ids": list(event_ids or []),
+        "template_version": template_version,
+        "status": status,
+        "reason": clean_reason,
+        "delivery_ref": str(delivery_ref or "")[:160] or None,
+        "attempts": 0,
+        "updated_at": now,
+    }
+    kv.set(key, json.dumps(record, separators=(",", ":")),
+           ex=180 * 24 * 3600)
+    kv.add_to_set("send_ledger:index", key)
+    record_event(
+        kv,
+        f"delivery_{status}",
+        event_id=f"{key}:{status}",
+        user_id=user_id,
+        properties={
+            "template_version": template_version,
+            "status": status,
+            "reason": clean_reason,
+        },
+        occurred_at=now,
+    )
+    return record
+
+
+def review_shadow_delivery(
+    kv: KVStore,
+    *,
+    user_id: str,
+    event_ids: list[str],
+    template_version: str,
+    worth_sending: bool,
+    defects: list[str] | None = None,
+    notes: str = "",
+) -> dict:
+    """Attach a bounded human QA decision to an existing shadow candidate."""
+    if not isinstance(worth_sending, bool):
+        raise ValueError("worth_sending must be a boolean")
+    clean_defects = sorted({
+        str(value).strip() for value in (defects or []) if str(value).strip()
+    })
+    unknown = set(clean_defects) - SHADOW_REVIEW_DEFECTS
+    if unknown:
+        raise ValueError(f"unsupported shadow review defects: {sorted(unknown)}")
+    key = delivery_key(user_id, event_ids, template_version)
+    raw = kv.get(key)
+    if raw is None:
+        raise ValueError("shadow delivery not found")
+    record = json.loads(raw)
+    if record.get("status") != "shadow":
+        raise ValueError("only shadow deliveries can be reviewed")
+    record.update({
+        "reviewed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "worth_sending": worth_sending,
+        "defects": clean_defects,
+        "review_notes": str(notes or "").strip()[:500],
+    })
+    encoded = json.dumps(record, separators=(",", ":"))
+    kv.set(key, encoded, ex=180 * 24 * 3600)
     return record
 
 

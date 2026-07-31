@@ -1,6 +1,6 @@
 import pandas as pd
 
-from scripts.build_movers import compute_movers
+from scripts.build_movers import compute_movers, compute_movers_with_diagnostics
 
 # compute_movers drops each (league, team)'s earliest row as a sentinel
 # bootstrap snapshot, so every fixture team gets one throwaway first row with
@@ -59,3 +59,22 @@ def test_top_n_ranked_by_magnitude():
     movers, _, _ = compute_movers(_hist(rows), min_delta=1.0, top_n=5)
     assert len(movers) == 5
     assert movers[0]["delta"] == 29.0   # biggest magnitude first
+
+
+def test_midstream_reset_spike_is_suppressed_and_labeled():
+    df = pd.DataFrame([
+        ("romania-liga1", "FC Botosani", "2026-07-01", "2026", 2, 0.0, 30.0),
+        ("romania-liga1", "FC Botosani", "2026-07-03", "2026", 2, 100.0, 30.0),
+        ("romania-liga1", "FC Botosani", "2026-07-05", "2026", 2, 0.0, 30.0),
+    ], columns=[
+        "league", "team", "snapshot_date", "season", "n_played",
+        "title", "releg",
+    ])
+    movers, _, _, diagnostics = compute_movers_with_diagnostics(
+        df, min_delta=1.0)
+    assert movers == []
+    assert diagnostics["reset"] >= 1
+    assert any(
+        row["team"] == "FC Botosani" and row["state"] == "reset"
+        for row in diagnostics["observations"]
+    )

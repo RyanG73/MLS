@@ -41,10 +41,16 @@ def _stake(date="2026-08-21"):
 def _record(stake):
     return {
         "league_id": "epl",
+        "league_name": "Premier League",
         "team_id": "v1:arsenal",
         "team": "Arsenal",
+        "season_id": "2026",
+        "generated": "2026-08-21 08:00 UTC",
+        "snapshot_id": "v1:snapshot",
+        "target_metric": "title",
         "calendar_mode": {"mode": "active_matchweek"},
         "features": {
+            "1": {"data": {"current_pct": 32.0}},
             "2": {"data": {"events": []}},
             "8": {"data": {"sections": {
                 "team_pulse": {
@@ -149,7 +155,10 @@ def test_matchday_stake_bypasses_weekly_cadence_and_renders_outcomes():
     briefing = {
         "local_date": "2026-08-21",
         "teams": [{
-            "team": "Arsenal",
+            **{
+                key: value for key, value in _record(_stake()).items()
+                if key != "features"
+            },
             "briefing": {"sections": {
                 "team_pulse": {"summary": "Title is 32.0%."},
                 "prematch_stakes": _stake(),
@@ -158,7 +167,9 @@ def test_matchday_stake_bypasses_weekly_cadence_and_renders_outcomes():
     }
     subject, html_body, text_body = _render(
         {"user_id": "user-1"}, briefing)
-    assert subject == "Your Entenser team briefing"
+    assert subject == "Your Entenser Club Watch briefing"
+    assert "Forecast as of 2026-08-21 08:00 UTC" in html_body
+    assert "Snapshot v1:snapshot" in text_body
     assert "What’s at stake: Arsenal vs Coventry City" in html_body
     assert "Win:</strong> 36.5% (+4.5pp)" in html_body
     assert "Loss: 25.0% (-7.0pp)" in text_body

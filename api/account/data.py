@@ -18,6 +18,12 @@ def handle(method: str, headers: dict, body: bytes = b"{}"):
             payload = body_json(body)
             if payload.get("confirmation") != "DELETE":
                 raise ApiError(400, "confirmation must be DELETE")
+            record = export_user_data(get_kv(), user_id) or {}
+            if record.get("plan") in {"trial", "intel", "creator"}:
+                raise ApiError(
+                    409,
+                    "cancel the active subscription and wait for access to expire "
+                    "before deleting the account")
             delete_user_data(get_kv(), user_id)
             return response(200, {"status": "deleted"})
         raise ApiError(405, "method not allowed")

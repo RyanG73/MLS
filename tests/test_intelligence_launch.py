@@ -10,7 +10,9 @@ from api.intel import team as team_api
 from api.pub import card as public_card_api
 from scripts.intelligence.builder import _hydrate_fixture_ids
 from scripts.send_intelligence_notifications import render_alert
+from scripts.report_intelligence_shadow import build_report
 from server.conversation_card import HEIGHT, WIDTH, render_card_png
+from server.growth_events import read_events
 from server.intel_auth import issue_access_token
 from server.intel_store import (
     delete_creator_workspace,
@@ -21,7 +23,10 @@ from server.intel_store import (
 )
 from server.kv_client import get_kv, reset_kv_for_tests
 from server.kv_store import InMemoryKVStore
-from server.send_ledger import already_sent, record_delivery
+from server.send_ledger import (
+    already_sent, record_delivery, record_delivery_outcome,
+    review_shadow_delivery,
+)
 from server.stripe_checkout import create_checkout_session
 from server.stripe_webhook import handle_event
 
@@ -188,6 +193,70 @@ def test_shadow_record_deduplicates_shadow_but_not_first_live_send():
     assert not already_sent(
         kv, "user-1", ["event:1"], "v1", include_shadow=False)
     assert kv.members("send_ledger:index")
+
+
+def test_delivery_outcomes_are_persisted_and_instrumented():
+    kv = InMemoryKVStore()
+    row = record_delivery_outcome(
+        kv,
+        user_id="user-1",
+        team_ids=["v1:club"],
+        event_ids=["event:1"],
+        template_version="material-alert-v1",
+        status="suppressed",
+        reason="quiet mode",
+    )
+    assert row["status"] == "suppressed"
+    assert row["reason"] == "quiet mode"
+    stored = [
+        json.loads(kv.get(key))
+        for key in kv.members("send_ledger:index")
+    ]
+    assert stored == [row]
+    assert "delivery_suppressed" in {
+        event["event"] for event in read_events(kv)}
+
+    with pytest.raises(ValueError, match="unsupported delivery outcome"):
+        record_delivery_outcome(
+            kv,
+            user_id="user-1",
+            template_version="material-alert-v1",
+            status="sent",
+            reason="not an outcome",
+        )
+
+
+def test_shadow_review_is_bounded_and_reported_for_the_manual_gate():
+    kv = InMemoryKVStore()
+    record_delivery(
+        kv, user_id="user-1", team_ids=["v1:club"],
+        event_ids=["event:1"], template_version="material-alert-v1",
+        status="shadow")
+    reviewed = review_shadow_delivery(
+        kv,
+        user_id="user-1",
+        event_ids=["event:1"],
+        template_version="material-alert-v1",
+        worth_sending=True,
+        notes="Supported movement and correct club.",
+    )
+    assert reviewed["worth_sending"] is True
+    assert reviewed["defects"] == []
+    report = build_report(kv, Path("/does/not/exist.parquet"))
+    assert report["shadow_review"]["reviewed_count"] == 1
+    assert report["shadow_review"]["worth_sending_rate"] == 1
+    assert report["owner_signoff_ready"] is False
+    assert report["shadow_review"]["automated_thresholds_met"] is False
+
+    with pytest.raises(ValueError, match="unsupported shadow review defects"):
+        review_shadow_delivery(
+            kv,
+            user_id="user-1",
+            event_ids=["event:1"],
+            template_version="material-alert-v1",
+            worth_sending=False,
+            defects=["made_up_defect"],
+        )
 
 
 def test_material_alert_uses_configured_versioned_api_base(monkeypatch):

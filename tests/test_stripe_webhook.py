@@ -4,7 +4,8 @@ import time
 
 import pytest
 
-from server.intel_store import get_or_create_user, get_plan
+from server.growth_events import read_events
+from server.intel_store import export_user_data, get_or_create_user, get_plan
 from server.kv_store import InMemoryKVStore
 from server.stripe_webhook import (
     InvalidWebhookSignature, handle_event, verify_stripe_signature,
@@ -146,6 +147,113 @@ def test_payment_failed_flags_dunning_without_revoking():
     assert result == "user-1"
     assert kv.exists("dunning:user-1")
     assert get_plan(kv, "user-1") == "intel"
+
+
+def test_cancellation_request_is_active_until_subscription_expires():
+    kv = InMemoryKVStore()
+    get_or_create_user(kv, "user-1", "a@example.com")
+    handle_event(kv, {
+        "id": "evt_1", "type": "checkout.session.completed",
+        "data": {"object": {"metadata": {"user_id": "user-1"}}},
+    })
+    handle_event(kv, {
+        "id": "evt_2", "type": "customer.subscription.updated",
+        "data": {
+            "previous_attributes": {"cancel_at_period_end": False},
+            "object": {
+                "metadata": {"user_id": "user-1"},
+                "status": "active",
+                "cancel_at_period_end": True,
+                "current_period_end": 1_800_000_000,
+            },
+        },
+    })
+    assert get_plan(kv, "user-1") == "intel"
+    assert export_user_data(kv, "user-1")[
+        "subscription_lifecycle"]["cancel_at_period_end"] is True
+    assert "cancellation_requested" in {
+        event["event"] for event in read_events(kv)}
+
+
+def test_stripe_cancellation_reason_is_stored_and_categorized():
+    kv = InMemoryKVStore()
+    get_or_create_user(kv, "user-1", "a@example.com")
+    handle_event(kv, {
+        "id": "evt_1", "type": "checkout.session.completed",
+        "data": {"object": {"metadata": {"user_id": "user-1"}}},
+    })
+    handle_event(kv, {
+        "id": "evt_2", "type": "customer.subscription.updated",
+        "data": {
+            "previous_attributes": {"cancel_at_period_end": False},
+            "object": {
+                "metadata": {"user_id": "user-1"},
+                "status": "active",
+                "cancel_at_period_end": True,
+                "cancellation_details": {
+                    "feedback": "too_expensive",
+                    "comment": "I may return during the run-in.",
+                },
+            },
+        },
+    })
+    lifecycle = export_user_data(kv, "user-1")["subscription_lifecycle"]
+    assert lifecycle["cancellation_reason"] == "too_expensive"
+    assert lifecycle["cancellation_comment"] == (
+        "I may return during the run-in.")
+    event = next(
+        row for row in read_events(kv)
+        if row["event"] == "cancellation_requested")
+    assert event["properties"]["reason"] == "too_expensive"
+
+
+def test_failed_payment_then_paid_invoice_records_recovery():
+    kv = InMemoryKVStore()
+    get_or_create_user(kv, "user-1", "a@example.com")
+    handle_event(kv, {
+        "id": "evt_1", "type": "checkout.session.completed",
+        "data": {"object": {"metadata": {"user_id": "user-1"}}},
+    })
+    handle_event(kv, {
+        "id": "evt_2", "type": "invoice.payment_failed",
+        "data": {"object": {
+            "subscription_details": {"metadata": {"user_id": "user-1"}},
+        }},
+    })
+    handle_event(kv, {
+        "id": "evt_3", "type": "invoice.paid",
+        "data": {"object": {
+            "subscription_details": {"metadata": {"user_id": "user-1"}},
+            "billing_reason": "subscription_cycle",
+        }},
+    })
+    assert not kv.exists("dunning:user-1")
+    assert export_user_data(kv, "user-1")[
+        "subscription_lifecycle"]["payment_status"] == "paid"
+    assert "payment_recovered" in {
+        event["event"] for event in read_events(kv)}
+
+
+def test_full_refund_revokes_access_and_records_lifecycle():
+    kv = InMemoryKVStore()
+    get_or_create_user(kv, "user-1", "a@example.com")
+    handle_event(kv, {
+        "id": "evt_1", "type": "checkout.session.completed",
+        "data": {"object": {
+            "metadata": {"user_id": "user-1"},
+            "customer": "cus_1",
+        }},
+    })
+    handle_event(kv, {
+        "id": "evt_2", "type": "charge.refunded",
+        "data": {"object": {
+            "customer": "cus_1", "refunded": True, "currency": "usd",
+        }},
+    })
+    assert get_plan(kv, "user-1") == "canceled"
+    assert export_user_data(kv, "user-1")[
+        "subscription_lifecycle"]["status"] == "refunded"
+    assert "refund" in {event["event"] for event in read_events(kv)}
 
 
 def test_a_failed_apply_leaves_the_event_retryable():

@@ -321,7 +321,9 @@ class TestLeaguePageRaceFirstLayout:
         rows = page.locator(".tlad .trow")
         locked = page.locator(".tlad .wgroup.wlocked")
         assert locked.count() == rows.count()
-        assert locked.first.get_attribute("href") == "?league=intel"
+        locked_href = locked.first.get_attribute("href") or ""
+        assert locked_href.startswith("?league=intel&intelLeague=epl")
+        assert "moment=scenario" in locked_href
         assert locked.first.get_attribute("data-upsell") == "next-5-sim"
         assert locked.first.locator(".wbox").count() == 5
         assert locked.first.locator(".wbox").first.get_attribute("data-gid") is None
@@ -375,9 +377,10 @@ class TestLeaguePageRaceFirstLayout:
         assert disabled_style["overlapsBoxes"], (
             "The simulator explanation should visibly overlay the disabled controls"
         )
-        assert "Next 5 Sim is available with Entenser Intel" in page.locator(
-            "#laddernote"
-        ).inner_text()
+        assert (
+            "Saved multi-match scenarios are available with Club Watch"
+            in page.locator("#laddernote").inner_text()
+        )
         assert "Projected ladder" not in page.locator("#view-outlook").inner_text()
 
     def test_epl_opening_run_uses_readable_bars_without_fixture_chips(
@@ -591,7 +594,7 @@ class TestLeaguePageRaceFirstLayout:
         self, page: Page, webapp_url: str
     ):
         page.set_viewport_size({"width": 1280, "height": 900})
-        _load_route(page, webapp_url, "ireland-premier")
+        _load_route(page, webapp_url, "mls")
         movement = page.locator(".race-movement")
         assert movement.count() == 1
         progress = page.evaluate(

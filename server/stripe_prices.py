@@ -1,4 +1,4 @@
-"""Read the live Stripe Price so the site can never quote a price we won't charge.
+"""Read an approved Stripe Price so the site cannot misquote what we charge.
 
 The web client previously guessed a price from `navigator.language` -- showing
 EUR to EU locales and USD otherwise, with a separate hardcoded number on each

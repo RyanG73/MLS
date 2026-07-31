@@ -56,6 +56,73 @@ def _load_region_map() -> dict[str, str]:
 
 def compute_movers(df: pd.DataFrame, min_delta: float = 1.5,
                    top_n: int = 200, window_days: int = WINDOW_DAYS) -> tuple[list[dict], int, str]:
+    movers, span, earliest, _ = compute_movers_with_diagnostics(
+        df, min_delta=min_delta, top_n=top_n, window_days=window_days)
+    return movers, span, earliest
+
+
+def _same_number(a, b) -> bool:
+    return pd.notna(a) and pd.notna(b) and float(a) == float(b)
+
+
+def _latest_continuous_segment(grp: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
+    """Keep the current season/run and label prior rows as reset boundaries."""
+    resets = []
+    start = 0
+    rows = list(grp.to_dict("records"))
+    for i in range(1, len(rows)):
+        prior, current = rows[i - 1], rows[i]
+        prior_season, season = prior.get("season"), current.get("season")
+        season_changed = (
+            pd.notna(prior_season) and pd.notna(season)
+            and str(prior_season) != str(season)
+        )
+        played_reset = (
+            pd.notna(prior.get("n_played")) and pd.notna(current.get("n_played"))
+            and float(current["n_played"]) < float(prior["n_played"])
+        )
+        if season_changed or played_reset:
+            resets.append({
+                "date": str(current.get("snapshot_date") or ""),
+                "state": "reset",
+                "reason": "season_or_schedule_reset",
+            })
+            start = i
+    return grp.iloc[start:].copy(), resets
+
+
+def _metric_reset_indexes(grp: pd.DataFrame, metric: str) -> set[int]:
+    """Find reset-like extreme points without suppressing real clinches.
+
+    A jump of roughly 100 percentage points while the played-match count is
+    unchanged is a pipeline reset, not new football evidence. A middle point
+    that immediately returns to its prior value is also a reset spike.
+    """
+    reset: set[int] = set()
+    values = list(grp[metric])
+    played = list(grp["n_played"]) if "n_played" in grp else [None] * len(grp)
+    for i in range(1, len(values)):
+        a, b = values[i - 1], values[i]
+        if pd.isna(a) or pd.isna(b):
+            continue
+        stable_played = _same_number(played[i - 1], played[i])
+        if stable_played and abs(float(b) - float(a)) >= 95:
+            reset.add(i)
+    for i in range(1, len(values) - 1):
+        a, b, c = values[i - 1], values[i], values[i + 1]
+        if any(pd.isna(value) for value in (a, b, c)):
+            continue
+        if abs(float(b) - float(a)) >= 80 and abs(float(c) - float(a)) <= 5:
+            reset.add(i)
+    return reset
+
+
+def compute_movers_with_diagnostics(
+    df: pd.DataFrame,
+    min_delta: float = 1.5,
+    top_n: int = 200,
+    window_days: int = WINDOW_DAYS,
+) -> tuple[list[dict], int, str, dict]:
     """Top-|Δ| odds moves per (league, team) over a trailing `window_days` window.
 
     For each team, `prev` is the latest snapshot at or before (latest snapshot
@@ -65,36 +132,84 @@ def compute_movers(df: pd.DataFrame, min_delta: float = 1.5,
     earliest_used_date) so the client can label the window honestly (e.g. "since
     Jul 7" pre-30-days).
 
-    Each entity's very first-ever archived snapshot is dropped before this runs
-    (confirmed 2026-07-13: it carries sentinel values — e.g. Hoffenheim's europa%
-    read 100.0 on its first archive run, then 10.2 the next run and ~9-10 ever
-    after; same 100.0-then-real pattern across many leagues, on whatever calendar
-    date that league's archival happened to start). Comparing against that row
-    manufactures huge fake "movers", so every (league, team) group's earliest row
-    is treated as an unreliable bootstrap read, not a real snapshot to diff from.
-    This is a movers-specific workaround; the root cause belongs in
-    archive_odds_snapshot.py.
+    First observations, season resets, missing baselines, and reset-like extreme
+    points are classified and withheld. They are returned as diagnostics so the
+    client can disclose them instead of presenting ±100pp artifacts as football
+    movement.
     """
     metrics = [m for m in METRICS if m in df.columns]
     region_of = _load_region_map()
     out: list[dict] = []
     used_dates: list[pd.Timestamp] = []
+    diagnostics = {
+        "first_observation": 0,
+        "reset": 0,
+        "missing_baseline": 0,
+        "observations": [],
+    }
     for (league, team), grp in df.groupby(["league", "team"]):
         grp = grp.assign(_d=pd.to_datetime(grp["snapshot_date"])).sort_values("_d")
-        grp = grp.iloc[1:]  # drop this entity's bootstrap-run row
-        if len(grp) < 2:
-            continue
-        now = grp.iloc[-1]
-        cutoff = now["_d"] - pd.Timedelta(days=window_days)
-        eligible = grp[grp["_d"] <= cutoff]
-        prev = eligible.iloc[-1] if len(eligible) else grp.iloc[0]
-        if prev["_d"] == now["_d"]:
-            continue
-        used_dates.append(prev["_d"])
+        grp, boundary_resets = _latest_continuous_segment(grp)
+        for reset in boundary_resets:
+            diagnostics["reset"] += 1
+            diagnostics["observations"].append({
+                "league": league, "team": team, **reset,
+            })
         for m in metrics:
+            metric_rows = grp[grp[m].notna()].copy()
+            if len(metric_rows) >= 2:
+                first_value = float(metric_rows.iloc[0][m])
+                second_value = float(metric_rows.iloc[1][m])
+                if first_value == 100.0 and abs(first_value - second_value) >= 50.0:
+                    first_row = metric_rows.iloc[0]
+                    diagnostics["reset"] += 1
+                    diagnostics["observations"].append({
+                        "league": league, "team": team, "metric": m,
+                        "date": str(first_row.get("snapshot_date") or ""),
+                        "state": "reset",
+                        "reason": "bootstrap_sentinel",
+                    })
+                    metric_rows = metric_rows.iloc[1:].copy()
+            reset_indexes = _metric_reset_indexes(metric_rows, m)
+            if reset_indexes:
+                for idx in sorted(reset_indexes):
+                    row = metric_rows.iloc[idx]
+                    diagnostics["reset"] += 1
+                    diagnostics["observations"].append({
+                        "league": league, "team": team, "metric": m,
+                        "date": str(row.get("snapshot_date") or ""),
+                        "state": "reset",
+                        "reason": "extreme_change_without_match_evidence",
+                    })
+                metric_rows = metric_rows.drop(metric_rows.index[list(reset_indexes)])
+            if len(metric_rows) < 2:
+                diagnostics["first_observation"] += 1
+                diagnostics["observations"].append({
+                    "league": league, "team": team, "metric": m,
+                    "date": str(metric_rows.iloc[-1]["snapshot_date"])
+                    if len(metric_rows) else "",
+                    "state": "first_observation",
+                    "reason": "no_comparable_prior_snapshot",
+                })
+                continue
+            now = metric_rows.iloc[-1]
+            cutoff = now["_d"] - pd.Timedelta(days=window_days)
+            eligible = metric_rows[metric_rows["_d"] <= cutoff]
+            prev = eligible.iloc[-1] if len(eligible) else metric_rows.iloc[0]
+            if prev["_d"] == now["_d"]:
+                diagnostics["missing_baseline"] += 1
+                continue
             a, b = prev.get(m), now.get(m)
             if pd.isna(a) or pd.isna(b):
+                diagnostics["missing_baseline"] += 1
+                diagnostics["observations"].append({
+                    "league": league, "team": team, "metric": m,
+                    "date": str(now.get("snapshot_date") or ""),
+                    "state": "missing_baseline",
+                    "reason": "current_or_prior_value_missing",
+                })
                 continue
+            used_dates.append(prev["_d"])
             delta = float(b) - float(a)
             if abs(delta) < min_delta:
                 continue
@@ -115,7 +230,8 @@ def compute_movers(df: pd.DataFrame, min_delta: float = 1.5,
     ranked = sorted(best.values(), key=lambda x: -abs(x["delta"]))
     earliest_used = min(used_dates).strftime("%Y-%m-%d") if used_dates else ""
     global_span = int((max(used_dates) - min(used_dates)).days) if used_dates else 0
-    return ranked[:top_n], global_span, earliest_used
+    diagnostics["observations"] = diagnostics["observations"][:200]
+    return ranked[:top_n], global_span, earliest_used, diagnostics
 
 
 def main() -> None:
@@ -125,7 +241,7 @@ def main() -> None:
                    "reason": "No odds history accrued yet."}
     else:
         df = pd.read_parquet(HISTORY)
-        movers, span, earliest_used = compute_movers(df)
+        movers, span, earliest_used, diagnostics = compute_movers_with_diagnostics(df)
         window_label = f"last {WINDOW_DAYS} days" if span >= WINDOW_DAYS else \
             f"since tracking began ({earliest_used})"
         payload = {"status": "ok" if movers else "thin",
@@ -134,6 +250,7 @@ def main() -> None:
                    "window_label": window_label,
                    "metric_labels": METRIC_LABEL,
                    "movers": movers,
+                   "suppressed_observations": diagnostics,
                    "reason": None if movers else
                    "Not enough odds history yet — movers appear once builds accrue."}
     write_js_payload(OUT, "MOVERS_DATA", payload)

@@ -70,6 +70,23 @@ ANALYSIS_SIGNAL = re.compile(
     r"low block|overload|half[- ]space",
     re.I)
 
+# Some broad feeds (notably DW Sports) carry multiple sports. A club or generic
+# league token in an unrelated story must not turn a basketball, cricket, rugby,
+# tennis, hockey, motorsport, golf, boxing, or cycling item into football news.
+NON_FOOTBALL_SIGNAL = re.compile(
+    r"\b(?:basketball|nba|wnba|cricket|rugby|nfl|american football|baseball|"
+    r"mlb|tennis|hockey|nhl|formula ?1|motorsport|grand prix|golf|boxing|"
+    r"cycling|tour de france|athletics)\b",
+    re.I,
+)
+FOOTBALL_SIGNAL = re.compile(
+    r"\b(?:football|soccer|goalkeeper|striker|midfielder|defender|manager|"
+    r"head coach|transfer window|penalty shootout|clean sheet|promotion|"
+    r"relegation|champions league|europa league|premier league|la liga|"
+    r"serie a|ligue 1|mls|nwsl|usl)\b",
+    re.I,
+)
+
 # League-name aliases (lowercase substring match). Club names are added from
 # the live payloads at runtime — see _league_keywords().
 LEAGUE_ALIASES: dict[str, list[str]] = {
@@ -135,9 +152,20 @@ def _league_keywords(webapp_data: Path = Path("webapp/data")) -> dict[str, list[
 
 def route_item(title: str, desc: str, keywords: dict[str, list[str]]) -> set[str]:
     """League ids whose keywords appear in the item's title+description."""
-    hay = f" {title} {desc} ".lower()
+    raw = f"{title} {desc}"
+    if NON_FOOTBALL_SIGNAL.search(raw) and not FOOTBALL_SIGNAL.search(raw):
+        return set()
+    hay = raw.lower()
+
+    def contains(keyword: str) -> bool:
+        # Substring routing made the short alias "mls" match inside unrelated
+        # words and let club names match longer entities. Unicode-aware word
+        # boundaries keep punctuation-heavy names working without that leak.
+        return bool(re.search(
+            rf"(?<![\w]){re.escape(keyword.lower())}(?![\w])", hay))
+
     return {lid for lid, words in keywords.items()
-            if any(w in hay for w in words)}
+            if any(contains(w) for w in words)}
 
 
 def _strip_html(s: str) -> str:

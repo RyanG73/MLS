@@ -8,6 +8,7 @@ and escaping of payload-sourced strings.
 from __future__ import annotations
 
 import json
+import html
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -17,6 +18,7 @@ import pytest
 from scripts.build_static_pages import club_slug, main as build_main, pct
 from scripts.build_share_cards import card_og
 from scripts.payload_utils import read_js_payload
+from server.surface_contract import club_surface_contract
 
 REPO = Path(__file__).resolve().parent.parent
 WEBAPP = REPO / "webapp"
@@ -104,10 +106,30 @@ def test_club_pages_have_unique_metadata_and_self_canonicals(built):
 
 def test_club_pages_are_useful_and_structured(built):
     inter_miami = _club_pages(built)[("mls", "inter-miami-cf")]
+    payload = read_js_payload(built / "data" / "mls.js")
+    row = next(
+        item for item in payload["standings"]
+        if item["team"] == "Inter Miami CF")
+    artifact_path = (
+        REPO / "data" / "team_intelligence" / "mls"
+        / f"{row['team_id'].replace(':', '_')}.json"
+    )
+    contract = club_surface_contract(json.loads(artifact_path.read_text()))
+    assert contract["team_id"] == row["team_id"]
+    assert contract["team"] == row["team"]
+    assert contract["generated"] == payload["generated"]
+    assert contract["current_probability_pct"] == row[
+        contract["target_metric"]]
     assert "Expected finish" in inter_miami
     assert "Upcoming matches" in inter_miami
     assert "Recent results" in inter_miami
-    assert "Open the interactive Inter Miami CF dashboard" in inter_miami
+    assert "Track Inter Miami CF with Club Watch" in inter_miami
+    assert "Open the free interactive Inter Miami CF dashboard" in inter_miami
+    assert "club_page_view" in inter_miami
+    assert "track_club" in inter_miami
+    assert row["team_id"] in inter_miami
+    assert payload["generated"][:10] in inter_miami
+    assert html.escape(pct(row["playoff"])) in inter_miami
     blocks = re.findall(
         r'<script type="application/ld\+json">(.*?)</script>',
         inter_miami, re.DOTALL)
@@ -187,6 +209,13 @@ def test_data_status_notes_present_on_exception_leagues(built):
                         ("finland-veikkausliiga", "Results only")]:
         if lid in pages:
             assert needle in pages[lid], f"{lid}: missing '{needle}' note"
+
+
+def test_static_pages_use_honest_data_state_labels(built):
+    all_html = list(_pages(built).values()) + list(_club_pages(built).values())
+    assert all('class="badge">live</span>' not in page for page in all_html)
+    assert any('class="badge">full forecast</span>' in page for page in all_html)
+    assert any('class="badge">pre-season</span>' in page for page in all_html)
 
 
 def test_pct_formatting():
