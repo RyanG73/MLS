@@ -41,6 +41,7 @@
     notice: "",
     error: "",
     selectedTarget: "",
+    historyTarget: "",
     pricing: {},
     checkout: {enabled: false},
     interval: "annual",
@@ -329,7 +330,7 @@
       '<tr><td>Aug 9</td><td><strong>Away vs Rival D</strong></td><td>Own match</td><td class="num">5.2pp</td><td class="num">-1.1pp</td></tr>' +
       "</tbody></table></div></section>";
     var more = '<div class="intel-locked-more"><div class="intel-eyebrow">Also inside</div><div class="intel-tagchips">' +
-      ["Scenario studio", "Paths to the target", "Notification controls", "Rival race", "Forecast time machine",
+      ["Scenario studio", "Paths to the target", "Notification controls", "Rival race", "Season forecast history",
        "Pre-match receipts", "Ask the model", "Confidence panel", "Private journal", "Source-linked evidence"].map(function (label) {
         return "<span>" + escapeHtml(label) + "</span>";
       }).join("") + "</div></div>";
@@ -408,7 +409,7 @@
       return {
         eyebrow: "After your one-match scenario",
         title: "The scenario you just ran stays free",
-        body: "Return to the public forecast whenever you want to rerun it. Club Watch paid adds saved multi-match paths across devices, private history, and monitoring after real results arrive."
+        body: "Return to the public forecast whenever you want to rerun it. Club Watch paid adds saved multi-match paths across devices, an updating season forecast history, and monitoring after real results arrive."
       };
     }
     if (moment === "club_limit") {
@@ -421,8 +422,20 @@
     return {
       eyebrow: "Keep the watch running",
       title: "Club Watch continues after this sample",
-      body: "Paid access adds continuous change monitoring, cause and evidence, match stakes, continuity across visits, saved scenarios, and up to ten followed clubs. Current forecasts and this sample stay free."
+      body: "Paid access adds continuous change monitoring, cause and evidence, match stakes, an updating season forecast history, saved scenarios, and up to ten followed clubs. Current forecasts and this sample stay free."
     };
+  }
+
+  function sampleHistoryHTML(sample) {
+    var feature = sample.features.history || {};
+    var data = feature.data || {};
+    if (!data.points || !data.points.length) return "";
+    return '<section class="intel-feature intel-sample-history"><div class="intel-feature-head">' +
+      '<span class="intel-feature-num">02</span><div class="intel-feature-title"><h2>Season forecast history</h2>' +
+      '<p>Your saved sample includes the season path up to this frozen snapshot.</p></div>' +
+      '<span class="intel-state ' + attr(feature.status || "live") + '">' +
+      escapeHtml((feature.status || "live").replace(/_/g, " ")) + '</span></div>' +
+      trajectoryHTML(data, sample.target_metric, true) + '</section>';
   }
 
   function freeView() {
@@ -461,6 +474,7 @@
       sampleTapeHTML(state.sample) +
       '<div class="intel-note">This sample is frozen to snapshot ' + escapeHtml(state.sample.snapshot_id) +
       '. It will not silently change underneath you.</div></section>' +
+      sampleHistoryHTML(state.sample) +
       '<section class="intel-auth" data-upgrade-moment="' + attr(params.get("moment") || "sample") + '">' +
       '<div class="intel-eyebrow">' + escapeHtml(upgradeMoment.eyebrow) + '</div>' +
       '<h2>' + escapeHtml(upgradeMoment.title) + '</h2>' +
@@ -752,27 +766,133 @@
     }));
   }
 
-  function renderTimeMachine(data) {
+  function historyMetricCounts(data) {
+    var counts = {};
+    (data.points || []).forEach(function (point) {
+      Object.keys(point.values || {}).forEach(function (key) {
+        if (isFinite(Number(point.values[key]))) counts[key] = (counts[key] || 0) + 1;
+      });
+    });
+    return counts;
+  }
+
+  function historyMetricRanges(data) {
+    var ranges = {};
+    (data.points || []).forEach(function (point) {
+      Object.keys(point.values || {}).forEach(function (key) {
+        var value = Number(point.values[key]);
+        if (!isFinite(value)) return;
+        if (!ranges[key]) ranges[key] = {min: value, max: value};
+        ranges[key].min = Math.min(ranges[key].min, value);
+        ranges[key].max = Math.max(ranges[key].max, value);
+      });
+    });
+    return ranges;
+  }
+
+  function historyMetricOrder(data) {
+    var counts = historyMetricCounts(data);
+    var ranges = historyMetricRanges(data);
+    return Object.keys(counts).sort(function (a, b) {
+      var aRange = ranges[a] ? ranges[a].max - ranges[a].min : 0;
+      var bRange = ranges[b] ? ranges[b].max - ranges[b].min : 0;
+      return bRange - aRange || counts[b] - counts[a] || a.localeCompare(b);
+    });
+  }
+
+  function resolveHistoryMetric(data, preferred) {
+    var counts = historyMetricCounts(data);
+    if (counts[preferred]) return preferred;
+    return historyMetricOrder(data)[0] || preferred;
+  }
+
+  function historyShortDate(value) {
+    var date = new Date(String(value).slice(0, 10) + "T12:00:00");
+    return isNaN(date) ? String(value || "") : date.toLocaleDateString([], {month: "short", day: "numeric"});
+  }
+
+  function trajectoryHTML(data, metric, compact) {
     var points = data.points || [];
     if (!points.length) return empty("Trajectory history has not accrued for this target.");
-    var metric = state.selectedTarget || state.record.target_metric;
+    metric = resolveHistoryMetric(data, metric);
     var plotted = points.map(function (point) {
       var value = point.value != null ? point.value : point.pct != null ? point.pct : point.values && point.values[metric];
-      return {value: Number(value), date: point.snapshot_date || point.date};
-    }).filter(function (point) { return isFinite(point.value); });
+      var date = point.snapshot_date || point.date;
+      return {
+        value: Number(value), date: date,
+        time: Date.parse(String(date).slice(0, 10) + "T00:00:00Z"),
+        kind: point.kind === "reconstructed" ? "reconstructed" : "archived"
+      };
+    }).filter(function (point) { return isFinite(point.value) && isFinite(point.time); })
+      .sort(function (a, b) { return a.time - b.time; });
     if (!plotted.length) return empty("Trajectory values are unavailable for the pinned target.");
     var width = 900;
-    var height = 180;
-    var coords = plotted.map(function (point, index) {
-      var x = plotted.length === 1 ? width / 2 : index * width / (plotted.length - 1);
-      var y = height - Math.max(0, Math.min(100, point.value)) * height / 100;
-      return x.toFixed(1) + "," + y.toFixed(1);
-    }).join(" ");
-    return '<svg class="intel-chart" viewBox="0 0 900 180" role="img" aria-label="Forecast trajectory">' +
-      '<line class="intel-chart-grid" x1="0" y1="45" x2="900" y2="45"></line><line class="intel-chart-grid" x1="0" y1="90" x2="900" y2="90"></line>' +
-      '<line class="intel-chart-grid" x1="0" y1="135" x2="900" y2="135"></line><polyline class="intel-chart-line" points="' + attr(coords) + '"></polyline></svg>' +
-      '<div class="intel-facts">' + fact("First", pct(plotted[0].value)) + fact("Current", pct(plotted[plotted.length - 1].value)) +
-      fact("Observations", plotted.length) + fact("Resolution", data.full_resolution ? "Full" : "Reduced") + "</div>";
+    var height = compact ? 160 : 196;
+    var left = 42, right = 888, top = 12, bottom = height - 30;
+    var firstTime = plotted[0].time, lastTime = plotted[plotted.length - 1].time;
+    function coord(point) {
+      var span = Math.max(1, lastTime - firstTime);
+      var x = plotted.length === 1 ? (left + right) / 2 : left + (point.time - firstTime) * (right - left) / span;
+      var y = bottom - Math.max(0, Math.min(100, point.value)) * (bottom - top) / 100;
+      return {x: x, y: y, text: x.toFixed(1) + "," + y.toFixed(1)};
+    }
+    var runs = [];
+    plotted.forEach(function (point) {
+      var last = runs[runs.length - 1];
+      if (!last || last.kind !== point.kind) {
+        last = {kind: point.kind, points: []};
+        runs.push(last);
+      }
+      last.points.push(point);
+    });
+    var lines = runs.map(function (run) {
+      if (run.points.length === 1) return "";
+      return '<polyline class="intel-chart-line ' + run.kind + '" points="' +
+        attr(run.points.map(function (point) { return coord(point).text; }).join(" ")) + '"></polyline>';
+    }).join("");
+    var dots = plotted.map(function (point) {
+      var c = coord(point);
+      return '<circle class="intel-chart-point ' + point.kind + '" cx="' + c.x.toFixed(1) +
+        '" cy="' + c.y.toFixed(1) + '" r="2.8"><title>' + escapeHtml(historyShortDate(point.date) + " · " + pct(point.value) +
+        " · " + point.kind) + '</title></circle>';
+    }).join("");
+    var reconstructed = plotted.filter(function (point) { return point.kind === "reconstructed"; }).length;
+    var archived = plotted.length - reconstructed;
+    var provenance = '<div class="intel-history-key" aria-label="Forecast history provenance">' +
+      (reconstructed ? '<span><i class="reconstructed"></i>Reconstructed replay · ' + reconstructed + '</span>' : '') +
+      (archived ? '<span><i class="archived"></i>Exact archived forecast · ' + archived + '</span>' : '') + '</div>' +
+      '<div class="intel-note intel-history-note">Dashed points are point-in-time model replays using only information available then. ' +
+      'Solid points are exact saved forecasts and take precedence on the same date. Current-season history remains free on the public league page.</div>';
+    return '<div class="intel-history-chart"><svg class="intel-chart" viewBox="0 0 900 ' + height + '" role="img" aria-label="' +
+      attr(String(metric || "season target").replace(/_/g, " ") + " forecast history") + '">' +
+      [100, 75, 50, 25, 0].map(function (value) {
+        var y = bottom - value * (bottom - top) / 100;
+        return '<line class="intel-chart-grid" x1="' + left + '" y1="' + y.toFixed(1) + '" x2="' + right + '" y2="' + y.toFixed(1) +
+          '"></line><text class="intel-chart-label" x="0" y="' + (y + 4).toFixed(1) + '">' + value + '%</text>';
+      }).join("") + lines + dots +
+      '<text class="intel-chart-date" x="' + left + '" y="' + (height - 8) + '">' + escapeHtml(historyShortDate(plotted[0].date)) + '</text>' +
+      '<text class="intel-chart-date end" x="' + right + '" y="' + (height - 8) + '">' + escapeHtml(historyShortDate(plotted[plotted.length - 1].date)) + '</text>' +
+      '</svg></div>' + provenance +
+      '<div class="intel-facts">' + fact("Season start", pct(plotted[0].value)) +
+      fact("Latest", pct(plotted[plotted.length - 1].value)) +
+      fact("Target", String(metric || "season target").replace(/_/g, " ")) +
+      fact("Checkpoints", plotted.length) +
+      fact("Span", historyShortDate(plotted[0].date) + " → " + historyShortDate(plotted[plotted.length - 1].date)) + "</div>";
+  }
+
+  function renderTimeMachine(data) {
+    var counts = historyMetricCounts(data);
+    var metric = resolveHistoryMetric(
+      data, state.historyTarget || state.selectedTarget || state.record.target_metric);
+    var metrics = historyMetricOrder(data);
+    var selector = metrics.length > 1
+      ? '<div class="intel-history-controls"><div class="intel-field"><label for="intel-history-target">Historical target</label>' +
+        '<select class="intel-select" id="intel-history-target">' + metrics.map(function (key) {
+          return '<option value="' + attr(key) + '"' + (key === metric ? " selected" : "") + '>' +
+            escapeHtml(key.replace(/_/g, " ")) + ' · ' + counts[key] + ' checkpoints</option>';
+        }).join("") + '</select></div></div>'
+      : "";
+    return selector + trajectoryHTML(data, metric, false);
   }
 
   function renderConsensus(data) {
@@ -1138,6 +1258,7 @@
       var linkedTarget = params.get("target");
       var availableTargets = Object.keys(record.features["5"] && record.features["5"].data.baseline || {});
       state.selectedTarget = availableTargets.indexOf(linkedTarget) >= 0 ? linkedTarget : pinnedTarget() || record.target_metric;
+      state.historyTarget = "";
       state.assumptions = {};
       state.assumptionHistory = [{}];
       state.assumptionCursor = 0;
@@ -1474,6 +1595,10 @@
       persistDeepLink();
       hubView();
     }
+    if (event.target.id === "intel-history-target") {
+      state.historyTarget = event.target.value;
+      hubView();
+    }
     if (event.target.id === "intel-rival") {
       await loadRival(event.target.value);
       persistDeepLink();
@@ -1491,6 +1616,16 @@
     try {
       if (action === "tab") {
         state.tab = button.getAttribute("data-tab");
+        if (state.tab === "history" && state.record) {
+          var historyEventKey = state.record.snapshot_id + ":season_history_viewed";
+          if (!state.valueEvents[historyEventKey]) {
+            state.valueEvents[historyEventKey] = true;
+            analytics("season_history_viewed", {
+              league_id: state.leagueId, team_id: state.teamId,
+              feature_id: 11, surface: "club_watch"
+            });
+          }
+        }
         hubView();
 
       } else if (action === "focus-signin") {

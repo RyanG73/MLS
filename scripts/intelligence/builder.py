@@ -23,6 +23,7 @@ from scripts.payload_utils import canonical_team_id, read_js_payload
 PRIVATE_ROOT = Path("data/team_intelligence")
 LEAGUE_DATA = Path("webapp/data")
 ODDS_HISTORY = Path("data/odds_history.parquet")
+RECONSTRUCTED_HISTORY = Path("data/reconstructed_trajectory_history.parquet")
 MATCH_HISTORY = Path("data/match_prob_history.parquet")
 EVENT_HISTORY = Path("data/intelligence_events.parquet")
 
@@ -48,6 +49,29 @@ def _json_value(value: Any) -> Any:
     if hasattr(value, "item"):
         return value.item()
     return value
+
+
+def _season_key(value: Any) -> str | None:
+    """Normalize numeric season labels without turning 2026 into ``2026.0``."""
+    if value is None or (not isinstance(value, (list, dict)) and pd.isna(value)):
+        return None
+    if not isinstance(value, str):
+        try:
+            numeric = float(value)
+            if math.isfinite(numeric) and numeric.is_integer():
+                return str(int(numeric))
+        except (TypeError, ValueError):
+            pass
+    return str(value)
+
+
+def _season_window(payload: dict) -> tuple[dt.date, dt.date] | None:
+    """Return a generous current-season window for legacy unlabeled archives."""
+    dates = sorted(filter(None, (_iso_date(game.get("date"))
+                                 for game in payload.get("games") or [])))
+    if not dates:
+        return None
+    return dates[0] - dt.timedelta(days=120), dates[-1] + dt.timedelta(days=30)
 
 
 def _parse_json(value: Any, default):
@@ -208,7 +232,9 @@ def _event_rows(events: pd.DataFrame, league_id: str, team_id: str) -> list[dict
 
 
 def _trajectory_rows(history: pd.DataFrame, league_id: str,
-                     team_id: str, team_name: str) -> list[dict]:
+                     team_id: str, team_name: str,
+                     current_season: Any = None,
+                     season_window: tuple[dt.date, dt.date] | None = None) -> list[dict]:
     if history.empty:
         return []
     rows = history[history["league"] == league_id]
@@ -217,6 +243,16 @@ def _trajectory_rows(history: pd.DataFrame, league_id: str,
         rows = rows[id_match | (rows["team"] == team_name)]
     else:
         rows = rows[rows["team"] == team_name]
+    season_key = _season_key(current_season)
+    if season_key is not None and "season" in rows:
+        labeled = rows["season"].map(_season_key)
+        keep = labeled.eq(season_key)
+        if season_window is not None:
+            dates = rows["snapshot_date"].map(_iso_date)
+            keep |= labeled.isna() & dates.map(
+                lambda value: value is not None
+                and season_window[0] <= value <= season_window[1])
+        rows = rows[keep]
     result = []
     for _, row in rows.sort_values("snapshot_date").iterrows():
         values = {
@@ -224,11 +260,16 @@ def _trajectory_rows(history: pd.DataFrame, league_id: str,
             for key in TARGET_LABELS
             if key in row and _finite(row.get(key)) is not None
         }
+        kind = _json_value(row.get("kind"))
         result.append({
             "snapshot_date": str(row.get("snapshot_date")),
-            "season_id": str(row.get("season")) if pd.notna(row.get("season")) else None,
+            "season_id": _season_key(row.get("season")),
             "config_id": _json_value(row.get("config_id")),
             "proj_pts": _finite(row.get("proj_pts")),
+            "n_played": _finite(row.get("n_played")),
+            "kind": kind if kind in {"reconstructed", "archived"} else "archived",
+            "method": _json_value(row.get("method")),
+            "source_cutoff": _json_value(row.get("source_cutoff")),
             "values": values,
         })
     return result
@@ -610,10 +651,13 @@ def _analogs(trajectory: list[dict], current_season: str) -> dict | None:
 def build_team_record(payload: dict, snapshot: dict, team: dict, target: str,
                       leverage_rows: list[dict], baseline: dict,
                       history: pd.DataFrame, match_history: pd.DataFrame,
-                      events: pd.DataFrame, mode: dict) -> dict:
+                      events: pd.DataFrame, mode: dict,
+                      season_window: tuple[dt.date, dt.date] | None = None) -> dict:
     league_id, team_id, team_name = snapshot["league_id"], team["team_id"], team["team"]
     team_events = _event_rows(events, league_id, team_id)
-    trajectory = _trajectory_rows(history, league_id, team_id, team_name)
+    trajectory = _trajectory_rows(
+        history, league_id, team_id, team_name,
+        current_season=snapshot.get("season"), season_window=season_window)
     receipts = _receipts(payload, match_history, league_id, team_id, team_name)
     expectation = _expectation(receipts, team_name)
     schedule = _schedule(payload, team_name)
@@ -627,7 +671,7 @@ def build_team_record(payload: dict, snapshot: dict, team: dict, target: str,
     thesis = _thesis(team, target, expectation, schedule, confidence, team_events, snapshot)
     watchpoints = _watchpoints(leverage_rows, target)
     paths = _paths(watchpoints, target)
-    analogs = _analogs(trajectory, str(snapshot["season"]))
+    analogs = _analogs(trajectory, _season_key(snapshot["season"]) or "")
     current_pct = _finite(team["published"].get(target))
     seven_day = next((event["delta_pp"] for event in team_events
                       if event["target_metric"] == target), None)
@@ -716,7 +760,18 @@ def build_team_record(payload: dict, snapshot: dict, team: dict, target: str,
         "11": feature(11, "live" if trajectory else "thin_history", {
             "seasons": sorted({row["season_id"] for row in trajectory if row["season_id"]}),
             "points": trajectory, "annotations": team_events,
-            "full_resolution": True, "entitlement_gated": True,
+            "full_resolution": True,
+            "public_current_season": True,
+            "provenance": {
+                "reconstructed_points": sum(
+                    row["kind"] == "reconstructed" for row in trajectory),
+                "archived_points": sum(
+                    row["kind"] == "archived" for row in trajectory),
+                "archive_precedence": True,
+                "reconstructed_definition": (
+                    "Point-in-time model replay using only information available by that date."),
+                "archived_definition": "Exact forecast saved on that date.",
+            },
         }, None if trajectory else "No archived forecast trajectory has accrued."),
         "12": feature(12, "live" if consensus else "unavailable", consensus,
                       None if consensus else "No current multi-source consensus is available."),
@@ -813,16 +868,48 @@ def build_league(payload: dict, snapshot: dict, history: pd.DataFrame,
         return []
     baseline, leverage = fixture_leverage(snapshot, targets, n=leverage_n)
     mode = calendar_mode(payload, today=today)
+    season_window = _season_window(payload)
     return [
         build_team_record(payload, snapshot, team, targets[team["team_id"]],
                           leverage.get(team["team_id"], []),
-                          baseline[team["team_id"]], history, match_history, events, mode)
+                          baseline[team["team_id"]], history, match_history, events, mode,
+                          season_window=season_window)
         for team in snapshot["teams"] if team["team_id"] in targets
     ]
 
 
 def load_frame(path: Path) -> pd.DataFrame:
     return pd.read_parquet(path) if path.exists() else pd.DataFrame()
+
+
+def load_trajectory_frame(
+    exact_path: Path = ODDS_HISTORY,
+    reconstructed_path: Path = RECONSTRUCTED_HISTORY,
+) -> pd.DataFrame:
+    """Merge early point-in-time replays with exact nightly archives.
+
+    The natural key is league/team/date and the exact archive is appended last,
+    so a forecast that was genuinely captured always replaces a reconstruction
+    for the same checkpoint.
+    """
+    exact = load_frame(exact_path)
+    if not exact.empty:
+        exact = exact.copy()
+        exact["kind"] = "archived"
+        exact["method"] = exact.get("method", "nightly_archive")
+        exact["source_cutoff"] = exact.get("source_cutoff", exact["snapshot_date"])
+    reconstructed = load_frame(reconstructed_path)
+    if reconstructed.empty:
+        return exact
+    reconstructed = reconstructed.copy()
+    reconstructed["kind"] = "reconstructed"
+    if exact.empty:
+        return reconstructed.sort_values(
+            ["league", "team", "snapshot_date"], kind="stable")
+    combined = pd.concat([reconstructed, exact], ignore_index=True, sort=False)
+    return (combined
+            .drop_duplicates(["league", "team", "snapshot_date"], keep="last")
+            .sort_values(["league", "team", "snapshot_date"], kind="stable"))
 
 
 def write_records(records: list[dict], output_root: Path = PRIVATE_ROOT) -> list[Path]:
@@ -839,7 +926,7 @@ def write_records(records: list[dict], output_root: Path = PRIVATE_ROOT) -> list
 def build_all(output_root: Path = PRIVATE_ROOT, leverage_n: int = 400) -> dict:
     from scripts.archive_intelligence_state import build_snapshot
 
-    history = load_frame(ODDS_HISTORY)
+    history = load_trajectory_frame()
     match_history = load_frame(MATCH_HISTORY)
     events = load_frame(EVENT_HISTORY)
     manifest = {

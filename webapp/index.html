@@ -1104,7 +1104,7 @@ footer a:hover{color:var(--txt-2)}
   .wbox.w .wb-l,.wbox.d .wb-l,.wbox.l .wb-l{color:#06121d}
 }
 </style>
-<link rel="stylesheet" href="intelligence.css?v=20260729">
+<link rel="stylesheet" href="intelligence.css?v=20260731">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to main content</a>
@@ -1508,7 +1508,7 @@ function teamGateCardHTML(team){
   const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   return `<div class="intel-gatecard"><span class="lk">🔒</span>
     <div class="gc-t"><b>Keep ${esc(team)} on Club Watch</b>
-      <span class="t">The club page and current forecast stay free. Club Watch adds continuous monitoring, cause and evidence, match stakes, saved scenarios, and continuity across visits.</span></div>
+      <span class="t">The club page and current forecast stay free. Club Watch adds continuous monitoring, cause and evidence, match stakes, an updating season forecast history, and saved scenarios.</span></div>
     <a class="intel-btn" href="?league=intel">See what's inside →</a>
     <a class="intel-btn ghost" href="?league=account#acct-subs">Manage plan</a></div>`;
 }
@@ -4481,7 +4481,8 @@ function supportCardHTML(){
       <li><b>Continuous club monitoring</b> for material probability and season-state changes.</li>
       <li><b>Cause and evidence</b> attached to supported movement, with quiet states when no cause is established.</li>
       <li><b>Match stakes</b> showing how the next relevant result can move the season target.</li>
-      <li><b>Continuity across visits</b> with private history, saved scenarios, and up to ten followed clubs.</li>
+      <li><b>Season forecast history</b> showing the club's path from the opening baseline, with reconstructed replays labeled separately from exact archived forecasts.</li>
+      <li><b>Continuity across visits</b> with an updating personal timeline, saved scenarios, and up to ten followed clubs.</li>
       <li><b>One complete free sample</b> remains yours even if you do not subscribe.</li>
     </ul>
     <h3>Before you decide</h3>
@@ -4527,7 +4528,7 @@ function intelHookHTML(){
     <div>
       <div class="intel-kick">Club Watch · controlled beta</div>
       <div class="ih-price">${_priceBlockHTML(sel)}</div>
-      <p>Continuous monitoring, supported causes, match stakes, saved scenarios, and continuity for the clubs you follow.</p>
+      <p>Continuous monitoring, supported causes, match stakes, season forecast history, and saved scenarios for the clubs you follow.</p>
       <div class="hnote">Every current public forecast stays free. Start with one complete Club Watch sample.</div>
     </div>
     <div>
@@ -5246,7 +5247,7 @@ if(_isAccount){
             <div class="pr" id="acctIntelPrice">${PriceStore.display('monthly')||'Checkout unavailable'}${PriceStore.display('monthly')?`<small> / ${PriceStore.word('monthly')}</small>`:''}</div>
             <ul><li>Continuous monitoring and supported causes</li>
               <li>Next-match stakes and continuity across visits</li>
-              <li>Saved scenarios and private history</li>
+              <li>Season forecast history and saved scenarios</li>
               <li>Up to ten followed clubs</li></ul>
             <div style="margin-top:12px" id="acctPlanAction">${intelOn
               ? '<a class="intel-btn" href="?league=intel">Open Club Watch →</a> <button class="intel-btn" id="acBilling">Manage billing</button>'
@@ -5622,6 +5623,6 @@ if(_infoPage){
   }, true);
 })();
 </script>
-<script src="intelligence.js?v=20260729b"></script>
+<script src="intelligence.js?v=20260731"></script>
 </body>
 </html>

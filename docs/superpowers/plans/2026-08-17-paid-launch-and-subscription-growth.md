@@ -16,6 +16,15 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-07-31 — Club Watch season forecast history repository-ready.** The existing History view
+  now merges leakage-safe early-season replays with exact nightly archives, preserves exact rows on
+  same-day conflicts, labels reconstructed and archived chart segments, and chooses a useful
+  historical target when the club's current target lacks prior coverage. The complete free sample
+  includes a frozen season path; the paid continuation keeps the integrated club-season view current.
+  Public league history remains free, so no exclusive-history claim was introduced. Proof: all
+  1,719 tests passed with 14 intentional skips; all 79 payloads and the history-growth gate passed;
+  Chromium covers the MLS dashed-to-solid path, the free sample, and mobile overflow. Production
+  deployment is pending; this changes no paid-launch gate.
 - **2026-07-31 — point-in-time season history deployed.** Added leakage-safe Dixon–Coles
   matchday replays for all 71 domestic league race pages, kept them in a provenance-labeled dataset
   separate from the authoritative nightly archive, and merged them with archive precedence. Thirty-
@@ -559,7 +568,7 @@ Claude must encode one entitlement matrix used by product, pricing, copy, suppor
 |---|---|---|
 | All current forecasts, standings, team pages, and match probabilities | One followed club and league synced across devices | Continuous monitoring for the followed club, relevant rivals, or additional clubs |
 | Public methodology, grading, model health, receipts, and limitations | Personalized home and durable favorites | Immediate material-movement and threshold monitoring |
-| Current trajectories, race history, and top movers | One complete personalized Club Watch sample | Full causal explanation of the change |
+| Current trajectories, race history, and top movers | One complete personalized Club Watch sample, including a frozen club-season history path | Integrated updating club-season history plus full causal explanation of the change |
 | One-match current what-if | High-level weekly club summary | Match-morning win/draw/loss stakes |
 | Current open-data downloads and RSS, subject to licensing | Notification preferences and identity continuity | Since-last-visit feed and private forecast timeline |
 | Crawlable club and league discovery pages | Upgrade after demonstrated value | Saved multi-match paths and deeper derived history/exports when available |

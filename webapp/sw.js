@@ -35,7 +35,9 @@
 // so a stale shell would render "top 4 advance" over 8 groups of 4.
 // v15 (2026-07-31): point-in-time reconstructed race history. The shell now
 // renders reconstructed movement as dashed and archived forecasts as solid.
-const CACHE = "entenser-shell-v15";
+// v16 (2026-07-31): Club Watch season forecast history, including a frozen
+// sample chart and explicit reconstructed-versus-archived provenance.
+const CACHE = "entenser-shell-v16";
 const SHELL = [
   "/",
   "/index.html",

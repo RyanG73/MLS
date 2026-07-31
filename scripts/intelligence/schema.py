@@ -15,7 +15,7 @@ FEATURES = {
     8: "Personalized Briefing",
     9: "Race Context",
     10: "Expectation Versus Performance",
-    11: "Forecast Time Machine",
+    11: "Season Forecast History",
     12: "Consensus Disagreement",
     13: "Schedule Difficulty Outlook",
     14: "Critical Date Calendar",

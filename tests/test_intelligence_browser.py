@@ -18,6 +18,7 @@ from server.kv_client import get_kv, reset_kv_for_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 ARSENAL_ID = "v1:1c90591709108353"
+ATLANTA_ID = "KAqBN0Vqbg"
 
 
 def _port() -> int:
@@ -97,6 +98,48 @@ def test_all_26_features_render_across_hub_tabs(page: Page, intelligence_urls):
     page.screenshot(path="/tmp/entenser-intelligence-desktop.png", full_page=True)
 
 
+def test_history_view_labels_exact_and_reconstructed_forecasts(
+    page: Page, intelligence_urls,
+):
+    errors = _open(page, intelligence_urls)
+    page.get_by_role("button", name="History", exact=True).click()
+    history = page.locator("#intel-feature-11")
+    expect(history.get_by_role("heading", name="Season Forecast History")).to_be_visible()
+    expect(history.locator(".intel-history-key")).to_contain_text(
+        "Exact archived forecast")
+    expect(history.locator(".intel-history-note")).to_contain_text(
+        "Current-season history remains free")
+    page.screenshot(path="/tmp/entenser-club-watch-history.png", full_page=True)
+    assert not errors
+
+
+def test_mls_history_draws_reconstructed_opening_and_exact_archive(
+    page: Page, intelligence_urls,
+):
+    page.add_init_script(
+        "localStorage.setItem('entenser.intel.access', " +
+        json.dumps(intelligence_urls["token"]) + ")")
+    url = intelligence_urls["page"].replace(
+        f"intelLeague=epl&team={ARSENAL_ID}",
+        f"intelLeague=mls&team={ATLANTA_ID}",
+    )
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.goto(url, wait_until="networkidle")
+    expect(page.locator(".intel-command h1")).to_contain_text(
+        "Atlanta United FC Club Watch")
+    page.get_by_role("button", name="History", exact=True).click()
+    history = page.locator("#intel-feature-11")
+    expect(history.locator(".intel-history-key")).to_contain_text(
+        "Reconstructed replay")
+    expect(history.locator(".intel-history-key")).to_contain_text(
+        "Exact archived forecast")
+    expect(history.locator(".intel-chart-line.reconstructed")).not_to_have_count(0)
+    expect(history.locator(".intel-chart-line.archived")).not_to_have_count(0)
+    page.screenshot(path="/tmp/entenser-club-watch-history-mls.png", full_page=True)
+    assert not errors
+
+
 def test_scenario_card_and_journal_workflows(page: Page, intelligence_urls):
     _open(page, intelligence_urls)
 
@@ -155,6 +198,9 @@ def test_free_account_receives_one_frozen_club_watch_sample(
     expect(page.get_by_text("Your complete sample update")).to_be_visible()
     expect(page.locator(".intel-trust-tape")).to_contain_text("What changed")
     expect(page.locator(".intel-trust-tape")).to_contain_text("What next")
+    expect(page.get_by_role("heading", name="Season forecast history")).to_be_visible()
+    expect(page.locator(".intel-sample-history .intel-history-key")).to_contain_text(
+        "Exact archived forecast")
     expect(page.get_by_role("button", name="Checkout unavailable")).to_be_disabled()
 
 

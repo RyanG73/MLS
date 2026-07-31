@@ -46,12 +46,13 @@ outranks that milestone.
 | Public pricing configuration | ❌ Empty | Production `/v1/public/config` returns `"pricing": {}` |
 | Paid transaction path | ❌ Not operable | Durable auth is working; blocked by Stripe configuration and legal publication |
 | Club Watch repository packaging | ✅ Deployed and smoke-verified | Club-first intent, one durable free sample, outcome-triggered conversion moments, coherent free/paid boundary, authenticated Account, and customer-facing naming shipped in commit `1d954fa` |
+| Club Watch season forecast history | 🟡 Repository verified; deployment pending | Club Watch now merges the current-season point-in-time replays with the exact nightly archive, labels dashed reconstructed versus solid archived checkpoints, lets members inspect available historical targets, and includes a frozen history chart in the complete free sample. Exact archives win same-day conflicts; public league history remains free. |
 | Checkout safety | ✅ Deployed, not production-rehearsed | Production requires four immutable Prices, Stripe/webhook/auth/KV dependencies, three approved policy versions, and an owner switch; live config reports checkout disabled without exposing missing secret names |
 | Growth measurement | ✅ Deployed foundation | Canonical funnel/lifecycle dictionaries, privacy-limited server ledger, cancellation/support/testimonial capture, Stripe/delivery events, shadow-review evidence, and owner scorecard shipped; GA4/GSC production inputs remain missing |
 | Live alerts and briefings | ❌ Not offered | UI labels delivery unavailable; live scripts require both protected send switches, two matchweeks of shadow QA, one quiet cycle, and owner approval |
 
 **Repository verification proof (2026-07-31):** the integrated release passed
-1,714 tests with 14 intentional skips; all 79 public payloads, the Intelligence
+1,719 tests with 14 intentional skips; all 79 public payloads, the Intelligence
 artifact contract, history-growth gate, promotion-gate self-test, Python
 compilation, JavaScript syntax, and `git diff --check` passed. The static build
 emitted 78 league pages, 1,446 club pages, and a 1,543-URL sitemap.
@@ -293,6 +294,11 @@ These require account access or business decisions and cannot be completed from 
 
 ## Recently completed
 
+- Club Watch season history: the existing History view now consumes the reconstructed early-season
+  dataset, preserves exact-archive precedence and point provenance, selects a useful historical
+  target when the current target lacks prior coverage, and includes the frozen path in the free
+  sample. The public current-season history remains free; Club Watch adds the integrated,
+  continuously updated club-season view.
 - Approved outcome conversion: meaningful movers, high-leverage match previews,
   one-match scenarios, complete samples, and a real additional-club boundary now
   route into club-specific Club Watch continuation copy without paywalling the

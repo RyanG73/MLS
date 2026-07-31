@@ -12,6 +12,7 @@ ALLOWED_EVENTS = {
     "journal_checkpoint_created", "creator_exported", "return_30d", "return_90d",
     "material_change_explanation_viewed", "match_stakes_viewed",
     "since_last_visit_viewed", "scenario_run", "scenario_saved",
+    "season_history_viewed",
     "return_visit", "notification_setting_change", "sample_update_view",
     "upgrade_view",
 }

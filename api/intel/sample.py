@@ -31,6 +31,7 @@ def _build_sample(league_id: str, team_id: str) -> dict:
             "what_changed": features.get("2"),
             "why": features.get("3"),
             "what_next": features.get("4"),
+            "history": features.get("11"),
         },
     }
 
