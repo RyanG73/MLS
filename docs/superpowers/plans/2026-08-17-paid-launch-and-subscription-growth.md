@@ -16,14 +16,15 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
-- **2026-07-31 — MLS/home presentation release candidate verified.** MLS now follows the
+- **2026-07-31 — MLS/home presentation follow-up deployed.** MLS now follows the
   table-first league-page order, team links use the product text palette, the header carries both
   US and Canada flags, and movement sparklines reach Game 1 with an honest dashed hold where saved
   forecasts begin midseason. The desktop Club Watch hero now uses both columns; its duplicate
   next-48-hours/league count moved into the masthead ticker and its one-off biggest-move line was
   removed. Proof: all 1,710 tests passed with 14 intentional skips, all 76 Chromium flows passed,
   the static build emitted 1,543 URLs, and `git diff --check` passed. Production deployment is
-  pending.
+  proven by successful Pages run `30629626679` for commit `b468f6e` and the live service-worker
+  stamp `entenser-shell-b468f6efe7b1`.
 - **2026-07-31 — Club Watch foundation and site refresh deployed.** Commit `1d954fa` passed 1,708
   tests with 14 intentional skips, all 79 payload checks, the Intelligence artifact contract,
   history-growth and promotion gates, compilation, JavaScript syntax, and the exact static build.

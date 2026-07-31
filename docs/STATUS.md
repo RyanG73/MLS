@@ -33,7 +33,7 @@ outranks that milestone.
 | Surface | State | Proof |
 |---|---|---|
 | Public site | ✅ Live | `https://entenser.com/` returns 200 |
-| MLS/home presentation follow-up | 🟡 Release candidate verified | MLS now uses table-first movement placement, neutral team links, dual-country flags, and a season-start trajectory baseline; the desktop home hero is horizontal and its duplicate live stats moved into the masthead ticker. Production deployment is pending. |
+| MLS/home presentation follow-up | ✅ Live | MLS now uses table-first movement placement, neutral team links, dual-country flags, and a season-start trajectory baseline; the desktop home hero is horizontal and its duplicate live stats moved into the masthead ticker. Pages run `30629626679` deployed commit `b468f6e`. |
 | Forecast landing page and RSS | ✅ Live | `/football-forecasts/` and `/forecast-feed.xml` return 200 |
 | Crawlable club forecast pages | ✅ Live | Static build emits 1,446 competition-scoped club pages and a 1,543-URL sitemap; Pages run `30627028178` deployed them successfully |
 | Global Power and shared ELO | ✅ Live | 892 clubs across 50 leagues; shared `global_elo` displayed throughout relevant public surfaces |
@@ -62,6 +62,12 @@ The live homepage serves the Club Watch promise, and
 contract with `enabled: false` and `reason: owner_disabled`. This proves the
 release and kill switch are live; it does not pass pricing, legal, transaction,
 delivery, or customer-evidence gates.
+
+**Presentation follow-up proof (2026-07-31):** GitHub Pages run `30629626679`
+completed successfully for commit `b468f6e`. The live index contains the MLS
+dual flags, table-first movement placement, neutral link styling, honest
+season-start baseline, horizontal desktop hero, and consolidated masthead
+ticker; the live service-worker cache is stamped `entenser-shell-b468f6efe7b1`.
 
 **Owner decision recorded (2026-07-29):** Ryan approved the paid-launch decision record as written:
 7,000 active paid is the objective; Club Watch, its primary audience, boundary, launch pricing,
