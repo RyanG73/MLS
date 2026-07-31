@@ -34,13 +34,13 @@ def test_rejects_missing_or_wrong_publisher_secret():
 
 def test_publishes_only_strict_artifact_keys_and_values():
     records = [
-        {"key": "intel:artifact:mls:atl", "value": "gz:eA=="},
+        {"key": "intel:artifact:mls:v1:a256353b6911", "value": "gz:eA=="},
         {"key": "intel:artifact:manifest", "value": '{"leagues":{}}'},
     ]
     status, _, body = _call(records)
     assert status == 200
     assert json.loads(body) == {"published": 2}
-    assert get_kv().get("intel:artifact:mls:atl") == "gz:eA=="
+    assert get_kv().get("intel:artifact:mls:v1:a256353b6911") == "gz:eA=="
     assert get_kv().get("intel:artifact:manifest") == '{"leagues":{}}'
 
 

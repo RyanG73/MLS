@@ -29,7 +29,9 @@ HTTP response, experiment sample, cohort date, or decision memo.
   now runs after API deployment. Run `30645130425` rebuilt 1,108 records with zero failures but
   confirmed Vercel sensitive values are intentionally non-exportable; a scoped authenticated API
   relay now keeps Upstash credentials inside Vercel while accepting only compiled artifact batches.
-  Final record publication is pending; this changes no paid-launch gate.
+  Run `30646203303` authenticated that relay and exposed an overly narrow validator for versioned
+  team IDs; the accepted shape now matches real artifact keys while remaining prefix-scoped. Final
+  record publication is pending; this changes no paid-launch gate.
 - **2026-07-31 — point-in-time season history deployed.** Added leakage-safe Dixon–Coles
   matchday replays for all 71 domestic league race pages, kept them in a provenance-labeled dataset
   separate from the authoritative nightly archive, and merged them with archive precedence. Thirty-

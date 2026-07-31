@@ -10,6 +10,7 @@ from __future__ import annotations
 import hmac
 import json
 import os
+import re
 
 from server.kv_client import get_kv
 
@@ -17,6 +18,7 @@ MAX_RECORDS = 16
 MAX_VALUE_BYTES = 1_000_000
 TEAM_KEY_PREFIX = "intel:artifact:"
 MANIFEST_KEY = "intel:artifact:manifest"
+TEAM_KEY_RE = re.compile(r"intel:artifact:[a-z0-9-]+:[A-Za-z0-9:_-]+")
 
 
 def _json(status: int, payload) -> tuple[int, dict, bytes]:
@@ -45,7 +47,7 @@ def _valid_record(record) -> bool:
         return False
     if key == MANIFEST_KEY:
         return value.startswith("{")
-    return value.startswith("gz:") and key.count(":") == 3
+    return value.startswith("gz:") and TEAM_KEY_RE.fullmatch(key) is not None
 
 
 def handle(method: str, headers: dict, body: bytes = b"") -> tuple[int, dict, bytes]:
