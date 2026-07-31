@@ -16,7 +16,7 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
-- **2026-07-31 — Club Watch season forecast history repository-ready.** The existing History view
+- **2026-07-31 — Club Watch season forecast history deployed and published.** The History view
   now merges leakage-safe early-season replays with exact nightly archives, preserves exact rows on
   same-day conflicts, labels reconstructed and archived chart segments, and chooses a useful
   historical target when the club's current target lacks prior coverage. The complete free sample
@@ -30,8 +30,12 @@ HTTP response, experiment sample, cohort date, or decision memo.
   confirmed Vercel sensitive values are intentionally non-exportable; a scoped authenticated API
   relay now keeps Upstash credentials inside Vercel while accepting only compiled artifact batches.
   Run `30646203303` authenticated that relay and exposed an overly narrow validator for versioned
-  team IDs; the accepted shape now matches real artifact keys while remaining prefix-scoped. Final
-  record publication is pending; this changes no paid-launch gate.
+  team IDs; the accepted shape now matches real artifact keys while remaining prefix-scoped.
+  Commit `4beee51` then deployed in Pages run `30646510561` and API run `30646510217`; the latter
+  rebuilt 66 competitions/1,108 club records with zero failures and published all 1,108 compressed
+  artifacts. The live copy is present, the public API is healthy, and the relay rejects missing
+  credentials with `401`. The final refreshed-cache suite passed 1,729 tests with 14 intentional
+  skips. This trust feature is live and changes no paid-launch gate.
 - **2026-07-31 — point-in-time season history deployed.** Added leakage-safe Dixon–Coles
   matchday replays for all 71 domestic league race pages, kept them in a provenance-labeled dataset
   separate from the authoritative nightly archive, and merged them with archive precedence. Thirty-
