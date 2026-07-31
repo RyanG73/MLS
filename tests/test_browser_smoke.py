@@ -619,18 +619,13 @@ class TestLeaguePageRaceFirstLayout:
             f"Midseason progress rail should be only partially filled: {progress}"
         )
         assert "games played" in progress["meta"]
-        lanes = movement.locator(".rm-row")
-        baselines = movement.locator(".rm-baseline")
-        assert baselines.count() == lanes.count(), (
-            "MLS history starts midseason, so every visible sparkline should extend "
-            "its earliest known forecast back to Game 1"
-        )
-        first_baseline = baselines.first
-        assert float(first_baseline.get_attribute("x1")) == pytest.approx(2, abs=0.1)
-        assert float(first_baseline.get_attribute("x2")) > 2
-        assert "earliest forecast held to season start" in movement.locator(
-            ".rm-foot"
-        ).inner_text().lower()
+        reconstructed = movement.locator(".rm-reconstructed")
+        archived = movement.locator(".rm-archived")
+        assert reconstructed.count() > 0
+        assert archived.count() > 0
+        footer = movement.locator(".rm-foot").inner_text().lower()
+        assert "dashed = reconstructed" in footer
+        assert "solid = archived" in footer
 
 
 class TestLeagueMatchProjectionControls:

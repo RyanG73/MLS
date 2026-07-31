@@ -33,7 +33,9 @@
 // new country flags) and the CONMEBOL continental cups — index.html now reads
 // outlook.advance_per_table instead of hardcoding the Leagues Cup value of 4,
 // so a stale shell would render "top 4 advance" over 8 groups of 4.
-const CACHE = "entenser-shell-v14";
+// v15 (2026-07-31): point-in-time reconstructed race history. The shell now
+// renders reconstructed movement as dashed and archived forecasts as solid.
+const CACHE = "entenser-shell-v15";
 const SHELL = [
   "/",
   "/index.html",

@@ -50,6 +50,7 @@ from scripts.archive_odds_snapshot import _DATA, _NON_PAYLOAD, _ODDS_KEYS, _load
 from scripts.payload_utils import registry_ids, write_js_payload
 
 ODDS_HIST = Path("data/odds_history.parquet")
+RECON_HIST = Path("data/reconstructed_trajectory_history.parquet")
 MATCH_HIST = Path("data/match_prob_history.parquet")
 OUT = Path("webapp/data/drift.js")
 TRAJ_DIR = Path("webapp/data/drift-traj")
@@ -84,6 +85,25 @@ def load_match_history() -> pd.DataFrame | None:
     return df if len(df) else None
 
 
+def load_trajectory_history(exact: pd.DataFrame) -> pd.DataFrame:
+    """Merge replayed early history with the authoritative published archive.
+
+    Published rows always win on the natural (league, team, date) key.  Keeping
+    the provenance kind in the public point lets the chart distinguish an
+    honest reconstruction from a forecast that was actually captured live.
+    """
+    archived = exact.copy()
+    archived["kind"] = "archived"
+    if not RECON_HIST.exists():
+        return archived
+    reconstructed = pd.read_parquet(RECON_HIST)
+    if reconstructed.empty:
+        return archived
+    combined = pd.concat([reconstructed, archived], ignore_index=True, sort=False)
+    return (combined.drop_duplicates(["league", "team", "snapshot_date"], keep="last")
+            .sort_values(["league", "team", "snapshot_date"], kind="stable"))
+
+
 def _latest_no_new_match_pair(league_df: pd.DataFrame) -> tuple[str, str] | None:
     """The most recent two consecutive snapshot_dates for this league where
     n_played didn't change — i.e. nothing happened between the builds, so any
@@ -113,6 +133,11 @@ def compute_churn(hist: pd.DataFrame) -> dict:
         deltas, movers = [], []
         for team in teams:
             for k in _ODDS_KEYS:
+                # Old parquet archives predate some outcome columns. The next
+                # append will add them, but a schema expansion must not make
+                # the drift report unreadable in the meantime.
+                if k not in prev.columns or k not in cur.columns:
+                    continue
                 pv, cv = prev.loc[team, k], cur.loc[team, k]
                 if pd.isna(pv) or pd.isna(cv):
                     continue
@@ -131,7 +156,8 @@ def compute_churn(hist: pd.DataFrame) -> dict:
     return out
 
 
-def compute_trajectories(hist: pd.DataFrame, current_season: dict) -> dict:
+def compute_trajectories(hist: pd.DataFrame, current_season: dict,
+                         current_teams: dict[str, set[str]] | None = None) -> dict:
     """{league: {team: [{date, elo, proj_pts, season, <outcome keys...>}, ...]}}
     Written one file per league (see write_trajectory_files) — never shipped
     inside the main drift.js payload.
@@ -145,14 +171,21 @@ def compute_trajectories(hist: pd.DataFrame, current_season: dict) -> dict:
     rather than silently dropped, since we can't bound what we don't know.
     """
     out: dict = {}
-    cols = ["elo", "proj_pts", "season"] + _ODDS_KEYS
+    cols = ["elo", "proj_pts", "season", "kind"] + _ODDS_KEYS
     for (league, team), g in hist.groupby(["league", "team"]):
+        # A provider rename can leave both the old and new display strings in
+        # the append-only archive. Only current standings members belong in a
+        # current-season public chart; otherwise retired aliases become ghost
+        # teams beside the real club.
+        if current_teams is not None and league in current_teams \
+                and team not in current_teams[league]:
+            continue
         season = current_season.get(league)
         if season is not None and "season" in g.columns:
             g = g[g["season"].isna() | (g["season"] == season)]
         g = g.sort_values("snapshot_date").tail(_TRAJ_MAX_POINTS)
         series = [{"date": row["snapshot_date"],
-                  **{c: _n(row[c]) for c in cols}}
+                  **{c: _n(row.get(c)) for c in cols}}
                  for _, row in g.iterrows()]
         out.setdefault(league, {})[team] = series
     return out
@@ -274,7 +307,10 @@ def build() -> tuple[dict, dict]:
         "kickoff_funnel": compute_kickoff_funnel(match_hist, payloads),
     }
     current_season = {lid: p.get("season") for lid, p in payloads.items()}
-    return main, compute_trajectories(hist, current_season)
+    current_teams = {lid: {s.get("team") for s in p.get("standings") or [] if s.get("team")}
+                     for lid, p in payloads.items()}
+    return main, compute_trajectories(
+        load_trajectory_history(hist), current_season, current_teams)
 
 
 def main() -> int:

@@ -813,7 +813,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .rm-team b{font-size:11.5px;font-weight:650;color:var(--txt-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rm-spark{height:39px;min-width:0;display:flex;flex-direction:column;justify-content:center}
 .rm-spark svg{width:100%;height:25px;display:block;overflow:hidden}
-.rm-baseline{stroke-dasharray:3 3}
+.rm-reconstructed{stroke-dasharray:4 3}
 .rm-axis{display:flex;justify-content:space-between;margin-top:1px;font-family:var(--mono);
   font-size:8px;line-height:10px;color:var(--txt-3);white-space:nowrap}
 .rm-now,.rm-delta{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
@@ -3434,7 +3434,8 @@ const PROJECTION_COLORS={
   title:'var(--win)',ucl:'var(--qualify)',europa:'var(--europa)',conf:'var(--shield)',
   releg:'var(--drop)',cup:'var(--europa)',shield:'var(--shield)',playoff:'var(--qualify)',
   playoffs:'var(--qualify)',promo:'var(--win)',promoted:'var(--qualify)',
-  liguilla:'var(--win)',hfa:'var(--win)',spoon:'var(--spoon)'
+  liguilla:'var(--win)',hfa:'var(--win)',spoon:'var(--spoon)',
+  continental:'var(--qualify)',premiers:'var(--win)',finals:'var(--qualify)',conf_win:'var(--win)'
 };
 const projectionColor=key=>PROJECTION_COLORS[key]||'var(--draw)';
 function trajCardHTML(team){
@@ -3577,7 +3578,7 @@ function renderRaceHistory(requestedMetric=null){
     const byGame=new Map();
     t.rows.forEach(r=>byGame.set(progressAt(t.team,r.date),r));
     t.points=[...byGame.entries()].sort((a,b)=>a[0]-b[0])
-      .map(([game,row])=>({game,value:row[metric],date:row.date}));
+      .map(([game,row])=>({game,value:row[metric],date:row.date,kind:row.kind||'archived'}));
   });
   const likelihoodRace=metric==='title'||metric==='releg';
   const rankByLikelihood=isPreseason||likelihoodRace;
@@ -3592,24 +3593,26 @@ function renderRaceHistory(requestedMetric=null){
     ['europa','conf'].includes(metric)?'var(--europa)':'var(--draw)';
   const spark=t=>{
     const W=160,H=25,pad=2;
-    // The visible axis is Game 1 → the final scheduled game. Forecast archives
-    // began after some seasons were underway, so hold the first known value
-    // back to Game 1 with a dashed segment instead of inventing earlier moves.
+    // The visible axis is Game 1 → the final scheduled game. Reconstructed
+    // point-in-time replays are dashed; genuinely archived forecasts are solid.
     const sx=game=>pad+((Math.max(1,game)-1)/Math.max(1,seasonGames-1))*(W-pad*2);
     const sy=v=>pad+(1-Math.max(0,Math.min(100,v))/100)*(H-pad*2);
-    const pts=t.points.map(p=>`${sx(p.game).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ');
     const first=t.points[0];
     const last=t.points[t.points.length-1];
+    const segments=t.points.slice(1).map((point,i)=>{
+      const prev=t.points[i],reconstructed=prev.kind==='reconstructed'||point.kind==='reconstructed';
+      return `<line class="${reconstructed?'rm-reconstructed':'rm-archived'}" `+
+        `x1="${sx(prev.game).toFixed(1)}" y1="${sy(prev.value).toFixed(1)}" `+
+        `x2="${sx(point.game).toFixed(1)}" y2="${sy(point.value).toFixed(1)}" stroke="${tone}" `+
+        `stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+    }).join('');
     const teamPlayed=Math.min(seasonGames,
       (D.standings.find(s=>s.team===t.team)||{}).gp||last.game);
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">`+
       `<line x1="0" x2="${W}" y1="${H-1}" y2="${H-1}" stroke="var(--line-2)" stroke-width="1"/>`+
       `<line class="rm-progress" x1="${pad}" x2="${sx(teamPlayed).toFixed(1)}" y1="${H-1}" y2="${H-1}" `+
       `stroke="${tone}" stroke-opacity=".55" stroke-width="2" vector-effect="non-scaling-stroke"/>`+
-      (first.game>1?`<line class="rm-baseline" x1="${sx(1).toFixed(1)}" y1="${sy(first.value).toFixed(1)}" `+
-        `x2="${sx(first.game).toFixed(1)}" y2="${sy(first.value).toFixed(1)}" stroke="${tone}" stroke-opacity=".62" `+
-        `stroke-width="2" vector-effect="non-scaling-stroke"/>`:'')+
-      (t.points.length>1?`<polyline points="${pts}" fill="none" stroke="${tone}" stroke-width="2" vector-effect="non-scaling-stroke"/>`:'')+
+      segments+
       `<circle cx="${sx(last.game).toFixed(1)}" cy="${sy(last.value).toFixed(1)}" r="2.5" fill="${tone}"/></svg>`+
       `<span class="rm-axis"><span>Game 1</span><span>Game ${seasonGames}</span></span>`;
   };
@@ -3625,7 +3628,10 @@ function renderRaceHistory(requestedMetric=null){
         :`<span class="rm-delta${flat?'':' move'}">${arrow} ${sign}${t.delta.toFixed(1)}pp</span></div>`);
   }).join('');
   const hidden=Math.max(0,metricRows.length-sel.length);
-  const hasOpeningGap=sel.some(t=>t.points[0]&&t.points[0].game>1);
+  const hasReconstructed=sel.some(t=>t.points.some(p=>p.kind==='reconstructed'));
+  const hasArchived=sel.some(t=>t.points.some(p=>p.kind==='archived'));
+  const provenance=[hasReconstructed?'dashed = reconstructed':'',hasArchived?'solid = archived':'']
+    .filter(Boolean).join(' · ');
   const selectionSubject=label.toLowerCase().replace(/\s+(odds|risk)$/,'');
   const selectionNote=(isPreseason||likelihoodRace)
     ?`top six by current ${selectionSubject} likelihood${hidden?` · ${hidden} more clubs in field`:''}`
@@ -3639,7 +3645,7 @@ function renderRaceHistory(requestedMetric=null){
     `<div class="rm-switcher" role="group" aria-label="Projection shown">${switches}`+
     `<span class="rm-rotate-note">${reducedMotion?'select projection':'rotates every 7 sec · hover to pause'}</span></div>`+
     `<div class="rm-body"><div class="rm-grid">${rows}</div>`+
-    `<div class="rm-foot"><span>${allDates[0]} → ${allDates[allDates.length-1]}${hasOpeningGap?' · earliest forecast held to season start':''}</span>`+
+    `<div class="rm-foot"><span>${allDates[0]} → ${allDates[allDates.length-1]}${provenance?' · '+provenance:''}</span>`+
     `<span>${selectionNote}</span></div></div></div>`;
   box.querySelectorAll('.rm-switch').forEach(btn=>btn.addEventListener('click',()=>{
     raceHistoryMetricIndex=availableMetrics.findIndex(([k])=>k===btn.dataset.raceMetric);

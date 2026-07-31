@@ -33,7 +33,8 @@ outranks that milestone.
 | Surface | State | Proof |
 |---|---|---|
 | Public site | ✅ Live | `https://entenser.com/` returns 200 |
-| MLS/home presentation follow-up | ✅ Live | MLS now uses table-first movement placement, neutral team links, dual-country flags, and a season-start trajectory baseline; the desktop home hero is horizontal and its duplicate live stats moved into the masthead ticker. Pages run `30629626679` deployed commit `b468f6e`. |
+| MLS/home presentation follow-up | ✅ Live | MLS uses table-first movement placement, neutral team links, dual-country flags, and a horizontal desktop home hero. Pages run `30629626679` deployed commit `b468f6e`. |
+| Point-in-time season history | 🟡 Repository verified; deployment pending | The 71 domestic race pages now merge provenance-labeled historical replays with authoritative archived forecasts. Thirty-five leagues received 5,725 reconstructed team-points; the other 36 were already archived before their current season began. Replays exclude later scores and undated roster/injury/value inputs; dashed chart segments are reconstructed and solid segments are archived. |
 | Forecast landing page and RSS | ✅ Live | `/football-forecasts/` and `/forecast-feed.xml` return 200 |
 | Crawlable club forecast pages | ✅ Live | Static build emits 1,446 competition-scoped club pages and a 1,543-URL sitemap; Pages run `30627028178` deployed them successfully |
 | Global Power and shared ELO | ✅ Live | 892 clubs across 50 leagues; shared `global_elo` displayed throughout relevant public surfaces |
@@ -50,10 +51,17 @@ outranks that milestone.
 | Live alerts and briefings | ❌ Not offered | UI labels delivery unavailable; live scripts require both protected send switches, two matchweeks of shadow QA, one quiet cycle, and owner approval |
 
 **Repository verification proof (2026-07-31):** the integrated release passed
-1,710 tests with 14 intentional skips; all 79 public payloads, the Intelligence
+1,714 tests with 14 intentional skips; all 79 public payloads, the Intelligence
 artifact contract, history-growth gate, promotion-gate self-test, Python
 compilation, JavaScript syntax, and `git diff --check` passed. The static build
 emitted 78 league pages, 1,446 club pages, and a 1,543-URL sitemap.
+
+**Historical replay proof (2026-07-31):** the replay coverage manifest reports all 71 domestic
+league race pages covered: 35 reconstructed and 36 whose exact archive predates the current season.
+The committed reconstructed dataset has 5,725 unique `(league, team, date)` rows, stays strictly
+before each league's first authoritative archive date, contains only current standings members,
+and keeps every probability in `[0,100]`. Regression coverage proves future fixture scores do not
+affect an earlier replay and that archived rows win every same-day merge.
 
 **Production verification proof (2026-07-31):** GitHub Pages run `30627028178`
 and Vercel API run `30627028137` completed successfully for commit `1d954fa`.

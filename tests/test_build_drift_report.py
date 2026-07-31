@@ -4,7 +4,7 @@ import pytest
 
 from scripts.build_drift_report import (
     compute_churn, compute_config_markers, compute_kickoff_funnel,
-    compute_trajectories, write_trajectory_files,
+    compute_trajectories, load_trajectory_history, write_trajectory_files,
 )
 
 
@@ -152,6 +152,43 @@ def test_compute_trajectories_emits_season_on_each_point():
     ])
     out = compute_trajectories(hist, {"epl": 2026})
     assert out["epl"]["Alpha"][0]["season"] == 2026
+
+
+def test_compute_trajectories_drops_retired_team_aliases():
+    hist = _hist_rows([
+        {"league": "irl", "team": "Galway United FC", "snapshot_date": "2026-07-01"},
+        {"league": "irl", "team": "Galway United", "snapshot_date": "2026-07-01"},
+    ])
+    out = compute_trajectories(hist, {"irl": 2026}, {"irl": {"Galway United"}})
+    assert set(out["irl"]) == {"Galway United"}
+
+
+def test_reconstructed_history_precedes_archive_and_archive_wins_same_day(
+    tmp_path, monkeypatch
+):
+    import scripts.build_drift_report as bdr
+
+    reconstructed = _hist_rows([
+        {"league": "mls", "team": "Alpha", "snapshot_date": "2026-02-20",
+         "season": 2026, "cup": 12.0},
+        {"league": "mls", "team": "Alpha", "snapshot_date": "2026-07-03",
+         "season": 2026, "cup": 13.0},
+    ])
+    reconstructed["kind"] = "reconstructed"
+    path = tmp_path / "reconstructed.parquet"
+    reconstructed.to_parquet(path, index=False)
+    monkeypatch.setattr(bdr, "RECON_HIST", path)
+    archived = _hist_rows([
+        {"league": "mls", "team": "Alpha", "snapshot_date": "2026-07-03",
+         "season": 2026, "cup": 21.0},
+    ])
+
+    merged = load_trajectory_history(archived)
+
+    assert list(merged["snapshot_date"]) == ["2026-02-20", "2026-07-03"]
+    same_day = merged[merged["snapshot_date"] == "2026-07-03"].iloc[0]
+    assert same_day["cup"] == 21.0
+    assert same_day["kind"] == "archived"
 
 
 def test_trajectory_files_written_for_leagues_with_data(tmp_path, monkeypatch):

@@ -1,0 +1,820 @@
+{
+  "generated": "2026-07-31 13:54 UTC",
+  "method": "dc-point-in-time-v1",
+  "n_sims": 2000,
+  "step_games": 2,
+  "scope": "current-season domestic league race pages",
+  "leagues": {
+    "mls": {
+      "status": "reconstructed",
+      "points": 9,
+      "team_rows": 270,
+      "season_start": "2026-02-21",
+      "through": "2026-05-25",
+      "first_archive": "2026-07-03",
+      "temperature": 1.5899,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "epl": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-21",
+      "first_archive": "2026-06-28"
+    },
+    "la-liga": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-15",
+      "first_archive": "2026-06-28"
+    },
+    "serie-a": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-22",
+      "first_archive": "2026-06-28"
+    },
+    "bundesliga": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-28",
+      "first_archive": "2026-06-28"
+    },
+    "ligue-1": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-21",
+      "first_archive": "2026-06-29"
+    },
+    "championship": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-14",
+      "first_archive": "2026-06-28"
+    },
+    "league-one": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-15",
+      "first_archive": "2026-06-28"
+    },
+    "league-two": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-15",
+      "first_archive": "2026-06-28"
+    },
+    "bundesliga-2": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-07",
+      "first_archive": "2026-06-28"
+    },
+    "serie-b": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-21",
+      "first_archive": "2026-06-28"
+    },
+    "segunda": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-14",
+      "first_archive": "2026-06-29"
+    },
+    "ligue-2": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-08",
+      "first_archive": "2026-06-29"
+    },
+    "national-league": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-08",
+      "first_archive": "2026-07-10"
+    },
+    "scottish-champ": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-01",
+      "first_archive": "2026-07-12"
+    },
+    "scottish-league-one": {
+      "status": "reconstructed",
+      "points": 19,
+      "team_rows": 190,
+      "season_start": "2025-08-02",
+      "through": "2026-05-02",
+      "first_archive": "2026-07-12",
+      "temperature": 1.4694,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "scottish-league-two": {
+      "status": "reconstructed",
+      "points": 19,
+      "team_rows": 190,
+      "season_start": "2025-08-02",
+      "through": "2026-05-02",
+      "first_archive": "2026-07-12",
+      "temperature": 1.2918,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "eredivisie": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-07",
+      "first_archive": "2026-07-07"
+    },
+    "primeira": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-07",
+      "first_archive": "2026-07-07"
+    },
+    "super-lig": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-14",
+      "first_archive": "2026-07-07"
+    },
+    "scottish-prem": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-07-31",
+      "first_archive": "2026-07-07"
+    },
+    "belgian-pro": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-07",
+      "first_archive": "2026-07-07"
+    },
+    "greek-super": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-22",
+      "first_archive": "2026-07-07"
+    },
+    "liga-mx": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-07-17",
+      "first_archive": "2026-07-03"
+    },
+    "nwsl": {
+      "status": "reconstructed",
+      "points": 8,
+      "team_rows": 128,
+      "season_start": "2026-03-13",
+      "through": "2026-07-05",
+      "first_archive": "2026-07-07",
+      "temperature": 1.6463,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "usl-championship": {
+      "status": "reconstructed",
+      "points": 9,
+      "team_rows": 225,
+      "season_start": "2026-03-06",
+      "through": "2026-07-05",
+      "first_archive": "2026-07-07",
+      "temperature": 1.6601,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "brazil-serie-a": {
+      "status": "reconstructed",
+      "points": 11,
+      "team_rows": 220,
+      "season_start": "2026-01-28",
+      "through": "2026-06-01",
+      "first_archive": "2026-07-11",
+      "temperature": 0.9997,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "japan-j1": {
+      "status": "reconstructed",
+      "points": 11,
+      "team_rows": 220,
+      "season_start": "2026-02-06",
+      "through": "2026-06-06",
+      "first_archive": "2026-07-11",
+      "temperature": 1.2027,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "sweden-allsvenskan": {
+      "status": "reconstructed",
+      "points": 7,
+      "team_rows": 112,
+      "season_start": "2026-04-04",
+      "through": "2026-07-06",
+      "first_archive": "2026-07-11",
+      "temperature": 1.5939,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "norway-eliteserien": {
+      "status": "reconstructed",
+      "points": 7,
+      "team_rows": 112,
+      "season_start": "2026-03-14",
+      "through": "2026-05-30",
+      "first_archive": "2026-07-11",
+      "temperature": 5.0,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "denmark-superliga": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-07-24",
+      "first_archive": "2026-07-10"
+    },
+    "poland-ekstraklasa": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-07-24",
+      "first_archive": "2026-07-10"
+    },
+    "argentina-primera": {
+      "status": "reconstructed",
+      "points": 10,
+      "team_rows": 300,
+      "season_start": "2026-01-22",
+      "through": "2026-05-24",
+      "first_archive": "2026-07-11",
+      "temperature": 2.1092,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "austria-bundesliga": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-07-31",
+      "first_archive": "2026-07-12"
+    },
+    "swiss-super-league": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-07-25",
+      "first_archive": "2026-07-14"
+    },
+    "romania-liga1": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-07-17",
+      "first_archive": "2026-07-12"
+    },
+    "ireland-premier": {
+      "status": "reconstructed",
+      "points": 14,
+      "team_rows": 140,
+      "season_start": "2026-02-06",
+      "through": "2026-07-11",
+      "first_archive": "2026-07-12",
+      "temperature": 1.1868,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "china-super": {
+      "status": "reconstructed",
+      "points": 10,
+      "team_rows": 160,
+      "season_start": "2026-03-06",
+      "through": "2026-07-11",
+      "first_archive": "2026-07-12",
+      "temperature": 1.0597,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "russia-premier": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-07-24",
+      "first_archive": "2026-07-12"
+    },
+    "saudi-pro": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-13",
+      "first_archive": "2026-07-12"
+    },
+    "australia-aleague": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-10-16",
+      "first_archive": "2026-07-12"
+    },
+    "wsl": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-09-04",
+      "first_archive": "2026-07-14"
+    },
+    "canadian-pl": {
+      "status": "reconstructed",
+      "points": 16,
+      "team_rows": 128,
+      "season_start": "2024-04-13",
+      "through": "2024-11-09",
+      "first_archive": "2026-07-12",
+      "temperature": 1.0,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "finland-veikkausliiga": {
+      "status": "reconstructed",
+      "points": 9,
+      "team_rows": 108,
+      "season_start": "2026-04-04",
+      "through": "2026-07-11",
+      "first_archive": "2026-07-12",
+      "temperature": 1.148,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "chile-primera": {
+      "status": "reconstructed",
+      "points": 9,
+      "team_rows": 144,
+      "season_start": "2026-01-30",
+      "through": "2026-06-19",
+      "first_archive": "2026-07-15",
+      "temperature": 1.7749,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "colombia-primera-a": {
+      "status": "reconstructed",
+      "points": 12,
+      "team_rows": 240,
+      "season_start": "2026-01-16",
+      "through": "2026-06-08",
+      "first_archive": "2026-07-15",
+      "temperature": 1.1005,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "uruguay-primera": {
+      "status": "reconstructed",
+      "points": 12,
+      "team_rows": 192,
+      "season_start": "2026-02-06",
+      "through": "2026-07-13",
+      "first_archive": "2026-07-15",
+      "temperature": 1.11,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "peru-liga1": {
+      "status": "reconstructed",
+      "points": 10,
+      "team_rows": 180,
+      "season_start": "2026-01-30",
+      "through": "2026-05-31",
+      "first_archive": "2026-07-15",
+      "temperature": 1.2261,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "thai-league-1": {
+      "status": "reconstructed",
+      "points": 16,
+      "team_rows": 256,
+      "season_start": "2025-08-15",
+      "through": "2026-05-10",
+      "first_archive": "2026-07-14",
+      "temperature": 1.2282,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "eerste-divisie": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-07",
+      "first_archive": "2026-07-14"
+    },
+    "k-league-1": {
+      "status": "reconstructed",
+      "points": 21,
+      "team_rows": 252,
+      "season_start": "2024-03-01",
+      "through": "2024-11-24",
+      "first_archive": "2026-07-14",
+      "temperature": 1.2401,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "brazil-serie-b": {
+      "status": "reconstructed",
+      "points": 11,
+      "team_rows": 220,
+      "season_start": "2026-03-21",
+      "through": "2026-07-24",
+      "first_archive": "2026-07-25",
+      "temperature": 1.574,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "ecuador-ligapro": {
+      "status": "reconstructed",
+      "points": 12,
+      "team_rows": 192,
+      "season_start": "2026-02-21",
+      "through": "2026-07-24",
+      "first_archive": "2026-07-25",
+      "temperature": 2.0702,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "paraguay-primera": {
+      "status": "reconstructed",
+      "points": 13,
+      "team_rows": 156,
+      "season_start": "2026-01-23",
+      "through": "2026-07-24",
+      "first_archive": "2026-07-25",
+      "temperature": 1.2467,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "bolivia-profesional": {
+      "status": "reconstructed",
+      "points": 7,
+      "team_rows": 112,
+      "season_start": "2026-04-03",
+      "through": "2026-07-24",
+      "first_archive": "2026-07-25",
+      "temperature": 0.9458,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "venezuela-primera": {
+      "status": "reconstructed",
+      "points": 10,
+      "team_rows": 140,
+      "season_start": "2026-01-29",
+      "through": "2026-06-07",
+      "first_archive": "2026-07-25",
+      "temperature": 0.8245,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "argentina-nacional": {
+      "status": "reconstructed",
+      "points": 12,
+      "team_rows": 432,
+      "season_start": "2026-02-13",
+      "through": "2026-07-17",
+      "first_archive": "2026-07-25",
+      "temperature": 1.4006,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "liga-expansion-mx": {
+      "status": "reconstructed",
+      "points": 2,
+      "team_rows": 32,
+      "season_start": "2026-07-25",
+      "through": "2026-07-25",
+      "first_archive": "2026-07-26",
+      "temperature": 1.8838,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "usl-league-one": {
+      "status": "reconstructed",
+      "points": 10,
+      "team_rows": 170,
+      "season_start": "2026-03-08",
+      "through": "2026-07-23",
+      "first_archive": "2026-07-25",
+      "temperature": 5.0,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "costa-rica-primera": {
+      "status": "reconstructed",
+      "points": 2,
+      "team_rows": 20,
+      "season_start": "2026-07-24",
+      "through": "2026-07-24",
+      "first_archive": "2026-07-25",
+      "temperature": 1.0784,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "honduras-liga": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-01",
+      "first_archive": "2026-07-30"
+    },
+    "guatemala-liga": {
+      "status": "reconstructed",
+      "points": 2,
+      "team_rows": 24,
+      "season_start": "2026-07-25",
+      "through": "2026-07-25",
+      "first_archive": "2026-07-26",
+      "temperature": 0.7895,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "elsalvador-primera": {
+      "status": "reconstructed",
+      "points": 2,
+      "team_rows": 24,
+      "season_start": "2026-07-25",
+      "through": "2026-07-25",
+      "first_archive": "2026-07-26",
+      "temperature": 1.1155,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "south-africa-psl": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-01",
+      "first_archive": "2026-07-30"
+    },
+    "india-isl": {
+      "status": "reconstructed",
+      "points": 8,
+      "team_rows": 112,
+      "season_start": "2026-02-14",
+      "through": "2026-05-21",
+      "first_archive": "2026-07-24",
+      "temperature": 1.3905,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "liga-f": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-30",
+      "first_archive": "2026-07-30"
+    },
+    "france-premiere-ligue": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-09-04",
+      "first_archive": "2026-07-30"
+    },
+    "vrouwen-eredivisie": {
+      "status": "reconstructed",
+      "points": 12,
+      "team_rows": 144,
+      "season_start": "2025-09-06",
+      "through": "2026-05-22",
+      "first_archive": "2026-07-25",
+      "temperature": 1.1408,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "australia-aleague-women": {
+      "status": "reconstructed",
+      "points": 12,
+      "team_rows": 132,
+      "season_start": "2025-10-31",
+      "through": "2026-05-16",
+      "first_archive": "2026-07-25",
+      "temperature": 2.1398,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "northern-super-league": {
+      "status": "reconstructed",
+      "points": 8,
+      "team_rows": 48,
+      "season_start": "2026-04-25",
+      "through": "2026-07-23",
+      "first_archive": "2026-07-25",
+      "temperature": 1.0,
+      "schedule_basis": "current_full_schedule",
+      "excluded_inputs": [
+        "current_rosters",
+        "current_injuries",
+        "undated_squad_values"
+      ],
+      "newcomer_seed": "flat_15_85_prior",
+      "method": "dc-point-in-time-v1"
+    },
+    "usl-super-league": {
+      "status": "archive_precedes_season",
+      "points": 0,
+      "season_start": "2026-08-15",
+      "first_archive": "2026-07-30"
+    }
+  }
+}

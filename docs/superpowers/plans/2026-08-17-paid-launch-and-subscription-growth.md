@@ -16,6 +16,15 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-07-31 — point-in-time season history repository-ready.** Added leakage-safe Dixon–Coles
+  matchday replays for all 71 domestic league race pages, kept them in a provenance-labeled dataset
+  separate from the authoritative nightly archive, and merged them with archive precedence. Thirty-
+  five leagues received 5,725 reconstructed team-points; 36 needed no replay because their current
+  season began after archiving. Movement charts now show dashed reconstructed segments and solid
+  archived segments, and expanded history covers continental/premiers/finals outcomes. Proof: all
+  1,714 tests passed with 14 intentional skips, all 79 payloads and history-growth checks passed,
+  dataset invariants passed, and the MLS Chromium provenance flow passed. Production deployment is
+  pending; this trust improvement changes no model champion or paid-launch gate.
 - **2026-07-31 — MLS/home presentation follow-up deployed.** MLS now follows the
   table-first league-page order, team links use the product text palette, the header carries both
   US and Canada flags, and movement sparklines reach Game 1 with an honest dashed hold where saved

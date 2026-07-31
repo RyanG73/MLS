@@ -8,7 +8,8 @@ each build and writes two append-only parquet files:
 data/odds_history.parquet — one row per (league, team, snapshot_date):
     league, team, snapshot_date, elo, proj_pts,
     title, playoff, shield, cup, ucl, europa, conf, releg, promo, promoted,
-    liguilla, playoffs,                                    (whichever exist)
+    liguilla, playoffs, continental, premiers, finals, hfa, spoon, conf_win,
+                                                            (whichever exist)
     nm_id, nm_date, nm_opp, nm_is_home, nm_ph, nm_pd, nm_pa,   (next match, model)
     nm_mh, nm_md, nm_ma,                                   (next match, market — None
                                                             until a line posts)
@@ -62,7 +63,8 @@ _NON_PAYLOAD = {"logos.js", "ledger.js", "edge-board.js", "movers.js",
 # promoted/promo/conf/liguilla/playoffs added 2026-07-09 (round-3 promotion
 # playoffs + drift-tracking step 1a — history not captured never exists).
 _ODDS_KEYS = ["title", "playoff", "shield", "cup", "ucl", "europa", "conf",
-              "releg", "promo", "promoted", "liguilla", "playoffs"]
+              "releg", "promo", "promoted", "liguilla", "playoffs",
+              "continental", "premiers", "finals", "hfa", "spoon", "conf_win"]
 _DEDUP_KEYS = ["league", "team", "snapshot_date"]
 
 
