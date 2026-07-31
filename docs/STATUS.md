@@ -67,7 +67,7 @@ delivery, or customer-evidence gates.
 completed successfully for commit `b468f6e`. The live index contains the MLS
 dual flags, table-first movement placement, neutral link styling, honest
 season-start baseline, horizontal desktop hero, and consolidated masthead
-ticker; the live service-worker cache is stamped `entenser-shell-b468f6efe7b1`.
+ticker; the deployment also refreshed the live service-worker cache.
 
 **Owner decision recorded (2026-07-29):** Ryan approved the paid-launch decision record as written:
 7,000 active paid is the objective; Club Watch, its primary audience, boundary, launch pricing,

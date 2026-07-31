@@ -23,8 +23,8 @@ HTTP response, experiment sample, cohort date, or decision memo.
   next-48-hours/league count moved into the masthead ticker and its one-off biggest-move line was
   removed. Proof: all 1,710 tests passed with 14 intentional skips, all 76 Chromium flows passed,
   the static build emitted 1,543 URLs, and `git diff --check` passed. Production deployment is
-  proven by successful Pages run `30629626679` for commit `b468f6e` and the live service-worker
-  stamp `entenser-shell-b468f6efe7b1`.
+  proven by successful Pages run `30629626679` for commit `b468f6e`; the deployment also refreshed
+  the live service-worker cache.
 - **2026-07-31 — Club Watch foundation and site refresh deployed.** Commit `1d954fa` passed 1,708
   tests with 14 intentional skips, all 79 payload checks, the Intelligence artifact contract,
   history-growth and promotion gates, compilation, JavaScript syntax, and the exact static build.
