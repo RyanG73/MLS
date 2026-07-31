@@ -30,3 +30,13 @@ def test_daily_refresh_commits_match_prob_history():
 
 def test_league_refresh_commits_match_prob_history():
     assert "data/match_prob_history.parquet" in _commit_step_text("refresh-leagues.yml")
+
+
+def test_api_deploy_rebuilds_and_publishes_club_watch_records():
+    workflow = (REPO_ROOT / ".github" / "workflows" / "deploy-api.yml").read_text()
+    assert "source .vercel/.env.production.local" in workflow
+    assert "python scripts/build_team_intelligence.py" in workflow
+    assert "python scripts/publish_intelligence_artifacts.py" in workflow
+    assert "publish_intelligence_artifacts.py --allow-missing-config" not in workflow
+    assert workflow.index("Deploy production function") < workflow.index(
+        "Publish Club Watch team records")

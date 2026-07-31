@@ -8,7 +8,11 @@ on:
       - 'server/**'
       - 'scripts/intelligence/**'
       - 'scripts/archive_intelligence_state.py'
+      - 'scripts/build_team_intelligence.py'
+      - 'scripts/publish_intelligence_artifacts.py'
       - 'scripts/payload_utils.py'
+      - 'data/odds_history.parquet'
+      - 'data/reconstructed_trajectory_history.parquet'
       # Scenario execution reads the public league payload bundled into the
       # Vercel function. Redeploy whenever refreshed artifacts advance that
       # snapshot, or the KV-backed team record and simulator will disagree.
@@ -38,9 +42,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - name: Use runtime-only Python dependencies
         run: cp requirements-api.txt requirements.txt
       - uses: astral-sh/setup-uv@v5
+      # pandas/pyarrow are build-time only. Keeping them out of requirements.txt
+      # prevents the Vercel function bundle from carrying the parquet toolchain.
+      - name: Install Club Watch artifact builder
+        run: uv pip install --system -r requirements-api.txt pandas pyarrow
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
       - name: Pull production environment
@@ -49,3 +60,15 @@ jobs:
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
       - name: Deploy production function
         run: vercel deploy --prebuilt --prod --archive=tgz --token=${{ secrets.VERCEL_TOKEN }}
+      # The scheduled refresh runner does not own the authenticated API's
+      # Upstash credentials. Publish from this production environment instead:
+      # vercel pull writes the same verified variables used by the live API.
+      - name: Publish Club Watch team records
+        shell: bash
+        run: |
+          test -f .vercel/.env.production.local
+          set -a
+          source .vercel/.env.production.local
+          set +a
+          python scripts/build_team_intelligence.py
+          python scripts/publish_intelligence_artifacts.py

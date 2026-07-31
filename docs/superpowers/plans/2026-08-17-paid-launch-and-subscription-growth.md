@@ -23,8 +23,11 @@ HTTP response, experiment sample, cohort date, or decision memo.
   includes a frozen season path; the paid continuation keeps the integrated club-season view current.
   Public league history remains free, so no exclusive-history claim was introduced. Proof: all
   1,719 tests passed with 14 intentional skips; all 79 payloads and the history-growth gate passed;
-  Chromium covers the MLS dashed-to-solid path, the free sample, and mobile overflow. Production
-  deployment is pending; this changes no paid-launch gate.
+  Chromium covers the MLS dashed-to-solid path, the free sample, and mobile overflow. Pages run
+  `30643779327` and API run `30643779410` deployed commit `2e5f14a`. Refresh run `30643892020`
+  rebuilt all team records but exposed that its Upstash publisher had no credentials; publication
+  now runs from the API deployment after pulling its verified production environment. Record
+  publication is pending; this changes no paid-launch gate.
 - **2026-07-31 — point-in-time season history deployed.** Added leakage-safe Dixon–Coles
   matchday replays for all 71 domestic league race pages, kept them in a provenance-labeled dataset
   separate from the authoritative nightly archive, and merged them with archive precedence. Thirty-
