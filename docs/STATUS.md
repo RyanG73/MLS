@@ -34,7 +34,7 @@ outranks that milestone.
 |---|---|---|
 | Public site | ✅ Live | `https://entenser.com/` returns 200 |
 | MLS/home presentation follow-up | ✅ Live | MLS uses table-first movement placement, neutral team links, dual-country flags, and a horizontal desktop home hero. Pages run `30629626679` deployed commit `b468f6e`. |
-| Point-in-time season history | 🟡 Repository verified; deployment pending | The 71 domestic race pages now merge provenance-labeled historical replays with authoritative archived forecasts. Thirty-five leagues received 5,725 reconstructed team-points; the other 36 were already archived before their current season began. Replays exclude later scores and undated roster/injury/value inputs; dashed chart segments are reconstructed and solid segments are archived. |
+| Point-in-time season history | ✅ Live | The 71 domestic race pages now merge provenance-labeled historical replays with authoritative archived forecasts. Thirty-five leagues received 5,725 reconstructed team-points; the other 36 were already archived before their current season began. Replays exclude later scores and undated roster/injury/value inputs; dashed chart segments are reconstructed and solid segments are archived. Pages run `30637496201` deployed commit `871eaa4`. |
 | Forecast landing page and RSS | ✅ Live | `/football-forecasts/` and `/forecast-feed.xml` return 200 |
 | Crawlable club forecast pages | ✅ Live | Static build emits 1,446 competition-scoped club pages and a 1,543-URL sitemap; Pages run `30627028178` deployed them successfully |
 | Global Power and shared ELO | ✅ Live | 892 clubs across 50 leagues; shared `global_elo` displayed throughout relevant public surfaces |
@@ -62,6 +62,12 @@ The committed reconstructed dataset has 5,725 unique `(league, team, date)` rows
 before each league's first authoritative archive date, contains only current standings members,
 and keeps every probability in `[0,100]`. Regression coverage proves future fixture scores do not
 affect an earlier replay and that archived rows win every same-day merge.
+
+**Historical replay deployment proof (2026-07-31):** GitHub Pages run `30637496201` completed
+successfully for commit `871eaa4`. The live MLS payload begins on `2026-02-20` with
+`kind: reconstructed`, and the live page labels dashed segments as reconstructed and solid segments
+as archived. This is a point-in-time model replay, not a claim that those forecasts were published
+on those historical dates.
 
 **Production verification proof (2026-07-31):** GitHub Pages run `30627028178`
 and Vercel API run `30627028137` completed successfully for commit `1d954fa`.
