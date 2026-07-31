@@ -9,6 +9,10 @@ on:
       - 'scripts/intelligence/**'
       - 'scripts/archive_intelligence_state.py'
       - 'scripts/payload_utils.py'
+      # Scenario execution reads the public league payload bundled into the
+      # Vercel function. Redeploy whenever refreshed artifacts advance that
+      # snapshot, or the KV-backed team record and simulator will disagree.
+      - 'webapp/data/**'
       - 'requirements-api.txt'
       - 'vercel.json'
       - '.github/workflows/deploy-api.yml'

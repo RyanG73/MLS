@@ -356,6 +356,7 @@ def test_workflows_include_launch_gates_and_protected_delivery():
     assert "UNSUBSCRIBE_SECRET: ${{ secrets.UNSUBSCRIBE_SECRET }}" in delivery
     assert "UNSUBSCRIBE_TOKEN_SECRET" not in delivery
     assert "vercel deploy --prebuilt --prod" in api_deploy
+    assert "- 'webapp/data/**'" in api_deploy
 
 
 def test_fast_refresh_uses_cached_probabilities_and_data_only_branch():
