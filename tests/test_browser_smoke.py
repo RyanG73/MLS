@@ -102,7 +102,7 @@ def _scrolls_wider_than_viewport(page: Page) -> bool:
     )
 
 
-def _load_route(page: Page, base_url: str, league_id: str):
+def _load_route(page: Page, base_url: str, league_id: str | None):
     # Static smoke tests do not run the optional local API. Fulfil the one
     # background public-config read so Chromium does not report a network
     # resource error unrelated to the page under test.
@@ -114,7 +114,8 @@ def _load_route(page: Page, base_url: str, league_id: str):
             body='{"open_access":{"active":false},"pricing":{}}',
         ),
     )
-    page.goto(f"{base_url}/index.html?league={league_id}", wait_until="networkidle")
+    suffix = f"?league={league_id}" if league_id else ""
+    page.goto(f"{base_url}/index.html{suffix}", wait_until="networkidle")
     page.wait_for_timeout(400)
 
 
@@ -618,6 +619,18 @@ class TestLeaguePageRaceFirstLayout:
             f"Midseason progress rail should be only partially filled: {progress}"
         )
         assert "games played" in progress["meta"]
+        lanes = movement.locator(".rm-row")
+        baselines = movement.locator(".rm-baseline")
+        assert baselines.count() == lanes.count(), (
+            "MLS history starts midseason, so every visible sparkline should extend "
+            "its earliest known forecast back to Game 1"
+        )
+        first_baseline = baselines.first
+        assert float(first_baseline.get_attribute("x1")) == pytest.approx(2, abs=0.1)
+        assert float(first_baseline.get_attribute("x2")) > 2
+        assert "earliest forecast held to season start" in movement.locator(
+            ".rm-foot"
+        ).inner_text().lower()
 
 
 class TestLeagueMatchProjectionControls:
@@ -689,6 +702,78 @@ class TestMlsTopBoxes:
         # .fav .lab is CSS text-transform:uppercase, so inner_text() reflects the
         # rendered case ("MLS CUP") rather than the source markup — compare case-insensitively.
         assert any("mls cup" in l.lower() for l in labels), f"No MLS Cup card in {labels}"
+
+    def test_mls_uses_table_first_layout_neutral_links_and_dual_flags(
+        self, page: Page, webapp_url: str
+    ):
+        page.set_viewport_size({"width": 1280, "height": 900})
+        _load_route(page, webapp_url, "mls")
+        title = page.locator("#leagueTitle").inner_text()
+        assert "🇺🇸" in title and "🇨🇦" in title and "MLS" in title
+        mast_mls = page.get_by_role("link", name="🇺🇸 🇨🇦 MLS", exact=True)
+        assert "🇺🇸" in mast_mls.inner_text()
+        assert "🇨🇦" in mast_mls.inner_text()
+
+        positions = page.evaluate(
+            """() => {
+                const tables = document.querySelector('#ladders').getBoundingClientRect();
+                const movement = document.querySelector('.race-movement').getBoundingClientRect();
+                const link = document.querySelector('#ladders .tlink');
+                return {
+                    tablesBottom: tables.bottom,
+                    movementTop: movement.top,
+                    linkColor: getComputedStyle(link).color,
+                    textColor: getComputedStyle(document.documentElement)
+                        .getPropertyValue('--txt-1').trim()
+                };
+            }"""
+        )
+        assert positions["movementTop"] >= positions["tablesBottom"]
+        assert positions["linkColor"] == "rgb(227, 233, 228)"
+        assert positions["linkColor"] != "rgb(0, 0, 238)"
+
+
+class TestHomeHero:
+    def test_desktop_club_watch_hero_is_horizontal_and_stats_live_in_ticker(
+        self, page: Page, webapp_url: str
+    ):
+        page.set_viewport_size({"width": 1280, "height": 900})
+        _load_route(page, webapp_url, None)
+        hero = page.locator(".hx-tag")
+        hero_text = hero.inner_text()
+        assert "Biggest move" not in hero_text
+        assert "matches next 48h" not in hero_text
+
+        layout = hero.evaluate(
+            """el => {
+                const h = el.querySelector('h1').getBoundingClientRect();
+                const copy = el.querySelector('.hx-sub').getBoundingClientRect();
+                const actions = el.querySelector('.hx-actions').getBoundingClientRect();
+                return {
+                    display: getComputedStyle(el).display,
+                    headlineLeft: h.left,
+                    copyLeft: copy.left,
+                    actionsLeft: actions.left
+                };
+            }"""
+        )
+        assert layout["display"] == "grid"
+        assert layout["copyLeft"] > layout["headlineLeft"] + 100
+        assert layout["actionsLeft"] == pytest.approx(layout["copyLeft"], abs=2)
+
+        ticker = page.locator(".mast-live").inner_text()
+        expected = page.evaluate(
+            """() => {
+                const now = Date.now(), horizon = now + 48 * 3600 * 1000;
+                return (HOME_DATA.fixtures || []).filter(f => {
+                    const t = Date.parse(f.ko || f.date || '');
+                    return Number.isFinite(t) && t >= now && t <= horizon;
+                }).length;
+            }"""
+        )
+        assert "Upcoming:" in ticker and "fixtures projected" in ticker
+        assert f"{expected} {'match' if expected == 1 else 'matches'} next 48h" in ticker
+        assert f"{page.evaluate('() => HOME_DATA.stats.leagues')} leagues" in ticker
 
 
 class TestTeamsDashboard:

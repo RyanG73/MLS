@@ -33,6 +33,7 @@ outranks that milestone.
 | Surface | State | Proof |
 |---|---|---|
 | Public site | ✅ Live | `https://entenser.com/` returns 200 |
+| MLS/home presentation follow-up | 🟡 Release candidate verified | MLS now uses table-first movement placement, neutral team links, dual-country flags, and a season-start trajectory baseline; the desktop home hero is horizontal and its duplicate live stats moved into the masthead ticker. Production deployment is pending. |
 | Forecast landing page and RSS | ✅ Live | `/football-forecasts/` and `/forecast-feed.xml` return 200 |
 | Crawlable club forecast pages | ✅ Live | Static build emits 1,446 competition-scoped club pages and a 1,543-URL sitemap; Pages run `30627028178` deployed them successfully |
 | Global Power and shared ELO | ✅ Live | 892 clubs across 50 leagues; shared `global_elo` displayed throughout relevant public surfaces |
@@ -49,7 +50,7 @@ outranks that milestone.
 | Live alerts and briefings | ❌ Not offered | UI labels delivery unavailable; live scripts require both protected send switches, two matchweeks of shadow QA, one quiet cycle, and owner approval |
 
 **Repository verification proof (2026-07-31):** the integrated release passed
-1,708 tests with 14 intentional skips; all 79 public payloads, the Intelligence
+1,710 tests with 14 intentional skips; all 79 public payloads, the Intelligence
 artifact contract, history-growth gate, promotion-gate self-test, Python
 compilation, JavaScript syntax, and `git diff --check` passed. The static build
 emitted 78 league pages, 1,446 club pages, and a 1,543-URL sitemap.

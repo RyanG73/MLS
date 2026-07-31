@@ -431,7 +431,8 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .tcell{display:flex;align-items:center;gap:9px;min-width:0}
 .tcol{min-width:0;display:flex;flex-direction:column;gap:1px}
 .tname{display:block;font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tname.tlink{cursor:pointer} .tname.tlink:hover{color:var(--qualify);text-decoration:underline}
+.tname.tlink{cursor:pointer;color:var(--txt-1);text-decoration:none}
+.tname.tlink:hover{color:var(--qualify);text-decoration:underline}
 /* narrow screens: keep the team name (crest-only was too hard to scan) — just
    tighten the subtitle line so the row still fits without truncating names. */
 @media(max-width:620px){.ladder .tsub{display:none}}
@@ -812,6 +813,7 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .rm-team b{font-size:11.5px;font-weight:650;color:var(--txt-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rm-spark{height:39px;min-width:0;display:flex;flex-direction:column;justify-content:center}
 .rm-spark svg{width:100%;height:25px;display:block;overflow:hidden}
+.rm-baseline{stroke-dasharray:3 3}
 .rm-axis{display:flex;justify-content:space-between;margin-top:1px;font-family:var(--mono);
   font-size:8px;line-height:10px;color:var(--txt-3);white-space:nowrap}
 .rm-now,.rm-delta{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
@@ -1628,12 +1630,17 @@ function teamGateCardHTML(team){
     // MLS rides in the top bar directly after England (2026-07-25 feedback). It
     // stays inside the Americas menu as well, so both routes still reach it.
     if(g==='England'&&_hasMLS)
-      bar+=`<div class="mb-item"><a href="?league=mls" class="${_mlsActive?'active':''}">MLS</a></div>`;});
+      bar+=`<div class="mb-item"><a href="?league=mls" class="${_mlsActive?'active':''}">🇺🇸 🇨🇦 MLS</a></div>`;});
   // Intel (paywalled hub mockup) + Account replace the old News/Subscribe pair (2026-07-18)
   bar+=`<div class="mb-item"><a href="?league=intel" class="${_isIntel?'active':''}">\u{1F4E1} Club Watch<span class="intel-tag">PRO</span></a></div>`
       +`<div class="mb-item"><a href="?league=account" class="${_isAccount?'active':''}">\u{1F464} Account</a></div>`;
+  const next48=(H&&H.fixtures||[]).filter(f=>{
+    const t=Date.parse(f.ko||f.date||''),now=Date.now();
+    return Number.isFinite(t)&&t>=now&&t<=now+48*3600*1000;
+  }).length;
   const live=(H&&H.fixtures&&H.fixtures.length&&!_isLeagues)
-    ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">Upcoming: ${H.fixtures.length} fixtures projected</a><span>· ${H.stats.leagues} leagues</span></div>`:'';
+    ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">Upcoming: ${H.fixtures.length} fixtures projected</a>`+
+      `<span>· ${next48} ${next48===1?'match':'matches'} next 48h</span><span>· ${H.stats.leagues} leagues</span></div>`:'';
   const oa=oaBannerHTML();
   mast.innerHTML=`<div class="mast-top">
       <div class="mast-date">${dstr}${H?`<span>Updated ${H.generated}</span>`:''}</div>
@@ -1719,11 +1726,12 @@ function teamGateCardHTML(team){
   const reg=(window.LEAGUES||[]).find(l=>l.id===LID)||{};
   document.title=lg.name;
   const title=$('#leagueTitle');
-  title.textContent=lg.name;
+  const leagueFlags=LID==='mls'?'<span class="league-flags" aria-hidden="true">🇺🇸 🇨🇦</span> ':'';
+  title.innerHTML=leagueFlags+lg.name;
   if(lg.logo){const b=$('#leagueLogo');b.style.background='none';b.style.boxShadow='none';
     b.innerHTML=`<img src="${lg.logo}" alt="" style="width:100%;height:100%;object-fit:contain" onerror="this.remove()">`;}
   const isCanonical=!_isPower&&!_isEdgeBoard&&!_homeDataRoute&&!_infoPage&&reg.id;
-  if(isCanonical)title.innerHTML=`<a href="/leagues/${LID}/">${lg.name}</a>`;
+  if(isCanonical)title.innerHTML=`<a href="/leagues/${LID}/">${leagueFlags}${lg.name}</a>`;
   const country=reg.country||lg.country||lg.confederation||'International';
   const level=reg.tier!=null?`Division ${reg.tier}`:(isKnockout?'Cup competition':'League competition');
   const fast=D.fast_refresh||{};
@@ -2214,6 +2222,11 @@ function renderOutlook(){
   const ri=runInPanel(); if(ri)right.appendChild(ri);
   const simGate=simGateNote(); if(simGate)l.appendChild(simGate);
   l.append(left,right);
+  // MLS uses the same table-first reading order as single-table leagues: the
+  // standings are the decision surface and probability movement follows them.
+  const analysis=$('#tableAnalysis');
+  analysis.innerHTML='';
+  analysis.appendChild($('#raceHistory'));
 }
 /* ── table-league outlook: race strip (one card per race) + single ladder ── */
 // Accent class per race key (gold title / green UCL / blue Europa / red relegation).
@@ -3579,9 +3592,13 @@ function renderRaceHistory(requestedMetric=null){
     ['europa','conf'].includes(metric)?'var(--europa)':'var(--draw)';
   const spark=t=>{
     const W=160,H=25,pad=2;
-    const sx=game=>pad+(game/seasonGames)*(W-pad*2);
+    // The visible axis is Game 1 → the final scheduled game. Forecast archives
+    // began after some seasons were underway, so hold the first known value
+    // back to Game 1 with a dashed segment instead of inventing earlier moves.
+    const sx=game=>pad+((Math.max(1,game)-1)/Math.max(1,seasonGames-1))*(W-pad*2);
     const sy=v=>pad+(1-Math.max(0,Math.min(100,v))/100)*(H-pad*2);
     const pts=t.points.map(p=>`${sx(p.game).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ');
+    const first=t.points[0];
     const last=t.points[t.points.length-1];
     const teamPlayed=Math.min(seasonGames,
       (D.standings.find(s=>s.team===t.team)||{}).gp||last.game);
@@ -3589,6 +3606,9 @@ function renderRaceHistory(requestedMetric=null){
       `<line x1="0" x2="${W}" y1="${H-1}" y2="${H-1}" stroke="var(--line-2)" stroke-width="1"/>`+
       `<line class="rm-progress" x1="${pad}" x2="${sx(teamPlayed).toFixed(1)}" y1="${H-1}" y2="${H-1}" `+
       `stroke="${tone}" stroke-opacity=".55" stroke-width="2" vector-effect="non-scaling-stroke"/>`+
+      (first.game>1?`<line class="rm-baseline" x1="${sx(1).toFixed(1)}" y1="${sy(first.value).toFixed(1)}" `+
+        `x2="${sx(first.game).toFixed(1)}" y2="${sy(first.value).toFixed(1)}" stroke="${tone}" stroke-opacity=".62" `+
+        `stroke-width="2" vector-effect="non-scaling-stroke"/>`:'')+
       (t.points.length>1?`<polyline points="${pts}" fill="none" stroke="${tone}" stroke-width="2" vector-effect="non-scaling-stroke"/>`:'')+
       `<circle cx="${sx(last.game).toFixed(1)}" cy="${sy(last.value).toFixed(1)}" r="2.5" fill="${tone}"/></svg>`+
       `<span class="rm-axis"><span>Game 1</span><span>Game ${seasonGames}</span></span>`;
@@ -3605,6 +3625,7 @@ function renderRaceHistory(requestedMetric=null){
         :`<span class="rm-delta${flat?'':' move'}">${arrow} ${sign}${t.delta.toFixed(1)}pp</span></div>`);
   }).join('');
   const hidden=Math.max(0,metricRows.length-sel.length);
+  const hasOpeningGap=sel.some(t=>t.points[0]&&t.points[0].game>1);
   const selectionSubject=label.toLowerCase().replace(/\s+(odds|risk)$/,'');
   const selectionNote=(isPreseason||likelihoodRace)
     ?`top six by current ${selectionSubject} likelihood${hidden?` · ${hidden} more clubs in field`:''}`
@@ -3618,7 +3639,7 @@ function renderRaceHistory(requestedMetric=null){
     `<div class="rm-switcher" role="group" aria-label="Projection shown">${switches}`+
     `<span class="rm-rotate-note">${reducedMotion?'select projection':'rotates every 7 sec · hover to pause'}</span></div>`+
     `<div class="rm-body"><div class="rm-grid">${rows}</div>`+
-    `<div class="rm-foot"><span>${allDates[0]} → ${allDates[allDates.length-1]}</span>`+
+    `<div class="rm-foot"><span>${allDates[0]} → ${allDates[allDates.length-1]}${hasOpeningGap?' · earliest forecast held to season start':''}</span>`+
     `<span>${selectionNote}</span></div></div></div>`;
   box.querySelectorAll('.rm-switch').forEach(btn=>btn.addEventListener('click',()=>{
     raceHistoryMetricIndex=availableMetrics.findIndex(([k])=>k===btn.dataset.raceMetric);
@@ -4214,11 +4235,13 @@ if (_isPower && window.POWER_DATA) {
    (≤900px) keeps its own volatile-first order below and is unaffected. ── */
 .hx-wrap{padding-top:var(--s4);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:24px;row-gap:6px;
   grid-template-areas:"tag tag" "table odds" "stories stories" "b b" "fix fix" "movers movers" "news news"}
-.hx-tag{grid-area:tag}.hx-b{grid-area:b}.hx-table{grid-area:table}.hx-odds{grid-area:odds}
+.hx-tag{grid-area:tag;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr);
+  grid-template-areas:"headline copy" "headline actions";column-gap:var(--s6);row-gap:var(--s2);align-items:center}
+.hx-b{grid-area:b}.hx-table{grid-area:table}.hx-odds{grid-area:odds}
 .hx-stories{grid-area:stories}.hx-fix{grid-area:fix}.hx-movers{grid-area:movers}.hx-news{grid-area:news}
 /* Tagline (2026-07-19: signature serif headline, balanced across two full
    lines; the old promise paragraph + recap CTA are gone) */
-.hx-tag h1{font-family:var(--serif);font-size:clamp(21px,2.9vw,34px);line-height:1.16;font-weight:800;letter-spacing:-.012em;margin:0;color:var(--txt-1);padding:2px 2px 0;text-wrap:balance;max-width:17.6em}
+.hx-tag h1{grid-area:headline;font-family:var(--serif);font-size:clamp(21px,2.9vw,34px);line-height:1.16;font-weight:800;letter-spacing:-.012em;margin:0;color:var(--txt-1);padding:2px 2px 0;text-wrap:balance;max-width:17.6em}
 /* 2026-07-23 live-state hero: the tagline described the product to people who
    already pay for it. The h1 now states what changed; the tagline survives as
    a sub-line so crawlers and first-time visitors still get the promise. */
@@ -4226,19 +4249,8 @@ if (_isPower && window.POWER_DATA) {
 /* Keyboard skip-link: off-screen until focused, then pinned top-left. (2026-07-24) */
 .skip-link{position:absolute;left:-9999px;top:0;z-index:200;background:var(--ink-3);color:var(--txt-1);border:1px solid var(--qualify);border-radius:var(--r-sm);padding:10px 16px;font-size:14px;text-decoration:none}
 .skip-link:focus{left:8px;top:8px}
-.hx-live{padding:2px 2px 0}
-.hx-live-r{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
-.hx-live-r+.hx-live-r{margin-top:5px}
-.hx-live .n{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--txt-1);white-space:nowrap}
-.hx-live .n em{font-style:normal;color:var(--qualify)}
-/* the mover clause carries a club name of unknown length — it must wrap */
-.hx-live-r.mv .n{white-space:normal;font-size:13.5px;font-weight:600;color:var(--txt-2)}
-.hx-live-r.mv .n b{font-weight:700;color:var(--txt-1)}
-.hx-live-r.mv .n em{font-style:normal;color:var(--win)}
-/* txt-4 is the decorative-only token (3.27:1); this separator sits inline in a
-   16px trust-tape line and is read as content, so it uses txt-3. (2026-07-24) */
-.hx-live .sep{color:var(--txt-3)}
-.hx-sub{font-size:12px;line-height:1.45;color:var(--txt-2);margin:7px 0 0;padding:0 2px;max-width:34em}
+.hx-sub{grid-area:copy;font-size:12px;line-height:1.45;color:var(--txt-2);margin:0;padding:0 2px;max-width:46em}
+.hx-actions{grid-area:actions;display:flex;gap:8px;flex-wrap:wrap;padding:0 2px}
 .hx-strip{position:relative;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 8px;margin-top:10px}
 /* Edge fade (2026-07-23): this strip runs ~4200px inside a 317px viewport on
    mobile and the only hint was a hairline scrollbar. The fade is an affordance,
@@ -4321,6 +4333,9 @@ if (_isPower && window.POWER_DATA) {
      (fix → movers), reference second (odds → table → results), ambient last. */
   .hx-wrap{grid-template-columns:minmax(0,1fr);column-gap:0;
     grid-template-areas:"tag" "fix" "movers" "odds" "table" "b" "news"}
+  .hx-tag{display:block}
+  .hx-sub{margin-top:7px;max-width:34em}
+  .hx-actions{margin-top:12px;padding:0}
   .hx-stories{display:none}  /* D lives behind the News tab on mobile */
   .hx-cols,.hx-newsband{grid-template-columns:1fr}
 }
@@ -4912,42 +4927,13 @@ if(_isHome && window.HOME_DATA){
       <div id="mvBody">${moversBoardBody()}</div>`;
   };
 
-  // Live-state hero (2026-07-23). Counts fixtures inside the next 48h and names
-  // the single largest probability move, so the top of the page changes daily
-  // instead of restating the product promise. Every part degrades on its own:
-  // if there are no fixtures in the window, or no movers, that clause is
-  // dropped rather than rendering a zero.
-  const liveStateHTML=()=>{
-    // local escape: escHTML/esc are scoped to other blocks in this file
-    const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-    const counts=[];
-    const now=Date.now(), horizon=now+48*3600*1000;
-    const soon=(H.fixtures||[]).filter(f=>{
-      const t=Date.parse(f.ko||f.date||'');
-      return Number.isFinite(t)&&t>=now&&t<=horizon;
-    }).length;
-    if(soon) counts.push(`<span class="n"><em>${soon}</em> ${soon===1?'match':'matches'} next 48h</span>`);
-    const lg=(H.stats||{}).leagues;
-    if(lg) counts.push(`<span class="n"><em>${lg}</em> leagues</span>`);
-    let mv='';
-    const top=((H.movers_board||{}).movers||[])[0];
-    if(top&&Number.isFinite(top.delta)&&Math.abs(top.delta)>=1){
-      const up=top.delta>0;
-      mv=`<div class="hx-live-r mv"><span class="n">Biggest move <em>${up?'▲':'▼'}${Math.abs(top.delta).toFixed(1)}</em> <b>${e(top.team)}</b> ${e(top.metric_label||'').toLowerCase()}</span></div>`;
-    }
-    if(!counts.length&&!mv) return '';
-    const row1=counts.length?`<div class="hx-live-r">${counts.join('<span class="sep">·</span>')}</div>`:'';
-    return `<div class="hx-live">${row1}${mv}</div>`;
-  };
-
   const moversBody=moversBoardHTML();
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`
     <div class="hx-wrap">
-    <div class="hx-tag">${(()=>{const ls=liveStateHTML();return ls
-      ?`<h1>Know what every match means for your club's season.</h1>${ls}<p class="hx-sub">Follow your club once. Entenser shows what changed, why it matters, and what comes next. Current forecasts across 70+ competitions remain free.</p>`
-      :`<h1>Know what every match means for your club's season.</h1><p class="hx-sub">Current title, qualification, and relegation forecasts remain free. Track one club for a complete Club Watch sample.</p>`;})()}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    <div class="hx-tag"><h1>Know what every match means for your club's season.</h1>
+      <p class="hx-sub">Follow your club once. Entenser shows what changed, why it matters, and what comes next. Current forecasts across 70+ competitions remain free.</p>
+      <div class="hx-actions">
         <a class="intel-btn primary" href="?league=intel">Track my club</a>
         <a class="intel-btn" href="?league=leagues">Explore free forecasts</a>
       </div></div>
