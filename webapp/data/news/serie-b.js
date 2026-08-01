@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-07-31 15:49 UTC","items":[]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-08-01 12:10 UTC","items":[{"title":"Bowie makes loan switch to Serie A side Sassuolo","link":"https://www.bbc.co.uk/sport/football/articles/cy8ejv6j5wwo?at_medium=RSS&at_campaign=rss","desc":"Scotland international Kieron Bowie has completed a loan move from Hellas Verona to Serie A side Sassuolo.","published":"2026-07-31T22:40:49+00:00","source":"BBC Sport","is_analysis":false}]};
