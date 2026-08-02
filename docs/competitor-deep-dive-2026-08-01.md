@@ -1,5 +1,16 @@
 # Entenser Competitor Deep Dive — Product, Subscription Traction, Repeat Visits
 
+> **Dated evidence, as of 2026-08-01.** Superseded by `docs/STATUS.md`. Figures inside are as-of
+> and may be stale — re-measure before quoting, and never publish a number from here without
+> checking it against the payloads. This document contains *proposed* public copy: on 2026-08-02
+> seven instances of a stale Crossbar club count were found in it, some inside that copy, after
+> the figure had already been corrected in `STATUS.md`. Corrected to 1,172 clubs / 71
+> competitions, measured from the payloads.
+>
+> Note the two populations, which are easy to confuse: `/crossbar/` reports every club carrying a
+> rating (1,172 / 71); `power.js` is the narrower **bridged ladder** (965 / 55, measured bridge
+> evidence required). Quote the one that matches the claim.
+
 **Executed:** 2026-08-01 · **Prompt:** `docs/prompts/competitor-deep-dive.md` ·
 **Scope:** FanGraphs, FotMob, Rotowire, American Soccer Analysis, Sports Reference/FBref/Stathead,
 Transfermarkt, PFF
@@ -77,7 +88,7 @@ team-points merged with exact archives, reconstructed and archived segments visi
 The expensive part is done and is currently being used for one chart.
 
 *Runner-up, with a higher ceiling and a longer build:* a daily cross-league "which club is stronger?"
-duel over the 892-club shared ELO scale. Immaculate Grid is proof that one engineer can build a daily
+duel over the 1,172-club shared ELO scale. Immaculate Grid is proof that one engineer can build a daily
 game that lifts a data site's traffic 20–30%.
 
 ## 3. What should Entenser stop planning to do?
@@ -647,7 +658,7 @@ review that **a named metric, not a paywall, is what buys a small operation dist
   opportunity that report identified as §6.5.
 
   *Recommendation:* name **the cross-league strength scale** (`global_elo`), not the probability. It
-  is the most distinctive thing Entenser computes — 892 clubs across 50 leagues on one comparable
+  is the most distinctive thing Entenser computes — 1,172 clubs across 71 competitions on one comparable
   scale is genuinely unusual — it is the number most likely to start arguments (and therefore to
   travel), and naming it makes no accuracy claim, so it clears the claim matrix cleanly. **Effort:
   one page plus a naming decision. Gate: none.**
@@ -734,7 +745,7 @@ context, ELO trajectory, head-to-head).
   actually fit:
 
   1. **★ A daily cross-league "which club is stronger?" duel.** Two clubs from different leagues,
-     pick one, the answer is the shared `global_elo`. Entenser holds 892 clubs across 50 leagues on a
+     pick one, the answer is the shared `global_elo`. Entenser holds 1,172 clubs across 71 competitions on a
      single comparable scale — an unusually large and genuinely arguable substrate. It is an
      argument-starter (the Transfermarkt lesson, §6), it teaches the exact number the named-metric
      recommendation says to brand (§4), it generates endlessly without editorial work, **and it works
@@ -1145,7 +1156,7 @@ dimensions (publishing misses, provenance-labelled history) and the weakest on t
 | **Entenser** | **none** | ❌ | ❌ |
 
 **Recommendation: name the cross-league strength scale (`global_elo`).** It is the most distinctive
-thing Entenser computes (892 clubs across 50 leagues on one comparable scale), it is inherently
+thing Entenser computes (1,172 clubs across 71 competitions on one comparable scale), it is inherently
 arguable and therefore travels, it is the substrate for the recommended daily game, and **naming it
 makes no accuracy claim**, so it clears `docs/paid-claim-matrix.md` cleanly. Pair it with one
 canonical, plainly-written explainer URL. *Effort: a naming decision plus one page.*
@@ -1450,7 +1461,7 @@ A competitor review that only lists gaps invites damage. These are decisions the
 > $372/month of revenue. **Entenser names none of its quantities**, and its About page explains
 > method in insider vocabulary ("market-blind", "calibration", "Brier").
 >
-> Give Entenser's shared cross-league ELO (`global_elo` — 892 clubs across 50 leagues on one
+> Give Entenser's shared cross-league ELO (`global_elo` — 1,172 clubs across 71 competitions on one
 > comparable scale) a public name and one canonical, permanently-linkable explainer page written for
 > a supporter, not a quant.
 >
@@ -1538,7 +1549,7 @@ A competitor review that only lists gaps invites damage. These are decisions the
 >
 > Build the football-forecasting equivalent: **a daily cross-league duel.** Two clubs from different
 > competitions; the reader picks which is stronger; the answer is Entenser's shared cross-league
-> strength scale (892 clubs across 50 leagues). One puzzle per day, same for everyone, shareable
+> strength scale (1,172 clubs across 71 competitions). One puzzle per day, same for everyone, shareable
 > result, no account required to play.
 >
 > Why this shape and not a trivia grid: Entenser's substrate is probabilities, not player history, so
@@ -1659,7 +1670,7 @@ promise, no profit/edge/picks language, price visible before checkout.*
 
 ## P6 result — name shortlist *(owner decision required; not chosen)*
 
-The number: the shared cross-league ELO (`global_elo`), 892 clubs across 50 leagues on one comparable
+The number: the shared cross-league ELO (`global_elo`), 1,172 clubs across 71 competitions on one comparable
 scale. Constraints applied — makes no accuracy or profit claim, implies no betting utility,
 pronounceable and searchable in English.
 

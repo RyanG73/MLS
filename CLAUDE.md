@@ -21,6 +21,26 @@
 - **Completed plan files are deleted, not archived.** Their story lives in `PROJECT_HISTORY.md`.
   Keep exactly one active plan unless the owner explicitly authorizes a second independent workstream.
 
+**Fact rules (apply to every document, including this one):**
+- **This file may state a decision or a threshold. It may not state a measurement.** Club counts,
+  league counts, Brier scores and test counts go stale and are then quoted as authoritative from
+  here. They belong in `CURRENT_STATE.md` or are measured at build time.
+- **A figure on more than one surface has one source, measured rather than typed.** `/crossbar/`
+  already does this — it reads its counts from the payloads at build time.
+- **When you correct a fact, grep for it before you commit:**
+  `rg '<old value>' docs/ CLAUDE.md README.md .claude/ --glob '!**/worktrees/**'`. A correction
+  that lands in one file and not its siblings is worse than the original error, because now the
+  repository disagrees with itself. Precedent: on 2026-08-01 a Crossbar count was fixed in
+  `STATUS.md` and left stale in nine places, including this file.
+- **Check which population a figure describes before "correcting" it.** 965 clubs / 55 leagues is
+  the bridged `power.js` ladder; 1,172 / 71 is every club carrying a rating. Both are right for
+  their own question.
+- **When you delete a document, grep for its name** across `docs/`, `.claude/`, and
+  `~/.claude/projects/-Users-ryangerda-Development-MLS/memory/`. A session memory outlives a
+  deleted file and keeps instructing sessions to update it.
+- **Stage explicit paths, not `git add -A`.** Twice on 2026-08-02 an `-A` swept another session's
+  uncommitted work and an unread file into a commit whose message described neither.
+
 ## Active branch
 
 Development happens on `main` (user decision 2026-06-10, after the bag-5 champion promotion was merged
