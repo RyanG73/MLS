@@ -836,6 +836,34 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .rm-foot{display:flex;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;
   border-top:1px solid var(--line);margin-top:var(--s2);padding-top:var(--s2);
   font-family:var(--mono);font-size:10px;color:var(--txt-3)}
+/* 1.1c "Changes since" diff mode. Borders and surface shifts only, per the
+   interface contract — no shadows, no card-on-card, category colour carries
+   direction and is paired with an explicit +/− sign so colour is never alone. */
+.rc-controls{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+  padding:0 var(--s3) var(--s2)}
+.rc-controls label{font-family:var(--mono);font-size:10px;color:var(--txt-3);
+  text-transform:uppercase;letter-spacing:.06em}
+.rc-controls select{appearance:none;background:var(--ink-2);color:var(--txt-1);
+  border:1px solid var(--line-2);border-radius:var(--r-sm);padding:6px 10px;
+  font-family:var(--mono);font-size:12px;min-height:32px}
+.rc-controls select:focus-visible{outline:2px solid var(--floodlight);outline-offset:1px}
+.rc-grid{display:flex;flex-direction:column}
+.rc-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto auto;
+  align-items:center;gap:var(--s2);padding:8px var(--s3);border-bottom:1px solid var(--line)}
+.rc-row:last-child{border-bottom:0}
+.rc-team{font-size:12.5px;color:var(--txt-1);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;display:flex;align-items:center;gap:6px}
+.rc-flag{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--txt-3);border:1px dashed var(--line-3);border-radius:var(--r-sm);padding:1px 4px}
+.rc-was,.rc-now,.rc-delta{font-family:var(--mono);font-variant-numeric:tabular-nums;
+  text-align:right;font-size:11.5px}
+.rc-was{color:var(--txt-3)}
+.rc-arrow{color:var(--txt-3);font-size:10px}
+.rc-now{color:var(--txt-1);font-weight:700}
+.rc-delta{font-weight:800;min-width:46px}
+.rc-empty{padding:var(--s4) var(--s3);font-size:12.5px;color:var(--txt-2);margin:0}
+.rc-prov{max-width:62ch}
+.rc-prov-mixed{color:var(--amber,var(--txt-2))}
 @media(max-width:880px){
   .table-analysis{grid-template-columns:minmax(0,1fr)}
   .table-analysis #raceHistory{grid-column:auto}
@@ -3619,7 +3647,143 @@ function seasonFixturesHTML(team,games){
 //    the league's projection categories: title/relegation surface the most likely
 //    clubs, while the other races surface the largest changes in likelihood. ──
 let raceHistoryMetricIndex=0,raceHistoryTimer=null,raceHistoryPaused=false;
+// ── 1.1c: "Changes since" — the same race panel rendered as a diff. ──
+//    Modelled on the FanGraphs playoff-odds Changes mode (competitor deep dive,
+//    2026-08-01). Deliberately NOT the personalised "since your last visit"
+//    digest: no account, no personalisation, URL-addressable, so a diff can be
+//    shared and indexed. It also has something to say in preseason, when the
+//    trajectory chart collapses to a single dot at the origin.
+//
+//    The trap this must not fall into: DRIFT_TRAJ merges point-in-time
+//    *reconstructed* replays with *archived* forecasts that were genuinely
+//    published. A diff whose endpoints straddle that boundary is partly an
+//    artifact of re-running the model, and paid-claim-matrix.md forbids calling
+//    a reconstruction an originally published forecast. So every diff carries
+//    the provenance of BOTH endpoints, and a straddling window says so in
+//    words — not only in dashed-vs-solid styling.
+let raceMode=new URLSearchParams(location.search).get('mode')==='changes'?'changes':'default';
+let raceSince=new URLSearchParams(location.search).get('since')||null;
+function raceSyncURL(){
+  const u=new URL(location.href);
+  if(raceMode==='changes'){
+    u.searchParams.set('mode','changes');
+    if(raceSince)u.searchParams.set('since',raceSince);else u.searchParams.delete('since');
+  }else{u.searchParams.delete('mode');u.searchParams.delete('since');}
+  history.replaceState(null,'',u.toString());
+}
+// Latest observation at or before a date — a baseline the model did not publish
+// on is answered with the last one it did, never interpolated.
+function raceAtOrBefore(rows,metric,date){
+  const seen=rows.filter(r=>r[metric]!=null&&r.date<=date);
+  return seen.length?seen[seen.length-1]:null;
+}
+function raceDefaultSince(dates){
+  if(dates.length<2)return dates[0]||null;
+  const last=new Date(dates[dates.length-1]+'T00:00:00Z');
+  const target=new Date(last.getTime()-7*864e5).toISOString().slice(0,10);
+  const earlier=dates.slice(0,-1);
+  const within=earlier.filter(d=>d<=target);
+  return within.length?within[within.length-1]:earlier[0];
+}
+// 'archived' | 'reconstructed' | 'mixed' across every endpoint actually used.
+function raceProvenance(pairs){
+  const kinds=new Set();
+  pairs.forEach(p=>{kinds.add(p.from.kind||'archived');kinds.add(p.to.kind||'archived');});
+  if(kinds.size>1)return 'mixed';
+  return kinds.has('reconstructed')?'reconstructed':'archived';
+}
+const RACE_PROVENANCE_NOTE={
+  archived:'Both dates are archived forecasts — this is what the model published at the time.',
+  reconstructed:'Both dates are reconstructed replays, not forecasts published on those dates. '+
+    'This compares two model replays.',
+  mixed:'This window crosses the point where archived forecasts begin. The earlier date is a '+
+    'reconstructed replay, not a forecast published then, so part of this change comes from '+
+    're-running the model rather than from football.',
+};
+function renderRaceChanges(requestedMetric=null){
+  const box=document.getElementById('raceHistory');
+  if(!box)return;
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const TJ=window.DRIFT_TRAJ;
+  const entries=TJ&&TJ.teams?Object.entries(TJ.teams).filter(([,r])=>r&&r.length):[];
+  if(!entries.length){box.innerHTML='';return;}
+  const configured=(D.outlook&&D.outlook.cards||[]).map(c=>[c.key,c.label]);
+  const seen=new Set();
+  const availableMetrics=[...configured,...TRAJ_METRICS]
+    .filter(([k])=>{if(seen.has(k))return false;seen.add(k);return true;})
+    .filter(([k])=>entries.some(([,r])=>r.some(x=>x[k]!=null)));
+  if(!availableMetrics.length){box.innerHTML='';return;}
+  const reqIdx=requestedMetric==null?-1:availableMetrics.findIndex(([k])=>k===requestedMetric);
+  if(reqIdx>=0)raceHistoryMetricIndex=reqIdx;
+  raceHistoryMetricIndex=((raceHistoryMetricIndex%availableMetrics.length)+availableMetrics.length)%availableMetrics.length;
+  const [metric,label]=availableMetrics[raceHistoryMetricIndex];
+  const dates=[...new Set(entries.flatMap(([,r])=>r.filter(x=>x[metric]!=null).map(x=>x.date)))].sort();
+  const latest=dates[dates.length-1];
+  const chosen=(raceSince&&dates.includes(raceSince))?raceSince
+    :(raceSince&&dates.filter(d=>d<=raceSince).pop())||raceDefaultSince(dates);
+  const pairs=entries.map(([team,rows])=>{
+    const from=raceAtOrBefore(rows,metric,chosen),to=raceAtOrBefore(rows,metric,latest);
+    if(!from||!to||from.date===to.date)return null;
+    return {team,from,to,was:Number(from[metric]),now:Number(to[metric]),
+            delta:Number(to[metric])-Number(from[metric])};
+  }).filter(Boolean);
+  const tone=metricColor(metric);
+  const switches=availableMetrics.map(([key,lab],i)=>`<button type="button" class="rm-switch${i===raceHistoryMetricIndex?' on':''}" `+
+    `data-race-metric="${esc(key)}" aria-pressed="${i===raceHistoryMetricIndex?'true':'false'}">${esc(lab)}</button>`).join('');
+  const dateOpts=dates.slice(0,-1).map(d=>
+    `<option value="${esc(d)}"${d===chosen?' selected':''}>${esc(d)}</option>`).join('');
+  const head=`<div class="panel race-movement race-changes"><div class="panel-h">`+
+    `<span class="dot" style="background:${tone};box-shadow:0 0 8px ${tone}"></span>`+
+    `<h2>${esc(label)} change</h2>`+
+    `<span class="meta">${esc(chosen||'—')} → ${esc(latest||'—')}</span></div>`+
+    `<div class="rm-switcher" role="group" aria-label="Projection shown">${switches}</div>`+
+    `<div class="rc-controls"><label for="raceSince">Change since</label>`+
+    `<select id="raceSince"${dates.length<2?' disabled':''}>${dateOpts}</select>`+
+    `<button type="button" class="rm-switch" id="raceModeBack">Back to trajectory</button></div>`;
+  const moved=pairs.filter(p=>Math.abs(p.delta)>=0.05).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+  if(!moved.length){
+    // Preseason and quiet weeks are the normal case, not an error. An empty
+    // diff must read as "nothing moved", never as zeros or a failure.
+    box.innerHTML=head+`<div class="rm-body"><p class="rc-empty">`+
+      `Nothing moved. Every club's ${esc(label.toLowerCase())} is unchanged between `+
+      `${esc(chosen||'—')} and ${esc(latest||'—')}.</p></div></div>`;
+    raceBindChanges(box,availableMetrics);
+    return;
+  }
+  const prov=raceProvenance(moved);
+  const rows=moved.slice(0,12).map(p=>{
+    const up=p.delta>0,sign=up?'+':'−',mag=Math.abs(p.delta);
+    const rk=(p.from.kind||'archived')==='reconstructed'||(p.to.kind||'archived')==='reconstructed';
+    return `<div class="rc-row">`+
+      `<span class="rc-team">${esc(p.team)}${rk?'<span class="rc-flag" title="One or both endpoints is a reconstructed replay">replay</span>':''}</span>`+
+      `<span class="rc-was">${p.was.toFixed(1)}%</span>`+
+      `<span class="rc-arrow" aria-hidden="true">→</span>`+
+      `<span class="rc-now">${p.now.toFixed(1)}%</span>`+
+      `<span class="rc-delta ${up?'up':'down'}" style="color:${tone}">${sign}${mag.toFixed(1)}</span>`+
+      `</div>`;
+  }).join('');
+  box.innerHTML=head+`<div class="rm-body"><div class="rc-grid">${rows}</div>`+
+    `<div class="rm-foot"><span class="rc-prov rc-prov-${prov}">${esc(RACE_PROVENANCE_NOTE[prov])}</span>`+
+    `<span>${moved.length} club${moved.length===1?'':'s'} moved${moved.length>12?' · showing 12 largest':''}</span></div></div></div>`;
+  raceBindChanges(box,availableMetrics);
+}
+function raceBindChanges(box,availableMetrics){
+  box.querySelectorAll('.rm-switch[data-race-metric]').forEach(btn=>btn.addEventListener('click',()=>{
+    raceHistoryMetricIndex=availableMetrics.findIndex(([k])=>k===btn.dataset.raceMetric);
+    renderRaceChanges(btn.dataset.raceMetric);
+  }));
+  const sel=box.querySelector('#raceSince');
+  if(sel)sel.addEventListener('change',()=>{raceSince=sel.value;raceSyncURL();renderRaceChanges();});
+  const back=box.querySelector('#raceModeBack');
+  if(back)back.addEventListener('click',()=>{
+    raceMode='default';raceSyncURL();renderRaceHistory();
+  });
+}
 function renderRaceHistory(requestedMetric=null){
+  if(raceMode==='changes'){
+    if(raceHistoryTimer){clearInterval(raceHistoryTimer);raceHistoryTimer=null;}
+    return renderRaceChanges(requestedMetric);
+  }
   const box=document.getElementById('raceHistory');
   if(!box)return;
   const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -3736,15 +3900,22 @@ function renderRaceHistory(requestedMetric=null){
     `<span class="dot" style="background:${tone};box-shadow:0 0 8px ${tone}"></span>`+
     `<h2>${label} movement</h2><span class="meta">${isPreseason?'preseason baseline · ':''}shared 0–100% scale · ${currentPlayed} of ${seasonGames} games played</span></div>`+
     `<div class="rm-switcher" role="group" aria-label="Projection shown">${switches}`+
+    `<button type="button" class="rm-switch rm-mode" id="raceModeChanges">Changes since…</button>`+
     `<span class="rm-rotate-note">${reducedMotion?'select projection':'rotates every 7 sec · hover to pause'}</span></div>`+
     `<div class="rm-body"><div class="rm-grid">${rows}</div>`+
     `<div class="rm-foot"><span>${allDates[0]} → ${allDates[allDates.length-1]}${provenance?' · '+provenance:''}</span>`+
     `<span>${selectionNote}</span></div></div></div>`;
-  box.querySelectorAll('.rm-switch').forEach(btn=>btn.addEventListener('click',()=>{
+  box.querySelectorAll('.rm-switch[data-race-metric]').forEach(btn=>btn.addEventListener('click',()=>{
     raceHistoryMetricIndex=availableMetrics.findIndex(([k])=>k===btn.dataset.raceMetric);
     if(raceHistoryTimer){clearInterval(raceHistoryTimer);raceHistoryTimer=null;}
     renderRaceHistory(btn.dataset.raceMetric);
   }));
+  const toChanges=box.querySelector('#raceModeChanges');
+  if(toChanges)toChanges.addEventListener('click',()=>{
+    raceMode='changes';
+    if(raceHistoryTimer){clearInterval(raceHistoryTimer);raceHistoryTimer=null;}
+    raceSyncURL();renderRaceChanges(availableMetrics[raceHistoryMetricIndex][0]);
+  });
   box.onmouseenter=()=>{raceHistoryPaused=true;};
   box.onmouseleave=()=>{raceHistoryPaused=false;};
   box.onfocusin=()=>{raceHistoryPaused=true;};

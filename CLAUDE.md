@@ -56,4 +56,11 @@ is merged and retained for history.
   Watch sells is that someone watched it — what changed while you were away, the evidence behind it,
   saved scenarios, per-club history. A lock must sit on the continuity layer, never on a figure the
   public site already publishes, or the "free forever" promise printed on the site becomes false.
+- **Crossbar** is the public name of the shared cross-league strength scale (owner decision
+  2026-08-01, from a three-name shortlist). Internally it stays `global_elo`; the customer-facing
+  name is Crossbar. It names a *scale*, not an accuracy claim — nothing about the name may imply
+  predictive performance, profitability, or betting utility. 892 clubs across 50 leagues sit on it.
+- **Refunds: full refund inside 30 days of first payment** (owner decision 2026-08-01, resolving
+  `G0.7`). Not pro-rata, and not pro-rated at the monthly rate the way Rotowire's terms do it. The
+  simpler sentence is worth more than the recovered revenue on a launch built on trust.
 - Production timing: improve eval first, then port to production

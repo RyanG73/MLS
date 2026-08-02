@@ -21,7 +21,7 @@ exists.
 | `G0.4` | Paid job and name | “Tell me what changed, why, and what the next match can change without making me remember to check.” Customer name: **Entenser Club Watch** | [x] |
 | `G0.5` | Boundary | Public current answer and one-match scenario; registered one synced club and one complete sample; paid continuous monitoring, explanation, stakes, continuity, and additional clubs | [x] |
 | `G0.6` | Ordinary price | $5.99 monthly and $59.99 annual, resolved from immutable Stripe Prices | [x] |
-| `G0.7` | Risk reversal | No launch trial; publish a 30-day first-billing-period guarantee | [x] |
+| `G0.7` | Risk reversal | No launch trial; publish a 30-day first-billing-period guarantee. **Resolved 2026-08-01: the refund is FULL inside 30 days of first payment — not pro-rata, and not pro-rated at the monthly rate.** | [x] |
 | `G0.8` | Validation clubs | Start with the provisional eight-club shortlist in `customer-discovery-kit.md`, then replace clubs that fail reachability or data QA | [x] |
 | `G0.9` | Scope freeze | No new leagues, extra paid modules, Creator tier, localization, group pricing, or betting-led acquisition before their gates | [x] |
 | `G0.10` | August 17 | Treat 2026-08-17 as the earliest controlled, full-price beta date—not an automatic broad launch | [x] |
