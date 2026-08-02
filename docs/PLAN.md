@@ -44,7 +44,7 @@ deleting one of these orphans working code.
 
 **Dated evidence — superseded by `STATUS.md`, kept only for its reasoning.**
 `competitive-intelligence-2026-07-combined.md` · `competitor-deep-dive-2026-08-01.md` ·
-`product-strategy-2026-07-26.md` · `product-roadmap-2026-07.md` ·
+`codebase-unification-2026-08-02.md` · `product-strategy-2026-07-26.md` · `product-roadmap-2026-07.md` ·
 `offseason-model-improvement-audit-2026-07-30.md` · `league-expansion-report.md` ·
 `league-qa-audit-findings.md` · `feature-backlog-report-2026-07-13.md` · `qa-pass-2026-07-17.md` ·
 `remaining-external-dependencies-2026-07-11.md`.
