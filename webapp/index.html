@@ -5106,7 +5106,14 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
     const seenL=new Set(), norm=[];
     ML.fixtures.slice().sort((a,b)=>b.pct-a.pct||b.leverage-a.leverage)
       .forEach(r=>{ if(!seenL.has(r.league)){ seenL.add(r.league); norm.push(r); } });
-    norm.sort((a,b)=>(a.tier||9)-(b.tier||9)||b.pct-a.pct||b.leverage-a.leverage);
+    // Tier first (a first division outranks a fourth), then league strength —
+    // the Crossbar offset. Tier alone left 267 fixtures tied at tier 1, so the
+    // rail fell through to raw leverage and led with Uruguay, Bolivia and
+    // Honduras while promising "biggest leagues first". Strength is what that
+    // promise actually means, and it is the number /crossbar/ publishes.
+    norm.sort((a,b)=>(a.tier||9)-(b.tier||9)
+      ||(b.league_strength??-9999)-(a.league_strength??-9999)
+      ||b.pct-a.pct||b.leverage-a.leverage);
     norm.length=Math.min(norm.length,5);
     const world=ML.fixtures.slice(0,5);
     const rail=(title,note,rows)=>rows.length

@@ -36,6 +36,7 @@ import re
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from data_pipeline import coefficients as co
 from scripts.match_leverage import leverage_for_league
 from scripts.payload_utils import write_js_payload
 
@@ -83,10 +84,18 @@ def build(days: int, sims: int, scope: str) -> dict:
             meta = reg.get(r["league"], {})
             r["league_name"] = meta.get("name", r["league"])
             r["country"] = meta.get("country")
-            # Tier is what lets the normalised rail break the pct=1.0 tie that
-            # every league's top fixture shares. Without it that rail re-sorts
-            # on raw leverage and reproduces exactly the bias it exists to fix.
+            # Tier breaks the pct=1.0 tie that every league's top fixture
+            # shares, but tier alone is not enough: 267 of these fixtures are
+            # tier 1, so Uruguay's Primera División and the Premier League tie
+            # and the rail falls through to raw leverage — reproducing exactly
+            # the small-volatile-league bias it exists to fix (observed live
+            # 2026-08-01: Uruguay 78, Bolivia 61, Honduras above everything).
+            #
+            # league_strength is the Crossbar offset for the competition: the
+            # same number /crossbar/ publishes, and the honest meaning of the
+            # rail's own promise, "biggest leagues first".
             r["tier"] = meta.get("tier") or 9
+            r["league_strength"] = round(float(co.global_elo_offset(r["league"])), 1)
             r["home_logo"] = crests.get(r["home"])
             r["away_logo"] = crests.get(r["away"])
         rows += got

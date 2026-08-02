@@ -57,3 +57,65 @@ def test_second_tier_row_keeps_tier_metadata():
             _league("championship", "Championship", tier=2),
         ])
     assert ranked[0]["tier"] == 2
+
+
+# ── Payload agreement (2026-08-01) ───────────────────────────────────────────
+# The published rankings drifted from the league payloads once: the UEFA
+# coefficient refit landed in coefficients.py and was reapplied to
+# webapp/data/*.js via apply_global_elo_payloads.py, but nothing rebuilt
+# webapp/data/power.js. Production served Bodo/Glimt 4th and Zenit 5th for a
+# day while the league payloads already had them at 39th and 57th — two
+# sources for the same number, disagreeing in public.
+
+def test_power_payload_agrees_with_the_league_payloads():
+    """power.js `strength` must equal the league payload's `global_elo`.
+
+    Both are elo + global_elo_offset(league); they can only disagree when one
+    of the two has been rebuilt and the other has not.
+    """
+    import json
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[1]
+    data = repo / "webapp" / "data"
+    power_path = data / "power.js"
+    if not power_path.exists():
+        import pytest
+        pytest.skip("power.js not built in this checkout")
+
+    def read(p):
+        t = p.read_text()
+        return json.loads(t[t.index("=") + 1:].rstrip().rstrip(";"))
+
+    power = read(power_path)
+    rows = power.get("teams") or power.get("clubs") or power.get("rows") or []
+    assert rows, "power.js has no rows"
+
+    by_league: dict[str, dict[str, int]] = {}
+    mismatches = []
+    checked = 0
+    for r in rows:
+        lid = r.get("league")
+        if lid not in by_league:
+            p = data / f"{lid}.js"
+            if not p.exists():
+                by_league[lid] = {}
+            else:
+                payload = read(p)
+                by_league[lid] = {
+                    s["team"]: s["global_elo"]
+                    for s in (payload.get("standings") or [])
+                    if s.get("global_elo") is not None and s.get("team")
+                }
+        expected = by_league[lid].get(r.get("team"))
+        if expected is None:
+            continue
+        checked += 1
+        if abs(round(float(r["strength"])) - int(expected)) > 1:
+            mismatches.append(
+                f"{r['team']} ({lid}): power.js {r['strength']} vs payload {expected}")
+
+    assert checked > 100, f"only cross-checked {checked} clubs"
+    assert not mismatches, (
+        f"{len(mismatches)} clubs disagree between power.js and their league "
+        f"payload — one of the two is stale. First five: {mismatches[:5]}")
