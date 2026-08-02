@@ -110,6 +110,31 @@ BASELINE_STRENGTH = 1450.0
 _REF_LEAGUE = "epl"
 
 # UEFA 5-year country coefficients (2025-26). Keyed by our internal league ids.
+#
+# ── 2026-07-31: this table is load-bearing in a way that is easy to miss. ──
+# league_bridge's ridge pulls each league toward its prior, and its own docstring
+# notes that "a league with few matches contributes ~nothing to the NLL and the
+# ridge holds it at its prior". A league ABSENT from this table priors at 0.0 —
+# which on an EPL-anchored scale does not mean "unknown", it means "exactly as
+# strong as the Premier League". Ten modeled UEFA top flights were absent, so the
+# ridge faithfully held Norway, Russia, Finland, Ireland, Denmark, Sweden,
+# Austria, Romania, Switzerland and Poland within 25 ELO of the EPL. The result
+# was a global ladder with Bodo/Glimt 4th, Zenit 5th, KuPS (Finland) 9th and IK
+# Sirius (Sweden) 17th — all ahead of Real Madrid, PSG and Manchester United.
+# The split was perfect: every league IN this table fitted to a sane negative
+# offset, every league absent fitted to ~0.
+#
+# The same failure hit Primeira in 2026-07-13 (see _MANUAL_LEAGUE_OFFSET below).
+# Twice is a pattern, so the fallback in league_offset() no longer returns 0.0
+# for an unlisted UEFA league — see _UEFA_UNLISTED_COEFF.
+#
+# PROVENANCE: the big-5 + C1 values were captured 2026-06 from the UEFA 5-year
+# country ranking. The values added 2026-07-31 are best-available ESTIMATES on
+# that same scale, not a fresh capture — they should be refreshed from
+# https://www.uefa.com/nationalassociations/uefarankings/country/ at the next
+# annual review. What the ranking is actually sensitive to is their ORDER and
+# rough spacing, both of which are well established; a few points either way
+# moves a club a place or two, not thirty.
 _LEAGUE_COEFF: dict[str, float] = {
     "epl": 94.0, "la-liga": 79.0, "serie-a": 76.0, "bundesliga": 74.0,
     "ligue-1": 67.0,
@@ -117,7 +142,55 @@ _LEAGUE_COEFF: dict[str, float] = {
     # only — experiments/league_offsets.json has no bridge fit for these yet.
     "eredivisie": 61.0, "primeira": 60.0, "belgian-pro": 55.0,
     "super-lig": 45.0, "greek-super": 38.0, "scottish-prem": 32.0,
+    # Added 2026-07-31 — the ten modeled top flights that were priced as EPL
+    # equivalents. Estimates on the scale above; see PROVENANCE.
+    "norway-eliteserien": 35.0, "denmark-superliga": 34.0,
+    "austria-bundesliga": 33.0, "swiss-super-league": 33.0,
+    "poland-ekstraklasa": 32.0, "sweden-allsvenskan": 25.0,
+    "romania-liga1": 23.0, "ireland-premier": 17.0,
+    "finland-veikkausliiga": 13.0,
+    # russia-premier is deliberately NOT here — see _russia_coeff().
 }
+
+# Coefficient assigned to a modeled UEFA league that is not in the table above.
+# Deliberately low: an unlisted UEFA top flight is, by construction, one obscure
+# enough that nobody has entered its coefficient, which is strong evidence it is
+# not a strong league. The old behaviour — falling through to 0.0, i.e. the EPL's
+# own offset — was the exact opposite inference.
+_UEFA_UNLISTED_COEFF = 15.0
+
+# ── Russia: a league with no external evidence, by political fact ─────────────
+# Russian clubs have been suspended from UEFA since February 2022, so no
+# coefficient accrues and the bridge has no match to fit on — russia-premier is
+# structurally uncalibratable by the normal route, which is exactly why it sat
+# at the 0.0 prior and put Zenit 5th in the world.
+#
+# Two things drift in the SAME direction while the suspension lasts, and the
+# estimate has to answer both:
+#   1. Real decline — no European football, and the foreign players who set the
+#      league's ceiling largely left.
+#   2. Measurement drift — a closed league's ELO is self-referential. Beating
+#      the same opponents re-inflates the whole distribution with no external
+#      check, so the domestic numbers climb whether or not the clubs improve.
+# So the estimate decays from the last coefficient Russia actually earned toward
+# the unlisted-league floor, one step per season of missing evidence. It never
+# falls below the floor: absent evidence should end at "we do not know", not at
+# an ever-more-confident claim of weakness.
+#
+# This is a documented estimate, not a measurement, and the league page reports
+# it as such via global_elo_quality() -> "suspended_estimate".
+_RUSSIA_LAST_VALID_COEFF = 36.0     # accrued through 2021-22, the last full season
+_RUSSIA_SUSPENDED_FROM = 2022
+_RUSSIA_DECAY_PER_SEASON = 0.85
+
+
+def _russia_coeff(today_year: int | None = None) -> float:
+    """Decayed coefficient for the suspended Russian top flight."""
+    from datetime import date
+    year = today_year if today_year is not None else date.today().year
+    seasons = max(0, year - _RUSSIA_SUSPENDED_FROM)
+    span = _RUSSIA_LAST_VALID_COEFF - _UEFA_UNLISTED_COEFF
+    return _UEFA_UNLISTED_COEFF + span * (_RUSSIA_DECAY_PER_SEASON ** seasons)
 
 # Concacaf-internal league offsets (ELO points). These are RELATIVE only — Concacaf
 # teams never meet UEFA teams and match_lambdas uses strength differences, so the
@@ -211,14 +284,48 @@ def league_offset(league_id: str) -> float:
     fitted = _load_fitted()
     if fitted is not None and league_id in fitted:
         return float(fitted[league_id]) + shift
-    # Prior fallback
+    return static_league_offset(league_id)
+
+
+def static_league_offset(league_id: str) -> float:
+    """The EXTERNAL prior only — never the fitted file.
+
+    league_bridge regularises its fit toward a prior, and it must be this one.
+    Using league_offset() there instead created a fixed point: that function
+    returns experiments/league_offsets.json when it exists, so each fit was
+    ridged toward its own previous output. The very first fit ran when ten UEFA
+    leagues genuinely priored at 0.0, and every run since re-anchored on that,
+    drifting a few ELO at a time and never escaping. Editing the coefficient
+    table had no effect at all until the two were separated. (2026-07-31)
+    """
+    shift = confederation_shift(league_id)
     if league_id in _CONCACAF_OFFSET:
         return _CONCACAF_OFFSET[league_id] + shift
     if league_id in _MANUAL_LEAGUE_OFFSET:
         return _MANUAL_LEAGUE_OFFSET[league_id] + shift
-    if league_id not in _LEAGUE_COEFF:
+    coeff = uefa_coeff(league_id)
+    if coeff is None:
         return 0.0 + shift
-    return _K_COEFF * (_LEAGUE_COEFF[league_id] - _LEAGUE_COEFF[_REF_LEAGUE]) + shift
+    return _K_COEFF * (coeff - _LEAGUE_COEFF[_REF_LEAGUE]) + shift
+
+
+def uefa_coeff(league_id: str) -> float | None:
+    """Country coefficient for a UEFA league, or None outside UEFA.
+
+    A UEFA top flight ALWAYS gets a number here. Returning None for an unlisted
+    one used to send league_offset() down a `return 0.0` path, and 0.0 on an
+    EPL-anchored scale is a positive claim of Premier League strength rather
+    than an absence of one — the bug that put four Nordic clubs and two Russian
+    ones in the world top 20. Non-UEFA leagues still return None, because their
+    confederations are anchored separately and this scale does not apply.
+    """
+    if league_id in _LEAGUE_COEFF:
+        return _LEAGUE_COEFF[league_id]
+    if league_id == "russia-premier":
+        return _russia_coeff()
+    if _league_conf(league_id) == "UEFA" and league_id not in _TIER1_FOR:
+        return _UEFA_UNLISTED_COEFF
+    return None
 
 
 def club_strength(club: str) -> float:
@@ -318,6 +425,11 @@ def global_elo_quality(league_id: str) -> str:
     """Describe the strongest bridge evidence behind ``global_elo_offset``."""
     if league_id in _TIER1_FOR:
         return "tier_bridge"
+    # Checked BEFORE "fitted": Russia has played no UEFA match since 2022, so a
+    # fitted entry for it is the ridge echoing the prior back, not evidence.
+    # Calling that "fitted" would overstate what stands behind the number.
+    if league_id == "russia-premier":
+        return "suspended_estimate"
     fitted = _load_fitted() or {}
     if league_id in fitted:
         return "fitted"
@@ -325,6 +437,8 @@ def global_elo_quality(league_id: str) -> str:
         return "confederation_prior"
     if league_id in _MANUAL_LEAGUE_OFFSET or league_id in _LEAGUE_COEFF:
         return "calibrated_prior"
+    if _league_conf(league_id) == "UEFA":
+        return "estimated_prior"
     if _league_conf(league_id):
         return "confederation_anchor"
     return "unanchored"

@@ -707,7 +707,10 @@ def _fit_group(
     Returns (fitted_offsets, prior_offsets, held_out_brier_prior, held_out_brier_fitted).
     """
     free_leagues = [l for l in all_leagues if l != anchor]
-    priors = {lid: co.league_offset(lid) for lid in all_leagues}
+    # static_league_offset, NOT league_offset: the latter returns the fitted
+    # file when one exists, which would ridge this fit toward its own previous
+    # output and freeze whatever the first-ever run produced. (2026-07-31)
+    priors = {lid: co.static_league_offset(lid) for lid in all_leagues}
 
     if not matches:
         _log.warning("_fit_group: no matches for anchor=%s — returning priors", anchor)
@@ -792,7 +795,7 @@ def fit_offsets(lam: float = 0.00002, seed: int = 42,
 
         if not matches:
             print("  NO MATCHES — using priors")
-            priors = {lid: co.league_offset(lid) for lid in all_leagues}
+            priors = {lid: co.static_league_offset(lid) for lid in all_leagues}
             for lid, v in priors.items():
                 adopted[lid] = v
             decisions[confederation] = "NO_DATA — priors adopted"
