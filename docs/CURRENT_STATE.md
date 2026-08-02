@@ -95,9 +95,14 @@ definitions, data sources, and run commands. Update it when any of these change.
   `elo_scale {anchor, offset, quality, method}` and a rounded `standings[].global_elo`. Tables,
   run-in cards and team pages display the shared rating; historical charts add the payload's
   constant offset client-side. `power.js` is one global rank (not one restarted rank per
-  confederation), currently 892 clubs / 50 leagues with measured bridge evidence. Unbridged
-  leagues and women's competitions remain visible on their league pages but are excluded from
-  the global ladder until a match network can place them honestly on that scale.
+  confederation), currently **965 clubs / 55 leagues** with measured bridge evidence (measured
+  from `power.js` 2026-08-02; the previous "892 / 50" was stale). Unbridged leagues and women's
+  competitions remain visible on their league pages but are excluded from the global ladder until
+  a match network can place them honestly on that scale.
+  **Do not confuse this with the Crossbar page's count.** `/crossbar/` reports every club carrying
+  a `global_elo` — 1,172 across 71 competitions — which is a strictly larger population than the
+  bridged ladder. Two correct numbers for two different questions; quoting one for the other is
+  the mistake to avoid.
 - **AFC and CAF continental cups remain blocked, and the gate — not judgement — says so.**
   AFC Champions League: the fit beats its prior but LOSES to a naive base-rate predictor
   (+0.0020 on a 76-match holdout), and only **54%** of the field resolves to a modeled league —

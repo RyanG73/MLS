@@ -12,7 +12,8 @@ Before running any experiment, confirm a baseline exists in `experiments/registr
 python scripts/experiment.py baseline --cache
 ```
 
-The baseline must be on the `claude/mls-prediction-dashboard-C2mQM` branch (no uncommitted harness changes) so it reflects the current best-known state.
+The baseline must be on `main` (no uncommitted harness changes) so it reflects the current
+best-known state.
 
 ---
 
@@ -125,8 +126,10 @@ Append a structured entry to your component's log file after every run:
 
 ## 7. Branch and git rules
 
-- All work on `claude/mls-prediction-dashboard-C2mQM` (never push to main — CLAUDE.md rule).
-- In a multi-agent cycle, each agent works in its own git worktree (`git worktree add ../mls-<component> <branch>`).
+- All work on `main` (owner decision 2026-06-10, recorded in CLAUDE.md). The historical dev branch
+  `claude/mls-prediction-dashboard-C2mQM` is merged and retained for history only — never base a
+  worktree on it.
+- In a multi-agent cycle, each agent works in its own git worktree (`git worktree add ../mls-<component> main`).
 - When reporting back to the orchestrator, provide: experiment_id, verdict, Δ best_brier, Δ cal_error.
 - After KEEP decisions, the **orchestrator** merges worktrees one at a time with a re-eval gate (see `docs/improve-model-orchestrator.md`).
 

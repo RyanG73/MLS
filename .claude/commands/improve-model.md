@@ -35,7 +35,8 @@ Run one full improvement cycle: pin a baseline, dispatch all four component agen
 ### Step 1 — Preflight checks
 
 Before dispatching agents, verify:
-1. Working directory is `claude/mls-prediction-dashboard-C2mQM` branch (per CLAUDE.md — never work on main).
+1. Working directory is on `main` (per CLAUDE.md — development moved to `main` on 2026-06-10;
+   the old dev branch `claude/mls-prediction-dashboard-C2mQM` is merged and history-only).
 2. No uncommitted harness changes to `scripts/eval_baseline.py` (agent baselines must be reproducible).
 3. Python env is active: `source venv/bin/activate`.
 4. ASA API reachable (or `--cache` pre-warmed — see Step 2).
@@ -75,7 +76,7 @@ Record the baseline `experiment_id` from the output. This becomes the comparison
 **Local-sequential (default).** Run one component at a time in a single worktree, re-using it:
 
 ```bash
-git worktree add ../mls-improve claude/mls-prediction-dashboard-C2mQM   # one shared worktree
+git worktree add ../mls-improve main   # one shared worktree
 # Then, for each component IN SEQUENCE (wait for each to finish before the next):
 #   feature-engineer → calibration-tuner → hyperparameter-optimizer → model-architect
 # Each runs its experiments via scripts/experiment.py (--cache --seed 42), reports, then the next starts.
@@ -86,10 +87,10 @@ If dispatching as Claude Code subagents, launch them **one at a time** (await ea
 **Cloud / ≥32 GB only — parallel worktrees** (do NOT use locally on ≤16 GB):
 
 ```bash
-git worktree add ../mls-feature    claude/mls-prediction-dashboard-C2mQM
-git worktree add ../mls-calib      claude/mls-prediction-dashboard-C2mQM
-git worktree add ../mls-hyperparam claude/mls-prediction-dashboard-C2mQM
-git worktree add ../mls-arch       claude/mls-prediction-dashboard-C2mQM
+git worktree add ../mls-feature    main
+git worktree add ../mls-calib      main
+git worktree add ../mls-hyperparam main
+git worktree add ../mls-arch       main
 ```
 
 Then dispatch each agent (these can be Claude Code subagents or manual runs):
@@ -169,7 +170,7 @@ After all greedy merges are settled:
 
 1. Update `docs/PLAN.md` "Live eval results" block with the new best Brier, cal error, and the winning features/configs from this cycle.
 2. Clean up worktrees: `git worktree remove ../mls-feature` etc.
-3. Commit on the dev branch (never main):
+3. Commit on `main`:
 
 ```bash
 git add scripts/eval_baseline.py docs/PLAN.md docs/feature-hunt-log.md \
@@ -199,7 +200,9 @@ Is final cumulative Brier improvement > 0.001?
 
 ## Key constraints (from CLAUDE.md)
 
-- Branch: `claude/mls-prediction-dashboard-C2mQM` only. Never main.
+- Branch: `main` (owner decision 2026-06-10). Never base a worktree on the retired
+  `claude/mls-prediction-dashboard-C2mQM` — it is two months behind and every delta measured
+  against it is wrong, silently.
 - Production port (`features/`, `models/`, `config/`) is a separate step. `/improve-model` only updates the research harness.
 - Update `docs/PLAN.md` "Live eval results" in the same commit as harness changes.
 
