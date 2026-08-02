@@ -531,7 +531,8 @@ the what-if resimulation path updates the new panel for free.
 
 ## Intelligence Hub S0: historical flywheel hardening (2026-07-18, plan completed and deleted)
 
-First foundation step of the Intelligence Hub paywall program (`docs/intelligence-hub-implementation-instructions.md`):
+First foundation step of the Intelligence Hub paywall program (spec deleted on completion
+2026-08-01; its standing rules live in `docs/product-invariants.md`, full text in git):
 closed the five data-integrity gaps roadmap items F-1 through F-5
 (`docs/product-roadmap-2026-07.md` §2) that every later event/attribution/receipt feature
 depends on. `data/match_prob_history.parquet` had been silently discarded by CI every night
@@ -598,7 +599,8 @@ Fourth foundation step: `scripts/archive_intelligence_state.py` archives a compa
 snapshot of the MLS payload after each build — standings, the client simulator's `sim.pmatrix`/team
 order, upcoming fixtures (by S1's stable `fixture_id`, not display order), season-format rules, and
 provenance — and fails closed (writes nothing) if any required field is missing. Compliance finding
-before writing any code: `docs/intelligence-hub-implementation-instructions.md` rule 6 prohibits
+before writing any code: the "private means access-controlled" invariant
+(`docs/product-invariants.md` rule 10) prohibits
 committing private archives to a publicly readable repository, and `gh repo view` confirmed this repo
 **is** public. Unlike `data/match_prob_history.parquet` (a pre-existing gap from before this rule
 existed, fixed in S0), this was new work under a document stating the rule explicitly — so
@@ -727,3 +729,38 @@ competition-scoped club. League scoping intentionally prevents same-name men's a
 continental appearances, and source aliases from being merged; 1,444 club pages now carry unique
 metadata, `SportsTeam` and dataset schema, season outlooks, recent/upcoming matches, peer links, and
 an interactive-dashboard handoff, with all canonicals included in the generated sitemap.
+
+## Competitor deep dive and second documentation consolidation (2026-08-01)
+
+A mechanics-level teardown of seven sports-data businesses (FanGraphs, FotMob, Rotowire, American
+Soccer Analysis, Sports Reference/Stathead, Transfermarkt, PFF), deliberately below the positioning
+altitude of the July competitive intelligence report. It validated two locked decisions and
+retired a third. `G0.5`'s metered free/paid boundary is independently converged on by Stathead
+(data free, query power paid) and PFF (limited vs unlimited on the same objects). Pricing needs no
+change: $5.99/$59.99 sits 3.75× FotMob and 0.75× FanGraphs, and the 17% annual discount is one of
+two live conventions rather than an error. The Creator tier should be retired permanently, not
+deferred — PFF folded Edge and Elite into one plan, Rotowire sells one, FanGraphs runs one product
+under five labels. The largest unclaimed opportunity is a FanGraphs-style `mode=changes` diff view,
+whose hard prerequisite (a dated, provenance-labelled snapshot archive) shipped on 2026-07-31 and
+currently drives one chart.
+
+Executing the resulting prompts resolved a release logjam of 194 uncommitted files spanning four
+workstreams into independently revertable commits, with the UEFA coefficient refit isolated because
+it changes published rankings. Two live trust defects were fixed: Biggest Movers was publishing
+±100pp saturation artifacts, and the home news rail was filing darts under "EFL League One" and
+cricket under "Premier League". The news cause was not the router — which already rejected all four
+headlines — but `daily_build.sh` rebuilding `news/*.js` without re-aggregating `home.js`, so the
+rail served whatever the last unrelated job had produced. League pages gained a Club Watch path and
+the club-page CTA moved above the fold (y=1650 → y=317 at 375px). A funnel audit found
+instrumentation already complete and firing in production, including on the static acquisition
+layer; only owner GA4 reporting access remains open.
+
+The documentation pass corrected an assumption worth recording: most of what looked like litter was
+not. Files referenced only by prose name (the experiment ledger, concierge kit, incident checklist)
+and files documenting built-but-unwired code (`postgame-win-expectancy.md`) are load-bearing, and
+deleting the latter would orphan working code. Exactly one file was genuinely finished — the
+1,405-line Intelligence Hub implementation spec — and it turned out to wrap ten standing invariants
+nothing else recorded. Those became `docs/product-invariants.md`; the rest was deleted. The four
+audit prompts moved to `docs/prompts/`. `PLAN.md` now indexes every file in `docs/` under a group
+with an explicit retirement trigger, closing the gap that let the tree reach 37 files: the
+deletion rule had only ever fired for files under `superpowers/plans/`.

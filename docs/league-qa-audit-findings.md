@@ -1,6 +1,6 @@
 # League QA Audit — Findings (pass of 2026-07-24)
 
-Run against the prompt in `docs/league-qa-audit-prompt.md`, registry of 78 leagues.
+Run against the prompt in `docs/prompts/league-qa-audit.md`, registry of 78 leagues.
 Source fixes are committed; upstream/data issues are recorded, not papered over.
 
 ---
@@ -353,5 +353,5 @@ Surfaced by the new per-snapshot coverage manifest (`data/snapshot_coverage.json
   listed but which has no forecast history accruing at all.
 - Not a launch blocker and not a crash — a silent coverage hole of exactly the class the manifest
   was added to make visible.
-- **Hand-off:** belongs to `docs/league-qa-audit-prompt.md`. Likely either a fixture-source gap for
+- **Hand-off:** belongs to `docs/prompts/league-qa-audit.md`. Likely either a fixture-source gap for
   the new Romanian season or a status flag that should not yet be `live`.

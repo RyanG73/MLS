@@ -1,6 +1,6 @@
 # Entenser Competitor Deep Dive — Product, Subscription Traction, Repeat Visits
 
-**Executed:** 2026-08-01 · **Prompt:** `docs/competitor-deep-dive-prompt.md` ·
+**Executed:** 2026-08-01 · **Prompt:** `docs/prompts/competitor-deep-dive.md` ·
 **Scope:** FanGraphs, FotMob, Rotowire, American Soccer Analysis, Sports Reference/FBref/Stathead,
 Transfermarkt, PFF
 

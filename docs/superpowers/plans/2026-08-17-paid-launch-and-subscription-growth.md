@@ -17,7 +17,7 @@ Append concise, dated results here, newest first. Include proof such as deployme
 HTTP response, experiment sample, cohort date, or decision memo.
 
 - **2026-08-01 — Competitor deep dive executed across seven targets.** Prompt:
-  `docs/competitor-deep-dive-prompt.md`. Report: `docs/competitor-deep-dive-2026-08-01.md`.
+  `docs/prompts/competitor-deep-dive.md`. Report: `docs/competitor-deep-dive-2026-08-01.md`.
   Mechanics-level teardown of FanGraphs, FotMob, Rotowire, American Soccer Analysis, Sports
   Reference/FBref/Stathead, Transfermarkt and PFF, deliberately below the positioning altitude of
   the 2026-07-16 combined intelligence report. No accounts created, no payments made, no forms

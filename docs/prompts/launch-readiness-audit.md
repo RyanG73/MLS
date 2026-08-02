@@ -7,7 +7,7 @@
 > live code, and live config, or downgrade it.
 >
 > This prompt covers **launch readiness and the revenue path**.
-> `docs/site-ux-audit-prompt.md` covers **interface quality**; `docs/league-qa-audit-prompt.md`
+> `docs/prompts/site-ux-audit.md` covers **interface quality**; `docs/prompts/league-qa-audit.md`
 > covers **data correctness**. If you find a UX or data defect, log it and hand it to those.
 
 ---

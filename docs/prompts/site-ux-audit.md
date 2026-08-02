@@ -6,7 +6,7 @@
 > inherit their conclusions, do not skip a surface because something claims it was done. Find it
 > yourself, measure it yourself.
 >
-> This prompt covers **the interface**. `docs/league-qa-audit-prompt.md` covers **data
+> This prompt covers **the interface**. `docs/prompts/league-qa-audit.md` covers **data
 > correctness** league by league. If a probability looks wrong, note it and hand it there.
 
 ---
@@ -543,7 +543,7 @@ SUGGESTIONS (not shipped)
 - observation → proposal → why better → cost
 
 FLAGGED ELSEWHERE
-- <data/odds issues → league-qa-audit-prompt.md; user decisions; contract amendments proposed>
+- <data/odds issues → prompts/league-qa-audit.md; user decisions; contract amendments proposed>
 ```
 
 ### Final rollup, after every surface
