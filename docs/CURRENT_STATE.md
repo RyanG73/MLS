@@ -459,6 +459,39 @@ Validated values that must match CLAUDE.md:
 
 ---
 
+## Who builds production (single pipeline, 2026-08-02)
+
+**GitHub Actions owns production. Nothing on this machine publishes.**
+
+| Workflow | Cadence | Responsibility |
+|---|---|---|
+| `refresh-fast` | every 15 min | results, projections, home aggregate |
+| `refresh-daily` | 11:00 UTC | league data, power rankings, coefficients page, movers, deltas, ledger |
+| `refresh-leagues` | Mondays 04:00 UTC | full European rebuild, continental, news, match leverage, **OG share cards** |
+| `refresh-transfermarkt` | Mondays 02:00 UTC | squad values |
+| `deploy` / `deploy-api` | on push | static pages, sitemap, Pages + Vercel |
+
+Each refresh workflow commits and pushes its own output; `deploy` runs on that push.
+
+**`scripts/build_all.sh` is manual only.** It ran on launchd (`com.mls.buildall`,
+06:00 daily) until 2026-08-02. It has no git operations, so it published nothing —
+it only rewrote ~176 tracked files an hour before CI pushed its own versions,
+which is what produced the 208-file merge conflict on 2026-08-01. CI runs 17 of
+its 19 scripts. Use it deliberately, to rebuild everything locally after a model
+or coefficient change and inspect the result before CI does it.
+
+To re-enable the timer (not recommended):
+`launchctl load ~/Library/LaunchAgents/com.mls.buildall.plist`
+
+`scripts/daily_build.sh` and `scripts/com.mls.dashboard.plist` exist but the
+plist was never installed, so that script is not scheduled anywhere.
+
+**If a generated artifact looks stale, check it has an owner in the table above.**
+Four artifacts went stale in one week because nothing rebuilt them after their
+inputs changed: the home news rail, `team_intelligence`, `power.js`, and
+`coefficients.js` — the last because `build_coefficients_page.py` was in no
+workflow at all.
+
 ## Run Commands
 
 ```bash

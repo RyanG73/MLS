@@ -47,7 +47,7 @@ deleting one of these orphans working code.
 `product-strategy-2026-07-26.md` · `product-roadmap-2026-07.md` ·
 `offseason-model-improvement-audit-2026-07-30.md` · `league-expansion-report.md` ·
 `league-qa-audit-findings.md` · `feature-backlog-report-2026-07-13.md` · `qa-pass-2026-07-17.md` ·
-`public-launch-execution-report-2026-07-11.md` · `remaining-external-dependencies-2026-07-11.md`.
+`remaining-external-dependencies-2026-07-11.md`.
 **Retire:** once its decisions are in `STATUS.md` and its durable reasoning is in
 `PROJECT_HISTORY.md`. Findings not yet acted on are the only reason to keep one.
 

@@ -1,4 +1,19 @@
 #!/bin/bash
+# MANUAL full rebuild. Not scheduled — do not put this on a timer.
+#
+# GitHub Actions owns production: refresh-fast (15 min), refresh-daily (11:00
+# UTC), refresh-leagues and refresh-transfermarkt (Mondays), then deploy.yml
+# publishes. CI runs 17 of the 19 scripts below, and unlike this script it
+# commits, pushes and deploys.
+#
+# This ran on launchd (com.mls.buildall, 06:00 daily) until 2026-08-02. It
+# published nothing — no git operations anywhere in this file — so all it did
+# was rewrite ~176 tracked files an hour before CI pushed its own versions of
+# the same files. That collision produced a 208-file merge conflict on
+# 2026-08-01. The job is unloaded; the script stays for what it is actually
+# good at: rebuilding everything locally after a model or coefficient change,
+# on demand, when you want to inspect the result before CI does it.
+#
 # Rebuild ALL live surfaces — MLS, big-5, 5 original second-tier European
 # leagues, Liga MX, the Tier-1 expansion batch (Brazil/Japan/Sweden/Norway/
 # Denmark/Poland/Argentina/England National League), the C1 batch (LaLiga2,
@@ -196,9 +211,9 @@ PYTHONPATH="$REPO_DIR" "$PY" scripts/build_home.py \
 echo "--- weekly recap (movers + fragile races + misses receipt) ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_weekly_recap.py \
   || echo "  [WARN] build_weekly_recap failed (non-fatal)"
-echo "--- public launch execution report ---"
-PYTHONPATH="$REPO_DIR" "$PY" scripts/build_public_launch_report.py \
-  || echo "  [WARN] build_public_launch_report failed (non-fatal)"
+# build_public_launch_report.py retired 2026-08-02: it regenerated a doc whose
+# filename was frozen at 2026-07-11, daily, forever. Its content belongs in
+# STATUS.md. Removed rather than archived; git retains it.
 echo "--- social share / OG cards ---"
 PYTHONPATH="$REPO_DIR" "$PY" scripts/build_share_cards.py \
   || echo "  [WARN] build_share_cards failed (non-fatal)"
