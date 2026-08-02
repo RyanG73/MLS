@@ -374,8 +374,14 @@ def test_fast_refresh_uses_cached_probabilities_and_data_only_branch():
     assert "deploy-pages" not in workflow
     assert "ODDS_API_KEY" not in workflow
     assert "raw.githubusercontent.com/RyanG73/MLS/live-data" in shell
-    assert "fitted model" in shell
-    assert "market prices" in shell
+    # The "Forecast … · fitted model … · market prices …" stamp was removed from
+    # the league header on 2026-07-31 by owner request — it crowded "Division 1"
+    # into a two-line wrap to tell readers something they never asked. This test
+    # is about the refresh WORKFLOW, and its workflow assertions above are
+    # unchanged; scripts/fast_refresh.py still writes the fast_refresh block to
+    # every payload. Re-add a display assertion when the provenance finds its
+    # new home on the rebranded Trust tab.
+    assert "fast_refresh" not in shell or "data-clock" in shell
 
 
 def test_vercel_bundle_excludes_private_artifacts():

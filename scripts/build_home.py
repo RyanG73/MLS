@@ -185,7 +185,7 @@ def build_movers_board(files: list[tuple[str, dict]]) -> dict:
             "league": m["league"], "region": m.get("region", "Other"),
             "team": m["team"], "logo": crest.get((m["league"], m["team"])),
             "metric_label": labels.get(m["metric"], m["metric"]),
-            "delta": m["delta"], "now": m["now"],
+            "delta": m["delta"], "prev": m.get("prev"), "now": m["now"],
         } for m in d["movers"]],
     }
 
@@ -258,11 +258,24 @@ def build_fixtures(files: list[tuple[str, dict]], limit: int = 12,
     return fx[:limit]
 
 
-# The 8 leagues the redesigned home rotates through (C: table snapshot, E: title
+# The leagues the redesigned home rotates through (C: table snapshot, E: title
 # odds board, 2026-07-17 redesign): top-5 Europe + MLS + Liga MX + Brasileirão.
 # (MLS ahead of Liga MX per 2026-07-19 home feedback.)
+# Belgium joined 2026-07-31 so the Title Probabilities board stands as tall as
+# the league table beside it; the Netherlands arrived in the same round as the
+# default occupant of the board's dropdown slot below, not as a fixed row.
 _FEATURED = ["epl", "la-liga", "serie-a", "bundesliga", "ligue-1",
-             "mls", "liga-mx", "brazil-serie-a"]
+             "mls", "liga-mx", "brazil-serie-a", "belgian-pro"]
+
+# Last row of the Title Probabilities board is a slot the reader can retarget
+# from the home page's league dropdown (2026-07-31 feedback). This is only its
+# opening state — a manual pick replaces it client-side, loading that league's
+# own data file on demand rather than baking all 78 into home.js.
+_SLOT_DEFAULT = "eredivisie"
+
+# How many matches ride along with each featured league for the home page's
+# side-by-side Upcoming / Recent columns, which follow the table rotation.
+_TABLE_MATCHES = 6
 
 
 def build_ucl_board() -> dict:
@@ -295,13 +308,46 @@ def build_ucl_board() -> dict:
     return entry
 
 
+def league_matches(d: dict, limit: int = _TABLE_MATCHES) -> tuple[list, list]:
+    """(recent results, upcoming fixtures) for one league's payload.
+
+    The home page's two match columns follow the table rotation, so each
+    featured league carries its own slice rather than being filtered out of the
+    global feeds — those are prominence-capped and would leave a mid-table
+    league's columns empty. Crests fall back to the standings, because a
+    league file's game rows often carry `hlogo: null`.
+    """
+    logo = {s.get("team"): s.get("logo") for s in d.get("standings", [])}
+    played, upcoming = [], []
+    for g in d.get("games", []):
+        row = {
+            "date": g.get("date"), "ko": g.get("ko"),
+            "home": g.get("home"), "away": g.get("away"),
+            "hlogo": g.get("hlogo") or logo.get(g.get("home")),
+            "alogo": g.get("alogo") or logo.get(g.get("away")),
+        }
+        if g.get("result") is None:
+            row.update({"pH": g.get("pH"), "pD": g.get("pD"), "pA": g.get("pA")})
+            upcoming.append(row)
+        else:
+            row.update({"hg": g.get("hg"), "ag": g.get("ag")})
+            played.append(row)
+    played.sort(key=lambda g: g.get("date") or "", reverse=True)
+    upcoming.sort(key=lambda g: (g.get("date") or "", g.get("ko") or ""))
+    return played[:limit], upcoming[:limit]
+
+
 def build_tables(files: list[tuple[str, dict]], top_n: int = 10) -> list[dict]:
     """Standings slice per featured league for the home page's rotating table.
     Rows ordered by actual points (projected headline metric as tiebreak, which
-    also covers preseason when everyone is on 0)."""
+    also covers preseason when everyone is on 0).
+
+    The `_SLOT_DEFAULT` league is appended last and flagged `slot` — the client
+    swaps that one entry out when a reader picks an off-rotation league.
+    """
     fmap = dict(files)
     out = []
-    for lid in _FEATURED:
+    for lid in [*_FEATURED, _SLOT_DEFAULT]:
         d = fmap.get(lid)
         if not d:
             continue
@@ -314,17 +360,21 @@ def build_tables(files: list[tuple[str, dict]], top_n: int = 10) -> list[dict]:
         ranked = sorted(d["standings"],
                         key=lambda t: (-float(t.get("pts", 0) or 0),
                                        -float(t.get(metric, 0) or 0)))
+        results, fixtures = league_matches(d)
         out.append({
             "league": lid,
             "name": (d.get("league") or {}).get("name", lid),
             "metric_label": card.get("label", metric.title()),
             "preseason": bool((d.get("outlook") or {}).get("preseason")),
             "season_label": (d.get("outlook") or {}).get("season_label", ""),
+            "slot": lid == _SLOT_DEFAULT,
             "rows": [{"team": t.get("team"), "logo": t.get("logo"),
                       "color": t.get("color"), "pts": t.get("pts"),
                       "gp": t.get("gp"), "gd": t.get("gd"),
                       "pct": round(float(t.get(metric, 0) or 0), 1)}
                      for t in ranked[:top_n]],
+            "results": results,
+            "fixtures": fixtures,
         })
     return out
 

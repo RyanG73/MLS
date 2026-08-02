@@ -162,6 +162,26 @@
 .intel-locked-overlay .intel-action{pointer-events:auto;position:sticky;top:42vh;box-shadow:0 8px 28px rgba(0,0,0,.5)}
 .intel-locked-more{margin-top:14px}
 .intel-locked-more .intel-eyebrow{margin-bottom:8px}
+/* Worked examples replacing the codename chip list (2026-08-01). These sit
+   OUTSIDE .intel-locked-body deliberately — the mockup above is greyed and
+   masked because it is a surface you unlock, but these are the explanation of
+   what you get, and an explanation nobody can read sells nothing. */
+.intel-example{border:1px solid var(--line-2);border-radius:var(--r-md,10px);
+  background:var(--ink-1);padding:14px 16px;margin-bottom:10px}
+.intel-example h3{font-size:14.5px;font-weight:700;margin:0 0 5px;color:var(--txt-1)}
+.intel-example>p{font-size:12.5px;line-height:1.55;color:var(--txt-2);margin:0 0 10px;max-width:70ch}
+.intel-example .intel-data-table{margin-top:0}
+.intel-paths{list-style:none;margin:0;padding:0}
+.intel-paths li{display:flex;align-items:baseline;gap:12px;padding:7px 0;
+  border-bottom:1px solid var(--line)}
+.intel-paths li:last-child{border-bottom:0}
+.intel-paths li span{flex:1;font-size:12.5px;color:var(--txt-2)}
+.intel-paths li b{font-family:var(--mono);font-size:13px;color:var(--txt-1);flex:none}
+.intel-receipt{font-size:12.5px;line-height:1.6;color:var(--txt-2);
+  border-left:2px solid var(--qualify);padding:6px 0 6px 12px}
+.intel-receipt b{color:var(--txt-1);font-family:var(--mono)}
+.intel-receipt em{font-style:normal;color:var(--qualify);font-weight:700}
+.intel-alsoline{font-size:12px;line-height:1.6;color:var(--txt-3);margin:10px 0 0;max-width:70ch}
 .intel-loading{display:flex;align-items:center;gap:9px;padding:28px 0;color:var(--txt-3);font:600 11px var(--mono)}
 .intel-loading:before{content:"";width:14px;height:14px;border:2px solid var(--line-3);border-top-color:var(--qualify);border-radius:50%;animation:intel-spin .8s linear infinite}
 @keyframes intel-spin{to{transform:rotate(360deg)}}

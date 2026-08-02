@@ -81,3 +81,32 @@ def test_search_index_lists_all_teams():
     assert {"t": "Arsenal", "l": "epl"} in idx
     assert {"t": "LAFC", "l": "mls"} in idx
     assert len(idx) == 3
+
+
+def test_featured_tables_carry_belgium_and_a_dropdown_slot():
+    """The Title Probabilities board gained Belgium as a fixed row and the
+    Netherlands as the swappable slot at its foot (2026-07-31 feedback)."""
+    assert "belgian-pro" in build_home._FEATURED
+    assert build_home._SLOT_DEFAULT == "eredivisie"
+    assert build_home._SLOT_DEFAULT not in build_home._FEATURED
+
+
+def test_tables_attach_own_results_and_fixtures():
+    played = _g(-3, home="Ajax", away="PSV", result="H")
+    played.update({"hg": 2, "ag": 1})
+    d = {"league": {"name": "Eredivisie"},
+         "outlook": {"cards": [{"key": "title", "label": "Title"}]},
+         "standings": [{"team": "Ajax", "pts": 3, "gd": 1, "title": 40.0,
+                        "logo": "ajax.png"},
+                       {"team": "PSV", "pts": 0, "gd": -1, "title": 30.0,
+                        "logo": "psv.png"}],
+         "games": [played, _g(2, home="PSV", away="Ajax")]}
+    tables = build_home.build_tables([("eredivisie", d)])
+    t = tables[0]
+    assert t["slot"] is True
+    assert [r["home"] for r in t["results"]] == ["Ajax"]
+    assert t["results"][0]["hg"] == 2
+    # game rows carry no crest of their own — the standings supply it
+    assert t["results"][0]["hlogo"] == "ajax.png"
+    assert [f["away"] for f in t["fixtures"]] == ["Ajax"]
+    assert t["fixtures"][0]["pH"] == 0.5

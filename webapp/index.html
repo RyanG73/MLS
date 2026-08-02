@@ -160,7 +160,7 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mast-wordmark{font-family:var(--serif);font-weight:700;font-size:30px;letter-spacing:.01em;color:var(--txt-1);text-decoration:none;text-align:center;display:flex;align-items:center;gap:10px;justify-content:center}
 .mast-moose{width:34px;height:34px;object-fit:contain}
 .mast-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
-.mast-stat{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:right}
+.mast-stat{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:left}
 /* Odds-format toggle (launch plan F2) */
 .odds-toggle{display:inline-flex;border:1px solid var(--line-2);border-radius:var(--r-sm);overflow:hidden}
 .odds-toggle button{font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--txt-3);background:var(--ink-2);border:0;border-left:1px solid var(--line-2);padding:3px 7px;cursor:pointer}
@@ -215,19 +215,27 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .mtw-h{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-bottom:1px solid var(--line);
   font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-1)}
 .mtw-h em{font-style:normal;font-size:11px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--txt-3)}
-.mtw-row{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"day fx lev" "day meta lev";
-  gap:1px 9px;align-items:center;padding:8px 12px;text-decoration:none;color:var(--txt-2);
-  border-bottom:1px solid var(--line)}
+/* Clubs stack instead of sharing one line with a "v" (2026-07-31): at a third
+   of the page width the old single-line fixture ellipsized nearly every name. */
+.mtw-row{display:flex;flex-direction:column;gap:3px;padding:9px 12px;text-decoration:none;
+  color:var(--txt-2);border-bottom:1px solid var(--line)}
 .mtw-row:last-child{border-bottom:0}
 .mtw-row:hover{background:var(--ink-2);color:var(--txt-1)}
-.mtw-day{grid-area:day;font-family:var(--mono);font-size:11px;color:var(--txt-3);min-width:62px}
-.mtw-fx{grid-area:fx;display:flex;align-items:center;gap:5px;font-size:13px;min-width:0}
-.mtw-fx b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mtw-fx em{font-style:normal;color:var(--txt-3);font-size:11px}
-.mtw-fx img{width:16px;height:16px;object-fit:contain;flex:none}
-.mtw-meta{grid-area:meta;font-size:11px;color:var(--txt-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mtw-lev{grid-area:lev;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--txt-1);
-  min-width:34px;text-align:right}
+.mtw-top{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+.mtw-day{font-family:var(--mono);font-size:11px;color:var(--txt-3);flex:none}
+.mtw-lg{font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The swing score carries its own label — a bare number behind a tooltip is
+   not an explanation. */
+.mtw-lev{margin-left:auto;flex:none;display:flex;align-items:baseline;gap:4px}
+.mtw-lev b{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--txt-1)}
+.mtw-lev em{font-style:normal;font-family:var(--mono);font-size:9px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--txt-3)}
+.mtw-side{display:flex;align-items:center;gap:7px;min-width:0;font-size:13px}
+.mtw-side .crest{width:18px;height:18px;font-size:7px;flex:none}
+.mtw-side b{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mtw-drv{font-size:11px;color:var(--txt-3);margin-top:3px;line-height:1.4}
+.mtw-drv b{color:var(--txt-2);font-weight:700}
 .mb-sec{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;padding-bottom:4px}
 .mb-ctry{display:flex;align-items:center;gap:6px;padding:6px 12px 3px;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-3)}
 .mb-t{display:flex;align-items:center;gap:5px;min-width:0}
@@ -288,12 +296,15 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .beacon img{background:#eef1f4;border-radius:8px;padding:4px}
 .brand h1{font-size:20px;font-weight:800;line-height:1.1}
 .brand h1 a{color:inherit;text-decoration:none}
+/* nowrap on the spans: "Division 1" was breaking after "Division" and dropping
+   the "1" onto its own line, because .brand is only 250px wide and the old
+   flex-basis:100% build-timestamp row was stealing the rest. Both the timestamp
+   and its stylesheet entry are gone (2026-07-31); these two facts stay on one
+   line at every width now. */
 .brand .sub{display:flex;align-items:center;gap:7px;margin-top:5px;font-size:11px;
   color:var(--txt-3);font-weight:650;text-transform:uppercase;letter-spacing:.055em}
+.brand .sub span{white-space:nowrap}
 .brand .sub span+span:before{content:"·";margin-right:7px;color:var(--line-3)}
-.brand .sub .data-clock{flex-basis:100%;font-family:var(--mono);font-size:9px;
-  font-weight:600;letter-spacing:.02em;text-transform:none;color:var(--txt-3)}
-.brand .sub .data-clock:before{content:none}
 .season-status{margin-left:auto;display:grid;grid-template-columns:auto minmax(220px,330px);
   align-items:center;gap:var(--s4);min-width:min(100%,480px);background:var(--ink-1);
   border:1px solid var(--line-2);border-radius:var(--r-md);padding:9px var(--s3)}
@@ -366,26 +377,11 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
   background:#eef1f4;border-radius:5px}   /* light plate so dark-heavy crests (navy, black) stay visible on the dark theme */
 .crest:has(img) .mono{display:none}   /* logo present → hide fallback initials */
 
-/* favorites — five title races: Cup · Shield · East · West · Spoon */
-.favs{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:var(--s5)}
-.fav{background:var(--ink-2);border:1px solid var(--line-2);border-radius:9px;padding:11px var(--s3);position:relative;overflow:hidden}
-.fav::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
-.fav .lab{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--txt-2);display:flex;align-items:center;gap:6px}
-.fav .lab .sq{width:8px;height:8px;border-radius:2px}
-.fav .fav-hint{font-size:9.5px;color:var(--txt-3);margin-top:3px}
-.fav .teamrow{display:flex;align-items:center;gap:8px;margin-top:9px}
-.fav .teamrow .crest{width:22px;height:22px}
-.fav .ftxt{min-width:0}
-.fav .team{font-family:"Archivo";font-weight:700;font-size:14px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fav .favstats{display:flex;align-items:baseline;gap:9px;margin-top:9px;flex-wrap:wrap}
-.fav .pct{font-family:var(--mono);font-weight:700;font-size:22px;line-height:1}
-.fav .pp{font-size:10.5px;color:var(--txt-3);font-weight:600}
-.fav .pp b{font-family:var(--mono);color:var(--txt-2);font-weight:700}
-.fav.shield::before{background:var(--shield)} .fav.shield .pct{color:var(--shield)} .fav.shield .sq{background:var(--shield)}
-.fav.east::before{background:var(--qualify)} .fav.east .pct{color:var(--qualify)} .fav.east .sq{background:var(--qualify)}
-.fav.west::before{background:var(--win)} .fav.west .pct{color:var(--win)} .fav.west .sq{background:var(--win)}
-.fav.spoon::before{background:var(--spoon)} .fav.spoon .pct{color:var(--spoon)} .fav.spoon .sq{background:var(--spoon)}
-.fav.cup::before{background:var(--europa)} .fav.cup .pct{color:var(--europa)} .fav.cup .sq{background:var(--europa)}
+/* The bespoke five-card MLS "favorites" strip is gone (2026-07-31): MLS renders
+   its five races through the same .races/.race strip as every other league, so
+   .fav* had no callers left. Dropping it also un-broke `.mx-lg .fav`, the
+   pinned-club chip on the Matches page, which was inheriting a bordered card
+   box from the generic `.fav` rule it never meant to match. */
 
 /* ── race strip: one card per race, leader + contenders (scales to any league) ── */
 .races{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:var(--s5)}
@@ -393,7 +389,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .race::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
 .race.t::before{background:var(--win)}.race.u::before{background:var(--qualify)}.race.e::before{background:var(--europa)}.race.r::before{background:var(--drop)}.race.s::before{background:var(--shield)}
 .race .rk{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--txt-2);display:flex;justify-content:space-between;gap:6px}
-.race .rk em{font-style:normal;color:var(--txt-3);font-weight:700}
+/* The definition of the race, demoted from a second headline to a footnote
+   (2026-07-31): the clubs are what the box is for. */
+.race .rfoot{margin-top:9px;padding-top:7px;border-top:1px solid var(--line);
+  font-size:11px;color:var(--txt-3);letter-spacing:.02em}
 .race .lead{display:flex;align-items:center;gap:8px;margin:8px 0 9px}
 .race .lead .crest{width:22px;height:22px}
 .race .lead .nm{font-family:"Archivo";font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
@@ -406,43 +405,27 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .race .cl .cv{flex:none;font-size:11px;font-weight:700}
 .race.t .cv{color:var(--win)}.race.u .cv{color:var(--qualify)}.race.e .cv{color:var(--europa)}.race.r .cv{color:var(--drop)}.race.s .cv{color:var(--shield)}
 /* U2: "since last build" delta + why-changed cause, neutral styling (no betting green/red) */
-.race .rdelta{display:flex;align-items:center;gap:6px;margin-top:9px;padding-top:7px;border-top:1px solid var(--line);font-size:10px;color:var(--txt-3)}
-.race .rdelta .rd-a{font-size:11px;color:var(--txt-2)}
-.race .rdelta .rd-v{font-weight:700;color:var(--txt-2);font-variant-numeric:tabular-nums}
-.race .rdelta .rd-c{margin-left:auto;letter-spacing:.02em;text-transform:uppercase;font-size:11px}
-.race .rdelta.res .rd-a,.race .rdelta.res .rd-v{color:var(--txt-1)}
 
 /* ladders */
 .ladders{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
 .ladder{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden}
-.ladder-h{display:flex;align-items:center;gap:8px;padding:9px var(--s3);border-bottom:1px solid var(--line-2);background:var(--ink-2)}
-.ladder-h .name{font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
-.conf-dot{width:8px;height:8px;border-radius:50%}
-.east .conf-dot{background:var(--qualify)} .west .conf-dot{background:var(--win)}
-.col-head,.row{display:grid;grid-template-columns:22px minmax(var(--clubw,90px),1fr) 30px 42px 36px 38px 40px 42px 42px 38px 88px;align-items:center;gap:5px;padding:7px var(--s3)}
-.col-head{font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt-3);border-bottom:1px solid var(--line)}
-.col-head .c{text-align:center;line-height:1.1}
-.row{border-bottom:1px solid var(--line);position:relative;transition:background .12s}
-.row:last-child{border-bottom:none}
-.row:hover{background:var(--ink-2)}
-.row.hfa{box-shadow:inset 3px 0 0 var(--qualify)}
+/* .col-head/.row — the pre-redesign half-width ladder markup — retired
+   2026-07-31 with its last caller, the MLS conference table. Every league now
+   renders through ladderPanel()'s .thead/.trow grid. */
 .rank{font-family:var(--mono);font-weight:700;font-size:12px;color:var(--txt-3);text-align:center}
-.row.hfa .rank{color:var(--qualify)}
 .tcell{display:flex;align-items:center;gap:9px;min-width:0}
 .tcol{min-width:0;display:flex;flex-direction:column;gap:1px}
 .tname{display:block;font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tname.tlink{cursor:pointer;color:var(--txt-1);text-decoration:none}
 .tname.tlink:hover{color:var(--qualify);text-decoration:underline}
-/* narrow screens: keep the team name (crest-only was too hard to scan) — just
-   tighten the subtitle line so the row still fits without truncating names. */
-@media(max-width:620px){.ladder .tsub{display:none}}
+/* .tsub survives for the UEFA coefficient table, which still stacks an
+   association over its league; no standings ladder uses it any more. */
 .tsub{display:block;font-size:10px;color:var(--txt-3);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pts{font-family:var(--mono);font-weight:700;font-size:13px;text-align:center}
 .projc{font-family:var(--mono);font-weight:700;font-size:12px;text-align:center;color:var(--txt-2)}
 .heat{font-family:var(--mono);font-weight:700;font-size:11px;text-align:center;padding:4px 0;border-radius:4px;color:var(--txt-1)}
 .heat.z{color:var(--txt-3);font-weight:500;background:transparent!important}
 /* ── table-league outlook (European single table: Title / UCL / Relegation) ── */
-.favs.t3{grid-template-columns:repeat(3,1fr)}
 .fav.title::before{background:var(--hfa)} .fav.title .pct{color:var(--hfa)} .fav.title .sq{background:var(--hfa)}
 .fav.ucl::before{background:var(--qualify)} .fav.ucl .pct{color:var(--qualify)} .fav.ucl .sq{background:var(--qualify)}
 .fav.releg::before{background:#e25f4f} .fav.releg .pct{color:#e25f4f} .fav.releg .sq{background:#e25f4f}
@@ -526,12 +509,9 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .br-pk{color:var(--win);font-size:10px;flex:none;font-family:var(--mono)}
 .br-prob{color:var(--txt-3);font-size:10px;flex:none;font-family:var(--mono)}
 /* playoff cut line (1–9 in, glowing) + wild-card divider (after 7) */
-.po-line,.wc-line{position:relative;height:0}
-.po-line .lab,.wc-line .lab{position:absolute;left:var(--s3);top:-8px;font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;background:var(--ink-1);padding:0 6px}
-.po-line .lab{color:var(--qualify)}
-.po-line::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--qualify),transparent);box-shadow:0 0 10px rgba(52,211,154,.6)}
-.wc-line .lab{color:var(--hfa)}
-.wc-line::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;background:repeating-linear-gradient(90deg,var(--line-3) 0 7px,transparent 7px 13px)}
+/* .po-line/.wc-line retired 2026-07-31: MLS's playoff and wild-card cuts now
+   use the same .ucl-line/.rz-line dashed rules every other league's cut lines
+   use, so the two layouts read identically. */
 /* ELO column */
 .eloc{font-family:"Archivo";font-weight:600;font-size:11.5px;text-align:center;color:var(--txt-2)}
 /* what-if boxes: next-5 result toggles */
@@ -708,6 +688,35 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .prof-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3);margin-bottom:var(--s4)}
 .pcard{background:var(--ink-1);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s4)}
 .pcard.full{grid-column:1/-1}
+/* ── Club Watch teaser on the club page (2026-08-01) ──────────────────────
+   One accent rail marks the paid block so it never reads as broken data. The
+   free line above each lock is a real number this site already publishes; only
+   the continuity below it is obscured. See clubWatchLock() for the rule. */
+.cw-intro{grid-column:1/-1;border-color:var(--qualify);background:rgba(61,220,132,.05);margin-top:var(--s3)}
+.cw-intro h3{font-size:15px;margin:0 0 5px}
+.cw-intro p{font-size:12.5px;line-height:1.55;color:var(--txt-2);margin:0 0 12px;max-width:70ch}
+.cw-card{box-shadow:inset 2px 0 0 var(--qualify)}
+.cw-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:7px}
+.cw-h h3{font-size:14px;margin:0}
+.cw-tag{flex:none;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--qualify);border:1px solid var(--qualify);
+  border-radius:999px;padding:2px 7px}
+.cw-free{font-size:12.5px;line-height:1.55;color:var(--txt-2);margin:0 0 10px}
+.cw-free b{color:var(--txt-1);font-family:var(--mono)}
+.cw-dim{color:var(--txt-3);font-size:11.5px}
+/* An open value inside the locked block — the window IS public, only what is
+   inside it is not. Keeps the block from reading as uniformly withheld. */
+.cw-open{font-family:var(--mono);font-size:11.5px;color:var(--txt-2);flex:none}
+.cw-locked{border-top:1px solid var(--line);padding-top:8px;position:relative}
+.cw-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:6px 0}
+.cw-row+.cw-row{border-top:1px solid var(--line)}
+.cw-row span{font-size:12px;color:var(--txt-3);min-width:0}
+/* The label stays crisp and the VALUE blurs — that contrast is the whole point.
+   A blurred label would just look like a rendering fault. */
+.cw-blur{font-family:var(--mono);font-size:12.5px;color:var(--txt-1);flex:none;
+  filter:blur(4.5px);user-select:none;opacity:.75}
+@media(prefers-reduced-motion:no-preference){.cw-blur{transition:filter .2s}}
+.cw-card:hover .cw-blur{filter:blur(3.5px)}
 .elo-panel{margin-bottom:var(--s3)}
 .elo-panel-h{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s4);margin-bottom:var(--s2)}
 .elo-panel-h h3{font-size:14px}
@@ -778,6 +787,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
   .team-dd-btn{width:100%;min-width:0}
   .prof-grid{grid-template-columns:minmax(0,1fr)}
   .pcard.full{grid-column:auto}
+  /* Label and locked description each get the full width — side by side at
+     343px they squeezed to two or three wrapped lines apiece. */
+  .cw-row{flex-direction:column;align-items:flex-start;gap:2px}
+  .cw-blur,.cw-open{align-self:flex-start}
   .outlook-hero{grid-template-columns:repeat(3,minmax(0,1fr))}
   .team-primary-card{min-height:0}
   .sf-head,.sf-row{grid-template-columns:58px 34px minmax(115px,1fr) 64px 34px;gap:5px}
@@ -1051,7 +1064,6 @@ footer a:hover{color:var(--txt-2)}
   #ladders{grid-template-columns:1fr!important}
 }
 @media(max-width:860px){
-  .favs{grid-template-columns:1fr 1fr}
   .acc{margin-left:0;width:100%;justify-content:space-between}
   .dayhead{top:56px}
 }
@@ -1063,29 +1075,22 @@ footer a:hover{color:var(--txt-2)}
    screens the whole table scrolls horizontally inside .ladder instead
    (2026-07-09 feedback — the old 68px floor ellipsized most names). */
 @media(max-width:760px){
-  .col-head .c-elo,.row .eloc{display:none}
-  .col-head,.row{grid-template-columns:20px minmax(var(--clubw,90px),1fr) 24px 30px 32px 32px 34px 34px 30px 44px;gap:4px;padding-left:var(--s3);padding-right:var(--s3)}
   /* full names + fixed odds columns exceed the viewport → scroll inside the panel;
      min-width:max-content keeps each row's background spanning the scrolled width */
   .ladder{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .col-head,.row,.tlad .thead,.tlad .trow{min-width:max-content}
+  .tlad .thead,.tlad .trow{min-width:max-content}
 }
 @media(max-width:480px){
-  .col-head .c-proj,.row .projc{display:none}
-  .col-head,.row{grid-template-columns:16px minmax(var(--clubw,90px),1fr) 22px 26px 26px 27px 27px 24px 40px;gap:3px}
   .heat{font-size:11px;padding:4px 0}
   .g-side .tn{font-size:12.5px}
   .acc .bars{display:none}
-  .fav .team{font-size:13.5px} .fav .pct{font-size:22px}
 }
 /* Fix 3 — mobile horizontal overflow:
    .seg tab bar is inline-flex with 4 wide buttons (~440px) — make it scroll.
-   .favs.t3 (3-column European card) collapses to 1 column.
    Body clip prevents any stray element from widening the document. */
 @media(max-width:520px){
   .seg{overflow-x:auto;flex-wrap:nowrap;max-width:100%;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .seg::-webkit-scrollbar{display:none}
-  .favs.t3{grid-template-columns:1fr}
   body{overflow-x:hidden}
 }
 /* Mobile what-if mode: keep Next-5 in its own column (matching desktop), but
@@ -1130,7 +1135,7 @@ footer a:hover{color:var(--txt-2)}
   </div>
 
   <section id="view-outlook">
-    <div class="favs" id="favs"></div>
+    <div class="races" id="favs"></div>
     <div id="raceHistory"></div>
     <div class="whatif-banner" id="wbanner"><b>What-if mode</b><span id="wcount"></span>
       <span style="color:var(--txt-3)">probabilities resimulated in your browser (10k runs)</span>
@@ -1642,15 +1647,17 @@ function teamGateCardHTML(team){
     ?`<div class="mast-live"><span class="dot"></span><a href="?league=command">Upcoming: ${H.fixtures.length} fixtures projected</a>`+
       `<span>· ${next48} ${next48===1?'match':'matches'} next 48h</span><span>· ${H.stats.leagues} leagues</span></div>`:'';
   const oa=oaBannerHTML();
+  // 2026-07-31 desktop feedback: the build timestamp was noise (readers don't
+  // audit our cron), and the coverage stat is a brag that belongs beside the
+  // date, not stacked over the search box — which now stands on its own.
   mast.innerHTML=`<div class="mast-top">
-      <div class="mast-date">${dstr}${H?`<span>Updated ${H.generated}</span>`:''}</div>
+      <div class="mast-date">${dstr}<span class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</span></div>
       <a class="mast-wordmark" href="${location.pathname}"><img class="mast-moose" src="assets/branding/entenser-icon-light.png" alt="">Entenser</a>
       <div class="mast-right">
         <div class="mast-search"><input id="msq" type="search" aria-label="Search leagues and teams" placeholder="Search leagues & teams…" autocomplete="off" spellcheck="false"><div class="ms-results" id="msr"></div></div>
         ${MARKET_MODE?`<span class="odds-lbl">Price Format</span><div class="odds-toggle" title="Price display format">${
           [['american','US'],['decimal','Dec'],['fractional','Frac']].map(([f,lbl])=>
             `<button type="button" data-oddsfmt="${f}" class="${window.ODDS_FMT===f?'on':''}">${lbl}</button>`).join('')}</div>`:''}
-        <div class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</div>
       </div>
     </div><nav class="mast-bar">${bar}</nav>${live}${oa}<div class="mb-portal" id="mbPortal"></div>`;
   // Odds-format toggle (launch plan F2): switches every quoted price in place.
@@ -1734,11 +1741,11 @@ function teamGateCardHTML(team){
   if(isCanonical)title.innerHTML=`<a href="/leagues/${LID}/">${leagueFlags}${lg.name}</a>`;
   const country=reg.country||lg.country||lg.confederation||'International';
   const level=reg.tier!=null?`Division ${reg.tier}`:(isKnockout?'Cup competition':'League competition');
-  const fast=D.fast_refresh||{};
-  const clock=fast.forecast_updated_at
-    ?`<span class="data-clock">Forecast ${fast.forecast_updated_at} · fitted model ${fast.fitted_model_at||'—'}${MARKET_MODE?` · market prices ${fast.market_prices_at||'—'}`:''}</span>`
-    :(D.generated?`<span class="data-clock">Forecast ${D.generated}</span>`:'');
-  $('#sub').innerHTML=`<span>${country}</span><span>${level}</span>${clock}`;
+  // 2026-07-31: the build timestamp is gone from the league header for the same
+  // reason it left the masthead — readers do not audit our cron, and it was
+  // crowding "Division 1" into a two-line wrap. Provenance still lives on the
+  // Trust tab, where someone actually looking for it will go.
+  $('#sub').innerHTML=`<span>${country}</span><span>${level}</span>`;
 })();
 const monogram=n=>{const w=n.replace(/[^A-Za-z ]/g,'').split(' ').filter(Boolean);return ((w[0]?.[0]||'')+(w[1]?.[0]||'')).toUpperCase();};
 const fmt=v=>`${v.toFixed(1)}%`;                         // percentages with one decimal + sign
@@ -1753,7 +1760,10 @@ const crest=(name,logo)=>{const l=_logoFor(name,logo);
 // +26 crest +9 .tcell gap +10 slack (measurement can run before the webfont settles).
 function clubColWidth(names){
   const c=clubColWidth._c||(clubColWidth._c=document.createElement('canvas').getContext('2d'));
-  c.font='600 12px Inter,sans-serif';
+  // Must match what .tlad .tname actually renders (700 14px) — measuring at the
+  // old 600 12px under-reserved the lane by ~15%, so the longest club name in a
+  // table set the floor a little too low. (2026-07-31)
+  c.font='700 14px Inter,sans-serif';
   const w=Math.max(60,...names.map(n=>c.measureText(n||'').width));
   return Math.ceil(w)+26+9+10;
 }
@@ -1771,12 +1781,18 @@ const _sr=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4;};
 const wlum=([r,g,b])=>0.2126*_sr(r)+0.7152*_sr(g)+0.0722*_sr(b);
 const txtOn=hex=>{const L=wlum(visRGB(hex));
   return (1.05/(L+0.05)) >= ((L+0.05)/0.0555) ? '#fff' : '#06121d';};
-const cbar=g=>{const S=[[g.pH,vis(g.hcolor),txtOn(g.hcolor)],[g.pD,'var(--draw)','#0a111e'],[g.pA,vis(g.acolor),txtOn(g.acolor)]];
-  return `<span class="cbar">`+S.map(([p,bg,fg])=>{const w=p*100;
-    return `<span style="width:${w.toFixed(1)}%;background:${bg};color:${fg}">${w>=12?w.toFixed(0)+'%':''}</span>`;}).join('')+`</span>`;};
+/* 2026-07-31 feedback: the matches slate was "an absolute eyesore". The cause
+   was redundancy at full saturation — every row printed each side's win
+   percentage NEXT TO the club AND again inside its own block of team colour,
+   then a third number ("draw 27%") under the bar. Forty rows of that is a wall.
+   The bar keeps its actual job — who is favoured, and by how much, at a glance —
+   and loses the duplicated labels. The figures still sit beside the clubs,
+   where a reader looking for a number already looks. */
+const cbar=g=>{const S=[[g.pH,vis(g.hcolor)],[g.pD,'var(--draw)'],[g.pA,vis(g.acolor)]];
+  return `<span class="cbar" title="Win / draw / win probability">`+S.map(([p,bg])=>
+    `<span style="width:${((p||0)*100).toFixed(1)}%;background:${bg}"></span>`).join('')+`</span>`;};
 /* heatmap background for an odds value */
 function heat(v,rgb,maxv){const a=v<=0?0:Math.min(0.62,0.07+0.55*(v/(maxv||100)));return `background:rgba(${rgb.join(',')},${a.toFixed(3)})`;}
-const RGB={po:[61,220,132],hfa:[244,183,64],sh:[215,222,234],sp:[189,125,78]};
 /* scoreline distribution helpers */
 const _poisPMF=(k,lam)=>{let p=Math.exp(-lam);for(let i=1;i<=k;i++)p*=lam/i;return p;};
 const topScorelines=(lam,mu,n=3)=>{
@@ -2086,37 +2102,32 @@ function scheduleSim(){clearTimeout(simTimer);simTimer=setTimeout(()=>{
   }
   (isKnockout?renderKnockout:isTable?renderTableOutlook:renderOutlook)();},150);}
 
-/* favorites — five title races: MLS Cup · Shield · Eastern Conf · Western Conf · Spoon */
-const favCard=(cls,lab,t,k,hint)=>`<div class="fav ${cls}"><div class="lab"><span class="sq"></span>${lab}</div>
-  ${hint?`<div class="fav-hint">${hint}</div>`:''}
-  <div class="teamrow">${crest(t.team,t.logo)}<div class="ftxt"><div class="team">${t.team}</div></div></div>
-  <div class="favstats"><span class="pct">${fmt(t[k])}</span><span class="pp">proj <b>${t.proj_pts}</b> pts</span></div></div>`;
+/* Five races — MLS Cup · Shield · Eastern Conf · Western Conf · Spoon — through
+   the SAME raceCard() every table league uses (2026-07-31 feedback). The old
+   bespoke favCard showed a leader and nothing else; these carry the two nearest
+   contenders and the since-last-build movement chip like everywhere else.
+   conf_win = #1 seed by regular-season points, NOT odds of winning the
+   conference playoff bracket. */
 function renderFavs(){
-  const all=D.standings.map(vals);
-  const sBy=k=>[...all].sort((a,b)=>b[k]-a[k])[0];
-  const sByConf=c=>all.filter(s=>s.conf===c).sort((a,b)=>b.conf_win-a.conf_win)[0];
+  const byConf=c=>D.standings.filter(s=>s.conf===c);
+  $('#favs').className='races';
   $('#favs').innerHTML=
-    favCard('cup','MLS Cup',sBy('cup'),'cup','playoff champion')+
-    favCard('shield',"Supporters' Shield",sBy('shield'),'shield','best record overall')+
-    // conf_win = #1 seed by regular-season points — NOT odds of winning the conference playoff bracket
-    favCard('east','Eastern Conference',sByConf('East'),'conf_win','most points in conference')+
-    favCard('west','Western Conference',sByConf('West'),'conf_win','most points in conference')+
-    favCard('spoon','Wooden Spoon',sBy('spoon'),'spoon','fewest points overall');
+    raceCard({key:'cup',label:'MLS Cup',hint:'playoff champion'})+
+    raceCard({key:'shield',label:"Supporters' Shield",hint:'best record overall'})+
+    raceCard({key:'conf_win',label:'Eastern Conference',hint:'most points in conference'},byConf('East'))+
+    raceCard({key:'conf_win',label:'Western Conference',hint:'most points in conference'},byConf('West'))+
+    raceCard({key:'spoon',label:'Wooden Spoon',hint:'fewest points overall'});
 }
 $('#laddernote').textContent=`Top ${D.playoff_slots} per conference make the playoffs · seeds 8–9 play a wild-card play-in · top ${D.hfa_slots} host round one · `+
   (IntelStore.unlocked()
     ?`use Next 5 Sim to force results (win/draw/loss) and resimulate`
     :`Saved multi-match scenarios are available with Club Watch`);
 
-/* ladders with heat-mapped odds */
-const MAX={po:Math.max(...D.standings.map(s=>s.playoff),1),hfa:Math.max(...D.standings.map(s=>s.hfa),1),
-  sh:Math.max(...D.standings.map(s=>s.shield),1),sp:Math.max(...D.standings.map(s=>s.spoon),1),
-  cup:Math.max(...D.standings.map(s=>s.cup),1)};
-RGB.cup=[74,163,255];
+/* Heat-mapped odds cells live in ladderPanel() now; the MLS-only MAX/RGB.cup/
+   hcell trio it used to need went with the old conference ladder (2026-07-31),
+   along with sgnf — its only caller was the club sub-line's xGD figure. */
 const oddsFmt=v=>(v>0&&v<1)?v.toFixed(1):v.toFixed(0);   // sub-1% odds keep one decimal so they don't read as "0"
-function hcell(v,key){return v<0.05?`<span class="heat z">·</span>`:`<span class="heat" style="${heat(v,RGB[key],MAX[key])}">${oddsFmt(v)}</span>`;}
 const sgn=v=>v==null?'–':(v>0?'+':'')+v;
-const sgnf=v=>v==null?'–':(v>0?'+':'')+v.toFixed(1);
 const NEXT5=new Map();   // team -> next 5 upcoming games (date order)
 D.standings.forEach(s=>NEXT5.set(s.team,UPCOMING.filter(g=>g.home===s.team||g.away===s.team).slice(0,5)));
 function simGateNote(overlay=false){
@@ -2145,34 +2156,40 @@ function whatifCell(team){
     ?`<a class="wgroup wlocked" href="?league=intel&intelLeague=${encodeURIComponent(LID)}&teamName=${encodeURIComponent(team)}&track=1&moment=scenario" data-upsell="next-5-sim" aria-label="Save multi-match scenarios with Club Watch">${cells}</a>`
     :`<span class="wgroup">${cells}</span>`;
 }
+// MLS outcome columns. Same shape as a table league's `outlook.columns`, but
+// baked here because the payload ships `columns: []` for mode "mls" — its five
+// races are structural, not per-season configuration.
+const MLS_COLS=[{key:'cup',label:'Cup'},{key:'shield',label:'Shield'},
+  {key:'playoff',label:'PO'},{key:'hfa',label:'Top 4'},{key:'spoon',label:'Spoon'}];
+// Heat scales span BOTH conferences, so a 60% playoff chance is the same shade
+// in the East ladder as in the West one. Scaling each conference to its own max
+// would make the two tables silently incomparable.
+const mlsMax=k=>Math.max(...D.standings.map(s=>s[k]||0),1);
+// The finish tooltip is conference-relative here, and reads the MLS sim rather
+// than the single-table one.
+const finTipMLS=t=>{const f=t.fin_p10!=null?t:(finishValsMLS&&finishValsMLS[t.team]);
+  return f&&f.fin_p10!=null?` title="Projected conference finish: ${f.fin_p10}–${f.fin_p90} (median ${f.fin_med})"`:'';};
 function ladder(conf){
+  ensureFinishMLS();
   const teams=D.standings.filter(s=>s.conf===conf).map(vals)
     .sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
-  const box=el('div','ladder '+conf.toLowerCase());
-  box.style.setProperty('--clubw',clubColWidth(teams.map(t=>t.team))+'px');
-  box.appendChild(el('div','ladder-h',`<span class="name"><span class="conf-dot"></span>${conf}ern Conference</span>`));
-  box.appendChild(el('div','col-head',
-    `<span>#</span><span>Club</span>`+
-    `<span class="c c-pts">Pts</span>`+
-    `<span class="c c-proj">Proj</span>`+
-    `<span class="c c-elo">Global ELO</span>`+
-    `<span class="c">Cup</span><span class="c">Shield</span><span class="c">PO</span><span class="c">Top 4</span><span class="c">Spoon</span>`+
-      `<span class="c c-w5${IntelStore.unlocked()?'':' locked'}">Next 5 Sim${IntelStore.unlocked()?'':' <span class="w5-lock" aria-hidden="true">🔒</span>'}</span>`));
-  teams.forEach((t,i)=>{
-    const r=el('div','row'+(i<D.hfa_slots?' hfa':''));
-    const sub=`${t.gp} GP · ${sgn(t.gd)} GD · ${sgnf(t.xgd)} xGD`;
-    r.innerHTML=`<span class="rank">${i+1}</span>`+
-      `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><a class="tname tlink" href="${clubURL(LID,t.team)}" data-team="${t.team}">${t.team}</a><span class="tsub">${sub}</span></span></span>`+
-      `<span class="pts">${t.pts}</span>`+
-      `<span class="projc">${t.proj_pts}</span>`+
-      `<span class="eloc">${Math.round(publishedElo(t))}</span>`+
-      hcell(t.cup,'cup')+hcell(t.shield,'sh')+hcell(t.playoff,'po')+hcell(t.hfa,'hfa')+hcell(t.spoon,'sp')+
-      whatifCell(t.team);
-    box.appendChild(r);
-    if(i===6) box.appendChild(el('div','wc-line','<span class="lab">Wild card · play-in</span>'));
-    if(i===D.playoff_slots-1) box.appendChild(el('div','po-line','<span class="lab">Playoff line</span>'));
+  return ladderPanel({
+    heading:`${conf}ern Conference`,
+    meta:`${teams.length} teams · 10k sims`,
+    teams, cols:MLS_COLS, maxOf:mlsMax, tip:finTipMLS,
+    // Same hover-revealed Club Watch overlay a table league gets, one per
+    // panel — not the old always-on banner stacked above both ladders.
+    gate:simGateNote(true),
+    // Green inset marks the playoff places, exactly as it marks the qualifying
+    // places in a table league. Hosting rights and the play-in are cut lines.
+    rowMod:rank=>rank<=D.playoff_slots?' ucl':'',
+    cutLine:rank=>{
+      if(rank===D.hfa_slots) return el('div','ucl-line',`Host round one (top ${D.hfa_slots})`);
+      if(rank===7) return el('div','ucl-line','Wild card · play-in (seeds 8–9)');
+      if(rank===D.playoff_slots) return el('div','rz-line',`Playoff line (top ${D.playoff_slots} qualify)`);
+      return null;
+    },
   });
-  return box;
 }
 // ── MLS projected-finish plot (2026-07-11 feedback: "if we are going to stack
 //    the MLS league tables, include the right-side visualizations other
@@ -2214,53 +2231,76 @@ function finishPlotPanelMLS(){
 }
 function renderOutlook(){
   renderFavs();
-  const l=$('#ladders');l.innerHTML='';l.style.gridTemplateColumns='minmax(0,1fr) minmax(0,1fr)';l.style.alignItems='start';
-  const left=el('div');left.style.cssText='display:flex;flex-direction:column;gap:var(--s4);min-width:0';
-  left.append(ladder('East'),ladder('West'));
-  const right=el('div');right.style.cssText='display:flex;flex-direction:column;gap:var(--s4);min-width:0';
-  right.appendChild(finishPlotPanelMLS());
-  const ri=runInPanel(); if(ri)right.appendChild(ri);
-  const simGate=simGateNote(); if(simGate)l.appendChild(simGate);
-  l.append(left,right);
-  // MLS uses the same table-first reading order as single-table leagues: the
-  // standings are the decision surface and probability movement follows them.
+  // Identical structure to renderTableOutlook below: the ladders are the
+  // full-width decision surface, supporting analysis follows underneath. MLS
+  // simply has two of them, stacked (2026-07-31 feedback). The old layout put
+  // the ladders in a half-width left column with the plots beside them, which
+  // is what squeezed GP/GD out of the table and into a sub-line.
+  const l=$('#ladders');
+  l.innerHTML='';
+  l.style.gridTemplateColumns='minmax(0,1fr)';
+  l.style.alignItems='start';
+  l.style.gap='var(--s4)';
+  l.append(ladder('East'),ladder('West'));
   const analysis=$('#tableAnalysis');
   analysis.innerHTML='';
   analysis.appendChild($('#raceHistory'));
+  analysis.appendChild(finishPlotPanelMLS());
+  const ri=runInPanel(); if(ri)analysis.appendChild(ri);
 }
 /* ── table-league outlook: race strip (one card per race) + single ladder ── */
 // Accent class per race key (gold title / green UCL / blue Europa / red relegation).
-const RACE_ACCENT={title:'t',promo:'t',promoted:'t',liguilla:'t',ucl:'u',playoff:'u',europa:'e',conf:'e',releg:'r',spoon:'r'};
-// U2: "since last build" delta + why-changed chip for a race card. Sourced from
-// data/race-deltas.js (per-league leader move between the last two snapshots).
-// Only shown when this league's leader for this metric actually has history.
-function raceDeltaChip(cardKey, leadTeam){
-  if((D.outlook||{}).preseason)return '';
-  const RD=window.RACE_DELTAS;
-  const e=RD&&RD.leagues&&RD.leagues[LID]&&RD.leagues[LID][cardKey];
-  if(!e || e.team!==leadTeam) return '';   // only annotate the current leader
-  const flat=Math.abs(e.delta)<0.05;
-  const arrow=flat?'▬':(e.delta>0?'▲':'▼');
-  const sign=e.delta>0?'+':'';
-  const cause=(RD.cause_label||{})[e.cause]||e.cause;
-  const since=(e.to||'').slice(5);
-  return `<div class="rdelta${e.cause==='result'?' res':''}">`+
-    `<span class="rd-a">${arrow}</span><span class="rd-v">${sign}${e.delta}pp</span>`+
-    `<span class="rd-c">${since?'since '+since+' · ':''}${cause}</span></div>`;
+const RACE_ACCENT={title:'t',promo:'t',promoted:'t',liguilla:'t',cup:'t',ucl:'u',playoff:'u',shield:'u',europa:'e',conf:'e',conf_win:'e',releg:'r',spoon:'r'};
+// raceDeltaChip (the "▼ -0.6pp · since 07-31 · refresh" line) removed
+// 2026-07-31 by owner request: "remove that lingo and the pp change. i just want
+// to list the teams." The movement it reported is still available, better told,
+// in the race-movement panel further down the page. data/race-deltas.js is left
+// in place — the Club Watch timeline reads it too.
+/* Footnote text per race (2026-07-31 feedback: "descriptions of category boxes
+   ... can be a small footnote at the bottom of the box"). Only MLS ships a
+   `hint` in its payload, so every other league would have got a bare title and
+   no definition — which is precisely the reader who needs one, since "Conf" and
+   "Liguilla" mean nothing without it. Derived from the outlook's own zone lines
+   where they exist, so the count is the league's real rule rather than a guess. */
+const _CARD_HINT={title:'wins the league',promo:'promoted automatically',
+  promoted:'promoted by any route',liguilla:'reaches the liguilla',
+  cup:'lifts the cup',shield:'best record over the season',
+  ucl:'Champions League place',europa:'Europa League place',
+  conf:'Conference League place',playoff:'reaches the playoffs',
+  hfa:'hosts a playoff round',conf_win:'most points in the conference',
+  releg:'relegated',spoon:'finishes bottom of the table'};
+function cardHint(card){
+  if(card.hint) return card.hint;                 // payload wins (MLS)
+  const ol=D.outlook||{}, base=_CARD_HINT[card.key];
+  if(!base) return '';
+  if(ol.green_line&&['ucl','europa','conf','promoted','promo','liguilla','playoff'].includes(card.key))
+    return `${base} · top ${ol.green_line}`;
+  if(ol.red_line&&card.key==='releg') return `${base} · bottom ${ol.red_line}`;
+  return base;
 }
-function raceCard(card){
-  const ranked=[...D.standings.map(vals)].sort((a,b)=>(b[card.key]||0)-(a[card.key]||0));
+// `pool` narrows the field a card ranks over — MLS's conference cards rank
+// within one conference while its Cup/Shield/Spoon cards rank league-wide
+// (2026-07-31 feedback: every league page uses the Premier League's layout,
+// conferences included). Everything else ranks the whole table.
+function raceCard(card,pool){
+  const ranked=[...(pool||D.standings).map(vals)].sort((a,b)=>(b[card.key]||0)-(a[card.key]||0));
   const lead=ranked[0]; if(!lead)return'';
   const conts=ranked.slice(1,3);
   const accent=RACE_ACCENT[card.key]||'u';
   // contender row: same crest + name as the leader, just smaller; no bar (full name room)
   const contRow=t=>`<div class="cl">${crest(t.team,t.logo)}<span class="cn">${t.team}</span>`+
     `<span class="cv num">${(t[card.key]||0).toFixed(0)}%</span></div>`;
+  // 2026-07-31 feedback, two parts. The "▼ -0.6pp · since 07-31 · refresh" chip
+  // is gone — it asked the reader to hold a percentage-point delta, a date and a
+  // cause in their head to learn almost nothing, and this box should just list
+  // the teams. And the hint ("playoff champion", "best record overall") drops
+  // from beside the title to a footnote, so the eye reaches the clubs first and
+  // the definition is there only if it is wanted.
   return `<div class="race ${accent}">`+
-    `<div class="rk"><span>${card.label}</span><em>${card.hint||''}</em></div>`+
+    `<div class="rk"><span>${card.label}</span></div>`+
     `<div class="lead">${crest(lead.team,lead.logo)}<span class="nm">${lead.team}</span><span class="pc">${fmt(lead[card.key]||0)}</span></div>`+
     `<div class="cont">${conts.map(contRow).join('')}</div>`+
-    raceDeltaChip(card.key, lead.team)+`</div>`;
+    ((h=>h?`<div class="rfoot">${h}</div>`:'')(cardHint(card)))+`</div>`;
 }
 // Promotion-playoff bracket — MUST mirror scripts/build_league_data.py
 // _promo_playoff_winner (SIM PORTING CONTRACT). seeds = team indices, best
@@ -2357,36 +2397,65 @@ function zoneNote(rules,fallbackGreen,fallbackRed){
   const red=ri===-1?fallbackRed:parts.slice(ri).join(' · ');
   return {green,red};
 }
-function tableLadder(){
-  ensureFinish();  // B2: back the standings-cell tooltip with the same base sim as the finish plot
-  const ol=D.outlook, cols=ol.columns, hasUp=NF>0;
-  const teams=D.standings.map(vals).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
-  const mx={};cols.forEach(c=>mx[c.key]=Math.max(...teams.map(s=>s[c.key]||0),1));
-  // promoted (the composite headline) gets green; the Auto and Playoff-berth
-  // components stay gold/blue so the three promotion columns read distinctly.
-  const BRGB={title:[244,183,64],promo:[244,183,64],promoted:[61,220,132],liguilla:[244,183,64],ucl:[61,220,132],europa:[74,163,255],conf:[74,163,255],playoff:[74,163,255],releg:[255,93,93]};
-  const brgb=k=>BRGB[k]||[120,120,120];
-  const hc=(v,k,t)=>v<0.05?`<span class="heat z"${finTip(t)}>·</span>`:`<span class="heat" style="${heat(v,brgb(k),mx[k])}"${finTip(t)}>${oddsFmt(v)}</span>`;
-  // Full-width decision ladder: the club identity keeps a generous scan lane,
-  // while every probability outcome expands into the remaining width. Fixed
-  // 34px cells made sense in the old half-width split but wasted the space
-  // reclaimed by the race-first layout.
+/* ── ONE palette for projection categories, keyed by the standings field the
+   category reads (2026-07-31 feedback: a movement sparkline must be "the color
+   of that category in the table — MLS cup is gold so that should be gold").
+   Every surface that colours an outcome by category reads from here: the
+   ladder's heat columns, the race-movement sparklines, and the club page's
+   season-trajectory chart. Three separate maps had drifted apart — Cup rendered
+   gold in the table, blue in the trajectory chart and grey in the sparkline,
+   because each surface kept its own list and `cup` had fallen off two of them.
+   The four bands carry meaning, so a new metric should join one of them:
+     gold  — win the competition outright
+     green — qualify for, or secure, the good outcome
+     blue  — the secondary route (continental places, playoff berths, hosting)
+     red   — danger
+   `promoted` is the composite promotion headline and reads green, while `promo`
+   (automatic promotion) stays gold, so the three promotion columns stay
+   distinguishable from each other. ── */
+const METRIC_RGB={
+  title:[244,183,64],promo:[244,183,64],liguilla:[244,183,64],cup:[244,183,64],premiers:[244,183,64],
+  promoted:[61,220,132],ucl:[61,220,132],shield:[61,220,132],continental:[61,220,132],finals:[61,220,132],
+  europa:[74,163,255],conf:[74,163,255],conf_win:[74,163,255],playoff:[74,163,255],playoffs:[74,163,255],hfa:[74,163,255],
+  releg:[255,93,93],spoon:[255,93,93]};
+const METRIC_NEUTRAL=[114,131,146];   // --draw, for anything not yet banded
+const metricRGB=k=>METRIC_RGB[k]||METRIC_NEUTRAL;
+const metricColor=k=>`rgb(${metricRGB(k).join(',')})`;
+/* ── The one full-width decision ladder. Both the 70 single-table leagues and
+   the MLS conference split render through this (2026-07-31 feedback: "have the
+   MLS page (and all league pages) be similarly formatted to the premier
+   league"). Only the heading, the outcome columns, the heat scale and where the
+   cut lines fall vary by mode — the grid, the type scale, the club cell and the
+   row chrome cannot, because they are written once here.
+   Note what the club cell does NOT carry: a sub-line. GP and GD are real
+   columns at this width, so the old 10px grey "17 GP · +21 GD · +2.8 xGD"
+   under the name is gone — that line only ever existed because the pre-redesign
+   half-width ladder had nowhere else to put those numbers.
+   The club identity keeps a generous scan lane while every probability outcome
+   expands into the remaining width; fixed 34px cells made sense in the old
+   split but wasted the space the race-first layout reclaimed. ── */
+function ladderPanel({heading,meta,teams,cols,maxOf,rowMod,cutLine,tip,gate}){
+  const hasUp=NF>0;
+  const mx={};
+  cols.forEach(c=>{ mx[c.key]=maxOf?maxOf(c.key):Math.max(...teams.map(s=>s[c.key]||0),1); });
+  const tipOf=tip||finTip;
+  const hc=(v,k,t)=>v<0.05?`<span class="heat z"${tipOf(t)}>·</span>`
+    :`<span class="heat" style="${heat(v,metricRGB(k),mx[k])}"${tipOf(t)}>${oddsFmt(v)}</span>`;
   const clubw=clubColWidth(teams.map(t=>t.team));
   const outcomes=cols.map(()=>`minmax(40px,.5fr)`).join(' ');
   const grid=`26px minmax(${clubw}px,2fr) 44px 38px 42px 52px 48px ${outcomes}${hasUp?' 96px':''}`.trim();
   const box=el('div','panel ladder tlad'+(hasUp?' tlad-w':''));
   box.style.setProperty('--tgrid',grid);
-  box.appendChild(el('div','panel-h',`<span class="dot"></span><h2>League table</h2><span class="meta">${ol.n_teams} teams · 10k sims${ol.preseason?' · preseason':''}</span>`));
-  const simGate=simGateNote(true); if(simGate)box.appendChild(simGate);
+  box.appendChild(el('div','panel-h',
+    `<span class="dot"></span><h2>${heading}</h2><span class="meta">${meta}</span>`));
+  if(gate)box.appendChild(gate);
   box.appendChild(el('div','thead',
     `<span></span><span>Club</span><span class="c">Pts</span><span class="c">GP</span><span class="c">GD</span><span class="c c-proj">Proj</span>`+
     `<span class="c c-elo">Global ELO</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
     (hasUp?`<span class="c c-w5${IntelStore.unlocked()?'':' locked'}">Next 5 Sim${IntelStore.unlocked()?'':' <span class="w5-lock" aria-hidden="true">🔒</span>'}</span>`:'')));
   teams.forEach((t,i)=>{
     const rank=i+1;
-    const isGreen=ol.green_line&&rank<=ol.green_line;
-    const isRed=ol.red_line&&rank>teams.length-ol.red_line;
-    const r=el('div','trow'+(isGreen?' ucl':isRed?' rz':''));
+    const r=el('div','trow'+(rowMod?rowMod(rank,teams.length):''));
     r.innerHTML=`<span class="rank">${rank}</span>`+
       `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><a class="tname tlink" href="${clubURL(LID,t.team)}" data-team="${t.team}">${t.team}</a></span></span>`+
       `<span class="pts">${t.pts}</span><span class="gpc">${t.gp}</span><span class="gdc">${sgn(t.gd)}</span>`+
@@ -2394,12 +2463,30 @@ function tableLadder(){
       cols.map(c=>hc(t[c.key]||0,c.key,t)).join('')+
       (hasUp?whatifCell(t.team):'');
     box.appendChild(r);
-    if(ol.green_line&&rank===ol.green_line)
-      box.appendChild(el('div','ucl-line',zoneNote(ol.rules,`Qualify (top ${ol.green_line})`,null).green));
-    if(ol.red_line&&rank===teams.length-ol.red_line)
-      box.appendChild(el('div','rz-line',zoneNote(ol.rules,null,`Relegation zone (bottom ${ol.red_line})`).red));
+    const cut=cutLine&&cutLine(rank,teams.length);
+    if(cut)box.appendChild(cut);
   });
   return box;
+}
+function tableLadder(){
+  ensureFinish();  // B2: back the standings-cell tooltip with the same base sim as the finish plot
+  const ol=D.outlook;
+  const teams=D.standings.map(vals).sort((a,b)=>(b.pts-a.pts)||(b.gd-a.gd)||(b.proj_pts-a.proj_pts));
+  return ladderPanel({
+    heading:'League table',
+    meta:`${ol.n_teams} teams · 10k sims${ol.preseason?' · preseason':''}`,
+    teams, cols:ol.columns,
+    gate:simGateNote(true),
+    rowMod:(rank,n)=>ol.green_line&&rank<=ol.green_line?' ucl'
+      :ol.red_line&&rank>n-ol.red_line?' rz':'',
+    cutLine:(rank,n)=>{
+      if(ol.green_line&&rank===ol.green_line)
+        return el('div','ucl-line',zoneNote(ol.rules,`Qualify (top ${ol.green_line})`,null).green);
+      if(ol.red_line&&rank===n-ol.red_line)
+        return el('div','rz-line',zoneNote(ol.rules,null,`Relegation zone (bottom ${ol.red_line})`).red);
+      return null;
+    },
+  });
 }
 /* ── projected-finish range plot (single-table companion, #4) ──
    Each team's 10th–90th percentile finishing position with a median dot, zone-colored.
@@ -2483,7 +2570,10 @@ function runInPanel(){
 function renderTableOutlook(){
   const ol=D.outlook;
   $('#favs').className='races';
-  $('#favs').innerHTML=ol.cards.map(raceCard).join('');
+  // NOT `.map(raceCard)` — map passes (card, index, array), and raceCard's
+  // second parameter is now the pool to rank over, so the index would arrive
+  // as the pool and throw on the second card.
+  $('#favs').innerHTML=ol.cards.map(c=>raceCard(c)).join('');
   // Per-league competition rules from the build (2026-07-09 feedback: "top N
   // qualify" undersold promotion playoffs etc.); fall back to the generic
   // cut-line note for payloads that predate outlook.rules.
@@ -3430,14 +3520,11 @@ function squadValueSummaryHTML(team){
 const TRAJ_METRICS=[['title','Title odds'],['playoff','Playoff odds'],['promo','Promotion odds'],
   ['liguilla','Liguilla odds'],['playoffs','Playoff odds'],['releg','Relegation risk'],
   ['cup','Cup odds'],['shield','Shield odds']];
-const PROJECTION_COLORS={
-  title:'var(--win)',ucl:'var(--qualify)',europa:'var(--europa)',conf:'var(--shield)',
-  releg:'var(--drop)',cup:'var(--europa)',shield:'var(--shield)',playoff:'var(--qualify)',
-  playoffs:'var(--qualify)',promo:'var(--win)',promoted:'var(--qualify)',
-  liguilla:'var(--win)',hfa:'var(--win)',spoon:'var(--spoon)',
-  continental:'var(--qualify)',premiers:'var(--win)',finals:'var(--qualify)',conf_win:'var(--win)'
-};
-const projectionColor=key=>PROJECTION_COLORS[key]||'var(--draw)';
+// Was its own PROJECTION_COLORS map, which disagreed with the ladder on Cup
+// (blue vs gold), Shield (pale vs green), Conf (pale vs blue) and Playoff
+// (green vs blue). One palette now, so a category is the same colour in the
+// table, the movement sparkline and this chart. (2026-07-31)
+const projectionColor=metricColor;
 function trajCardHTML(team){
   const TJ=window.DRIFT_TRAJ;
   const rows=TJ&&TJ.teams&&TJ.teams[team]||[];
@@ -3588,9 +3675,10 @@ function renderRaceHistory(requestedMetric=null){
   if(sel.length<2){box.innerHTML='';return;}
   const allDates=[...new Set(sel.flatMap(t=>t.rows.map(r=>r.date)))].sort();
   const currentPlayed=Math.max(0,...D.standings.map(s=>s.gp||0));
-  const tone=metric==='title'?'var(--win)':metric==='releg'?'var(--drop)':
-    ['ucl','playoff','playoffs','promo','promoted','liguilla'].includes(metric)?'var(--qualify)':
-    ['europa','conf'].includes(metric)?'var(--europa)':'var(--draw)';
+  // The trajectory takes the category's own colour, straight from the palette
+  // the ladder's heat columns use — this used to be a ternary listing six
+  // metrics, which is why Cup and Shield movement rendered in the neutral grey.
+  const tone=metricColor(metric);
   const spark=t=>{
     const W=160,H=25,pad=2;
     // The visible axis is Game 1 → the final scheduled game. Reconstructed
@@ -3608,10 +3696,15 @@ function renderRaceHistory(requestedMetric=null){
     }).join('');
     const teamPlayed=Math.min(seasonGames,
       (D.standings.find(s=>s.team===t.team)||{}).gp||last.game);
+    // The axis stays grey in every category (2026-07-31 feedback) — colour on
+    // this chart means one thing, the category, and an axis is not a category.
+    // Season progress still reads: the played stretch is a lighter grey than the
+    // unplayed remainder, so the same information survives without competing
+    // with the trajectory for meaning.
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">`+
       `<line x1="0" x2="${W}" y1="${H-1}" y2="${H-1}" stroke="var(--line-2)" stroke-width="1"/>`+
       `<line class="rm-progress" x1="${pad}" x2="${sx(teamPlayed).toFixed(1)}" y1="${H-1}" y2="${H-1}" `+
-      `stroke="${tone}" stroke-opacity=".55" stroke-width="2" vector-effect="non-scaling-stroke"/>`+
+      `stroke="var(--txt-3)" stroke-opacity=".5" stroke-width="2" vector-effect="non-scaling-stroke"/>`+
       segments+
       `<circle cx="${sx(last.game).toFixed(1)}" cy="${sy(last.value).toFixed(1)}" r="2.5" fill="${tone}"/></svg>`+
       `<span class="rm-axis"><span>Game 1</span><span>Game ${seasonGames}</span></span>`;
@@ -3664,6 +3757,92 @@ function renderRaceHistory(requestedMetric=null){
     },7000);
   }
 }
+/* ── Club Watch teaser cards on the club page (2026-08-01) ──────────────────
+   The club page previously carried no paid surface at all — every panel was
+   free and the only upsell was a "Track this club" button in the header. That
+   wasted the highest-intent slot on the site: a reader here has already told
+   us which club they care about, the exact fact Club Watch is sold on.
+
+   Governed by the durable rule in CLAUDE.md — LOCK THE CONTINUITY, NEVER THE
+   CURRENT ANSWER. Every free half below is a number this site already
+   publishes elsewhere (the 30-day move is on the home page's movers board; the
+   fixture and its 1X2 odds are in the table above). What is locked is the part
+   that only exists because somebody kept watching: the dated causes, the
+   per-outcome branch, the saved scenario.
+
+   Blur, not a grey slab: a slab reads as broken or as a dark pattern, whereas a
+   blurred number inside a real, labelled row reads as "there is a specific
+   answer here and it is about my club". Blurred values carry aria-hidden so a
+   screen reader is never told a fake figure — the row's own label and the lock
+   note carry the meaning instead. */
+function clubWatchLock(team,s,gms){
+  const esc=commandEsc;
+  const href=`?league=intel&intelLeague=${encodeURIComponent(LID)}`+
+    `&teamName=${encodeURIComponent(team)}&track=1&moment=club_page`;
+  // Blurs PROSE, never a figure. A blurred "+6.1" is still the string "+6.1" in
+  // the DOM — an invented number sitting where the real locked answer belongs,
+  // which anyone with devtools finds and which we would have no way to stand
+  // behind. Describing what is behind the lock costs nothing and survives
+  // inspection. (2026-08-01)
+  const blur=v=>`<b class="cw-blur" aria-hidden="true">${v}</b>`;
+  // ── 1. Movement. Free half comes from movers.js, which is already public on
+  //    the home page; the locked half is the dated cause attribution.
+  const MV=(window.MOVERS_DATA&&window.MOVERS_DATA.movers)||[];
+  const labels=(window.MOVERS_DATA||{}).metric_labels||{};
+  const mine=MV.find(m=>m.league===LID&&m.team===team);
+  const moveLine=mine
+    ? `<b>${mine.delta>0?'+':''}${mine.delta.toFixed(1)}</b> points of ${esc(labels[mine.metric]||mine.metric)} odds over the last 30 days — from ${mine.prev}% to ${mine.now}%.`
+    : `No material move in the last 30 days. Club Watch tells you the moment that changes.`;
+  // Real dates from the mover record where we have one — the window is public,
+  // the attribution inside it is not.
+  const win=mine&&mine.from&&mine.to?`${mine.from} → ${mine.to}`:'the last 30 days';
+  const card1=`<div class="pcard cw-card">
+    <div class="cw-h"><h3>What changed while you were away</h3><span class="cw-tag">Club Watch</span></div>
+    <p class="cw-free">${moveLine}</p>
+    <div class="cw-locked" role="group" aria-label="Club Watch members also get a dated timeline of what moved and why">
+      <div class="cw-row"><span>Measured over</span><b class="cw-open">${esc(win)}</b></div>
+      <div class="cw-row"><span>Broken into dated steps</span>${blur('every move, when it happened')}</div>
+      <div class="cw-row"><span>Each step attributed</span>${blur('the result or fixture behind it')}</div>
+      <div class="cw-row"><span>Measured from your last visit</span>${blur('not a fixed 30-day window')}</div>
+    </div></div>`;
+  // ── 2. Next match. The fixture and its 1X2 odds are already in the table
+  //    above; what a result would do to the season target is the paid part.
+  const next=(gms||[]).find(g=>g.result==null);
+  const pct=p=>p==null?'—':`${Math.round(p*100)}%`;
+  const dayLbl=iso=>{ if(!iso) return ''; const d=new Date(iso+'T12:00');
+    return isNaN(d)?iso:d.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'}); };
+  const nextFree=next
+    ? `${esc(next.home===team?'Home to':'Away at')} <b>${esc(next.home===team?next.away:next.home)}</b>, ${dayLbl(next.date)}. The model gives ${esc(team)} ${pct(next.home===team?next.pH:next.pA)}.`
+    : `No fixture scheduled yet. Club Watch picks it up the moment one is.`;
+  // NOTE: what a result does to the season target is NOT locked, and must not
+  // be — Next 5 Sim in the table above computes exactly that, free, on this
+  // page. Locking it would break the rule this whole block is built on. What
+  // Club Watch adds is that you are told without coming to look.
+  const card2=`<div class="pcard cw-card">
+    <div class="cw-h"><h3>What the next match is worth</h3><span class="cw-tag">Club Watch</span></div>
+    <p class="cw-free">${nextFree}</p>
+    <p class="cw-free cw-dim">Want to know what each result does to the season? Force it in <b>Next 5 Sim</b> in the table above — that is free, and always will be.</p>
+    <div class="cw-locked" role="group" aria-label="Club Watch members are sent the match stakes before kickoff">
+      <div class="cw-row"><span>Sent before kickoff</span>${blur('what is at stake, in a line')}</div>
+      <div class="cw-row"><span>Told again after</span>${blur('what the result actually changed')}</div>
+      <div class="cw-row"><span>Including matches ${esc(team)} do not play</span>${blur('when a rival result matters more')}</div>
+    </div></div>`;
+  // ── 3. Scenarios. Anchored to Next 5 Sim, which is free in the table on this
+  //    very page — the reader has already used the engine being sold.
+  const card3=`<div class="pcard cw-card full">
+    <div class="cw-h"><h3>Your saved what-ifs</h3><span class="cw-tag">Club Watch</span></div>
+    <p class="cw-free">The <b>Next 5 Sim</b> column in the table above is free — force a result and the season resimulates. Club Watch keeps those scenarios for ${esc(team)}, and updates every one of them as real results land.</p>
+    <div class="cw-locked" role="group" aria-label="Club Watch members can save scenarios and keep them updated">
+      <div class="cw-row"><span>Save a scenario</span>${blur('name it, keep it, revisit it')}</div>
+      <div class="cw-row"><span>Kept current</span>${blur('rerun as real results land')}</div>
+      <div class="cw-row"><span>Rivals move with it</span>${blur('your three nearest, side by side')}</div>
+    </div></div>`;
+  return `<div class="pcard full cw-intro">
+      <h3>Club Watch for ${esc(team)}</h3>
+      <p>Everything above stays free, forever. What Club Watch adds is continuity — what changed since you last looked, why, and what the next result does to it.</p>
+      <a class="intel-btn primary" href="${href}" data-upsell="club-page-lock" id="cwUnlock">Watch ${esc(team)}</a>
+    </div>${card1}${card2}${card3}`;
+}
 function renderProfile(team,scroll){
   const s=stdByTeam.get(team); if(!s)return;
   _selTeam=team;
@@ -3701,8 +3880,11 @@ function renderProfile(team,scroll){
       <div class="elo-key"><span class="top"><i></i>Top 25% starts · ${Math.round(ELO_HI)}</span><span class="avg"><i></i>League average · ${Math.round(ELO_AVG)}</span><span class="low"><i></i>Bottom 25% starts · ${Math.round(ELO_LO)}</span></div></div>
     <div class="prof-grid">${outlookCard}${trajCardHTML(team)}
       <div class="pcard full team-news"><h3>Club news</h3><div id="clubNews" class="hnote">Loading…</div></div>
-      ${seasonFixturesHTML(team,gms)}</div>`;
+      ${seasonFixturesHTML(team,gms)}
+      ${clubWatchLock(team,s,gms)}</div>`;
   fillClubNews(team);
+  const _cw=$('#cwUnlock'); if(_cw) _cw.onclick=()=>track('select_plan_intent',{
+    club_id:s.team_id||team,club_name:team,competition_id:LID,surface:'club_page_lock'});
   track('club_page_view',{club_id:s.team_id||team,club_name:team,competition_id:LID,surface:'interactive_club'});
   const watch=$('#profileClubWatch');if(watch)watch.onclick=()=>track('track_club',{
     club_id:s.team_id||team,club_name:team,competition_id:LID,surface:'interactive_club'});
@@ -4057,8 +4239,9 @@ if (_isPower && window.POWER_DATA) {
 .intel-hero h1{font-size:clamp(24px,3.6vw,34px);line-height:1.15;font-weight:900;letter-spacing:-.02em;margin:0 0 10px}
 .intel-hero h1 em{font-style:normal;color:var(--intel)}
 .intel-hero p{color:var(--txt-2);font-size:13.5px;line-height:1.6;max-width:66ch;margin:0 0 12px}
-.intel-tagchips{display:flex;gap:6px;flex-wrap:wrap}
-.intel-tagchips span{font-family:var(--mono);font-size:10px;color:var(--txt-2);border:1px solid var(--line-2);border-radius:999px;padding:4px 10px}
+/* .intel-tagchips retired 2026-08-01 with the Club Watch codename chip list it
+   styled ("Scenario studio", "Confidence panel", …) — replaced by worked
+   examples in intelligence.css. */
 .intel-btn{display:inline-flex;align-items:center;gap:6px;background:var(--intel);color:#181004;font-weight:800;font-size:12px;border:0;border-radius:var(--r-sm);padding:9px 14px;text-decoration:none;cursor:pointer;white-space:nowrap}
 .intel-btn:hover{filter:brightness(1.08)}
 .intel-btn.ghost{background:var(--ink-2);color:var(--txt-1);border:1px solid var(--line-2);font-weight:700}
@@ -4236,14 +4419,21 @@ if (_isPower && window.POWER_DATA) {
    decision: C|E (rotating table + synced odds board) leads, then D (personalized
    stories, desktop only) → B (promise+results) → F (league fixtures carousel) →
    G (movers) → J (news band). The league tables are the intended lead-in on
-   desktop. Measured at 1280×800: table/odds y=294, stories 752, b 1104,
-   fix 1289, movers 1539, news 1794 — so B, F and G sit below the fold. Mobile
-   (≤900px) keeps its own volatile-first order below and is unaffected. ── */
+   desktop.
+   2026-07-31 desktop feedback: the horizontally-scrolling results and fixture
+   strips are gone. Upcoming and Recent now sit as two VERTICAL columns side by
+   side (area "matches"), directly under the table/odds row, and both follow the
+   same league the rotation is showing — so the whole upper page describes one
+   competition at a time. Biggest Movers follows them for the same reason — it
+   is scoped to that league by default, so it belongs with its siblings rather
+   than below the personalised sections. Mobile (≤900px) keeps its own
+   volatile-first order below; the matches block carries its own league heading,
+   so it still reads correctly there even though the table sits beneath it. ── */
 .hx-wrap{padding-top:var(--s4);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:24px;row-gap:6px;
-  grid-template-areas:"tag tag" "table odds" "stories stories" "b b" "fix fix" "movers movers" "news news"}
+  grid-template-areas:"tag tag" "table odds" "matches matches" "movers movers" "fix fix" "stories stories" "news news"}
 .hx-tag{grid-area:tag;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr);
   grid-template-areas:"headline copy" "headline actions";column-gap:var(--s6);row-gap:var(--s2);align-items:center}
-.hx-b{grid-area:b}.hx-table{grid-area:table}.hx-odds{grid-area:odds}
+.hx-matches{grid-area:matches}.hx-table{grid-area:table}.hx-odds{grid-area:odds}
 .hx-stories{grid-area:stories}.hx-fix{grid-area:fix}.hx-movers{grid-area:movers}.hx-news{grid-area:news}
 /* Tagline (2026-07-19: signature serif headline, balanced across two full
    lines; the old promise paragraph + recap CTA are gone) */
@@ -4257,20 +4447,48 @@ if (_isPower && window.POWER_DATA) {
 .skip-link:focus{left:8px;top:8px}
 .hx-sub{grid-area:copy;font-size:12px;line-height:1.45;color:var(--txt-2);margin:0;padding:0 2px;max-width:46em}
 .hx-actions{grid-area:actions;display:flex;gap:8px;flex-wrap:wrap;padding:0 2px}
-.hx-strip{position:relative;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);padding:10px 12px 8px;margin-top:10px}
-/* Edge fade (2026-07-23): this strip runs ~4200px inside a 317px viewport on
-   mobile and the only hint was a hairline scrollbar. The fade is an affordance,
-   not decoration — it retracts once the strip is scrolled to its end. */
-.hx-strip::after{content:"";position:absolute;top:1px;right:1px;bottom:1px;width:28px;pointer-events:none;
-  border-radius:0 var(--r-lg) var(--r-lg) 0;
-  background:linear-gradient(90deg,rgba(10,13,11,0),var(--ink-1));
-  opacity:1;transition:opacity .18s}
-.hx-strip.at-end::after{opacity:0}
-.hx-strip-scroll{display:flex;gap:10px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px;scroll-snap-type:x proximity}
-.hx-strip-scroll>*{scroll-snap-align:start}
-.hx-day{flex:none}
-.hx-dh{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);border-bottom:1px solid var(--line-3);padding-bottom:5px;margin-bottom:8px;white-space:nowrap}
-.hx-cards{display:flex;gap:6px}
+/* ── Upcoming / Recent, side by side and vertical (2026-07-31 desktop
+   feedback). The old day→card horizontal strips fit a lot of matches into a
+   little height but never had room for a club name — every card was two crests
+   and a number. A vertical row buys the full column width, so the name leads
+   and the number trails, which is the order a reader scans in. Both columns are
+   bound to the rotation's current league. ── */
+.hx-mt{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 24px;margin-top:8px}
+.hx-mt-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--txt-2);border-bottom:1px solid var(--line-3);padding-bottom:5px;margin-bottom:2px}
+.hx-mt-h em{font-style:normal;font-weight:500;letter-spacing:0;text-transform:none;font-size:11px;color:var(--txt-3);white-space:nowrap}
+.hx-mrow{display:flex;align-items:center;gap:10px;padding:6px;border-bottom:1px solid var(--line);
+  border-radius:var(--r-sm);text-decoration:none;color:inherit}
+.hx-mrow:last-child{border-bottom:none}
+.hx-mrow:hover{background:var(--ink-2)}
+.hx-mrow .d{font-family:var(--mono);font-size:11px;color:var(--txt-3);width:74px;flex:none;line-height:1.35;white-space:nowrap}
+.hx-mrow .d em{display:block;font-style:normal;color:var(--txt-2)}
+.hx-mrow .tt{flex:1;min-width:0;display:grid;gap:3px}
+.hx-mrow .t{display:flex;align-items:center;gap:7px;min-width:0}
+.hx-mrow .t .crest{width:18px;height:18px;font-size:7px;flex:none}
+.hx-mrow .t b{flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hx-mrow .t i{font-family:var(--mono);font-style:normal;font-size:12px;color:var(--txt-3);flex:none}
+/* The winner is marked on the club row, not by colouring a scoreline — a lost
+   match and a won one otherwise read identically at a glance. */
+.hx-mrow .t.win b{color:var(--txt-1);font-weight:700}
+.hx-mrow .t.win i{color:var(--txt-1);font-weight:700}
+/* NOT ".fav" — that is a global card style (a bordered, padded box), and
+   reusing the name here painted a box around every model-favoured club. */
+.hx-mrow .t.pick i{color:var(--qualify);font-weight:700}
+.hx-mrow .dr{font-family:var(--mono);font-size:10.5px;color:var(--txt-3);text-align:right;flex:none;line-height:1.35}
+.hx-mt-foot{grid-column:1/-1;text-align:right;margin-top:8px}
+.hx-mt-foot a{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--qualify);text-decoration:none}
+/* Off-rotation league picker: drives the board's bottom slot and, through it,
+   every rotating panel on the page (2026-07-31 feedback). */
+.hx-pick{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.hx-pick label{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--txt-3);flex:none}
+.hx-pick select{flex:1;min-width:160px;background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-sm);
+  color:var(--txt-1);font-size:12.5px;padding:7px 9px;min-height:36px;outline:none}
+.hx-pick select:focus{border-color:var(--txt-3)}
+.hx-erow.slot{box-shadow:inset 2px 0 0 var(--line-3)}
+.hx-erow.slot.on{box-shadow:inset 2px 0 0 var(--qualify)}
+.hx-erow .pin{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-3);flex:none}
 /* Result / fixture cards (2026-07-19 sketch): league-name header, then one
    row per team — crest left, score (or win% + fair odds) tight beside it. */
 /* 2026-07-23: card widened 64→78px so the league label can sit at the 11px
@@ -4287,8 +4505,6 @@ if (_isPower && window.POWER_DATA) {
 .hx-scard.fx .p b{font-size:12px}
 .hx-scard.fx .p .o{font-family:var(--mono);font-size:11px;color:var(--txt-3)}
 .hx-scard.fx .drw{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:center;border-top:1px solid var(--line-3);padding-top:3px;margin-top:1px;white-space:nowrap}
-.hx-strip-foot{text-align:right;margin-top:6px}
-.hx-strip-foot a{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--qualify);text-decoration:none}
 /* C: rotating league table · E: synced title-odds board */
 .hx-card{border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--ink-1);padding:12px 14px;margin-top:8px}
 .hx-th{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
@@ -4310,7 +4526,9 @@ if (_isPower && window.POWER_DATA) {
 .hx-erow:last-child{border-bottom:none}
 .hx-erow:hover{background:var(--ink-2)}
 .hx-erow.on{background:var(--ink-2);box-shadow:inset 2px 0 0 var(--qualify)}
-.hx-erow .lg{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;width:66px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 78px, not 66: the slot row can hold any of ~70 countries, and "Netherlands"
+   or "South Korea" clipped to "NETHERLA…" in the default state. */
+.hx-erow .lg{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-transform:uppercase;letter-spacing:.03em;width:78px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hx-erow .crest{width:22px;height:22px;font-size:8px}
 .hx-erow .nm{flex:1;font-size:12.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hx-erow b{font-family:var(--mono);font-size:13px}
@@ -4338,7 +4556,9 @@ if (_isPower && window.POWER_DATA) {
      behind ~1300px of preseason tables reading 0 pts / 0 GD. Volatile first
      (fix → movers), reference second (odds → table → results), ambient last. */
   .hx-wrap{grid-template-columns:minmax(0,1fr);column-gap:0;
-    grid-template-areas:"tag" "fix" "movers" "odds" "table" "b" "news"}
+    grid-template-areas:"tag" "matches" "fix" "movers" "odds" "table" "news"}
+  .hx-mt{grid-template-columns:1fr;gap:0}
+  .hx-mt-col+.hx-mt-col{margin-top:14px}
   .hx-tag{display:block}
   .hx-sub{margin-top:7px;max-width:34em}
   .hx-actions{margin-top:12px;padding:0}
@@ -4406,8 +4626,10 @@ if (_isPower && window.POWER_DATA) {
 .mx-team .nm{min-width:0;font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mx-team .odds-val{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--txt-3);flex:none}
 .mx-market{display:grid;gap:2px;min-width:0}
-.mx-market .cbar{height:14px;border-radius:3px}
-.mx-market .cbar>span{font-size:11px;line-height:1}
+/* Label-free since 2026-07-31, so the bar can be a slim meter instead of three
+   filled blocks of team colour. Forty of these down a page is the difference
+   between a slate and a wall. */
+.mx-market .cbar{height:7px;border-radius:99px;opacity:.85}
 .mx-draw{font-family:var(--mono);font-size:11px;color:var(--txt-3);text-align:center;white-space:nowrap}
 .mx-result{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--txt-1);text-align:center;white-space:nowrap}
 @media(max-width:900px){
@@ -4420,8 +4642,8 @@ if (_isPower && window.POWER_DATA) {
   .mx-team.home{grid-area:home}
   .mx-team.away{grid-area:away}
   .mx-market{grid-area:market}
-  .mx-team .odds-val{display:none}
-  .mx-market .cbar>span{font-size:11px}
+  /* The odds figure is the only place a number survives on a phone, so it
+     stays — the bar carries no labels to fall back on any more. */
 }
 </style>
 <script>
@@ -4684,17 +4906,24 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
     const favT=new Set(FavStore.teams().map(x=>x.league+'|'+x.team));
     const isMine=r=>favL.has(r.league)
       ||favT.has(r.league+'|'+r.home)||favT.has(r.league+'|'+r.away);
+    // 2026-07-31 feedback: these rails were "not at all clear ... text is
+    // getting cut off". Both came from the same cause — a one-line
+    // "A v B" fixture plus a league-and-driver meta line, squeezed into a third
+    // of the page, ellipsized almost every club name. The clubs now stack, so
+    // each gets the rail's full width, and the swing figure is stated in words
+    // rather than left as a bare number with a tooltip.
     const row=r=>{
       const dt=new Date(r.date+'T12:00:00');
       const day=dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
       const drv=r.driver&&r.driver_team
-        ? `${commandEsc(r.driver_team)} <b>${commandEsc(r.driver)}</b> ±${r.driver_swing_pp}pp` : '';
+        ? `<span class="mtw-drv">${commandEsc(r.driver_team)}'s <b>${commandEsc(r.driver)}</b> odds swing up to ${r.driver_swing_pp} points</span>` : '';
       return `<a class="mtw-row" href="?league=${r.league}">
-        <span class="mtw-day">${day}</span>
-        <span class="mtw-fx">${crest(r.home,r.home_logo)}<b>${commandEsc(r.home)}</b>
-          <em>v</em>${crest(r.away,r.away_logo)}<b>${commandEsc(r.away)}</b></span>
-        <span class="mtw-meta">${commandEsc(r.league_name)}${drv?' · '+drv:''}</span>
-        <span class="mtw-lev" title="Expected movement in table probabilities">${r.leverage.toFixed(0)}</span></a>`;
+        <span class="mtw-top"><span class="mtw-day">${day}</span>
+          <span class="mtw-lg">${commandEsc(r.league_name)}</span>
+          <span class="mtw-lev"><b>${r.leverage.toFixed(0)}</b><em>swing</em></span></span>
+        <span class="mtw-side">${crest(r.home,r.home_logo)}<b>${commandEsc(r.home)}</b></span>
+        <span class="mtw-side">${crest(r.away,r.away_logo)}<b>${commandEsc(r.away)}</b></span>
+        ${drv}</a>`;
     };
     const mine=ML.fixtures.filter(isMine).slice(0,5);
     // One fixture per league (its most pivotal), then order by league tier so
@@ -4718,12 +4947,15 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
     const watchCTA=watchFixture&&watchTeam
       ? `<a class="upsell-link" href="?league=intel&intelLeague=${encodeURIComponent(watchFixture.league)}&teamName=${encodeURIComponent(watchTeam)}&track=1&moment=match" data-upsell="match-stakes">★ ${commandEsc(watchTeam)}'s free match-stakes preview <em>keep it monitored →</em></a>`
       : '';
+    // Rail titles say what the rail IS, not how it was computed. "Biggest swing
+    // in each league" and "Around the world" both described the sort key and
+    // left the reader to guess why two lists of fixtures differed.
     return `<div class="eb-panel mtw">
       <div class="eb-h" style="padding:0 0 4px">Matches to watch</div>
-      <div class="cc-panel-note" style="padding:0 0 10px">${commandEsc(ML.explainer)}</div>
+      <div class="cc-panel-note" style="padding:0 0 10px">Every fixture carries a <b>swing</b> score: how far it can move its league's title, European and relegation odds. A high score means the table looks materially different depending on the result.</div>
       <div class="mtw-rails">${yours}
-        ${rail('Biggest swing in each league','ranked within its own league',norm)}
-        ${rail('Around the world','raw leverage — expect the unfamiliar',world)}</div>
+        ${rail('One per league','the single most consequential match in each competition, biggest leagues first',norm)}
+        ${rail('Biggest swings anywhere','the highest scores across all competitions — often leagues you have never watched',world)}</div>
       <div style="padding-top:10px">${watchCTA}</div></div>`;
   };
   const target=$('#view-outlook')||$('main.wrap');
@@ -4779,29 +5011,17 @@ if(_isHome && window.HOME_DATA){
   const ago=iso=>{ if(!iso) return ''; const d=(Date.now()-new Date(iso))/36e5;
     return d<1?`${Math.max(1,Math.round(d*60))}m`:d<24?`${Math.round(d)}h`:`${Math.round(d/24)}d`; };
 
-  // ── B: recent-results strip — day → cards, newest day first, Bundesliga-style
-  //    (2026-07-17 redesign; date headers span exactly their day's cards) ──
-  const stripHTML=()=>{
-    const rows=H.recent_results||[];
-    if(!rows.length) return '<div class="news-empty">No results in the last week.</div>';
-    const byDate=new Map();
-    rows.forEach(g=>{ (byDate.get(g.date)||byDate.set(g.date,[]).get(g.date)).push(g); });
-    const dLbl=iso=>new Date(iso+'T12:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
-    const days=[...byDate.entries()].map(([date,games])=>
-      `<div class="hx-day"><div class="hx-dh">${dLbl(date)}</div><div class="hx-cards">${
-        games.map(g=>`<a class="hx-scard" href="?league=${g.league}" title="${g.home} ${g.hg}–${g.ag} ${g.away}">
-          <div class="lg">${g.name}</div>
-          <div class="tr">${crest(g.home,g.hlogo)}<b>${g.hg}</b></div>
-          <div class="tr">${crest(g.away,g.alogo)}<b>${g.ag}</b></div></a>`).join('')}</div></div>`).join('');
-    return `<div class="hx-strip"><div class="hx-strip-scroll">${days}</div>
-      <div class="hx-strip-foot"><a href="?league=command">All results →</a></div></div>`;
-  };
-
   // ── C|E: rotating featured-league table + synced title-odds board.
   //    One shared state (tIdx) drives both renderers; E is effectively C's
-  //    index — clicking a board row (or a dot) jumps the rotation. ──
+  //    index — clicking a board row (or a dot) jumps the rotation. Since
+  //    2026-07-31 tIdx also drives the Upcoming/Recent columns and the movers
+  //    board, so one league owns the whole upper page at a time.
+  //    The LAST entry is the reader-controlled slot (build_home's _SLOT_DEFAULT,
+  //    the Netherlands): picking an off-rotation league from the dropdown swaps
+  //    that one entry and pins the rotation to it.
   const T=H.tables||[];
-  let tIdx=0;
+  const slotIdx=T.findIndex(t=>t.slot);
+  let tIdx=0, tPinned=false;
   const tableHTML=t=>{
     const gd=v=>v==null?'—':(v>0?`+${v}`:`${v}`);
     const rows=t.rows.map((r,i)=>`<tr><td class="r" style="color:var(--txt-3)">${i+1}</td>
@@ -4809,7 +5029,11 @@ if(_isHome && window.HOME_DATA){
       <td class="r">${r.pts??'—'}</td>
       <td class="r">${gd(r.gd)}</td>
       <td class="r pct"><b>${r.pct}%</b></td></tr>`).join('');
-    return `<div class="hx-th"><b>${t.name}</b><span>${t.preseason?'preseason projection':(t.season_label||'auto-rotates')}</span></div>
+    // While the reader's own pick is showing, the rotation is stopped — say so,
+    // and say how to start it again, since the dots are the only way back.
+    const sub=tPinned?'your pick · click a dot to resume rotating'
+      :t.preseason?'preseason projection':(t.season_label||'auto-rotates');
+    return `<div class="hx-th"><b>${t.name}</b><span>${sub}</span></div>
       <table class="hx-tbl"><tr><th class="r">#</th><th>Club</th><th class="r">Pts</th><th class="r">GD</th><th class="r">${t.metric_label} %</th></tr>${rows}</table>
       <div class="hx-dots">${T.map((_,i)=>`<i class="${i===tIdx?'on':''}" data-i="${i}"></i>`).join('')}</div>`;
   };
@@ -4831,11 +5055,60 @@ if(_isHome && window.HOME_DATA){
   };
   const boardHTML=()=>T.map((t,i)=>{
     const lead=t.rows.reduce((a,b)=>(b.pct>a.pct?b:a),t.rows[0]||{});
-    return `<div class="hx-erow${i===tIdx?' on':''}" data-i="${i}" title="Show ${t.name} table">
+    // The slot row is the dropdown's home. It is marked so a reader can tell
+    // which row they control from the one row that changed under them.
+    const isSlot=i===slotIdx;
+    return `<div class="hx-erow${i===tIdx?' on':''}${isSlot?' slot':''}" data-i="${i}" title="Show ${commandEsc(t.name)} table">
       <span class="lg">${ctry(t.league)}</span>${crest(lead.team,lead.logo)}
-      <span class="nm">${lead.team}</span><b>${lead.pct}%</b></div>`
+      <span class="nm">${commandEsc(lead.team||'')}</span>${isSlot?'<span class="pin">your pick</span>':''}<b>${lead.pct}%</b></div>`
       +(t.league==='ligue-1'?uclRowHTML():'');
   }).join('');
+
+  // ── Upcoming / Recent columns, both bound to the rotation's league
+  //    (2026-07-31 desktop feedback). Each table entry ships its own match
+  //    slice from build_home.league_matches, so a mid-table league's columns
+  //    fill even though the global feeds are prominence-capped. ──
+  const dayLbl=iso=>iso?new Date(iso+'T12:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'}):'';
+  const koLbl=ko=>{ if(!ko) return ''; const d=new Date(ko);
+    return isNaN(d)?'':d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}); };
+  const mtPct=p=>p==null?'—':`${Math.round(p*100)}%`;
+  const fixRow=(t,f)=>{
+    // The model's pick is the highlighted side; a coin-flip highlights neither.
+    const hFav=f.pH!=null&&f.pA!=null&&f.pH>f.pA, aFav=f.pH!=null&&f.pA!=null&&f.pA>f.pH;
+    return `<a class="hx-mrow" href="?league=${t.league}" title="${commandEsc(f.home)} v ${commandEsc(f.away)}">
+      <span class="d">${dayLbl(f.date)}${koLbl(f.ko)?`<em>${koLbl(f.ko)}</em>`:''}</span>
+      <span class="tt">
+        <span class="t${hFav?' pick':''}">${crest(f.home,f.hlogo)}<b>${commandEsc(f.home)}</b><i>${mtPct(f.pH)}</i></span>
+        <span class="t${aFav?' pick':''}">${crest(f.away,f.alogo)}<b>${commandEsc(f.away)}</b><i>${mtPct(f.pA)}</i></span>
+      </span>
+      <span class="dr">draw<br>${mtPct(f.pD)}</span></a>`;
+  };
+  const resRow=(t,g)=>{
+    const hw=g.hg!=null&&g.ag!=null&&g.hg>g.ag, aw=g.hg!=null&&g.ag!=null&&g.ag>g.hg;
+    return `<a class="hx-mrow" href="?league=${t.league}" title="${commandEsc(g.home)} ${g.hg}–${g.ag} ${commandEsc(g.away)}">
+      <span class="d">${dayLbl(g.date)}</span>
+      <span class="tt">
+        <span class="t${hw?' win':''}">${crest(g.home,g.hlogo)}<b>${commandEsc(g.home)}</b><i>${g.hg??'—'}</i></span>
+        <span class="t${aw?' win':''}">${crest(g.away,g.alogo)}<b>${commandEsc(g.away)}</b><i>${g.ag??'—'}</i></span>
+      </span></a>`;
+  };
+  const matchesHTML=()=>{
+    const t=T[tIdx];
+    if(!t) return '<div class="news-empty">League data arrives with the next build.</div>';
+    const fx=t.fixtures||[], rs=t.results||[];
+    // A preseason league has no results at all — say why rather than showing an
+    // empty box that reads as a broken panel.
+    const noRes=t.preseason
+      ? `<div class="news-empty">${commandEsc(t.name)} hasn't kicked off yet${fx.length?` — first match ${dayLbl(fx[0].date)}`:''}.</div>`
+      : '<div class="news-empty">No completed matches on record.</div>';
+    return `<div class="hx-mt">
+      <div class="hx-mt-col"><div class="hx-mt-h">Upcoming<em>${commandEsc(t.name)}</em></div>
+        ${fx.length?fx.map(f=>fixRow(t,f)).join(''):'<div class="news-empty">No fixtures scheduled.</div>'}</div>
+      <div class="hx-mt-col"><div class="hx-mt-h">Recent results<em>${commandEsc(t.name)}</em></div>
+        ${rs.length?rs.map(g=>resRow(t,g)).join(''):noRes}</div>
+      <div class="hx-mt-foot"><a href="?league=${t.league}">All ${commandEsc(t.name)} matches →</a></div>
+    </div>`;
+  };
 
   // ── D: personalized stories (FavStore pins) + World Cup on-ramp. No pins →
   //    the on-ramp is the hero and the column falls back to top stories. ──
@@ -4863,26 +5136,6 @@ if(_isHome && window.HOME_DATA){
     <div class="tr">${crest(f.home,f.hlogo)}<span class="p"><b>${pctStr(f.pH)}</b>${MARKET_MODE?`<span class="o">${oddsHTML(f.pH)}</span>`:''}</span></div>
     <div class="tr">${crest(f.away,f.alogo)}<span class="p"><b>${pctStr(f.pA)}</b>${MARKET_MODE?`<span class="o">${oddsHTML(f.pA)}</span>`:''}</span></div>
     <div class="drw">draw ${pctStr(f.pD)}${MARKET_MODE?' · '+oddsHTML(f.pD):''}</div></a>`;
-  const fxStripHTML=()=>{
-    // Key matches only (2026-07-19 feedback): the board's top leagues, sorted
-    // by date then league prominence. If none of them play in the window
-    // (e.g. deep offseason) fall back to the full modeled slate.
-    const FX_TOP=['epl','la-liga','serie-a','bundesliga','ligue-1','ucl',
-      'mls','liga-mx','brazil-serie-a'];
-    const pool=(H.fixtures||[]).filter(f=>FX_TOP.includes(f.league));
-    const rows=pool.length?pool:(H.fixtures||[]);
-    if(!rows.length) return '<div class="news-empty">No fixtures modeled in the next 10 days.</div>';
-    const lgIdx=l=>{const i=FX_TOP.indexOf(l);return i<0?FX_TOP.length:i;};
-    const byDate=new Map();
-    [...rows].sort((a,b)=>a.date!==b.date?(a.date<b.date?-1:1):lgIdx(a.league)-lgIdx(b.league))
-      .forEach(f=>{ (byDate.get(f.date)||byDate.set(f.date,[]).get(f.date)).push(f); });
-    const dLbl=iso=>new Date(iso+'T12:00').toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
-    const days=[...byDate.entries()].map(([date,fx])=>
-      `<div class="hx-day"><div class="hx-dh">${dLbl(date)}</div><div class="hx-cards">${fx.map(fxCard).join('')}</div></div>`).join('');
-    return `<div class="hx-strip"><div class="hx-strip-scroll">${days}</div>
-      <div class="hx-strip-foot"><a href="?league=command">All matches →</a></div></div>`;
-  };
-
   // ── 1.2 "My matchday": this week's matches for pinned teams, closest races
   //    first (closeness = 1-|pH-pA|; the cross-league half of leverageScore,
   //    since the home payload carries no per-league rank map). No pins / no
@@ -4903,8 +5156,22 @@ if(_isHome && window.HOME_DATA){
   //    riser/faller ticker, distinct from the "More movement" story cards —
   //    those are prose headlines, this is a scannable table. ──
   const MVB=H.movers_board||{movers:[]};
+  // 2026-07-31 feedback: default the board to the league the rotation is
+  // showing, keeping the region filters as the cross-league view they were.
   const MV_REGIONS=['Overall','Europe','North America','South America','Asia'];
-  let mvRegion='Overall';
+  let mvRegion='league';
+  // A second line of defence against 0→100 artifacts (2026-07-31 feedback:
+  // "biggest movers don't work well when there are new leagues in the model and
+  // a team goes from 0 to 100 or reverse because they are brand new"). The real
+  // fix lives in build_movers.py, which now withholds these; this guard keeps a
+  // cached or older home.js from putting them back on the page. Mirrors that
+  // rule exactly: a baseline pinned at certainty plus a large swing is a
+  // placeholder collapsing, not football.
+  const mvArtifact=m=>{
+    const p=m.prev;
+    if(p==null) return false;
+    return (p<=0.5||p>=99.5)&&Math.abs(m.delta)>=25;
+  };
   // Colour is keyed to what the movement MEANS, not which way it points. Every
   // metric here (Title, Promotion, Playoffs, Europa, UCL, Shield, Cup) is an
   // outcome a club wants, so rising = good — except Relegation, where a rising
@@ -4921,17 +5188,94 @@ if(_isHome && window.HOME_DATA){
     return `<a class="mv-row" href="${href}" data-upsell="movement-explanation">${crest(m.team,m.logo)}<span class="nm"><b>${commandEsc(m.team)}</b><span>${commandEsc(nm(m.league))} · ${commandEsc(m.metric_label)}</span></span><span class="d ${good?'up':'down'}">${m.delta>=0?'▲':'▼'}${Math.abs(m.delta).toFixed(1)}</span></a>`;
   };
   const moversBoardBody=()=>{
-    const pool=(mvRegion==='Overall'?MVB.movers:(MVB.movers||[]).filter(m=>m.region===mvRegion))||[];
+    const clean=(MVB.movers||[]).filter(m=>!mvArtifact(m));
+    const cur=T[tIdx]||{};
+    const pool=mvRegion==='league'?clean.filter(m=>m.league===cur.league)
+              :mvRegion==='Overall'?clean
+              :clean.filter(m=>m.region===mvRegion);
     const up=[...pool].filter(m=>m.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,3);
     const down=[...pool].filter(m=>m.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,3);
-    const col=(label,cls,list)=>`<div><div class="mv-col-h ${cls}">${label}</div>${list.length?list.map(moversRow).join(''):'<div class="mv-empty">No significant movement.</div>'}</div>`;
+    // Scoped to a single league, "nothing moved" is the common and honest
+    // answer — a quiet week or a preseason table has no movement to report.
+    // Say it once across the whole board rather than twice, once per column.
+    if(!pool.length) return mvRegion==='league'
+      ? `<div class="mv-empty">Nothing moved materially in ${commandEsc(cur.name||'this league')} over this window. Try <b>Overall</b> for the biggest swings anywhere.</div>`
+      : '<div class="mv-empty">No significant movement in this window.</div>';
+    const col=(label,cls,list)=>`<div><div class="mv-col-h ${cls}">${label}</div>${list.length?list.map(moversRow).join(''):'<div class="mv-empty">None.</div>'}</div>`;
     return `<div class="mv-cols">${col('Risers','up',up)}${col('Fallers','down',down)}</div>`;
   };
   const moversBoardHTML=()=>{
     if(!(MVB.movers||[]).length) return '';
-    const pills=MV_REGIONS.map(r=>`<button class="mv-pill${r===mvRegion?' on':''}" data-region="${r}" type="button">${r}</button>`).join('');
-    return `<div class="mv-head"><span style="font-size:11px;color:var(--txt-3)">${MVB.window_label?`Model probability movement · ${MVB.window_label}`:''}</span><div class="mv-pills">${pills}</div></div>
+    const pills=[['league','This league'],...MV_REGIONS.map(r=>[r,r])]
+      .map(([k,lbl])=>`<button class="mv-pill${k===mvRegion?' on':''}" data-region="${k}" type="button">${lbl}</button>`).join('');
+    return `<div class="mv-head"><span style="font-size:11px;color:var(--txt-3)" id="mvWindow">${MVB.window_label?`Model probability movement · ${MVB.window_label}`:''}</span><div class="mv-pills">${pills}</div></div>
       <div id="mvBody">${moversBoardBody()}</div>`;
+  };
+
+  // ── Off-rotation league picker (2026-07-31 feedback: "give the user the
+  //    opportunity to select from a dropdown a league that isn't in the
+  //    rotation and the whole front page rotating views go to that league").
+  //    Anything the rotation already pins is excluded — everything else, ~70
+  //    competitions, is one <optgroup>ed select away. The Netherlands stays
+  //    listed so a reader can put the default back after wandering off. ──
+  const _fixedIds=new Set(T.filter(t=>!t.slot).map(t=>t.league));
+  const pickOptions=()=>{
+    const byGroup=new Map();
+    (window.LEAGUES||[]).forEach(l=>{
+      // Cups render as knockout brackets, not tables — the same exclusion
+      // build_home._SKIP makes server-side. Offering them here would list seven
+      // options whose only possible answer is "no table to show".
+      if(l.status!=='live'||l.group==='Cups'||_fixedIds.has(l.id)) return;
+      const g=l.group==='Other Europe'?'Europe':(l.group||'Other');
+      (byGroup.get(g)||byGroup.set(g,[]).get(g)).push(l);
+    });
+    return [...byGroup.entries()].map(([g,ls])=>
+      `<optgroup label="${commandEsc(g)}">${ls.map(l=>
+        `<option value="${commandEsc(l.id)}">${commandEsc(l.name)}${l.country&&l.country!==l.name?` — ${commandEsc(l.country)}`:''}</option>`
+      ).join('')}</optgroup>`).join('');
+  };
+  const leaguePickHTML=()=>{
+    if(slotIdx<0) return '';
+    return `<div class="hx-pick">
+      <label for="hxPick">More leagues</label>
+      <select id="hxPick" aria-label="Show a league that is not in the rotation">${pickOptions()}</select>
+    </div>`;
+  };
+  // Client-side mirror of build_home.build_tables + league_matches, for a league
+  // that was never baked into home.js. Baking all 78 would roughly double the
+  // home payload for data almost nobody asks for; one lazy fetch of the league's
+  // own file — the same trick the favorites view uses — costs nothing up front.
+  const loadLeagueData=lid=>new Promise(res=>{
+    const s=document.createElement('script');
+    s.src=`data/${lid}.js?t=${Date.now()}`; s.async=false;
+    s.onload=()=>res(window.LEAGUE_DATA); s.onerror=()=>res(null);
+    document.head.appendChild(s);
+  });
+  const slotTableFrom=(lid,d)=>{
+    const cards=((d||{}).outlook||{}).cards||[];
+    if(!cards.length||!((d||{}).standings||[]).length) return null;
+    const wanted=lid==='mls'?'cup':cards[0].key;
+    const card=cards.find(c=>c.key===wanted)||cards[0], mk=card.key;
+    const num=v=>Number(v||0);
+    const ranked=[...d.standings].sort((a,b)=>num(b.pts)-num(a.pts)||num(b[mk])-num(a[mk]));
+    const logo={}; d.standings.forEach(s=>{ logo[s.team]=s.logo; });
+    const played=[], up=[];
+    (d.games||[]).forEach(g=>{
+      const row={date:g.date,ko:g.ko,home:g.home,away:g.away,
+        hlogo:g.hlogo||logo[g.home],alogo:g.alogo||logo[g.away]};
+      if(g.result==null){ row.pH=g.pH; row.pD=g.pD; row.pA=g.pA; up.push(row); }
+      else { row.hg=g.hg; row.ag=g.ag; played.push(row); }
+    });
+    const byDate=k=>(a,b)=>((a[k]||'')<(b[k]||'')?-1:(a[k]||'')>(b[k]||'')?1:0);
+    played.sort(byDate('date')).reverse();
+    up.sort(byDate('date'));
+    return {league:lid, name:(d.league||{}).name||lid,
+      metric_label:card.label||mk,
+      preseason:!!((d.outlook||{}).preseason),
+      season_label:(d.outlook||{}).season_label||'', slot:true,
+      rows:ranked.slice(0,10).map(t=>({team:t.team,logo:t.logo,color:t.color,
+        pts:t.pts,gp:t.gp,gd:t.gd,pct:Math.round(num(t[mk])*10)/10})),
+      results:played.slice(0,6), fixtures:up.slice(0,6)};
   };
 
   const moversBody=moversBoardHTML();
@@ -4944,27 +5288,29 @@ if(_isHome && window.HOME_DATA){
         <a class="intel-btn primary" href="?league=intel">Track my club</a>
         <a class="intel-btn" href="?league=leagues">Explore free forecasts</a>
       </div></div>
-    <div class="hx-b">
-      ${stripHTML()}
-    </div>
     <div class="hx-table"><h2 class="ed-sec">League Tables</h2><div class="hx-card" id="hxTable">${T.length?tableHTML(T[tIdx]):'<div class="news-empty">League tables arrive with the next data build.</div>'}</div></div>
-    <div class="hx-odds"><h2 class="ed-sec">Title Probabilities</h2><div class="hx-card" id="hxBoard" style="padding:6px 8px">${T.length?boardHTML():'<div class="news-empty">Title probabilities arrive with the next data build.</div>'}</div></div>
+    <div class="hx-odds"><h2 class="ed-sec">Title Probabilities</h2><div class="hx-card" id="hxBoard" style="padding:6px 8px">${T.length?boardHTML():'<div class="news-empty">Title probabilities arrive with the next data build.</div>'}</div>${T.length?leaguePickHTML():''}</div>
+    <div class="hx-matches"><h2 class="ed-sec">Matches</h2><div id="hxMatches">${matchesHTML()}</div></div>
     <div class="hx-stories"><h2 class="ed-sec">Your Stories</h2>${storiesHTML}</div>
-    <div class="hx-fix">${myMatchdayHTML?`<h2 class="ed-sec">★ My Matchday</h2><div class="hx-card" style="margin-bottom:16px" id="myMatchday">${myMatchdayHTML}</div>`:''}<h2 class="ed-sec">Upcoming Matches</h2><div id="hxCaro">${fxStripHTML()}</div></div>
+    <div class="hx-fix">${myMatchdayHTML?`<h2 class="ed-sec">★ My Matchday</h2><div class="hx-card" style="margin-bottom:16px" id="myMatchday">${myMatchdayHTML}</div>`:''}</div>
     <div class="hx-movers">${moversBody?`<h2 class="ed-sec">Biggest Movers</h2>${moversBody}`:''}</div>
     <div class="hx-news"><h2 class="ed-sec">Around the Leagues</h2><div class="hx-newsband">${(H.news||[]).slice(0,9).map(newsItem).join('')||'<div class="news-empty">No headlines right now.</div>'}</div></div>
   </div>`;
-    // region-pill filter for the movers board (re-renders just #mvBody, no reload)
-    // Retract each strip's edge fade once it is scrolled to the end, and skip it
-    // entirely when the content already fits (desktop, or a thin fixture day).
-    target.querySelectorAll('.hx-strip').forEach(strip=>{
-      const sc=strip.querySelector('.hx-strip-scroll');
-      if(!sc) return;
-      const sync=()=>strip.classList.toggle('at-end',sc.scrollLeft>=sc.scrollWidth-sc.clientWidth-2);
-      sc.addEventListener('scroll',sync,{passive:true});
-      addEventListener('resize',sync,{passive:true});
-      sync();
-    });
+    // ── One league at a time: tIdx drives the table, the odds board, both
+    //    match columns and (in its default scope) the movers board. 6s
+    //    auto-advance, paused while the pointer is inside any of those panels,
+    //    and stopped outright once the reader picks a league by hand. ──
+    const tblEl=$('#hxTable'), brdEl=$('#hxBoard'),
+          mtEl=$('#hxMatches'), mvEl=$('.hx-movers');
+    let tPaused=false;
+    const renderCE=()=>{
+      if(tblEl) tblEl.innerHTML=tableHTML(T[tIdx]);
+      if(brdEl) brdEl.innerHTML=boardHTML();
+      if(mtEl) mtEl.innerHTML=matchesHTML();
+      const body=$('#mvBody');
+      if(body&&mvRegion==='league') body.innerHTML=moversBoardBody();
+    };
+    const tGo=i=>{ tIdx=(i+T.length)%T.length; renderCE(); };
 
     const mvPillsEl=$('.mv-pills');
     if(mvPillsEl){ mvPillsEl.addEventListener('click',e=>{
@@ -4973,20 +5319,45 @@ if(_isHome && window.HOME_DATA){
       mvPillsEl.querySelectorAll('.mv-pill').forEach(p=>p.classList.toggle('on',p===btn));
       const body=$('#mvBody'); if(body) body.innerHTML=moversBoardBody();
     }); }
-    // ── C|E rotation: 6s auto-advance, paused while hovering either panel;
-    //    clicking a board row or a dot jumps the rotation ──
-    const tblEl=$('#hxTable'), brdEl=$('#hxBoard');
-    let tPaused=false;
-    const renderCE=()=>{ if(tblEl) tblEl.innerHTML=tableHTML(T[tIdx]);
-      if(brdEl) brdEl.innerHTML=boardHTML(); };
-    const tGo=i=>{ tIdx=(i+T.length)%T.length; renderCE(); };
+
     if(T.length){
-      [tblEl,brdEl].forEach(el=>{ if(!el) return;
+      [tblEl,brdEl,mtEl,mvEl].forEach(el=>{ if(!el) return;
         el.addEventListener('mouseenter',()=>tPaused=true);
-        el.addEventListener('mouseleave',()=>tPaused=false);
+        el.addEventListener('mouseleave',()=>tPaused=false); });
+      [tblEl,brdEl].forEach(el=>{ if(!el) return;
         el.addEventListener('click',e=>{ const d=e.target.closest('[data-i]'); if(!d) return;
+          // Clicking any row or dot hands control back to the rotation — that
+          // is the only way out of a pinned pick, so it must not be a dead end.
+          tPinned=false;
           tGo(+d.dataset.i); track('home_table_jump',{league:T[tIdx].league}); }); });
-      if(T.length>1) setInterval(()=>{ if(!tPaused) tGo(tIdx+1); },6000);
+      if(T.length>1) setInterval(()=>{ if(!tPaused&&!tPinned) tGo(tIdx+1); },6000);
+    }
+
+    // Dropdown → replace the board's slot entry, then send every rotating panel
+    // to it. Loading is async, so the select reports its own progress and is
+    // disabled meanwhile; a failed load restores the previous slot untouched.
+    const pickEl=$('#hxPick');
+    if(pickEl&&slotIdx>=0){
+      pickEl.value=(T[slotIdx]||{}).league||'';
+      pickEl.addEventListener('change',async()=>{
+        const lid=pickEl.value, prev=T[slotIdx];
+        if(!lid||lid===prev.league){ tPinned=true; tGo(slotIdx); return; }
+        pickEl.disabled=true;
+        const d=await loadLeagueData(lid);
+        const entry=d?slotTableFrom(lid,d):null;
+        pickEl.disabled=false;
+        if(!entry){
+          // Cups render as brackets and placeholder leagues have no standings —
+          // both are legitimately un-tableable. Say so and put the select back.
+          pickEl.value=prev.league||'';
+          if(mtEl) mtEl.innerHTML=`<div class="news-empty">${commandEsc(nm(lid))} has no league table to show — <a href="?league=${encodeURIComponent(lid)}">open its page</a>.</div>`;
+          return;
+        }
+        T[slotIdx]=entry;
+        tPinned=true;
+        tGo(slotIdx);
+        track('home_league_pick',{league:lid});
+      });
     }
   }
 }

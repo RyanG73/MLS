@@ -51,4 +51,9 @@ is merged and retained for history.
 - DC time-decay: 120-day half-life
 - xG windows: (3, 5, 10, 15) matches — eval harness default; champion feat_base includes all four
 - Edge threshold: 8% before live betting
+- **Paywall boundary — lock the continuity, never the current answer** (2026-08-01). Any number that
+  exists today stays visible and free: current forecasts, tables, every published grade. What Club
+  Watch sells is that someone watched it — what changed while you were away, the evidence behind it,
+  saved scenarios, per-club history. A lock must sit on the continuity layer, never on a figure the
+  public site already publishes, or the "free forever" promise printed on the site becomes false.
 - Production timing: improve eval first, then port to production

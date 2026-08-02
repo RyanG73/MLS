@@ -289,56 +289,184 @@
       lockedPreviewHTML() + "</div>";
   }
 
-  // Signed-out teaser: a greyed, non-interactive mockup of the hub with sample
-  // data so visitors can see the surface they are unlocking before they commit
-  // an email. Everything inside .intel-locked-body is inert and aria-hidden.
+  // ── Signed-out teaser ──────────────────────────────────────────────────────
+  // Rewritten 2026-08-01. The old version sold the product as ten internal
+  // codenames in a chip list — "Scenario studio", "Paths to the target",
+  // "Confidence panel" — against a mockup starring "Rival A" and "Home vs
+  // Rival B", with `snap_0718_a3 · fix_88121` printed under the heading
+  // "Evidence". Every one of those names is a label we invented; a supporter
+  // has no way to know what any of them does, which is exactly the reported
+  // problem. "Scenario studio" appeared in precisely one place in the whole
+  // repository: that chip.
+  //
+  // The software behind it is real (intelligence_service.run_scenario runs a
+  // seeded 2,000-sim replay against a pinned snapshot and returns the club AND
+  // its three nearest rivals), so the fix is not to build mockups — it is to
+  // stop naming working features after their implementation. Every heading is
+  // now a sentence a supporter would say out loud, every placeholder club is a
+  // real club, and the strongest single line is the one that tells the reader
+  // they have already used this: Next 5 Sim is free on every league table and
+  // is the same engine. Converting an unfamiliar noun into a thing they have
+  // already done beats any amount of feature copy.
+  //
+  // Numbers stay illustrative and stay labelled — see demoClub() on why the
+  // CLUB is real but the figures are not.
+
+  // The club the teaser stars in. defaultSelection() already resolves a pinned
+  // favourite, the last club viewed, or a URL param before falling back, so a
+  // visitor who has starred anyone on the site sees THEIR club named here.
+  // Rivals are drawn from the same league so the example reads as football
+  // rather than as "Rival A". The figures remain sample data — the continuity
+  // features are account-bound by definition, so there is no real number to
+  // show a signed-out reader, and every card says so.
+  // Leagues and clubs a cold visitor will recognise, for when there is no
+  // personal signal to use. NOT defaultSelection()'s own fallback, which is
+  // catalogLeagues()[0] — that sorts alphabetically and opened the teaser with
+  // "This is what Club Watch keeps for Acassuso", a second-tier Argentine club.
+  var TEASER_LEAGUES = ["epl", "la-liga", "serie-a", "bundesliga", "mls", "liga-mx"];
+  var TEASER_CLUBS = ["Arsenal", "Manchester City", "Liverpool", "Real Madrid",
+    "Barcelona", "Inter", "Bayern Munich", "Inter Miami CF", "LA Galaxy"];
+
+  function teaserFallback() {
+    var leagues = catalogLeagues();
+    if (!leagues.length) return null;
+    for (var i = 0; i < TEASER_LEAGUES.length; i += 1) {
+      var league = leagues.find(function (entry) { return entry.league_id === TEASER_LEAGUES[i]; });
+      if (!league) continue;
+      var team = null;
+      for (var j = 0; j < TEASER_CLUBS.length && !team; j += 1) {
+        team = league.teams.find(function (entry) { return entry.team === TEASER_CLUBS[j]; });
+      }
+      return {league: league, team: team || league.teams[0]};
+    }
+    return {league: leagues[0], team: leagues[0].teams[0]};
+  }
+
+  // A club the visitor has actually signalled — URL param, last club viewed, or
+  // a star they placed anywhere on the site. Only these count as personal;
+  // anything else falls through to a recognisable name.
+  function teaserSignal() {
+    var candidates = [];
+    if (params.get("intelLeague") && params.get("teamName")) {
+      candidates.push({league_id: params.get("intelLeague"), team: params.get("teamName")});
+    }
+    try {
+      var stored = JSON.parse(localStorage.getItem(LAST_TEAM_KEY) || "null");
+      if (stored) candidates.push(stored);
+    } catch (error) { /* private mode — no signal, not an error */ }
+    favoriteCandidates().forEach(function (entry) { candidates.push(entry); });
+    for (var i = 0; i < candidates.length; i += 1) {
+      var c = candidates[i];
+      var hit = c.league && c.team ? {league: c.league, team: c.team}
+        : findSelection(c.league_id || c.league, c.team_id);
+      if (hit && hit.league && hit.team) return hit;
+    }
+    return null;
+  }
+
+  function demoClub() {
+    var picked = teaserSignal() || teaserFallback();
+    if (!picked || !picked.team) return null;
+    // Rivals come from the recognisable list first. Taking the league's first
+    // two clubs alphabetically made Arsenal's title rivals "Aston Villa" and
+    // "Bournemouth", which reads as a bug to anyone who follows the league.
+    var others = (picked.league.teams || []).filter(function (entry) {
+      return entry.team !== picked.team.team;
+    });
+    var known = others.filter(function (entry) { return TEASER_CLUBS.indexOf(entry.team) >= 0; });
+    var rivals = known.concat(others);
+    return {
+      club: picked.team.team,
+      league: picked.league.league || picked.league.league_id,
+      rivalA: (rivals[0] || {}).team || "the league leaders",
+      rivalB: (rivals[1] || {}).team || "the chasing pack"
+    };
+  }
+
   function lockedPreviewHTML() {
-    var tabs = '<nav class="intel-tabs">' + ["Today", "Explore", "History", "Studio"].map(function (tab, index) {
+    var d = demoClub();
+    if (!d) d = {club: "your club", league: "your league", rivalA: "the league leaders", rivalB: "the chasing pack"};
+    var club = escapeHtml(d.club), rivalA = escapeHtml(d.rivalA), rivalB = escapeHtml(d.rivalB);
+
+    // "Studio" told the reader nothing. Every tab now names its question.
+    var tabs = '<nav class="intel-tabs">' + ["Today", "Who you're racing", "The season so far", "What-ifs"].map(function (tab, index) {
       return '<button class="intel-tab' + (index === 0 ? " on" : "") + '" type="button" tabindex="-1">' + tab + "</button>";
     }).join("") + "</nav>";
+    // The fourth step used to print a snapshot id (`snap_0718_a3`) under the
+    // heading "Receipt". An internal key is not a receipt to anyone outside
+    // this repo; what the reader wants to know is that the old number was kept.
     var trust = '<div class="intel-trust-tape">' +
-      '<div class="intel-tape-step"><span>Change</span><b>+4.2pp</b><small>playoff</small></div>' +
-      '<div class="intel-tape-step"><span>Cause / evidence</span><b>Result shock</b><small>supported record</small></div>' +
-      '<div class="intel-tape-step"><span>Next</span><b>Home vs Rival A</b><small>Jul 26 · 6.1pp range</small></div>' +
-      '<div class="intel-tape-step"><span>Receipt</span><b>snap_0718_a3</b><small>2026-07-18</small></div></div>';
+      '<div class="intel-tape-step"><span>What moved</span><b>+4.2 points</b><small>title odds, last 7 days</small></div>' +
+      '<div class="intel-tape-step"><span>Why</span><b>Two straight wins</b><small>and ' + rivalA + ' dropped points</small></div>' +
+      '<div class="intel-tape-step"><span>What is next</span><b>' + club + ' v ' + rivalA + '</b><small>the biggest swing left this month</small></div>' +
+      '<div class="intel-tape-step"><span>Kept on record</span><b>Every number, dated</b><small>so you can check what we said</small></div></div>';
     var brief = '<section class="intel-feature"><div class="intel-feature-head">' +
-      '<span class="intel-feature-num">01</span><div class="intel-feature-title"><h2>Season brief</h2></div>' +
-      '<span class="intel-state live">live</span></div>' +
-      '<div class="intel-brief"><div class="intel-primary-metric"><div class="label">playoff</div>' +
-      '<div class="value">63.8%</div><div class="delta up">+4.2pp in 7 days</div></div>' +
-      '<div><p class="intel-brief-summary">Playoff qualification is trending up after back-to-back wins; the largest remaining swing is the next home fixture.</p>' +
+      '<div class="intel-feature-title"><h2>Where ' + club + ' stands today</h2></div>' +
+      '<span class="intel-state live">sample</span></div>' +
+      '<div class="intel-brief"><div class="intel-primary-metric"><div class="label">Title</div>' +
+      '<div class="value">63.8%</div><div class="delta up">+4.2 in 7 days</div></div>' +
+      '<div><p class="intel-brief-summary">' + club + ' are climbing after back-to-back wins. The largest single swing left in the season is the home match with ' + rivalA + ' — one result there is worth more than the next month combined.</p>' +
       '<div class="intel-facts">' +
       '<div class="intel-fact"><span>Projected points</span><b>52.4</b></div>' +
-      '<div class="intel-fact"><span>Projected rank</span><b>4.6</b></div>' +
-      '<div class="intel-fact"><span>Next leverage</span><b>6.1pp</b></div>' +
-      '<div class="intel-fact"><span>Freshness</span><b>Today</b></div></div>' +
-      '<div class="intel-evidence">Evidence: snap_0718_a3 · fix_88121</div></div></div></section>';
+      '<div class="intel-fact"><span>Projected finish</span><b>4th</b></div>' +
+      '<div class="intel-fact"><span>Next match is worth</span><b>6.1 points of odds</b></div>' +
+      '<div class="intel-fact"><span>Last checked</span><b>Today</b></div></div></div></div></section>';
     var tape = '<section class="intel-feature"><div class="intel-feature-head">' +
-      '<span class="intel-feature-num">02</span><div class="intel-feature-title"><h2>What changed since your last visit</h2></div>' +
-      '<span class="intel-state live">live</span></div><div class="intel-tape">' +
-      '<div class="intel-tape-row"><time>Jul 18</time><div class="body"><b>forecast update</b> · result shock</div><span class="intel-move up">+2.9pp</span></div>' +
-      '<div class="intel-tape-row"><time>Jul 15</time><div class="body"><b>schedule change</b> · fixture congestion eased</div><span class="intel-move up">+1.3pp</span></div>' +
-      '<div class="intel-tape-row"><time>Jul 12</time><div class="body"><b>rival result</b> · direct competitor won late</div><span class="intel-move down">-0.8pp</span></div>' +
+      '<div class="intel-feature-title"><h2>What changed since you last looked</h2></div>' +
+      '<span class="intel-state live">sample</span></div><div class="intel-tape">' +
+      '<div class="intel-tape-row"><time>Jul 18</time><div class="body"><b>' + club + ' won away</b> · the result beat what we expected</div><span class="intel-move up">+2.9</span></div>' +
+      '<div class="intel-tape-row"><time>Jul 15</time><div class="body"><b>Fixture pile-up eased</b> · a midweek game was moved</div><span class="intel-move up">+1.3</span></div>' +
+      '<div class="intel-tape-row"><time>Jul 12</time><div class="body"><b>' + rivalA + ' won late</b> · a direct rival gained ground</div><span class="intel-move down">-0.8</span></div>' +
       "</div></section>";
     var leverage = '<section class="intel-feature"><div class="intel-feature-head">' +
-      '<span class="intel-feature-num">04</span><div class="intel-feature-title"><h2>Fixture leverage</h2></div>' +
-      '<span class="intel-state live">live</span></div>' +
+      '<div class="intel-feature-title"><h2>Which matches actually matter</h2></div>' +
+      '<span class="intel-state live">sample</span></div>' +
+      '<p class="intel-brief-summary">Including the ones ' + club + ' are not playing in.</p>' +
       '<div class="intel-table-scroll"><table class="intel-data-table"><thead><tr>' +
-      "<th>Date</th><th>Fixture</th><th>Scope</th><th>Range</th><th>Expected move</th></tr></thead><tbody>" +
-      '<tr><td>Jul 26</td><td><strong>Home vs Rival A</strong></td><td>Own match</td><td class="num">6.1pp</td><td class="num">+2.4pp</td></tr>' +
-      '<tr><td>Aug 2</td><td><strong>Rival B vs Rival C</strong></td><td>Rival dependency</td><td class="num">3.4pp</td><td class="num">+0.9pp</td></tr>' +
-      '<tr><td>Aug 9</td><td><strong>Away vs Rival D</strong></td><td>Own match</td><td class="num">5.2pp</td><td class="num">-1.1pp</td></tr>' +
+      "<th>Date</th><th>Match</th><th>Why it counts</th><th>Odds at stake</th></tr></thead><tbody>" +
+      '<tr><td>Jul 26</td><td><strong>' + club + ' v ' + rivalA + '</strong></td><td>Your match, and the biggest one left</td><td class="num">6.1</td></tr>' +
+      '<tr><td>Aug 2</td><td><strong>' + rivalA + ' v ' + rivalB + '</strong></td><td>Two rivals must drop points somewhere</td><td class="num">3.4</td></tr>' +
+      '<tr><td>Aug 9</td><td><strong>' + rivalB + ' v ' + club + '</strong></td><td>Your match</td><td class="num">5.2</td></tr>' +
       "</tbody></table></div></section>";
-    var more = '<div class="intel-locked-more"><div class="intel-eyebrow">Also inside</div><div class="intel-tagchips">' +
-      ["Scenario studio", "Paths to the target", "Notification controls", "Rival race", "Season forecast history",
-       "Pre-match receipts", "Ask the model", "Confidence panel", "Private journal", "Source-linked evidence"].map(function (label) {
-        return "<span>" + escapeHtml(label) + "</span>";
-      }).join("") + "</div></div>";
+
+    // Replaces the ten-codename chip list. Each block leads with the sentence a
+    // supporter would say, and the first one anchors to Next 5 Sim — a tool
+    // already free on every league table, so the reader learns they have used
+    // this before rather than meeting a new noun.
+    var more = '<div class="intel-locked-more">' +
+      '<div class="intel-eyebrow">Also inside</div>' +
+
+      '<div class="intel-example"><h3>Save your what-ifs</h3>' +
+      '<p>You have already used <b>Next 5 Sim</b> on the league table — force a result, watch the table resimulate. This is that, kept. Force ' + club + ' to beat ' + rivalA + ', save it, and every real result updates the saved scenario. Your nearest rivals move with it.</p>' +
+      '<div class="intel-table-scroll"><table class="intel-data-table"><thead><tr>' +
+      "<th>Title odds</th><th>Now</th><th>If " + club + " win</th></tr></thead><tbody>" +
+      '<tr><td><strong>' + club + '</strong></td><td class="num">63.8%</td><td class="num">71.2%</td></tr>' +
+      '<tr><td>' + rivalA + '</td><td class="num">24.1%</td><td class="num">18.4%</td></tr>' +
+      '<tr><td>' + rivalB + '</td><td class="num">9.0%</td><td class="num">8.1%</td></tr>' +
+      "</tbody></table></div></div>" +
+
+      '<div class="intel-example"><h3>What still has to happen</h3>' +
+      '<p>The shortest routes left to the target, ranked by how likely each one is.</p>' +
+      '<ul class="intel-paths">' +
+      '<li><span>Win three of the next five</span><b>61%</b></li>' +
+      '<li><span>Beat ' + rivalA + ' and take four points from the rest</span><b>48%</b></li>' +
+      '<li><span>Draw with ' + rivalA + ', then win out</span><b>29%</b></li>' +
+      "</ul></div>" +
+
+      '<div class="intel-example"><h3>What we said before kickoff</h3>' +
+      '<p>Every forecast is stamped and kept, so you can go back and check us — including when we were wrong.</p>' +
+      '<div class="intel-receipt">Before ' + club + ' v ' + rivalA + ' we gave ' + club + ' <b>54%</b>. It finished 2–1. <em>Called.</em></div>' +
+      "</div>" +
+
+      '<p class="intel-alsoline">Also: who you are actually racing, how sure we are and why, alerts you control, and the full season history of every number.</p>' +
+      "</div>";
+
     return '<section class="intel-locked" aria-label="Preview of Club Watch">' +
-      '<div class="intel-locked-head"><div class="intel-eyebrow">Locked preview · sample data</div>' +
-      "<h2>The Club Watch answer</h2><p>Members get a durable view of what changed, the evidence behind it, and the next fixture that can matter.</p></div>" +
+      '<div class="intel-locked-head"><div class="intel-eyebrow">Preview · sample numbers, real clubs</div>' +
+      "<h2>This is what Club Watch keeps for " + club + "</h2>" +
+      "<p>The current forecast is free and always will be. What you are unlocking is the part that remembers: what changed while you were away, why it changed, and which result next moves it most.</p></div>" +
       '<div class="intel-locked-stage"><div class="intel-locked-overlay">' +
-      '<button class="intel-action primary" type="button" data-action="focus-signin">Choose my club</button></div>' +
+      '<button class="intel-action primary" type="button" data-action="focus-signin">Watch ' + club + '</button></div>' +
       '<div class="intel-locked-body" inert aria-hidden="true">' + tabs + trust + brief + tape + leverage + "</div></div>" + more + "</section>";
   }
 
