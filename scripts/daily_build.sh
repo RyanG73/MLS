@@ -22,4 +22,13 @@ echo "=== $(date '+%Y-%m-%d %H:%M:%S') daily_build start ==="
 # 3. Curated multi-source news feeds (per-feed failures are non-fatal inside)
 "$PY" scripts/build_news.py || echo "build_news step failed (non-fatal)"
 
+# 4. Re-aggregate the home payload from the news files step 3 just rewrote.
+#    Without this the home rail keeps serving whatever news/*.js held the last
+#    time some *other* job (build_all.sh, refresh-fast.yml) happened to run
+#    build_home.py — which is how darts and cricket sat under "EFL League One"
+#    and "Premier League" on the live home page for a full day after
+#    route_item() had already learned to reject them.
+PYTHONPATH="$REPO_DIR" "$PY" scripts/build_home.py \
+  || echo "build_home step failed (non-fatal)"
+
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') daily_build done ==="

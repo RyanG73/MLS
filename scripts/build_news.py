@@ -76,7 +76,11 @@ ANALYSIS_SIGNAL = re.compile(
 NON_FOOTBALL_SIGNAL = re.compile(
     r"\b(?:basketball|nba|wnba|cricket|rugby|nfl|american football|baseball|"
     r"mlb|tennis|hockey|nhl|formula ?1|motorsport|grand prix|golf|boxing|"
-    r"cycling|tour de france|athletics)\b",
+    # Darts and snooker reached the live home rail on 2026-08-01 ("Price to
+    # Littler…", tagged EFL League One). They routed only because no keyword
+    # matched, not because they were rejected — one club name in the body and
+    # they would have shipped. UFC/MMA added for the same reason.
+    r"cycling|tour de france|athletics|darts|snooker|ufc|mma)\b",
     re.I,
 )
 FOOTBALL_SIGNAL = re.compile(

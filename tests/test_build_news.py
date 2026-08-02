@@ -41,6 +41,58 @@ def test_short_alias_does_not_match_inside_an_unrelated_word():
     assert route_item("New HTMLScriptElement browser API", "", KW) == set()
 
 
+"""Regression: the three real items that reached the live home rail.
+
+Observed on https://entenser.com 2026-08-01 under football league labels —
+darts as "EFL League One", cricket as "Premier League", rugby league as
+"Ligue 1". The router already rejected all three; the home payload was simply
+never re-aggregated after build_news rewrote news/*.js (fixed in
+daily_build.sh). These lock the routing half so a keyword change cannot
+quietly re-admit them.
+"""
+LIVE_KW = {
+    "epl": ["premier league", "arsenal", "chelsea"],
+    "efl-league-one": ["efl league one", "barnsley", "bolton wanderers"],
+    "ligue-1": ["ligue 1", "monaco", "paris saint germain"],
+    "mls": ["mls", "chicago fire"],
+}
+
+
+def test_darts_headline_routes_nowhere():
+    assert route_item(
+        "Price to Littler: Don't underestimate me! | 'If I play my A game, "
+        "I will win!", "", LIVE_KW) == set()
+
+
+def test_cricket_headline_routes_nowhere():
+    assert route_item(
+        "SunRisers edge Brave as Ravindra dazzles for Fire against MI London",
+        "", LIVE_KW) == set()
+
+
+def test_rugby_league_headline_routes_nowhere():
+    assert route_item(
+        "England women ramp up Rugby League World Cup preparations with win "
+        "in France", "", LIVE_KW) == set()
+
+
+def test_darts_story_is_rejected_even_when_it_names_a_club():
+    """The dangerous shape: a darts item that does mention a real club.
+
+    Before darts joined NON_FOOTBALL_SIGNAL this routed to epl on "Arsenal".
+    """
+    assert route_item(
+        "Littler wins the darts Matchplay as Arsenal players watch on",
+        "", LIVE_KW) == set()
+
+
+def test_football_story_survives_a_non_football_word():
+    """The guard must not eat legitimate football coverage."""
+    assert route_item(
+        "Arsenal's new striker was a promising cricket player at school",
+        "Premier League transfer window analysis", LIVE_KW) == {"epl"}
+
+
 def test_gossip_filter():
     assert is_gossip("Star striker linked with big-money move")
     assert is_gossip("Transfer talk: ten deals that could happen")
