@@ -135,6 +135,12 @@ jobs:
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
         run: |
           python scripts/build_power_rankings.py
+          # Publishes the country-coefficient reference page. No workflow ran
+          # this before 2026-08-02, so it sat a month stale: the UEFA refit on
+          # 2026-08-01 added ten coefficients and the published page still
+          # showed 11 associations instead of 20. It is cheap and coefficients
+          # change rarely, so daily costs nothing and removes the manual step.
+          python scripts/build_coefficients_page.py
           python scripts/build_calendar.py
           python scripts/archive_odds_snapshot.py
           python scripts/build_movers.py
