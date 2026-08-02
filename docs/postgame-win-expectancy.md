@@ -1,7 +1,10 @@
 # Postgame Win Expectancy (WE) — "how deserved was this result"
 
-Status: **research capability, built and calibration-validated 2026-07-13. Not yet
-wired into the webapp.**
+Status: **shipped.** Built and calibration-validated 2026-07-13; wired into the
+build and the webapp since. Verified 2026-08-02: `build_league_data.py:57`
+imports `compute_we`, completed games in every league payload carry `we_h` and
+`we_a`, and `webapp/index.html` reads them. The "not yet wired into the webapp"
+line this replaced was ten days stale.
 
 This is a NEW, ADDITIVE capability. It does not touch, replace, or share code with
 the pre-match win-probability pipeline (`models/research_model.py`,

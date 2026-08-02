@@ -354,14 +354,14 @@ These require account access or business decisions and cannot be completed from 
 These are preserved from the retired UX plans and should not interrupt the transaction milestone:
 
 - Decide whether desktop Home should place volatile content above reference tables.
-- Repair the 768–900px tablet layout.
+- Repair the 768–900px tablet layout. Confirmed still broken 2026-08-02: at 820px, 20 of the 100 `.wbox` run-in fixture chips render past the viewport edge inside `.wgroup.wlocked`, which has `overflow-x: visible`, so they are silently clipped rather than scrollable.
 - Ratify the type floor and remaining sub-11px exceptions.
 - Update the interface contract for the shipped Georgia serif, overlay shadows, and horizontal
   fixture strip—or change the product to match the contract.
 - Complete production QA for signed-in Intel, Account, Rankings, PWA-installed mode, landscape,
   and iPad WebKit.
 - Add domestic championship-playoff simulation where the published competition format requires it.
-- Re-check the South-America-heavy Matches to Watch rail after European seasons begin.
+- Re-check the Matches to Watch rail once European seasons start 2026-08-21. The "biggest leagues first" ordering was repaired 2026-08-02 by sorting on Crossbar league strength; nine leagues still sit on estimated priors, so the ordering will shift as those firm up.
 - Revisit the inter-confederation ELO shifts after the next Club World Cup adds evidence.
 
 ## Launch calendar
