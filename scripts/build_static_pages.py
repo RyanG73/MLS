@@ -391,6 +391,8 @@ def _footer(generated: str) -> str:
     return (f'<footer>Data updated {E(generated or "recently")} · '
             f'rebuilt daily from public match data · '
             f'<a href="/?league=about">methodology</a> · '
+            f'<a href="/crossbar/">Crossbar</a> · '
+            f'<a href="/leagues/">all leagues</a> · '
             f'<a href="/?league=data-sources">data sources</a> · '
             f'© Entenser</footer>\n</main>\n</body>\n</html>\n')
 

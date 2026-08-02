@@ -1873,6 +1873,8 @@ const FOOT_ATTR='Data: <a href="https://www.americansocceranalysis.com" target="
 // Trust/legal nav — shown in the footer on every route (P0 launch requirement).
 const FOOT_LEGAL='<div class="foot-legal"><a href="?league=about">About the model</a> · '+
   '<a href="/leagues/">All leagues</a> · '+
+  '<a href="/crossbar/">Crossbar</a> · '+
+  '<a href="/football-forecasts/">Forecasts by league</a> · '+
   '<a href="/weekly/">This week</a> · '+
   '<a href="/after-the-world-cup/">After the World Cup</a> · '+
   '<a href="/open-data/">Open data</a> · '+
@@ -2479,7 +2481,7 @@ function ladderPanel({heading,meta,teams,cols,maxOf,rowMod,cutLine,tip,gate}){
   if(gate)box.appendChild(gate);
   box.appendChild(el('div','thead',
     `<span></span><span>Club</span><span class="c">Pts</span><span class="c">GP</span><span class="c">GD</span><span class="c c-proj">Proj</span>`+
-    `<span class="c c-elo">Global ELO</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
+    `<span class="c c-elo">Crossbar</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
     (hasUp?`<span class="c c-w5${IntelStore.unlocked()?'':' locked'}">Next 5 Sim${IntelStore.unlocked()?'':' <span class="w5-lock" aria-hidden="true">🔒</span>'}</span>`:'')));
   teams.forEach((t,i)=>{
     const rank=i+1;
@@ -2820,7 +2822,7 @@ const _PHASE_LABEL={first_60d:'First 60 days',mid:'Mid-season',late:'Late season
    NOTE: must be declared BEFORE the eager renderHealth() call below — a later
    const is still in its temporal dead zone when the call runs. */
 const FEATURE_DEFS={
-  'ELO':'Global ELO shown on the EPL-anchored shared scale; the domestic rating updates after every result (K=25, home advantage +80)',
+  'ELO':'Crossbar — one strength scale across every league we forecast, anchored on the Premier League. The domestic rating behind it updates after every result (K=25, home advantage +80)',
   'xG rolling':'Expected goals for/against — shot-quality rolling averages over the last 3/5/10/15 matches',
   'Form':'Points per game over recent matches',
   'GK z-score':'Goalkeeper quality — saves above expected, standardized across the league',
@@ -4042,10 +4044,10 @@ function renderProfile(team,scroll){
     </div>${oddsRows||'<div class="hnote">No headline projection categories for this competition.</div>'}
     ${squadValueSummaryHTML(team)}</div>`;
   $('#teamProfile').innerHTML=
-    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">Projected #${projRank} of ${n} · Global ELO ${Number.isFinite(elo)?Math.round(elo):'—'}</div>
+    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">Projected #${projRank} of ${n} · Crossbar ${Number.isFinite(elo)?Math.round(elo):'—'}</div>
       <a class="intel-btn" id="profileClubWatch" href="${watchHref}">Track this club</a></div>
       <span class="fav-team-star${FavStore.hasTeam(LID,team)?' on':''}" id="favTeamStar" title="Pin to Favorites">${FavStore.hasTeam(LID,team)?'★':'☆'}</span></div>
-    <div class="pcard elo-panel"><div class="elo-panel-h"><div><h3>Global ELO history</h3><div class="hnote">Hover the line for the EPL-anchored rating on any date.</div></div>
+    <div class="pcard elo-panel"><div class="elo-panel-h"><div><h3>Crossbar history</h3><div class="hnote">Hover the line for the rating on any date · <a href="/crossbar/">what Crossbar means</a></div></div>
       <div class="elo-now"><b style="color:${eloTier(elo)}">${Number.isFinite(elo)?Math.round(elo):'—'}</b><span>Current global ELO</span></div></div>
       <div class="chart-wrap big">${chart}</div>
       <div class="elo-key"><span class="top"><i></i>Top 25% starts · ${Math.round(ELO_HI)}</span><span class="avg"><i></i>League average · ${Math.round(ELO_AVG)}</span><span class="low"><i></i>Bottom 25% starts · ${Math.round(ELO_LO)}</span></div></div>
@@ -4083,7 +4085,7 @@ function renderTeams(){
   const teams=[...D.standings].sort((a,b)=>a.team.localeCompare(b.team));
   const menu=$('#profileTeamMenu');
   menu.innerHTML=teams.map(s=>`<div class="dd-opt team-dd-opt" role="option" data-team="${s.team}">
-    ${crest(s.team,s.logo)}<b>${s.team}</b><small>Global ELO ${Number.isFinite(currentElo(s.team))?Math.round(currentElo(s.team)):'—'}</small></div>`).join('');
+    ${crest(s.team,s.logo)}<b>${s.team}</b><small>Crossbar ${Number.isFinite(currentElo(s.team))?Math.round(currentElo(s.team)):'—'}</small></div>`).join('');
   const favorite=FavStore.teams().find(x=>x.league===LID&&stdByTeam.has(x.team));
   const raceKeys=['title','cup','shield','playoff','promo','liguilla','playoffs'];
   const raceKey=raceKeys.find(k=>D.standings.some(s=>s[k]!=null))||
@@ -4265,7 +4267,7 @@ if (_isPower && window.POWER_DATA) {
         <div class="pr-count"></div>
       </div>
       <div class="pr-panel">
-        <div class="pr-head"><span>Rank</span><span>Club</span><span class="pr-conf">Confederation</span><span>Shared scale</span><span>Global ELO</span></div>
+        <div class="pr-head"><span>Rank</span><span>Club</span><span class="pr-conf">Confederation</span><span>Relative strength</span><span><a href="/crossbar/">Crossbar</a></span></div>
         <div class="pr-list"></div>
       </div>
     </div>`;
@@ -4283,7 +4285,7 @@ if (_isPower && window.POWER_DATA) {
           <span class="pr-rank">${t.global_rank}</span>
           <a class="pr-club" href="${clubURL(t.league,t.team)}">${crest(t.team,t.logo)}<span class="pr-team"><span class="pr-name">${prEsc(t.team)}</span><span class="pr-lg">${prEsc(subtitle)}</span></span></a>
           <span class="pr-conf">${prEsc(t.confederation)}</span>
-          <span class="pr-barwrap" title="${prEsc(t.team)} · ${Math.round(t.strength)} global ELO"><span class="pr-bar" style="width:${w.toFixed(1)}%"></span></span>
+          <span class="pr-barwrap" title="${prEsc(t.team)} · Crossbar ${Math.round(t.strength)}"><span class="pr-bar" style="width:${w.toFixed(1)}%"></span></span>
           <span class="pr-str">${Math.round(t.strength)}</span>
         </div>`;
       }).join(''):'<div class="pr-empty">No clubs match this filter.</div>';
@@ -6053,7 +6055,7 @@ if(_infoPage){
     <p class="lead">Entenser is an independent football prediction system. It estimates win / draw / loss probabilities from team strength and form and, as far as we know, is <b>the only football model that grades itself in public</b>: every forecast is scored against what actually happened, hits and misses on the same page.</p>
     <h3>How a prediction is built</h3>
     <ul>
-      <li><b>Global ELO ratings</b> track each team's strength over time, then translate the domestic rating onto one EPL-anchored scale for cross-league comparison.</li>
+      <li><b><a href="/crossbar/">Crossbar</a></b> tracks each team's strength over time, then places every league on one Premier-League-anchored scale so clubs from different competitions can be compared.</li>
       <li><b>Dixon–Coles</b> models goal rates with a 120-day time-decay, so recent matches matter more.</li>
       <li>A <b>season-weighted XGBoost</b> classifier (5-model seed bag) blends xG, form, rest and schedule features.</li>
       <li>The two are combined and then <b>temperature-calibrated</b> so a stated 60% really happens about 60% of the time.</li>
