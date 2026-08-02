@@ -340,3 +340,50 @@ def test_dated_weekly_pages_built_from_archive(tmp_path):
     # the latest /weekly/ page links to the dated archive entry
     latest = (root / "weekly" / "index.html").read_text()
     assert "/weekly/2026-07-12/" in latest
+
+
+# ── Club Watch paths (P4, 2026-08-01) ────────────────────────────────────────
+# The acquisition layer's door into the paid product. Before this, club pages
+# carried a CTA only after ~260 words of tables (y=1650 at 375px) and league
+# pages — the higher-volume search surface — carried none and never named the
+# product.
+
+def test_league_pages_with_standings_offer_a_club_watch_path(built):
+    pages = _pages(built)
+    with_rows = {lid: h for lid, h in pages.items() if 'id="cwChips"' in h}
+    # Knockout competitions with no standings degrade cleanly to no row.
+    assert len(with_rows) >= len(pages) - 2, (
+        f"only {len(with_rows)} of {len(pages)} league pages carry the row")
+    epl = pages["epl"]
+    assert "Follow a club through the season" in epl
+    assert 'class="cw-chip"' in epl
+    assert "league=intel" in epl and "track=1" in epl
+
+
+def test_club_pages_carry_the_watch_cta_before_the_tables(built):
+    for (lid, slug), page in list(_club_pages(built).items())[:40]:
+        assert 'id="clubWatchTop"' in page, f"{lid}/{slug} missing above-fold CTA"
+        assert 'id="clubWatchCTA"' in page, f"{lid}/{slug} missing footer CTA"
+        top_at = page.index('id="clubWatchTop"')
+        table_at = page.find("<table")
+        if table_at != -1:
+            assert top_at < table_at, (
+                f"{lid}/{slug}: watch CTA renders after the first table")
+
+
+def test_club_watch_paths_use_one_tracking_url_shape(built):
+    """Both CTAs on a club page must point at the same intent URL."""
+    page = _club_pages(built)[("epl", "arsenal")]
+    hrefs = re.findall(r'id="clubWatch(?:Top|CTA)" href="([^"]+)"', page)
+    assert len(hrefs) == 2 and hrefs[0] == hrefs[1], hrefs
+
+
+def test_club_watch_copy_obeys_the_claim_matrix(built):
+    """Free boundary stated; no alerts, email, or profit promise anywhere."""
+    epl = _pages(built)["epl"]
+    assert "stay free" in epl
+    banned = ["in your inbox", "email alert", "guaranteed", "profit",
+              "beat the market", "picks"]
+    lowered = epl.lower()
+    for phrase in banned:
+        assert phrase not in lowered, f"banned claim {phrase!r} on league page"

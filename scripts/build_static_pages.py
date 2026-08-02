@@ -152,6 +152,16 @@ padding:10px 18px;margin:20px 0 4px}
 .cta:hover{text-decoration:none;filter:brightness(1.08)}
 .sibs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .sibs a{border:1px solid var(--line);border-radius:6px;padding:5px 10px;font-size:13px;color:var(--txt2)}
+.cw-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.cw-chips a{border:1px solid var(--line2,var(--line));border-radius:999px;
+padding:8px 14px;font-size:13.5px;color:var(--txt1);background:var(--ink1);min-height:44px;
+display:inline-flex;align-items:center}
+.cw-chips a:hover{text-decoration:none;border-color:var(--green);color:var(--green)}
+.club-watch-top{margin:10px 0 4px}
+.club-watch-top a{display:inline-flex;align-items:center;min-height:44px;
+border:1px solid var(--green);border-radius:8px;padding:8px 14px;font-size:14px;
+font-weight:600;color:var(--green)}
+.club-watch-top a:hover{text-decoration:none;background:var(--ink1)}
 footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--txt3)}
 .grp{margin:22px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3)}
 ul.lgs{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px}
@@ -517,6 +527,50 @@ def _jsonld(lg: dict, d: dict, canonical: str, fx: list[dict],
 
 # ── per-league page ───────────────────────────────────────────────────────────
 
+def _club_watch_row(lg: dict, rows: list[dict], lid: str, limit: int = 6) -> str:
+    """Club-selection path into Club Watch from a league page.
+
+    A league page has no single club, so the honest call to action is *pick a
+    club*, not "track this". Each chip carries the same
+    ?league=intel&intelLeague=…&team=…&track=1 intent the club pages already
+    use, so there is exactly one URL shape for tracking across the site.
+
+    Copy obeys docs/paid-claim-matrix.md: the free boundary is stated, and
+    nothing here promises alerts or email — delivery is still shadow-only.
+    """
+    picks = [r for r in rows if r.get("team")][:limit]
+    if not picks:
+        return ""
+    chips = []
+    for r in picks:
+        team = r["team"]
+        q = urlencode({
+            "league": "intel",
+            "intelLeague": lid,
+            "team": r.get("team_id") or team,
+            "track": "1",
+        })
+        chips.append(f'<a class="cw-chip" href="/?{E(q)}">{E(team)}</a>')
+    props = _script_json({
+        "competition_id": lid,
+        "competition_name": lg.get("name") or lid,
+        "country": lg.get("country") or "",
+        "surface": "league_page",
+    })
+    return (
+        '<h2>Follow a club through the season</h2>'
+        '<p class="sub">Current forecasts for every club stay free. '
+        'Entenser Club Watch follows one club\'s season and explains what '
+        'changed and what the next match can change.</p>'
+        f'<div class="cw-chips" id="cwChips">{"".join(chips)}</div>'
+        "<script>document.getElementById('cwChips').addEventListener('click',"
+        "function(e){var a=e.target.closest('a');if(!a)return;"
+        "if(location.protocol==='https:'&&location.hostname==='entenser.com'"
+        f"&&window.gtag){{gtag('event','track_club',Object.assign({props},"
+        "{club_name:a.textContent,transport_type:'beacon'}));}}});</script>"
+    )
+
+
 def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
     lid, name = lg["id"], lg["name"]
     canonical = f"{site}/leagues/{lid}/"
@@ -610,6 +664,8 @@ def league_page(lg: dict, d: dict, registry: list[dict], site: str) -> str:
     if rules:
         parts.append(f'<h2>Competition rules</h2>'
                      f'<p class="sub">{E(_public_copy(rules))}</p>')
+
+    parts.append(_club_watch_row(lg, rows, lid))
 
     parts.append(f'<h2>How these forecasts work</h2>'
                  f'<p class="sub">{E(_METHOD_NOTE)}</p>')
@@ -875,6 +931,25 @@ def club_page(lg: dict, d: dict, row: dict, aliases: list[str],
         f' · {E(season)} · updated {E(generated[:10])}</div></div></div>'
     )
     parts.append(f'<p class="club-summary">{E(_club_summary(lg, d, row, cols))}</p>')
+    # A Club Watch path above the fold, not only after every table. FotMob puts
+    # Follow above the data; ours sat below ~260 words of it. Same intent URL as
+    # the footer CTA so there is one tracking shape, distinct id so both can
+    # carry their own handler.
+    _top_watch_q = urlencode({
+        "league": "intel", "intelLeague": lid,
+        "team": row.get("team_id") or team, "track": "1",
+    })
+    parts.append(
+        f'<p class="club-watch-top"><a id="clubWatchTop" href="/?{E(_top_watch_q)}">'
+        f'Track {E(team)} with Club Watch →</a></p>'
+    )
+    parts.append(
+        "<script>document.getElementById('clubWatchTop').addEventListener("
+        "'click',function(){if(location.protocol==='https:'&&"
+        "location.hostname==='entenser.com'&&window.gtag){"
+        f"gtag('event','track_club',Object.assign({safe_analytics},"
+        "{placement:'above_fold',transport_type:'beacon'}));}});</script>"
+    )
 
     metrics = []
     if row.get("pts") is not None:
