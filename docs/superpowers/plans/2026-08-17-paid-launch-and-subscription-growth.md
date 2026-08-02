@@ -16,6 +16,207 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-01 — Competitor deep dive executed across seven targets.** Prompt:
+  `docs/competitor-deep-dive-prompt.md`. Report: `docs/competitor-deep-dive-2026-08-01.md`.
+  Mechanics-level teardown of FanGraphs, FotMob, Rotowire, American Soccer Analysis, Sports
+  Reference/FBref/Stathead, Transfermarkt and PFF, deliberately below the positioning altitude of
+  the 2026-07-16 combined intelligence report. No accounts created, no payments made, no forms
+  submitted; four escalation packets record what stayed behind paywalls.
+  **Boundary verdict: `G0.5` holds.** Entenser's metered free/paid split is independently converged
+  on by Stathead (data free, query power paid) and PFF (limited vs unlimited on the same objects).
+  **`G0.9` verdict: strengthen, don't defer.** PFF folded Edge and Elite into one plan, Rotowire
+  sells one, FanGraphs runs one product under five SKUs — three of four paid targets run a single
+  consumer tier. Recommend retiring the Creator tier permanently rather than holding it.
+  **Pricing verdict: no change needed.** $5.99/$59.99 sits 3.75× FotMob ($15.99/yr) and 0.75×
+  FanGraphs/Stathead ($80/yr); the standard $79.99 annual exactly matches PFF's sale price. The 17%
+  annual discount is one of two live conventions (Stathead uses the same; FanGraphs 56%, PFF 60%,
+  Rotowire ~50% use the other) — `G0.6`-locked, logged post-freeze.
+  **Highest-value gap found (RET):** a FanGraphs-style `?mode=changes&date=…&dateDelta=…` diff view
+  over race and club pages. Not personalised, so it works logged out and stays shareable and
+  indexable; has content in preseason; and its hard prerequisite — the dated provenance-labelled
+  snapshot archive — shipped 2026-07-31 and currently drives only one chart.
+  **Highest-value gap found (ACQ/CONV):** measured on production, `/leagues/epl/clubs/arsenal/` is
+  266 words with 26 links; the same script on FBref's Arsenal page returns 5,583 words, 1,238 links
+  and 298 inline glossary definitions. *Corrected during review:* a first-draft claim that club pages
+  carried no track CTA was a false negative from a bad regex — `#clubWatchCTA`
+  ("Track Arsenal with Club Watch →", with a `track_club` gtag hook) is live, from
+  `scripts/build_static_pages.py:943–959`, committed in `1d954fa`. The real gaps are page thinness,
+  CTA placement below all data, and the **78 league pages, which carry no Club Watch path and never
+  name the product**. GA4 `G-GVSLY1KBHQ` verified live and firing on production; what remains open is
+  owner reporting access, not instrumentation.
+  **Blocking observation:** both undeployed trust fixes are visibly live-broken on production —
+  Biggest Movers renders six ±100.0 artifacts and the news rail files darts under `EFL League One`
+  and cricket under `Premier League`. Every competitor invests in credibility display; this is the
+  one surface where Entenser currently loses on its own core claim. Deploying the existing fixes
+  outranks adopting anything in the report.
+  **Named-metric finding:** ASA (g+), PFF (PFF Grade) and Transfermarkt (Market Value) each publish
+  a free canonical explainer and each travels off-site; ASA's g+ reaches MLSSoccer.com and Minnesota
+  United's own site on $372/month of Patreon revenue. Entenser names none of its quantities.
+  Recommendation: name the cross-league `global_elo` scale — it makes no accuracy claim, so it
+  clears the claim matrix cleanly.
+  **Nine executable prompts appended to the report** (`P1`–`P9`), each self-contained and
+  gate-routed. Pre-launch set is `P1` release hygiene, `P2` news mis-routing, `P3` funnel
+  measurability, `P4` league-page Club Watch path, `P7` money-path copy; growth set (`P5` diff view,
+  `P6` name the scale, `P8` trust legibility, `P9` daily duel) is held until after the first
+  production transaction. **Top risk recorded: `R1` release logjam** — 194 uncommitted files across
+  four unrelated workstreams 14 days before code freeze, with no way to ship the movers fix without
+  also shipping the UEFA coefficient refit.
+
+- **2026-08-01 — Club Watch locks on the club page.** The club page carried no paid surface at all —
+  every panel free, the only upsell a "Track this club" button in the header — which wasted the
+  highest-intent slot on the site, since a reader there has already named the club Club Watch is
+  sold on. Added an intro card plus three locked cards at the foot of `.prof-grid`: what changed
+  while you were away, what the next match is worth, and your saved what-ifs. Each pairs a REAL free
+  number with a locked continuity layer — the 30-day move comes from `movers.js` (already public on
+  the home page), the fixture and its odds from the payload already rendered above.
+  Two self-inflicted problems caught and fixed mid-build, both now covered by tests:
+  (1) the first pass blurred fabricated figures — a blurred `+6.1` is still the string `+6.1` in the
+  DOM, an invented number sitting where the real locked answer belongs, found by anyone with
+  devtools and impossible to stand behind. Blurred content is now prose describing what is locked,
+  never a figure; the only open value inside a locked block is the real measurement window.
+  (2) card 2 originally locked "what a win does to your season target" — which Next 5 Sim computes
+  FREE in the table on the same page. That directly violated the rule adopted hours earlier. The
+  card now gives that away, names Next 5 Sim, and locks only being told without coming to look.
+  Blur is a visual affordance, so every placeholder is `aria-hidden` and each locked group carries a
+  descriptive label rather than a fake value. Verified on MLS (St. Louis City SC, +41.0 playoff
+  points over a real 2026-07-03 → 2026-08-01 window) and EPL (Arsenal, -19.5 title points), at
+  1280px and 375px with rows stacking on mobile and no horizontal overflow. Five new tests assert no
+  bare figure can reach `blur()`, that placeholders stay `aria-hidden`, that Next 5 Sim is named as
+  free, that the free-forever promise is restated at the lock, and that no free panel was displaced.
+  1,657 tests pass with 14 skips. Static SEO club pages keep their existing single CTA — deliberate;
+  they are crawled landings, not the interactive surface this feedback was about.
+- **2026-08-01 — Club Watch teaser rewritten around worked examples.** Owner: "the locked Club
+  Watch page does a terrible job at teasing the product, nobody knows what 'scenario studio' is."
+  Correct, and the reason is worse than unclear copy: `Scenario studio` appeared in exactly ONE
+  place in the repository — a chip in a ten-item list of internal codenames at
+  `intelligence.js:333`. No definition, no data shape, no renderer anywhere. Meanwhile the software
+  is real: `intelligence_service.run_scenario()` runs a seeded 2,000-sim replay against a pinned
+  snapshot and returns the club plus its three nearest rivals, with stale-snapshot rejection. The
+  product was being sold as a list of names we invented for our own implementation.
+  Rewrite: the chip list is gone, replaced by three worked examples — "Save your what-ifs", "What
+  still has to happen", "What we said before kickoff" — each with a real table of numbers. Every
+  heading is now a sentence a supporter would say (`Season brief` → "Where Arsenal stands today",
+  `Fixture leverage` → "Which matches actually matter", tab `Studio` → "What-ifs"). The single
+  strongest line anchors the scenario feature to **Next 5 Sim**, already free on every league table
+  and the same engine — converting an unfamiliar noun into something the reader has already done.
+  `snap_0718_a3 · fix_88121` no longer appears under the heading "Evidence"; an internal key is not
+  a receipt to anyone outside this repo. Placeholder clubs are gone: `demoClub()` names a real club
+  and real same-league rivals, preferring one the visitor actually signalled (URL param, last club
+  viewed, or a star placed anywhere on the site) and otherwise falling back to a recognisable name.
+  That fallback needed its own list — `defaultSelection()`'s is `catalogLeagues()[0]`, which sorts
+  alphabetically and opened the teaser with "This is what Club Watch keeps for Acassuso".
+  Proof: cold visitor sees Arsenal with Liverpool and Manchester City as rivals; a visitor with
+  Nashville SC starred sees Nashville SC with Inter Miami and LA Galaxy. No page-level horizontal
+  overflow at 375px (both wide tables scroll inside their own containers). 1,652 tests pass with
+  14 skips — one failure surfaced and fixed on the way: `test_club_pages_are_useful_and_structured`
+  caught that the 1,140 `data/team_intelligence/` artifacts had gone stale against the payloads
+  rebuilt by yesterday's ELO recalibration; rebuilt all 1,108 across 66 leagues with zero failures,
+  so the paid product no longer serves pre-recalibration ratings.
+  DURABLE RULE adopted with this work: **lock the continuity, never the current answer.** Any number
+  that exists today stays visible and free; what Club Watch sells is that someone watched it. This
+  is what keeps the free-forever promise true at every lock the next two workstreams will add.
+- **2026-07-31 — global power rankings: the cross-league bridge was anchored on itself.** Owner
+  flagged Bodo/Glimt 4th and Zenit 5th in the world. Two compounding causes, both structural.
+  (1) `_LEAGUE_COEFF` held UEFA country coefficients for eleven leagues and omitted ten others, and
+  a league absent from it priors at `0.0` — which on an EPL-anchored scale is not "unknown", it is
+  "exactly Premier League strength". `league_bridge`'s ridge does what it says and holds a
+  thin-evidence league at its prior, so Norway, Russia, Finland, Ireland, Denmark, Sweden, Austria,
+  Romania, Switzerland and Poland all fitted within 25 ELO of the EPL. The correlation was perfect:
+  every league in the table fitted sanely negative, every league absent fitted to ~0.
+  (2) Worse, `league_bridge` built its prior from `co.league_offset()`, which returns
+  `experiments/league_offsets.json` when it exists — so each fit was regularised toward its own
+  previous output. The offsets were a fixed point: the first-ever fit ran under genuine 0.0 priors
+  and every run since re-anchored on that, drifting a few ELO at a time. Editing the coefficient
+  table changed nothing until the two were separated by a new `static_league_offset()`.
+  Fixes: coefficients for all ten missing leagues; a `_UEFA_UNLISTED_COEFF` floor so no UEFA top
+  flight can silently price itself as the EPL again; `uefa_coeff()` as the single entry point; and
+  an explicit `_russia_coeff()` that decays the last coefficient Russia actually earned (2021-22)
+  toward that floor, one step per season of missing evidence, reported as `suspended_estimate`
+  rather than `fitted` — the bridge has no Russian match since 2022, so a fitted entry there is the
+  ridge echoing the prior back, and both real decline and closed-league ELO inflation push the same
+  way. Proof: refit adopted for UEFA, held-out Brier 0.6139 → 0.6131 and better than the old
+  self-referential priors' 0.6290, fitted beats prior in 10/10 seeds. Bodo/Glimt 4th → **39th**,
+  Zenit 5th → **57th**, KuPS 9th → 99th, IK Sirius 17th → 102nd, Shamrock Rovers 13th → 117th,
+  CSU Craiova 19th → 124th; the top ten is now Bayern, Arsenal, Barcelona, Man City, Inter, Real
+  Madrid, PSV, PSG, Man United, Club Brugge. Four new regression tests lock the floor, the
+  every-league-has-a-coefficient rule, the prior/fitted separation and the Russia decay.
+  CAVEAT: the ten added coefficients are best-available estimates on the existing scale, not a
+  fresh capture from uefa.com — refresh at the next annual review; the ranking is sensitive to
+  their order and rough spacing, both well established, not to a point or two.
+- **2026-07-31 — league-page and matches-page presentation pass.** Removed the build timestamp from
+  the league header (it was wrapping "Division 1" onto two lines) and pinned the header facts to one
+  line; dropped the `▼ -0.6pp · since 07-31 · refresh` chip from every race card and demoted each
+  card's definition to a footnote, deriving one from the outlook's own zone lines for the 70 table
+  leagues whose payloads ship no `hint` (only MLS did); rebuilt the Matches-page leverage rails —
+  clubs stack instead of sharing a line with a "v" so names stop truncating, the bare leverage
+  number gained a `SWING` label and a plain-English explainer, and the rails are now "One per
+  league" and "Biggest swings anywhere" rather than descriptions of their own sort keys; and calmed
+  the matches slate by removing the win percentages duplicated inside the probability bars (each
+  figure appeared beside its club AND inside its block of team colour) and slimming the bar to a
+  7px meter. One test updated: `test_fast_refresh_uses_cached_probabilities_and_data_only_branch`
+  asserted the removed timestamp string. `scripts/fast_refresh.py` still writes the provenance to
+  every payload — it is simply unrendered until the Trust rebrand gives it a home. 1,652 tests pass
+  with 14 skips.
+- **2026-07-31 — one colour palette for projection categories.** Owner feedback on the race-movement
+  sparklines: the axis must always be grey, and the trajectory must take "the color of that category
+  in the table — MLS cup is gold so that should be gold". The cause was three category-colour maps
+  that had drifted: the ladder's heat columns (`BRGB`), the club page's season-trajectory chart
+  (`PROJECTION_COLORS`), and a six-metric ternary inside `renderRaceHistory`. MLS Cup rendered gold
+  in the table, blue in the trajectory chart and neutral grey in the sparkline, because `cup` and
+  `shield` had fallen off two of the three lists. All three collapse into one `METRIC_RGB` palette
+  banded by meaning — gold win-outright, green qualify/secure, blue secondary route, red danger —
+  read by every surface that colours an outcome. The sparkline axis, both its baseline and its
+  season-progress overlay, is now grey in every category, with the played stretch a lighter grey
+  than the remainder so progress still reads without competing with the trajectory for meaning.
+  Proof: per-metric strokes now equal the table's heat colours exactly — MLS cup/shield/playoff
+  `244,183,64` / `61,220,132` / `74,163,255` against identical column backgrounds, and the same
+  match on Brazil (Champion/Continental/Relegation) and Liga MX (Liguilla); the club-page trajectory
+  legend flipped from playoff-green, shield-pale, cup-blue to blue/green/gold. All 78 live leagues
+  swept again with zero failures and a grey axis on every one; 1,648 tests passed with 14 skips.
+  Presentation only — no paid-launch gate is affected. Not yet deployed.
+- **2026-07-31 — every league page now renders through one ladder.** MLS was the last page still
+  on the pre-redesign half-width standings markup: of 78 live competitions, 70 use `outlook.mode
+  "table"`, 7 are knockout brackets, and MLS alone used `mode "mls"` and its own `ladder()`
+  renderer. That renderer had no GP or GD columns, so it stacked `17 GP · +21 GD · +2.8 xGD` into a
+  10px grey sub-line beneath each club and set names at 12px instead of 14px — exactly the
+  treatment removed from every other league. `tableLadder()` and `ladder()` now both delegate to one
+  `ladderPanel()`, so the grid, type scale, club cell, cut lines and Club Watch hover overlay cannot
+  drift apart again; MLS keeps its two conferences, its five outcome columns and its
+  host/wild-card/playoff cuts, but expresses them in the shared chrome, stacked full width with the
+  finish plot and run-in moved below as on a table league. Its five race cards also drop the bespoke
+  `favCard` for the shared `raceCard`, gaining the two nearest contenders and the movement chip.
+  Retired with their last callers: `.col-head`/`.row`, `.ladder-h`, `.conf-dot`, `.po-line`/
+  `.wc-line`, the whole `.fav*` card block, `hcell`/`RGB`/`MAX`/`sgnf`. Removing `.fav` also
+  un-broke `.mx-lg .fav`, the Matches-page pinned-club chip, which had been inheriting a bordered
+  card box from a rule it never meant to match. `clubColWidth` now measures at the 700 14px it
+  actually renders rather than the old 600 12px. Proof: an in-page sweep of all 78 live leagues
+  rendered every one with zero failures — 70 table, 7 knockout, 1 MLS — with zero legacy rows, zero
+  standings sub-lines, zero old race cards and no `undefined` in any ladder note; 1,648 tests passed
+  with 14 skips; verified at 1440px and 375px with no console errors and no page-level horizontal
+  overflow. One regression was caught and fixed during the work: `ol.cards.map(raceCard)` passed the
+  array index into `raceCard`'s new second parameter, blanking every table league's page.
+  Presentation only — no paid-launch gate is affected. Not yet deployed.
+- **2026-07-31 — desktop home round 3: one league drives the whole upper page.** Seven owner
+  requests, all shipped. The Title Probabilities board gained Belgium as a fixed row and a
+  reader-controlled slot row (default Netherlands), so it stands as tall as the league table beside
+  it. The masthead dropped the build timestamp and moved `78 leagues live` to the left cluster,
+  leaving search alone on the right. The horizontally-scrolling results and fixture strips were
+  replaced by two vertical columns — Upcoming and Recent Results, side by side, with club names —
+  both bound to whichever league the rotation is showing, as is Biggest Movers (new default scope
+  `This league`; the region filters survive as the cross-league view). A dropdown of the 62
+  off-rotation leagues lazily loads that league's own payload, takes over the board's slot row, and
+  pins every rotating panel to it until a dot or board row is clicked. Root-caused the 0↔100 mover
+  artifacts: `odds_history.parquet` shows new leagues pinned at an exact certainty until their first
+  real simulation, and the existing reset guards missed them because those require `n_played` to be
+  unchanged. `build_movers.py` now withholds any mover whose baseline is saturated and whose swing
+  is ≥25pp, counted as `saturated_baseline` in diagnostics; the client mirrors the rule so a cached
+  payload cannot reintroduce them. Proof: 46 artifacts suppressed and 0 remaining on the live
+  parquet, with the board now leading on real races (MLS playoff odds, Tottenham relegation);
+  1,648 tests passed with 14 skips (the two Playwright modules cannot collect — `playwright` is not
+  installed locally, unchanged by this work); 11 sampled leagues across every dropdown group
+  rendered a table, fixtures and results with zero failures, and cups are excluded because they
+  render as brackets; verified at 1440px and 375px with no console errors and no horizontal
+  overflow. Presentation only — no paid-launch gate is affected. Not yet deployed.
 - **2026-07-31 — Club Watch season forecast history deployed and published.** The History view
   now merges leakage-safe early-season replays with exact nightly archives, preserves exact rows on
   same-day conflicts, labels reconstructed and archived chart segments, and chooses a useful
