@@ -27,6 +27,20 @@ OUT = Path("webapp/data/movers.js")
 LEAGUES_JS = Path("webapp/leagues.js")
 WINDOW_DAYS = 30
 
+# ── Saturated-baseline suppression (2026-07-31 home feedback: "biggest movers
+#    don't work well when there are new leagues in the model and a team goes
+#    from 0 to 100 or reverse because they are brand new").
+#    A metric parked at an exact certainty (0.0 / 100.0) and then swinging tens
+#    of points is a bootstrap or end-of-season placeholder collapsing into a
+#    real forecast, not new football evidence. The existing reset guards miss it
+#    because they require n_played to be unchanged, and a brand-new league's
+#    match count keeps climbing while its odds stay pinned (verified in
+#    odds_history.parquet: romania-liga1 title 100→0, finland-veikkausliiga
+#    releg 100→0, both with n_played moving).
+#    Small moves off an exact 0 (0.0 → 3.4) stay — those are real.
+SATURATION_EPS = 0.5
+SATURATED_MIN_DELTA = 25.0
+
 # Season-odds columns worth surfacing (next-match probs excluded — too noisy).
 METRICS = ["title", "playoff", "shield", "cup", "ucl", "europa", "releg", "promo"]
 METRIC_LABEL = {"title": "Title", "playoff": "Playoffs", "shield": "Shield",
@@ -63,6 +77,14 @@ def compute_movers(df: pd.DataFrame, min_delta: float = 1.5,
 
 def _same_number(a, b) -> bool:
     return pd.notna(a) and pd.notna(b) and float(a) == float(b)
+
+
+def _is_saturated(v) -> bool:
+    """True when a probability sits at an exact certainty endpoint."""
+    if pd.isna(v):
+        return False
+    v = float(v)
+    return v <= SATURATION_EPS or v >= 100.0 - SATURATION_EPS
 
 
 def _latest_continuous_segment(grp: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
@@ -145,6 +167,7 @@ def compute_movers_with_diagnostics(
         "first_observation": 0,
         "reset": 0,
         "missing_baseline": 0,
+        "saturated_baseline": 0,
         "observations": [],
     }
     for (league, team), grp in df.groupby(["league", "team"]):
@@ -209,8 +232,17 @@ def compute_movers_with_diagnostics(
                     "reason": "current_or_prior_value_missing",
                 })
                 continue
-            used_dates.append(prev["_d"])
             delta = float(b) - float(a)
+            if _is_saturated(a) and abs(delta) >= SATURATED_MIN_DELTA:
+                diagnostics["saturated_baseline"] += 1
+                diagnostics["observations"].append({
+                    "league": league, "team": team, "metric": m,
+                    "date": str(now.get("snapshot_date") or ""),
+                    "state": "saturated_baseline",
+                    "reason": "baseline_pinned_at_certainty",
+                })
+                continue
+            used_dates.append(prev["_d"])
             if abs(delta) < min_delta:
                 continue
             out.append({"league": league, "region": region_of.get(league, "Other"),

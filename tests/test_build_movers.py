@@ -61,6 +61,40 @@ def test_top_n_ranked_by_magnitude():
     assert movers[0]["delta"] == 29.0   # biggest magnitude first
 
 
+def test_saturated_baseline_collapse_is_suppressed_and_labeled():
+    # A brand-new league sits pinned at an exact certainty until its first real
+    # simulation, then collapses. n_played keeps climbing throughout, so the
+    # reset guards don't catch it — the saturated-baseline rule must.
+    df = pd.DataFrame([
+        ("finland-veikkausliiga", "Jaro", "2026-07-19", "2026", 90, 0.0, 100.0),
+        ("finland-veikkausliiga", "Jaro", "2026-07-26", "2026", 96, 0.0, 100.0),
+        ("finland-veikkausliiga", "Jaro", "2026-07-31", "2026", 102, 0.0, 4.0),
+    ], columns=[
+        "league", "team", "snapshot_date", "season", "n_played",
+        "title", "releg",
+    ])
+    movers, _, _, diagnostics = compute_movers_with_diagnostics(df, min_delta=1.0)
+    assert movers == []
+    assert diagnostics["saturated_baseline"] >= 1
+    assert any(row["team"] == "Jaro" and row["state"] == "saturated_baseline"
+               for row in diagnostics["observations"])
+
+
+def test_small_move_off_zero_baseline_survives():
+    # The guard must not swallow genuine movement that merely starts at 0.0 —
+    # a club climbing 0.0 → 3.4 in the title race is real football evidence.
+    df = pd.DataFrame([
+        ("epl", "Brentford", "2026-07-01", "2026", 2, 0.0, 30.0),
+        ("epl", "Brentford", "2026-07-07", "2026", 4, 0.0, 30.0),
+        ("epl", "Brentford", "2026-07-14", "2026", 6, 3.4, 30.0),
+    ], columns=[
+        "league", "team", "snapshot_date", "season", "n_played",
+        "title", "releg",
+    ])
+    movers, _, _, _ = compute_movers_with_diagnostics(df, min_delta=1.0)
+    assert [(m["metric"], m["delta"]) for m in movers] == [("title", 3.4)]
+
+
 def test_midstream_reset_spike_is_suppressed_and_labeled():
     df = pd.DataFrame([
         ("romania-liga1", "FC Botosani", "2026-07-01", "2026", 2, 0.0, 30.0),
