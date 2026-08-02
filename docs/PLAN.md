@@ -34,8 +34,8 @@ implementation choice) · `paid-claim-matrix.md` · `growth-measurement-contract
 the legal draft when Terms, refund, and privacy publish.
 
 **Reusable prompts — `docs/prompts/`.** Tools, not documents: `competitor-deep-dive.md` ·
-`site-ux-audit.md` · `league-qa-audit.md` · `launch-readiness-audit.md`. **Retire:** when the
-surface they audit no longer exists.
+`site-ux-audit.md` · `league-qa-audit.md` · `launch-readiness-audit.md` ·
+`codebase-unification-review.md`. **Retire:** when the surface they audit no longer exists.
 
 **Built but unwired — documentation for real code that has not shipped.**
 `postgame-win-expectancy.md` (`scripts/postgame_win_expectancy.py` exists and is calibration-
