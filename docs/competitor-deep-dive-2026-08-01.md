@@ -1558,6 +1558,122 @@ A competitor review that only lists gaps invites damage. These are decisions the
 > model probabilities in this task (that is a separate, riskier idea deliberately held). No new
 > external data dependency. Obey the design contract.
 
+## P3 result — funnel measurability audit *(executed 2026-08-01)*
+
+**Verdict: instrumentation is complete and firing. The open item is owner reporting access, not
+code. No analytics work is needed.**
+
+| Funnel event | Emitted | Citation |
+|---|---|---|
+| `club_page_view` | ✅ static **and** SPA | `build_static_pages.py:863`; `index.html:3888` |
+| `track_club` | ✅ static **and** SPA | `build_static_pages.py:957`; `intelligence.js:1648` |
+| `registration_start` | ✅ | `intelligence.js:1686` |
+| `registration_complete` | ✅ | `intelligence.js:1587` |
+| `sample_update_view` | ✅ | `intelligence.js:581` |
+| `upgrade_view` | ✅ | `intelligence.js:585` |
+| `checkout_start` | ✅ | `intelligence.js:1780` |
+| `purchase` | ✅ | `intelligence.js:1626` |
+
+**Live confirmation (Observed, production, 2026-08-01).** Loading
+`/leagues/epl/clubs/arsenal/` logged out pushes `club_page_view` to `dataLayer` with the full
+dimension set the growth contract specifies:
+
+```
+club_id: "v1:1c90591709108353", club_name: "Arsenal", competition_id: "epl",
+competition_name: "Premier League", country: "England",
+data_state: "pre-season", surface: "club_page"
+```
+
+GA4 `G-GVSLY1KBHQ` is loaded and `gtag` is a function. Static pages deliberately load their own
+gtag (`build_static_pages.py:90–101`) because "organic search lands here first" — so the 1,446-page
+acquisition layer is instrumented independently of the SPA. This corrects an assumption worth
+naming: the acquisition surface is *not* a measurement blind spot.
+
+**Owner checklist — the part that cannot be done from the repository:**
+
+1. Confirm ownership/admin of GA4 property `G-GVSLY1KBHQ` and grant reporting access.
+2. Confirm the eight events above appear in GA4 **Realtime**, then in **Events** after ~24h.
+3. Mark `purchase` as a conversion; confirm currency/value arrive on it.
+4. Verify Search Console is linked and the 1,543-URL sitemap is submitted.
+5. Confirm internal traffic (Ryan's own devices, CI) is filtered, or `STATUS.md` reconciliation
+   rule 1 will never balance against Stripe.
+
+Until steps 1–2 are done, every scorecard row stays **`missing`** under
+`docs/growth-measurement-contract.md` — not zero.
+
+## P7 result — money-path copy pack *(drafted 2026-08-01; two owner decisions open)*
+
+### Decision 1 — the annual refund basis **(owner)**
+
+`G0.7` approves a 30-day first-billing-period guarantee. Nothing states what an *annual* refund
+inside that window returns. Stripe will not decide this for you; whatever you do the first time
+becomes the policy.
+
+| Option | Annual buyer cancels day 20 | Revenue effect | Trust effect |
+|---|---|---|---|
+| **A — Full refund (recommended)** | Gets $59.99 back | Loses up to $59.99 per refunder | Simplest sentence on the page: "30 days, full refund, no questions." Nothing to dispute |
+| B — Pro-rata at the annual rate | Gets ~$56.70 back | Keeps ~$3.29 | Reads fair, but needs a formula on the page |
+| C — Pro-rata at the monthly rate (Rotowire's) | Gets ~$44.00 back | Keeps ~$16 | Claws back the annual discount. Defensible, but the buyer discovers it at the worst moment |
+
+**Recommendation: A.** At Entenser's price a full refund is worth ~$60; the sentence it buys is worth
+more than that on a launch whose entire positioning is trust. C is what a company optimising a mature
+funnel does, and Entenser is not that yet.
+
+### Decision 2 — the launch-price end date **(owner, `G0.2`)**
+
+The four immutable Stripe Prices already encode launch ($5.99/$59.99) below standard
+($7.99/$79.99). Nothing currently tells a customer the launch price ends. PFF runs the same structure
+as a dated "EARLY BIRD SALE — SAVE 33% THROUGH AUG 17".
+
+**This needs a real date. Per the prompt's own guardrail I have not invented one, and the copy below
+leaves it as `<DATE>`.** If you would rather not commit to a date, the honest alternative is to drop
+the framing entirely rather than imply a deadline that does not exist.
+
+### Draft copy — ready once the two decisions land
+
+> **Club Watch** · $5.99/month or $59.99/year
+> *Launch pricing through `<DATE>`. After that, Club Watch is $7.99/month or $79.99/year. Your price
+> never changes while your subscription stays active — it auto-renews at the same price you signed
+> up at.*
+>
+> **Cancel any time** from your billing portal; access runs to the end of the period you paid for.
+> **30-day guarantee:** if Club Watch isn't for you, tell us within 30 days of your first payment and
+> we'll refund it in full.
+>
+> **What stays free, always:** current forecasts for all 78 competitions, every league table and race
+> page, one-match what-ifs, and the full public record of how the model has scored.
+
+**Plan names carry the renewal term** (FanGraphs' convention): "Club Watch — Monthly (auto-renewing)"
+and "Club Watch — Annual (auto-renewing)".
+
+### The "why more than the football app I already pay for?" sentence
+
+FotMob is $15.99/year. Entenser's annual is $59.99 — 3.75×. One honest sentence, grounded in the
+`G0.4` job rather than in data volume, where Entenser does not win:
+
+> Your scores app tells you what happened. Club Watch tells you what it changed — which of your
+> club's season outcomes moved, why, and what the next match can still swing.
+
+*All copy above is traceable to `docs/paid-claim-matrix.md`: free boundary named, no alerts or email
+promise, no profit/edge/picks language, price visible before checkout.*
+
+## P6 result — name shortlist *(owner decision required; not chosen)*
+
+The number: the shared cross-league ELO (`global_elo`), 892 clubs across 50 leagues on one comparable
+scale. Constraints applied — makes no accuracy or profit claim, implies no betting utility,
+pronounceable and searchable in English.
+
+| Candidate | Reasoning | Risk |
+|---|---|---|
+| **Club Level** | Plainest possible English; "Arsenal are at club level 1756" needs no explanation; searchable as a phrase | Generic; weak trademark distinctiveness |
+| **World Rating** | Says exactly what it is — one rating across every league; travels well in headlines ("Entenser World Rating") | "World" may over-claim coverage at 50 of ~200 leagues |
+| **Crossbar** | Football-native, memorable, ownable, no existing metric uses it; "Arsenal's Crossbar is 1756" | Cute; less self-describing, needs the explainer to do more work |
+
+**Not recommended:** anything containing *Power*, *Index*, *Edge*, *Score*, or *Strength Rating* —
+the first three are crowded or betting-adjacent, and the claim matrix bans edge positioning.
+
+Ryan chooses; the explainer page in P6 is written against whichever name is picked.
+
 ## Sequencing
 
 ```
