@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"super-lig","generated":"2026-08-01 12:10 UTC","items":[]};
+window.NEWS_DATA = {"league":"super-lig","generated":"2026-08-03 08:34 UTC","items":[{"title":"Growing reports Leao could stay at Milan as Fenerbahce have not yet convinced","link":"https://football-italia.net/growing-reports-leao-could-stay-at-milan/","desc":"Neither Galatasaray nor Fenerbahce have yet been able to close a deal for Rafael Leao,...","published":"2026-08-02T13:31:07+00:00","source":"Football Italia","is_analysis":false}]};
