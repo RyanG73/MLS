@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-03 13:46 UTC","items":[{"title":"Pre-season round-up: Torino edge Burnley, Parma held by Iraklis","link":"https://football-italia.net/pre-season-round-up-torino-burnley-parma/","desc":"Torino continued their perfect pre-season with a narrow victory in England, while Parma were pegged...","published":"2026-08-02T17:20:00+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-04 13:06 UTC","items":[]};

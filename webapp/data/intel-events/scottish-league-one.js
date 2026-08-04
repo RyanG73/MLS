@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-08-03 13:46 UTC","teams":{"Inverness Caledonian Thistle":[],"Stenhousemuir":[],"Hamilton Academical":[],"Queen of the South":[],"Alloa Athletic":[],"Peterhead":[],"Montrose":[],"Cove Rangers":[],"East Fife":[],"Kelty Hearts":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-08-04 13:06 UTC","teams":{"Inverness Caledonian Thistle":[],"Stenhousemuir":[],"Hamilton Academical":[],"Queen of the South":[],"Alloa Athletic":[],"Peterhead":[],"Montrose":[],"Cove Rangers":[],"East Fife":[],"Kelty Hearts":[]}};
