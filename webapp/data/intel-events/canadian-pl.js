@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-26 12:41 UTC","teams":{"Cavalry FC":[],"Forge":[],"Atl\u00e9tico Ottawa":[],"York United":[],"Pacific FC":[],"HFX Wanderers FC":[],"Vancouver FC":[],"Valour":[]}};

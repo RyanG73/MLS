@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-26 12:41 UTC","teams":{"AEK Athens":[],"Olympiacos":[],"PAOK Salonika":[],"Panathinaikos":[],"Aris":[],"Levadiakos":[],"Atromitos":[],"OFI Crete":[],"Asteras Tripoli":[],"Kifisia":[],"Panetolikos":[],"Volos NFC":[],"Iraklis":[],"Kalamata":[]}};

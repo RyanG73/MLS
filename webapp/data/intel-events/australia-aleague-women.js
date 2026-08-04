@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-26 12:41 UTC","teams":{"Melbourne City":[],"Wellington Phoenix":[],"Canberra United ":[],"Brisbane Roar":[],"Adelaide United ":[],"Melbourne Victory ":[],"Central Coast Mariners":[],"Perth Glory":[],"Newcastle Jets ":[],"Sydney FC ":[],"Western Sydney ":[]}};

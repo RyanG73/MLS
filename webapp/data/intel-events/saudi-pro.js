@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-26 12:41 UTC","teams":{"Al Hilal":[],"Al Nassr":[],"Al Ahli":[],"Al Qadsiah":[],"Al Ittihad":[],"Al Taawoun":[],"Al Ettifaq":[],"Neom SC":[],"Al Shabab":[],"Al Fateh":[],"Al Fayha":[],"Al Hazem":[],"Al Khaleej":[],"Al Kholood":[],"Al Riyadh":[],"Al-Faisaly":[],"Abha":[],"Al Diriyah":[]}};

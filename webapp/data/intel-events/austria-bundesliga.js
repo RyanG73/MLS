@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-26 12:41 UTC","teams":{"LASK Linz":[],"SK Sturm Graz":[],"RB Salzburg":[],"Grazer AK":[],"TSV Hartberg":[],"Wolfsberger":[],"SV Josko Ried":[],"SC Rheindorf Altach":[],"WSG Swarovski Tirol":[],"Rapid Vienna":[],"Austria Vienna":[],"Austria Lustenau":[]}};

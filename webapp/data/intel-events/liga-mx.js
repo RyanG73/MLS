@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-26 12:41 UTC","teams":{"Tijuana":[],"Cruz Azul":[],"Atlas":[],"Am\u00e9rica":[],"Pachuca":[],"Toluca":[],"Monterrey":[],"Necaxa":[],"Puebla":[],"Guadalajara":[],"Pumas UNAM":[],"Atl\u00e9tico de San Luis":[],"Atlante":[],"Tigres UANL":[],"Quer\u00e9taro":[],"FC Juarez":[],"Le\u00f3n":[],"Santos":[]}};

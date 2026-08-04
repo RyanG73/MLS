@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-07-26 12:41 UTC","teams":{"Barcelona":[],"Real Madrid":[],"Real Sociedad":[],"CD Tenerife":[],"Atl\u00e9tico Madrid":[],"Granada":[],"Athletic Club":[],"Deportivo La Coru\u00f1a":[],"Madrid CFF":[],"Sevilla":[],"Dux Logro\u00f1o":[],"Espanyol":[],"FC Badalona":[],"Eibar":[],"Valencia":[],"Alav\u00e9s":[]}};
