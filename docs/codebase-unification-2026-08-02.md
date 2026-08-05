@@ -165,6 +165,31 @@ The subtractive premise did not hold for `scripts/`. The reduction available her
 
 ---
 
+## Outcomes — owner approved all recommendations, 2026-08-04
+
+| Decision | Outcome |
+|---|---|
+| **E3** Austria duplication | **Fixed.** `build_league_data` now collapses rows sharing a `team_id`, keeping the one with the most games played. Austria: 15 rows → **12 rows / 12 clubs**. Guard added (`test_one_team_id_yields_one_standings_row`, parametrised across every domestic payload) — fails on the old data, passes on the new |
+| **§3.3** `legacy/` | **Deleted** — 56 files, 9,042 lines, plus `requirements-legacy.txt`. Every surviving reference rewritten to name the recovery SHA `e9043ed` rather than dangle |
+| **E2** dead config | **Resolved.** 15 sections removed, `config/settings.yaml` 137 → 53 lines. Kept `data` and `market`, the only two that are read |
+| **ELO branches** | `infallible-jennings-948dec` **deleted**; `clever-meninsky-e0cbc4` retained pending an owner call (see below) |
+| **E1** stale 2024 pin | See below — evidence gathered, decision stated |
+
+**Two corrections to claims made earlier in this document:**
+
+1. **The `team_intelligence` staleness was not a CI defect.** The closing note speculated that
+   `refresh-daily.yml`'s step was "failing or being skipped". Wrong: `data/team_intelligence/` is
+   gitignored with **0 tracked files** and CI rebuilds it every run. The three-day gap was purely a
+   local artifact of a 2026-08-01 build in this checkout. No CI problem exists.
+
+2. **"Byte-identical duplicate" over-stated the branch claim.** `d4a0a38` and `eb9abfa` produce an
+   identical `continuous_tier_elo.py` and — verified at tree level — **zero differing `.py` files
+   at all**. But their trees are not identical: 14 files differ, all docs and experiment
+   bookkeeping (`PLAN.md`, `feature-hunt-log.md`, `experiments/registry.jsonl`), long since
+   superseded on `main`. The deletion was still correct; the original wording was not precise.
+
+---
+
 ## §3.3 — `legacy/` disposition (9,097 lines)
 
 Every isolation check passes. Nothing active imports it (`grep` for `from legacy` / `import legacy`
