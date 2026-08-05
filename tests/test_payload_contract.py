@@ -213,6 +213,25 @@ class TestGlobalEloPayload:
             pytest.skip(f"{path.name} has no domestic standings")
         return path, data
 
+    def test_one_team_id_yields_one_standings_row(self, domestic_payload):
+        """A club must appear once. canonical_team_id is name-derived, so two
+        source entries whose display names canonicalise the same emit two rows
+        for one club — putting a club that does not exist on the global ladder
+        and linking it twice on the league page.
+
+        Regression: austria-bundesliga carried 15 rows for 13 team_ids on
+        2026-08-04 (Rapid Vienna and Austria Vienna each twice, the second a
+        zero-game placeholder at the default seed).
+        """
+        path, data = domestic_payload
+        seen = {}
+        for row in data["standings"]:
+            seen.setdefault(row["team_id"], []).append(row.get("team"))
+        dupes = {k: v for k, v in seen.items() if len(v) > 1}
+        assert not dupes, (
+            f"{path.name}: {len(dupes)} team_id(s) appear on more than one "
+            f"standings row: {dupes}")
+
     def test_global_elo_reconciles_with_raw_rating(self, domestic_payload):
         path, data = domestic_payload
         scale = data.get("elo_scale")

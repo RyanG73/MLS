@@ -1964,6 +1964,23 @@ def main():
         if _grp_of is not None:
             row["grp"] = _grp_of[t]   # classification group (0 = championship)
         standings.append(row)
+    # One team_id, one row. `canonical_team_id` is name-derived (payload_utils:39),
+    # so two source entries whose display names canonicalise identically emit two
+    # rows for one club. Austria's Bundesliga did exactly that on 2026-08-04:
+    # Rapid Vienna and Austria Vienna each appeared twice, once with real results
+    # and once as an unplayed placeholder at the default 1500 seed, which put two
+    # clubs that do not exist on the global ladder and linked them twice on the
+    # league page. Keep the entry with the most games played — the placeholder is
+    # always the one with none. A no-op for every league with no collision.
+    if len({s["team_id"] for s in standings}) != len(standings):
+        _best: dict[str, dict] = {}
+        for _row in standings:
+            _prev = _best.get(_row["team_id"])
+            if _prev is None or (_row.get("gp") or 0) > (_prev.get("gp") or 0):
+                _best[_row["team_id"]] = _row
+        _dropped = len(standings) - len(_best)
+        standings = list(_best.values())
+        print(f"  [standings] collapsed {_dropped} duplicate team_id row(s)")
     standings.sort(key=lambda s: (s.get("grp", 0), -s["pts"], -s["gd"], -s["proj_pts"]))
 
     # ── Per-team current model inputs (latest rolling snapshot) ───────────────
