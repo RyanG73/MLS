@@ -1,67 +1,24 @@
-# MLS Prediction System — Central Configuration
-# All tunable parameters live here. Scripts import via config.SETTINGS.
+# MLS Prediction System — Configuration
+#
+# NOT the model config. This file used to say "all tunable parameters live here",
+# and that stopped being true when the webapp/harness architecture replaced the
+# Postgres/Streamlit stack in June 2026: the new code hardcodes its own values
+# and 17 of the 18 sections here had zero readers. They were the archived stack's
+# settings, and were deleted with it on 2026-08-04.
+#
+# Model constants (ELO K/HOME_ADV/REGRESS, DC half-life, xG windows, edge
+# threshold) are canonical in CLAUDE.md "Key decisions" and docs/CURRENT_STATE.md.
+# Editing them here would change nothing — which is why they are no longer here.
+#
+# What remains is what is actually read:
+#   data   — config/__init__.py resolves current_season on load
+#   market — data_pipeline/odds_log.py reads sport_key, regions, odds_format
 
 # ─── Data ────────────────────────────────────────────────────────────────────
 data:
   raw_data_dir: "data/raw"
   backfill_start_season: 2011          # ASA API reliable from 2011; earlier years sparse
   current_season: null                 # Optional; defaults to current year or env MLS_CURRENT_SEASON
-
-# ─── PostgreSQL Connection (legacy — archived stack only) ─────────────────────
-# Used only by the archived Postgres pipeline under legacy/. The active
-# webapp/harness path is database-free. Overridable by .env environment vars.
-database:
-  host: "127.0.0.1"        # override with env PG_HOST
-  port: 5432               # override with env PG_PORT
-  name: "mls"              # override with env PG_DBNAME
-  user: "ryang"            # override with env PG_USER
-  password: ""             # set via env PG_PASSWORD (never hardcode here)
-
-# ─── ELO Rating System ───────────────────────────────────────────────────────
-elo:
-  initial_rating: 1500                  # Starting ELO for new teams
-  k_factor: 25                          # Validated 2026 (research harness ELO grid winner)
-  home_advantage_elo: 80                # Validated 2026 (was 100; grid winner = 80)
-  mov_multiplier: true                  # Apply margin-of-victory multiplier
-  season_regression_pct: 0.40          # Promoted 2026-06-07 (synergistic with whl=6; avg 0.6337, cal 0.0195)
-
-# ─── Feature Engineering ─────────────────────────────────────────────────────
-features:
-  xg_half_life_days: 60                # Exponential decay half-life for xG rolling averages
-  xg_windows: [3, 5, 10, 15]          # Match-count rolling windows for xG stats — champion parity_frame uses all 4
-  form_windows: [3, 5, 10, 15]         # Rolling windows for form (pts per game) — must match eval harness default
-  expansion_team_seasons: 2            # Treat team as "expansion" for first N seasons
-  min_matches_for_features: 3          # Min matches before team gets non-prior features
-
-# ─── Dixon-Coles Model ───────────────────────────────────────────────────────
-dixon_coles:
-  max_goals: 10                         # Truncate Poisson sum at this value
-  time_decay_half_life_days: 120       # Validated 2026 (was 180; 120 confirmed optimal vs 90/150/180)
-  rho_correction: true                  # Apply Dixon-Coles low-score correction
-  ou_threshold: 2.5                     # Over/Under line
-
-# ─── Gradient Boosting ───────────────────────────────────────────────────────
-gradient_boost:
-  cv_folds: 5                           # Time-series CV folds
-  optuna_trials: 50                     # Hyperparameter search iterations
-  early_stopping_rounds: 50
-  ou_threshold: 2.5
-
-# ─── Bayesian Model (R/brms) ─────────────────────────────────────────────────
-bayesian:
-  enabled: false                        # Set true once R/Stan is installed and Python baseline is validated
-  chains: 4
-  iter: 2000                            # 1000 warmup + 1000 samples per chain
-  cores: 4                              # Parallel chains (match CPU count)
-  adapt_delta: 0.95
-  elo_scale_factor: 400                 # Divide ELO diff by this to get prior mean
-  expansion_prior_sd_multiplier: 2.0   # Wider prior for expansion teams
-
-# ─── Ensemble / Stacking ────────────────────────────────────────────────────
-ensemble:
-  meta_learner: "logistic_regression"  # Options: logistic_regression, ridge
-  calibration_method: "isotonic"       # Options: isotonic, platt
-  cv_folds: 5                          # Time-series CV for stacking
 
 # ─── Market / Betting ────────────────────────────────────────────────────────
 market:
@@ -94,70 +51,3 @@ market:
     bundesliga-2: "soccer_germany_bundesliga2"
     ligue-2: "soccer_france_ligue_two"
     liga-mx: "soccer_mexico_ligamx"
-
-# ─── News Pipeline ───────────────────────────────────────────────────────────
-news:
-  poll_interval_hours: 6
-  rss_feeds:
-    - url: "https://www.espn.com/espn/rss/soccer/news"
-      source: "ESPN"
-    - url: "https://www.mlssoccer.com/rss/news.xml"
-      source: "MLSSoccer"
-    - url: "https://theathletic.com/mls/feed/rss/"
-      source: "The Athletic MLS"
-  keywords:
-    - injury
-    - injured
-    - suspension
-    - suspended
-    - out
-    - available
-    - return
-    - doubtful
-    - questionable
-    - red card
-    - ban
-    - fitness
-    - ruled out
-    - missed training
-  impact_magnitude_max: 0.20           # Max ±20% strength adjustment from news
-  claude_model: "claude-sonnet-4-6"     # Override with env CLAUDE_MODEL if needed
-
-# ─── Dashboard ───────────────────────────────────────────────────────────────
-dashboard:
-  beta_pages_enabled: false             # Set true to enable pages 6/7/8 (Backtest, Season Forecast, Real Bets)
-  prediction_horizon_days: 14          # Show predictions for next N days
-  calibration_bins: 10                 # Number of probability bins for calibration plot
-  min_bets_for_roi: 10                 # Min bets before showing ROI stats
-  page_title: "MLS Prediction Dashboard"
-  theme_primary_color: "#1a4b8c"       # MLS blue
-
-# ─── Risk Management (Phase 2) ───────────────────────────────────────────────
-risk:
-  drawdown_limit_pct: 15.0             # Pause new bets if 30-day drawdown exceeds this %
-  drawdown_window_days: 30
-  hard_cap_pct: 10.0                   # Max single bet as % of bankroll
-
-# ─── Backtesting (Phase 2) ───────────────────────────────────────────────────
-backtest:
-  default_weekly_step: 7
-  default_min_train_size: 100
-
-# ─── Notifications (Phase 2) ─────────────────────────────────────────────────
-notifications:
-  enabled: true                        # Set false to silence ntfy.sh pushes
-  drift_pct_threshold: 5.0             # % Brier degradation that triggers alert
-
-# ─── Pre-match update (Phase 2) ──────────────────────────────────────────────
-pre_match:
-  window_minutes: 90                   # Look at matches kicking off in next N min
-  min_refresh_interval_min: 30         # Minimum gap between predictions for same match
-
-# ─── Weather (Phase 2) ───────────────────────────────────────────────────────
-weather:
-  enabled: true                        # Set false to skip Open-Meteo lookups
-  default_kickoff_hour_local: 19       # If kickoff_time unknown, assume 7 PM local
-
-# ─── Optuna tuning frequency (Phase 2) ───────────────────────────────────────
-tuning:
-  full_tune_weekday: 6                  # 0=Mon, 6=Sun. Run full Optuna only on this day
