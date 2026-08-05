@@ -201,7 +201,7 @@ def _parse_args() -> "_ap.Namespace":
                         "path and exit (for the production parity harness)")
     p.add_argument("--smoke-test",   action="store_true",
                    help="Run 2024-only eval and assert Brier within 0.001 of pinned "
-                        "reference (0.6346). Gate before refactoring eval_baseline.py.")
+                        "reference (0.6360). Gate before refactoring eval_baseline.py.")
     p.add_argument("--roster-dc-prior", action="store_true",
                    help="P4 experiment: after fit_dc(), adjust atk/dfd parameters using "
                         "position-split roster-value z-scores (new_att_value_z, "
@@ -3637,7 +3637,16 @@ print("Evaluation complete.")
 if _ARGS.smoke_test:
     # Pinned reference: 2024-only Base, regress=0.40 champion (2026-06-07).
     # Prior pin 0.6354 was the regress=0.50 champion (superseded).
-    _SMOKE_REF_2024 = 0.6346
+    # Re-pinned 0.6346 -> 0.6360 on 2026-08-04. The gate had been red on
+    # untouched main; two consecutive runs returned exactly 0.6360, so the
+    # value is deterministic and the pin was simply stale, not the model
+    # broken — `make parity-check` passes the 4-fold champion average at
+    # |Δ|=0.0001 throughout. Two intentional changes landed after the pin was
+    # set and move features for every season including 2024: 2e168ff (read
+    # Transfermarkt total value, not the per-player average) and 7d9d554
+    # (un-gate the preseason value tilt). That attribution is inferred from
+    # commit ordering, not bisected.
+    _SMOKE_REF_2024 = 0.6360
     _SMOKE_TOL = 0.001
     _rd_2024 = rd[rd["season"] == 2024]
     if _rd_2024.empty:
