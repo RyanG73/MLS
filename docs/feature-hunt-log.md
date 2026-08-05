@@ -1,5 +1,64 @@
 # MLS Feature Hunt Log
 
+## 2026-08-04 — R2 continuous cross-tier ELO seeding (`claude/clever-meninsky-e0cbc4`) — DROP
+
+**What it was.** Two commits from 2026-07-10, parked unmerged ever since. Instead of seeding a
+newcomer from the per-frame tier bridge, it replays one continuous ELO through a division chain
+(epl↔championship↔league-one↔league-two, later extended to the four big-5 two-league pairs) and
+applies fitted offsets at division boundaries. 685 lines: a new 465-line
+`scripts/eval/continuous_tier_elo.py`, `build_league_data._continuous_seed_elo_map`, a mirror in
+`season_outcomes._seed_newcomers`, and 118 lines of tests.
+
+**Its original claim (2026-07-10):** pooled Brier 0.6362 → 0.6249 (−0.0113) on the promoted-team
+slice, season-outcome gate clean at seeds 42+7.
+
+**How it was re-tested.** Rebased onto `main` at `901e4f5` — 283 commits later. The rebase was
+clean in code: **zero `.py` conflicts**, only docs bookkeeping that main had superseded. Suite
+green on the rebased branch, 1,757 passed. Because it changes seeding and not `eval_baseline.py`,
+the applicable gate is the season-outcome replay per `experiment-protocol.md` §4, not match Brier.
+Baseline and challenger were both regenerated at `--seed 42` on their respective trees rather than
+reusing the pinned baseline, which predates the UEFA coefficient refit.
+
+**Pooled result — the gate. PASSES, but on a technicality of scale:**
+
+| | |
+|---|---|
+| checkpoint × outcome cells | 40 |
+| cells that moved at all | **5**, all at preseason (cp0) |
+| regressions beyond +0.002 | **0** |
+| improvements beyond −0.002 | **0** |
+| largest pooled movement | +0.00011 (playoff, cp0) — **18× below tolerance** |
+
+**Per-league at cp0 — where the mechanism actually acts, it is a wash, and its two largest
+effects are regressions on its own target slice:**
+
+| League · outcome | Baseline | Challenger | Δ |
+|---|---:|---:|---:|
+| **epl · releg** | 0.08335 | 0.08579 | **+0.00244** |
+| **league-two · promo** | 0.11020 | 0.11229 | **+0.00209** |
+| league-one · promo | 0.08058 | 0.07980 | −0.00078 |
+| championship · promo | 0.06695 | 0.06637 | −0.00058 |
+| bundesliga-2 · promo | 0.09993 | 0.09945 | −0.00048 |
+| segunda · playoff | 0.14497 | 0.14546 | +0.00049 |
+
+**Verdict: DROP.** It passes the pooled gate because its effect is too small to register there,
+not because it helps. Where it does act, the two largest single movements are *regressions* — EPL
+relegation and League Two promotion, which are precisely the promoted/relegated-newcomer slice it
+exists to improve. The 2026-07-10 claim of −0.0113 does not reproduce against current `main`.
+
+The cost is not zero: it adds a second permanent seeding path in `build_league_data.py` alongside
+the bridge, which every future seeding change would then have to reason about. 685 lines and a
+forked code path for no measurable benefit is a bad trade.
+
+**Caveat, stated because it matters.** This is not a like-for-like replication of the original
+claim. That number was a pooled Brier over a promoted-team *slice*; what was re-run here is the
+season-outcome replay, which is the protocol's gate for seeding changes and reports per-league
+outcome buckets. A dedicated promoted-team-slice harness might still show the original effect. It
+would need to show it to be worth reopening, and it would need to show it without the EPL
+relegation regression above.
+
+Branch deleted after this entry; recoverable at `0489bf8`.
+
 ## 2026-07-14 — Value x Age interaction (+TM_ValueAge, user contract/age hypothesis) — DROP
 
 **Hypothesis (user-directed, 2026-07-14 feedback):** raw Transfermarkt squad value conflates
