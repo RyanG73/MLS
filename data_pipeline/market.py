@@ -1,6 +1,7 @@
 """Market math primitives: de-vig, edge computation, CLV.
 
-Note: edge_pct() is duplicated in legacy/market/kelly.py — the canonical version is here.
+Note: edge_pct() is the canonical implementation. A duplicate lived in the archived
+legacy/market/kelly.py until that tree was deleted on 2026-08-04.
 """
 import math
 

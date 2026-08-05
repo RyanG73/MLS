@@ -36,7 +36,8 @@ Data-source terms, attribution, and redistribution rules are tracked in
 [`docs/data-sources.md`](docs/data-sources.md).
 
 > The original Raspberry Pi + PostgreSQL + Streamlit production stack was archived
-> on 2026-06-11 under `legacy/` (see `legacy/README.md`). It is recoverable but not
+> on 2026-06-11 under `legacy/`, then deleted on 2026-08-04 once verified unreferenced. Git
+> retains it in full at `e9043ed`. It is recoverable but not
 > part of the active path.
 
 ## Setup

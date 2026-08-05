@@ -346,7 +346,9 @@ The single active path is database-free: the Mac runs the build scripts to rende
 per-league payloads under `webapp/data/*.js`, and `webapp/index.html` is served statically. The
 former Postgres/Streamlit pipeline and the legacy model stack
 (`dixon_coles`/`gradient_boost`/`stacking_ensemble`) were archived under
-`legacy/` on 2026-06-11 (see `legacy/README.md`).
+`legacy/` on 2026-06-11, and deleted on 2026-08-04 after the unification review confirmed
+nothing active imported it, pytest collected none of its tests and no workflow referenced it.
+Git retains the full tree at `e9043ed`.
 
 ---
 
@@ -449,7 +451,8 @@ Validated values that must match CLAUDE.md:
 - **Dependency files:**
   - `requirements.txt` — active build/model only (lower + upper bounds).
   - `requirements-dev.txt` — test runners + research tools; includes `-r requirements.txt`.
-  - `requirements-legacy.txt` — archived Pi/Postgres/Streamlit stack; includes `-r requirements.txt`.
+  - `requirements-legacy.txt` — deleted 2026-08-04 with the `legacy/` tree it served; it was
+    installed by nothing. Recoverable at `e9043ed`.
 - **Install:**
   ```bash
   make install        # active build deps only
