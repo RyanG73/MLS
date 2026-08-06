@@ -764,3 +764,37 @@ nothing else recorded. Those became `docs/product-invariants.md`; the rest was d
 audit prompts moved to `docs/prompts/`. `PLAN.md` now indexes every file in `docs/` under a group
 with an explicit retirement trigger, closing the gap that let the tree reach 37 files: the
 deletion rule had only ever fired for files under `superpowers/plans/`.
+
+## Documentation system review and enforcement (2026-08-05, review completed and deleted)
+
+A full review of the documentation system found the product/launch track healthy and the
+model-research track quietly rotted: for two months `experiment-protocol.md` and
+`.claude/commands/improve-model.md` had pointed every agent at `claude/mls-prediction-dashboard-C2mQM`,
+abandoned on 2026-06-10, so `/improve-model` would have built four worktrees on a stale branch and
+measured every delta against a stale harness — silently, because the commands succeed. Three of the
+four agent log files specified since 2026-05-29 had never been created, so only feature experiments
+left a durable trace; the three were collapsed into one `docs/research-log.md` rather than recreated
+separately, since four logs for a fleet that runs as one cycle was the over-partitioning that caused
+them never to exist.
+
+The durable lesson: **the docs that stayed healthy have either an executable check or a retirement
+trigger; the ones that rotted have neither.** So the rules became code. `scripts/check_docs.py`
+(in `make test`) asserts that every file under `docs/` is filed in `PLAN.md`, that no doc reference
+dangles, that no doc instructs work on a retired branch, that `PLAN.md` stays inside its stated
+100-line budget, and that every figure in the new `docs/figures.json` still matches what the
+payloads measure. It found a real drift on its first run: the Crossbar club count had moved from
+1,172 to 1,167 with the 2026-08-05 refresh, three days after being corrected by hand.
+
+Two figure populations were separated for good, having twice been confused: the Crossbar scale
+(every club carrying a `global_elo` — 1,167 across 71) and the bridged Global Power ladder
+(`power.js`, which also requires measured bridge evidence — 965 across 55). Both are correct for
+their own question, and replacing one with the other *introduces* an error. Nineteen standing
+pipeline rules were extracted from `CURRENT_STATE.md`, where they sat inside dated expansion
+narrative and would have been retired along with it, into `docs/pipeline-invariants.md` — the
+technical sibling of `product-invariants.md`, following the same precedent. The eight shipped specs
+were deleted per the completed-work rule; `docs/content/` was **kept and filed** rather than
+deleted, because its README shows the launch drafts are owner-gated pending publication. Only the
+two evidence reports with zero inbound references were retired: an inbound reference turned out to
+be evidence a document is still load-bearing, since several dated reports are cited as inputs by
+the reusable prompts. Those prompts became slash commands wrapping — not duplicating — the
+canonical text, and the editing procedure itself became the `doc-hygiene` skill.

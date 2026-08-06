@@ -83,9 +83,12 @@ Each agent owns **exactly one component**. Never cross component boundaries:
 | calibration-tuner | CLI flags only — no code edits |
 | hyperparameter-optimizer | CLI flags only — no code edits |
 | model-architect | Walk-forward loop / ensemble construction in `scripts/eval_baseline.py` |
-| All agents | Their own log file (`docs/<component>-log.md`) |
+| feature-engineer | `docs/feature-hunt-log.md` |
+| all other agents | `docs/research-log.md` (shared, one entry per run) |
 
-No agent touches `features/`, `models/`, `config/`, `data_pipeline/`, `scripts/daily_update.py`, or any production pipeline file. Research-first rule (from CLAUDE.md): all improvements land in `scripts/eval_baseline.py` first; production port is a separate step.
+No agent touches `features/`, `models/`, `config/`, `data_pipeline/`, or any production pipeline
+file. Research-first rule (from CLAUDE.md): all improvements land in `scripts/eval_baseline.py`
+first; production port is a separate step.
 
 ---
 
@@ -101,26 +104,19 @@ Append a structured entry to your component's log file after every run:
 **Notes:** <observations>
 ```
 
-**Calibration agent → `docs/calibration-log.md`:**
+**Calibration, hyperparameter, and architecture agents → `docs/research-log.md`** (one shared
+log, newest first — three separate logs were specified from 2026-05-29 and none was ever
+created, so two months of campaigns left no durable trace):
+
 ```markdown
-## <YYYY-MM-DD> — <Method sweep description>
-| Method | best_brier | max_cal_error | Δ Brier | Δ CalErr | Verdict |
-...
+## <YYYY-MM-DD> — <component> — <one-line description>
+**experiment_id:** <id> · **Verdict:** KEEP / marginal / DROP
+**Δ best_brier:** <value> · **Δ max_cal_error:** <value>
+**Notes:** <what changed, why it did or did not work>
 ```
 
-**Hyperparameter agent → `docs/hyperparameter-log.md`:**
-```markdown
-## <YYYY-MM-DD> — <Param sweep>
-| Param | Value | best_brier | Δ | Verdict |
-...
-```
-
-**Architecture agent → `docs/architecture-log.md`:**
-```markdown
-## <YYYY-MM-DD> — <Change>
-**Hypothesis:** ...
-**Result:** ...
-```
+Include the sweep table where one applies (method/param, `best_brier`, `max_cal_error`, Δ,
+verdict). A run with no log entry did not happen.
 
 ---
 
@@ -131,7 +127,9 @@ Append a structured entry to your component's log file after every run:
   worktree on it.
 - In a multi-agent cycle, each agent works in its own git worktree (`git worktree add ../mls-<component> main`).
 - When reporting back to the orchestrator, provide: experiment_id, verdict, Δ best_brier, Δ cal_error.
-- After KEEP decisions, the **orchestrator** merges worktrees one at a time with a re-eval gate (see `docs/improve-model-orchestrator.md`).
+- After KEEP decisions, the **orchestrator** merges worktrees one at a time with a re-eval gate.
+  The procedure lives in `.claude/commands/improve-model.md` (Step 5, "Greedy forward-merge") —
+  there is no separate orchestrator document.
 
 ---
 

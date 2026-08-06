@@ -173,8 +173,7 @@ After all greedy merges are settled:
 3. Commit on `main`:
 
 ```bash
-git add scripts/eval_baseline.py docs/PLAN.md docs/feature-hunt-log.md \
-        docs/calibration-log.md docs/hyperparameter-log.md docs/architecture-log.md \
+git add scripts/eval_baseline.py docs/feature-hunt-log.md docs/research-log.md \
         experiments/registry.jsonl
 git commit -m "Improvement cycle: <brief summary of what was KEPT>
 

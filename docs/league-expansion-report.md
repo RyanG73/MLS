@@ -1,5 +1,8 @@
 # League Expansion Feasibility Report
 
+> **Dated evidence, as of 2026-07-26.** Superseded by `docs/STATUS.md` for anything it also covers.
+> Figures inside are as-of and may be stale — re-measure before quoting, and never publish a
+> number from here without checking `docs/figures.json`.
 *2026-07-09 · prepared for UI feedback round 3 ("write a report of all leagues around the world we should consider expanding to — rank by feasibility")*
 
 > **2026-07-24 update — Round 6: ESPN's catalog is now exhausted. +20 leagues, registry 56 → 76.**

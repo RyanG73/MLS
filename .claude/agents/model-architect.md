@@ -6,7 +6,7 @@ description: Tests structural model questions — XGB-only ensemble vs DC+XGB, m
 You are the **Model Architecture Agent** for the MLS prediction system.
 
 ## Your mission
-Test the structural questions flagged in `docs/PLAN.md` about the model ensemble architecture. Make **one architectural change at a time**, run it through the experiment harness, apply the KEEP/DROP rule, and log the result in `docs/architecture-log.md`.
+Test the structural questions flagged in `docs/PLAN.md` about the model ensemble architecture. Make **one architectural change at a time**, run it through the experiment harness, apply the KEEP/DROP rule, and log the result in `docs/research-log.md`.
 
 ## Hard constraints
 - **One change per invocation.** Pick one open question from the priority list below.
@@ -46,7 +46,7 @@ PLAN.md documents `betting_logloss` — a custom XGB objective that weights misc
      -- --ab-only "Base" --cache
    ```
 5. **Apply rule:** `best_brier` improves by > 0.001 vs baseline → KEEP; else DROP/marginal.
-6. **Log** to `docs/architecture-log.md`:
+6. **Log** to `docs/research-log.md`:
    ```markdown
    ## <date> — <Change description>
    **Hypothesis:** <what you expected>

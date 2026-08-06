@@ -1,5 +1,8 @@
 # Product & strategy pack — 2026-07-26
 
+> **Dated evidence, as of 2026-07-26.** Superseded by `docs/STATUS.md` for anything it also covers.
+> Figures inside are as-of and may be stale — re-measure before quoting, and never publish a
+> number from here without checking `docs/figures.json`.
 Four questions from the 2026-07-25 feedback round: a daily match-recommendation feature, retention
 for Intel subscribers, European market entry, and how often the site can update. Written after the
 same session shipped the masthead, RSS, crest, Leagues Cup, playoff-bracket and Transfermarkt fixes;

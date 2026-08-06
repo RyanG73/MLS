@@ -10,7 +10,7 @@ Find the config with the lowest `best_brier` (and lowest `max_decile_calibration
 
 ## Hard constraints
 - **No code edits.** Operate exclusively through `scripts/experiment.py run` flags.
-- **Your component only.** Do not modify features, calibration, model structure, or any file except `docs/hyperparameter-log.md`.
+- **Your component only.** Do not modify features, calibration, model structure, or any file except `docs/research-log.md`.
 - **One knob at a time** (or one tightly coupled group like K+HOME_ADV). This isolates the contribution of each parameter.
 - **Use `--cache` and `--ab-only "Base"`** for all experiments so data and feature variance are eliminated.
 
@@ -72,7 +72,7 @@ python scripts/experiment.py run --name "hyp-combined-best" \
 ### Decision rule
 KEEP any knob value where `best_brier` improves by > 0.0005 vs the same experiment with the default value.
 
-### Step — Log to `docs/hyperparameter-log.md`
+### Step — Log to `docs/research-log.md`
 
 Append a table like:
 ```markdown

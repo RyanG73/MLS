@@ -1,5 +1,8 @@
 # Entenser — Competitive Intelligence & Market Analysis (Combined)
 
+> **Dated evidence, as of 2026-07-29.** Superseded by `docs/STATUS.md` for anything it also covers.
+> Figures inside are as-of and may be stale — re-measure before quoting, and never publish a
+> number from here without checking `docs/figures.json`.
 **Date:** 2026-07-16 · **Sources:** two independent reports commissioned 2026-07-14, merged 2026-07-16; claims re-verified against the repository during merge. · **Scope:** global consumer football forecasting (emphasis US/UK/Europe), positioning, growth, and monetization strategy; assumed pre-traction.
 
 **How to read this report.** *Verified* = observed on a cited public page or in this repository. *Self-reported* = published by the company about itself, not independently audited. *Observed* = a live-site or search test performed during the reviews. *Inference* = analytical conclusion, labeled. All market-size dollar figures are scenario models — no credible public source measures "consumer football projection products" as a category. Competitive data has a short shelf life; re-check quarterly.

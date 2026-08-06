@@ -1,9 +1,15 @@
 # MLS Prediction System — Current State
 
-Last updated: 2026-07-26
+Last updated: 2026-08-05
 
 This document is the single source of truth for the canonical model, metric
 definitions, data sources, and run commands. Update it when any of these change.
+
+**Standing rules live in [`pipeline-invariants.md`](pipeline-invariants.md), not here.** The
+hazards recorded in the sections below — `--conf` scoping, ESPN-id club resolution, the two ridge
+modes, confederation-group registration, artifact ownership — are constraints that outlive the
+dated work that discovered them. This file holds configuration, measured results, and commands;
+read the invariants first if you are about to change the pipeline.
 
 ---
 

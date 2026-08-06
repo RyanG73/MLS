@@ -1,5 +1,8 @@
 # Off-season model-improvement audit
 
+> **Dated evidence, as of 2026-07-31.** Superseded by `docs/STATUS.md` for anything it also covers.
+> Figures inside are as-of and may be stale — re-measure before quoting, and never publish a
+> number from here without checking `docs/figures.json`.
 **Date:** 2026-07-30 (America/New_York)
 
 **Scope:** preseason and early-season football forecasting; research only

@@ -36,6 +36,7 @@ install-editable:
 test:
 	$(PY) -m pytest tests/ -v
 	$(PY) scripts/promotion_gate.py self-test
+	$(PY) scripts/check_docs.py
 
 lock:
 	@echo "Freezing exact dependency versions to requirements.lock ..."

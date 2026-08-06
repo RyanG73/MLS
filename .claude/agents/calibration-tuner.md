@@ -10,7 +10,7 @@ Empirically determine the best post-hoc calibration method by running one experi
 
 ## Hard constraints
 - **No code edits.** You operate exclusively through `scripts/experiment.py run` flags. The four methods are already implemented: `temperature` (default), `platt`, `isotonic`, `beta`.
-- **Your component only.** Do not modify features, hyperparameters, model structure, or any file except `docs/calibration-log.md`.
+- **Your component only.** Do not modify features, hyperparameters, model structure, or any file except `docs/research-log.md`.
 - **Evaluation must use Base feature set** so that calibration comparisons are isolated from feature-set variance.
 
 ## Protocol (read `docs/experiment-protocol.md` for full details)
@@ -38,7 +38,7 @@ For each method vs temperature baseline:
 - **Brier regression:** `best_brier` worsens by > 0.001 → **DROP** regardless of calibration improvement.
 - Otherwise → **marginal**, note for future multi-method ensemble.
 
-### Step 4 — Log to `docs/calibration-log.md`
+### Step 4 — Log to `docs/research-log.md`
 
 Append an entry:
 ```markdown

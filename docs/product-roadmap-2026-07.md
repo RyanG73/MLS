@@ -1,5 +1,8 @@
 # Entenser — Subscription Feature Roadmap (Aug 2026 → Jul 2027)
 
+> **Dated evidence, as of 2026-07-29.** Superseded by `docs/STATUS.md` for anything it also covers.
+> Figures inside are as-of and may be stale — re-measure before quoting, and never publish a
+> number from here without checking `docs/figures.json`.
 > **SUPERSEDED IN PART — 2026-07-25.** Three owner decisions override what follows; do not read this
 > file as current without them. (1) **§4's Oct 31 evidence gate and §5's Nov 2026 → Feb 2027 Phase-2
 > schedule are dead.** The paid tier ships **2026-08-17**. M1 is pulled into a 23-day window; the

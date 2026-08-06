@@ -1,5 +1,8 @@
 # League QA Audit — Findings (pass of 2026-07-24)
 
+> **Dated evidence, as of 2026-08-01.** Superseded by `docs/STATUS.md` for anything it also covers.
+> Figures inside are as-of and may be stale — re-measure before quoting, and never publish a
+> number from here without checking `docs/figures.json`.
 Run against the prompt in `docs/prompts/league-qa-audit.md`, registry of 78 leagues.
 Source fixes are committed; upstream/data issues are recorded, not papered over.
 
