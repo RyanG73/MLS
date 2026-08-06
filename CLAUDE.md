@@ -32,9 +32,12 @@
   that lands in one file and not its siblings is worse than the original error, because now the
   repository disagrees with itself. Precedent: on 2026-08-01 a Crossbar count was fixed in
   `STATUS.md` and left stale in nine places, including this file.
-- **Check which population a figure describes before "correcting" it.** 965 clubs / 55 leagues is
-  the bridged `power.js` ladder; 1,172 / 71 is every club carrying a rating. Both are right for
-  their own question.
+- **Check which population a figure describes before "correcting" it.** `power_ladder_*` in
+  `docs/figures.json` counts the bridged `power.js` ladder; `crossbar_*` counts every club
+  carrying a rating, a strictly larger population. Both are right for their own question, and
+  quoting one for the other is the mistake to avoid. The values are deliberately not repeated
+  here — this file states decisions, not measurements, and the two that used to sit on this line
+  were themselves stale by 2026-08-05.
 - **When you delete a document, grep for its name** across `docs/`, `.claude/`, and
   `~/.claude/projects/-Users-ryangerda-Development-MLS/memory/`. A session memory outlives a
   deleted file and keeps instructing sessions to update it.

@@ -47,12 +47,15 @@ Fix every hit in the same commit, or say explicitly in the commit message which 
 **First ask which population the figure describes.** Two numbers that look like corrections of
 each other are often two different measurements:
 
-| Figure | Population | Source |
+| Figure key in `docs/figures.json` | Population | Source |
 |---|---|---|
-| 965 clubs / 55 leagues | the bridged Global Power ladder | `webapp/data/power.js` |
-| 1,172 rows / 71 competitions | every club carrying a `global_elo` | all `webapp/data/*.js` payloads |
+| `power_ladder_clubs` / `power_ladder_leagues` | the bridged Global Power ladder | `webapp/data/power.js` |
+| `crossbar_clubs` / `crossbar_competitions` | every club carrying a `global_elo` — strictly larger | all `webapp/data/*.js` payloads |
 
 Both are right for their own question. Blindly replacing one with the other *introduces* an error.
+The values are named rather than typed here on purpose: this table itself carried a stale
+`1,172` for three days after the payloads moved to 1,167. Read them from `figures.json`, which
+`check_docs.py` re-measures, or measure them yourself with the snippet below.
 
 **Measure, do not copy.** If a figure can be computed from the payloads, compute it:
 

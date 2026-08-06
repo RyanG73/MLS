@@ -16,6 +16,33 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-05 — Owner mobile review: eleven items, all addressed; one was a model bug.** Verified
+  in-browser at 375×812 against the local build, not asserted from source. Home reordered to
+  matches → title probabilities → league tables → the rest; the league carousel takes a swipe
+  (horizontal-dominance guard so it never steals a vertical scroll; a dot tap resumes rotating);
+  the bottom bar is one line at 55px, down from 72px with "Club Watch" wrapped; the country ribbon
+  is frozen; mobile search is a magnifying glass beside the wordmark; the Matches slate is stacked
+  full-width club rows, so "New England Revolution" fits where a 116px column used to truncate it,
+  at ~9 fixtures per screen instead of ~5; league tables freeze the header row and the club column
+  and lost the dead band beside the panel heading; every UEFA-spots row now names a country.
+  **Two latent bugs surfaced on the way.** `body{overflow-x:hidden}` made `<body>` a scroll
+  container, which silently defeats *every* `position:sticky` on mobile — the frozen ribbon and
+  frozen table header both appeared to "not work" until it became `overflow-x:clip`. And the
+  outcome-column headers overprinted each other ("CONTINENREALEG") because a 40px track floor was
+  narrower than its own label.
+  **The rankings item was not a UI defect.** "PSV is simply not a top ten team in europe" traced
+  to the UEFA bridge ridge: at λ=2e-5 the fit never moved more than ~15 ELO off its coefficient
+  prior, so 743 continental matches were decorative. λ → 5e-7 on mean held-out Brier across ten
+  seeds (0.6096 → 0.6006, 10/10 seeds). PSV 7th → 27th, Club Brugge 10th → 54th, Union SG 12th →
+  61st; the top nine are now nine big-five clubs. Full sweep, the rejected adaptive-ridge
+  alternative, and the Ligue 1 caveat are in `../../research-log.md`.
+  Checked at 375×812 and again at 320×700: no horizontal overflow at either width, fixture rows a
+  uniform 62px, and club-name truncation down from 7 rows to 1 at 320px (a 26-character name).
+  **Proof:** 1,752 tests pass / 21 skipped (Playwright suites uninstalled locally);
+  `scripts/check_docs.py` PASS; the committed payloads and `power.js` are in the diff, and the
+  gitignored static pages were rebuilt locally only to confirm `/crossbar/` re-measures itself.
+  **Owed:** a Pages run ID and deployed SHA — nothing here is live yet.
+
 - **2026-08-01 — Competitor deep dive executed across seven targets.** Prompt:
   `docs/prompts/competitor-deep-dive.md`. Report: `docs/competitor-deep-dive-2026-08-01.md`.
   Mechanics-level teardown of FanGraphs, FotMob, Rotowire, American Soccer Analysis, Sports

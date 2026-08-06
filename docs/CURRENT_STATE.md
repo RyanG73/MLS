@@ -106,9 +106,23 @@ read the invariants first if you are about to change the pipeline.
   competitions remain visible on their league pages but are excluded from the global ladder until
   a match network can place them honestly on that scale.
   **Do not confuse this with the Crossbar page's count.** `/crossbar/` reports every club carrying
-  a `global_elo` — 1,172 across 71 competitions — which is a strictly larger population than the
-  bridged ladder. Two correct numbers for two different questions; quoting one for the other is
-  the mistake to avoid.
+  a `global_elo` — 1,167 across 71 competitions (measured 2026-08-05; registered in
+  `docs/figures.json`, which `scripts/check_docs.py` re-measures) — which is a strictly larger
+  population than the bridged ladder. Two correct numbers for two different questions; quoting one
+  for the other is the mistake to avoid.
+- **UEFA bridge ridge λ = 5e-7, count-weighted (2026-08-05).** Set in
+  `league_bridge._RIDGE_BY_CONF["UEFA"]`; it used to fall through to the CLI default 2e-5. At 2e-5
+  the ridge dominated the likelihood — every fitted offset sat within ~15 ELO of its coefficient
+  prior, so the fit was decorative and the ladder was really `_K_COEFF * (coeff − 94)`. That is
+  what put PSV 7th in the world and Club Brugge 10th. λ chosen on **mean** held-out Brier across
+  all ten robustness seeds (0.6096 prior → 0.6006 fitted, −0.0090, 10/10 seeds); the sweep and the
+  rejected adaptive-ridge alternative are in `research-log.md`. `_MAX_DELTA_BY_CONF["UEFA"]` = 450
+  goes with it — ±150 was set when nothing moved and now binds hardest on the fifteen leagues whose
+  coefficient is a typed estimate, not a capture. **Re-running this changes published continental
+  odds and the whole global ladder**: scope with `--conf UEFA`, then rebuild with
+  `python3 -m scripts.apply_global_elo_payloads && python3 -m scripts.build_power_rankings &&
+  python3 -m scripts.build_static_pages`, or the site serves the old ladder (the 2026-08-02
+  failure).
 - **AFC and CAF continental cups remain blocked, and the gate — not judgement — says so.**
   AFC Champions League: the fit beats its prior but LOSES to a naive base-rate predictor
   (+0.0020 on a 76-match holdout), and only **54%** of the field resolves to a modeled league —

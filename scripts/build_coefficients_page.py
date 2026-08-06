@@ -15,6 +15,7 @@ Usage: python3 scripts/build_coefficients_page.py
 """
 from __future__ import annotations
 
+import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,12 +26,28 @@ from data_pipeline.coefficients import _LEAGUE_COEFF  # noqa: E402
 from scripts.build_league_data import OUTLOOK  # noqa: E402
 from scripts.payload_utils import write_js_payload  # noqa: E402
 
-ASSOC = {
-    "epl": "England", "la-liga": "Spain", "serie-a": "Italy",
-    "bundesliga": "Germany", "ligue-1": "France", "eredivisie": "Netherlands",
-    "primeira": "Portugal", "belgian-pro": "Belgium", "super-lig": "Türkiye",
-    "greek-super": "Greece", "scottish-prem": "Scotland",
+ROOT = Path(__file__).resolve().parents[1]
+_REGISTRY = ROOT / "webapp" / "leagues.js"
+
+# UEFA's own spelling where it differs from the league registry's country field.
+# Everything else is READ from the registry — see _assoc(). This dict used to be
+# the only source of association names, with `ASSOC.get(lid, lid)` as the
+# fallback, so the ten leagues nobody had typed in rendered their LEAGUE ID in
+# the association column: the table read "norway-eliteserien / Eliteserien"
+# where England read "England / Premier League". Half the rows were labelled one
+# way and half the other. (2026-08-05 feedback: "these should be listed with the
+# country name on top in bold and then the primary league in that country
+# below"; the layout was already that — the data was not.)
+ASSOC_OVERRIDE = {
+    "super-lig": "Türkiye",   # registry says "Turkey"; UEFA uses "Türkiye"
 }
+
+
+def _registry_countries() -> dict[str, str]:
+    """{league_id: country} from webapp/leagues.js (window.LEAGUES = [...])."""
+    txt = _REGISTRY.read_text(encoding="utf-8")
+    rows = json.loads(txt.split("=", 1)[1].rstrip().rstrip(";"))
+    return {r["id"]: r.get("country") or "" for r in rows}
 
 # 2025-26 season: England and Italy hold the two European Performance Spots
 # (their clubs earned the best association coefficient the prior season), so
@@ -53,14 +70,25 @@ def _spots(lid: str) -> dict:
 
 def build() -> dict:
     rows = []
+    countries = _registry_countries()
     ranked = sorted(_LEAGUE_COEFF.items(), key=lambda kv: -kv[1])
     for rank, (lid, coeff) in enumerate(ranked, start=1):
         if lid not in OUTLOOK:
             continue
+        assoc = ASSOC_OVERRIDE.get(lid) or countries.get(lid)
+        if not assoc:
+            # Never fall back to the league id: that is what produced the
+            # half-country/half-slug column this replaces. A UEFA league with no
+            # country in the registry is a registry bug, so say so loudly rather
+            # than shipping a slug into a published table.
+            raise SystemExit(
+                f"no country in webapp/leagues.js for '{lid}' — add it there "
+                f"rather than hand-listing it here"
+            )
         rows.append({
             "league_id": lid,
             "league": OUTLOOK[lid]["name"],
-            "assoc": ASSOC.get(lid, lid),
+            "assoc": assoc,
             "coeff": coeff,
             "rank": rank,
             "eps": lid in EPS_HOLDERS,
