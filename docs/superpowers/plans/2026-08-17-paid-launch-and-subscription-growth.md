@@ -41,7 +41,19 @@ HTTP response, experiment sample, cohort date, or decision memo.
   **Proof:** 1,752 tests pass / 21 skipped (Playwright suites uninstalled locally);
   `scripts/check_docs.py` PASS; the committed payloads and `power.js` are in the diff, and the
   gitignored static pages were rebuilt locally only to confirm `/crossbar/` re-measures itself.
-  **Owed:** a Pages run ID and deployed SHA — nothing here is live yet.
+  **Shipped and verified in production the same day.** Commit `4a72ec0`, Pages run `31116599915`
+  and API run `31116599746`, both success. Verified against `https://entenser.com` rather than
+  localhost: the live Matches slate renders 118 fixtures at a uniform 62px with zero truncated
+  names, the ribbon holds `top:0` deep in the page, the Eredivisie table keeps its club column
+  through a 380px horizontal scroll, `/crossbar/` reads 697–1,797, and the live ladder returns PSV
+  27th and Club Brugge 54th.
+  **One hazard worth repeating:** the daily refresh landed mid-session and touched eight of the
+  payloads this change also rewrites. The payloads are build artifacts, so the fix was to discard
+  the locally generated ones, fast-forward, and re-run `apply_global_elo_payloads` /
+  `build_power_rankings` / `build_coefficients_page` on top of the fresh data — never to merge
+  one-line JSON payloads textually. `experiments/league_offsets.json` was deliberately NOT refit:
+  it is a manual calibration artifact, and refitting it because the daily data moved would have
+  silently changed numbers already written into the docs.
 
 - **2026-08-01 — Competitor deep dive executed across seven targets.** Prompt:
   `docs/prompts/competitor-deep-dive.md`. Report: `docs/competitor-deep-dive-2026-08-01.md`.
