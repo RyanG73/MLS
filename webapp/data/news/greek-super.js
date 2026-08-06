@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-05 12:55 UTC","items":[{"title":"Hull sign goalkeeper Tzolakis for club record fee","link":"https://www.bbc.co.uk/sport/football/articles/ce8l6nn7xkyo?at_medium=RSS&at_campaign=rss","desc":"Hull City sign Greece goalkeeper Konstantinos Tzolakis from Olympiacos on a five-year deal for a club-record fee.","published":"2026-08-05T10:35:01+00:00","source":"BBC Sport","is_analysis":false}]};
+window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-06 12:58 UTC","items":[]};
