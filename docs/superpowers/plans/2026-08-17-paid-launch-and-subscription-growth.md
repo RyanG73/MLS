@@ -16,6 +16,27 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-07 — Owner UI feedback, seven of eight items shipped to the working tree; the eighth
+  (UEFA competition forecasting) is scoped, not started.** The headline finding is that **item 6 was
+  a regression of a fix the owner had already been given**: `webapp/index.html:5192` quotes their
+  2026-08-05 words almost verbatim, and that fix reached only the Matches board. The league tab's
+  match rows still ran the old six-track layout, which left each team NAME 12px on a 375px screen —
+  30 clipped names on one screen, with the win % hidden outright to buy the room. Porting the
+  `.mxcard` treatment gives **163px names, 0 clipped, 62px rows, 13 matches per screen**, win %
+  back and the draw price moved into the left rail. Two further findings worth keeping: the club
+  column is FROZEN on a phone, so shrinking its font is the only way to buy visible table width —
+  and it buys nothing unless `clubColWidth`'s canvas measurement shrinks with it, since that is what
+  the grid track is built from (176 → 157px, visible data +14%). And **`display` was doing double
+  duty** on the power ladder as the flag that stops a namesake being drawn with the famous club's
+  badge, so tagging only the lower-ranked club required splitting that signal into a new `country`
+  field first. Item 7's defect was wider than reported: **no second tier published champion odds at
+  all**, 48 of 70 leagues → 62 of 70. 1,911 tests pass; two contract tests were rewritten to the new
+  rules rather than deleted, and a new test names the 8 leagues that legitimately have no champion
+  number so the exemption cannot grow silently. **Not committed and not deployed**; item 7 needs
+  CI's next league rebuild because `build_league_data` regresses payloads when run locally.
+  Verification is DOM measurement at 375 / 966 / 1280, not screenshots — screenshots drift at depth
+  on this site. Proof in `STATUS.md`, row "Mobile UI pass 3 + champion odds".
+
 - **2026-08-05 — Seven failing browser tests resolved: five stale assertions, two real product
   defects.** Confirmed pre-existing at `80ccefc` and independent of the documentation commit
   `7dce707`. Five tests encoded a UI that had been deliberately replaced and were corrected: the

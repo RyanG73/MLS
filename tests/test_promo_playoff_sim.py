@@ -67,14 +67,56 @@ def test_home_advantage_flows_to_higher_seed():
 
 
 def test_promo_bucket_shapes():
-    # _PROMO emits Auto / Playoff / Promoted / Releg; the composite carries the
-    # bracket definition and the barrage rate only when given.
+    # _PROMO emits Champion / Auto / Playoff / Promoted / Releg; the composite
+    # carries the bracket definition and the barrage rate only when given.
     plain = {b["key"]: b for b in _PROMO(2, [3, 6], 3)}
     assert plain["promoted"]["promo_top"] == 2
     assert plain["promoted"]["playoff_band"] == [3, 6]
     assert "barrage_win_rate" not in plain["promoted"]
     barrage = {b["key"]: b for b in _PROMO(2, [3, 3], 3, barrage=0.33)}
     assert barrage["promoted"]["barrage_win_rate"] == 0.33
-    # cards stay simple: Promoted + Relegation only
+    # Champion is top-1 and rides beside Promoted + Relegation on the cards, the
+    # same shape _TOP gives a first division (2026-08-07).
+    assert plain["title"]["top"] == 1
     assert [b["key"] for b in _PROMO(2, [3, 6], 3) if b.get("card", True)] == [
-        "promoted", "releg"]
+        "title", "promoted", "releg"]
+
+
+def test_promo_suppresses_auto_bucket_when_promotion_is_one_place():
+    """One auto place IS first place, so Champion and Auto would be one number
+    printed twice. The title bucket carries it and `promo` is not emitted."""
+    single = [b["key"] for b in _PROMO(1, [2, 7], 4)]
+    assert "promo" not in single
+    assert single == ["title", "playoff", "promoted", "releg"]
+    # `promoted` still describes the real promotion structure either way.
+    composite = {b["key"]: b for b in _PROMO(1, [2, 7], 4)}["promoted"]
+    assert composite["promo_top"] == 1 and composite["playoff_band"] == [2, 7]
+    # Two or more auto places keep both, because they are different questions.
+    assert "promo" in [b["key"] for b in _PROMO(2, [3, 6], 3)]
+
+
+def test_every_league_with_a_table_publishes_champion_odds():
+    """Whoever finishes first is the number a league page exists to answer.
+
+    It was missing from every second tier until 2026-08-07 — `_PROMO` went
+    straight to promotion, and eerste-divisie hand-writes its buckets so it
+    needed the same fix separately. The exemptions are formats where the
+    champion comes out of a post-season bracket this sim deliberately does not
+    play (see `_PLAYOFFS`, `champ=None`), which publish qualification-only odds
+    rather than a confidently wrong champion.
+    """
+    from scripts.build_league_data import OUTLOOK
+
+    bracket_only = {
+        "australia-aleague", "australia-aleague-women", "canadian-pl",
+        "costa-rica-primera", "elsalvador-primera", "guatemala-liga",
+        "honduras-liga", "usl-championship",
+    }
+    missing = {
+        lid for lid, cfg in OUTLOOK.items()
+        if not any(b.get("key") == "title" for b in (cfg.get("buckets") or []))
+    }
+    assert missing == bracket_only, (
+        f"leagues newly missing champion odds: {sorted(missing - bracket_only)}; "
+        f"leagues that gained them without updating this list: "
+        f"{sorted(bracket_only - missing)}")

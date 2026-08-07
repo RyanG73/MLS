@@ -95,14 +95,26 @@ def _dedupe_clubs(rows: list[dict]) -> list[dict]:
 
     DIFFERENT countries — two clubs that happen to share a name, and both belong
     on the ladder. Liverpool of England and Liverpool of Montevideo; Santos of
-    Brazil and Santos Laguna of Mexico. They get a `display` name carrying the
-    country, because a reader seeing "Liverpool" 13th and "Liverpool" 673rd has
-    no way to know those are different clubs — and neither did this repository:
-    keying per-club analysis by name alone handed the English club's European
-    record to the Uruguayan one, caught only by an absurd z-score.
+    Brazil and Santos Laguna of Mexico. A reader seeing "Liverpool" 13th and
+    "Liverpool" 673rd has no way to know those are different clubs — and neither
+    did this repository: keying per-club analysis by name alone handed the
+    English club's European record to the Uruguayan one, caught only by an
+    absurd z-score.
+
+    Only the LOWER-ranked ones are tagged (2026-08-07 feedback: "everyone knows
+    the big liverpool"). Tagging both made the ladder read as though neither was
+    the famous one. The strongest club of a shared name keeps the bare name and
+    every other carries its country, which is also how football writing does it.
+
+    `country` is set on ALL members of such a group, tagged or not, because two
+    consumers need to know a name is ambiguous even when it renders bare:
+    the crest lookup, which is keyed by name and would otherwise hand the bare
+    club a namesake's badge, and the search box, which must still find "Liverpool
+    Uruguay". It stays off the ~950 unambiguous rows, which is where the payload
+    cost would be.
 
     `team` is left alone. It is an identity key — club URLs, crest lookup and
-    team ids are all built from it — so the country goes in a separate field
+    team ids are all built from it — so the country goes in separate fields
     that only the rendered name uses.
     """
     by_name: dict[str, list[dict]] = {}
@@ -116,8 +128,13 @@ def _dedupe_clubs(rows: list[dict]) -> list[dict]:
             continue
         countries = {r["_country"] for r in group}
         if len(countries) > 1:
-            for row in group:
-                row["display"] = f"{name} ({row['_country']})" if row["_country"] else name
+            # Strongest first — the same key the ladder itself sorts on, so the
+            # untagged club is always the one a reader finds higher up.
+            group.sort(key=lambda r: -r["strength"])
+            for position, row in enumerate(group):
+                row["country"] = row["_country"]
+                if position and row["_country"]:
+                    row["display"] = f"{name} ({row['_country']})"
             kept.extend(group)
             continue
         # One club: newest season wins, then the higher division (lower tier no.)

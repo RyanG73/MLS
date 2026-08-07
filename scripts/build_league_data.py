@@ -388,13 +388,25 @@ _TOP = lambda ucl=4, rel=3: [
     {"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}]
 # Promotion structure (2026-07-09 feedback): second tiers promote the top
 # `promo` automatically AND the winner of a playoff among `play`; the table
-# shows Auto / Playoff-berth / Promoted / Relegation, and the sim actually
-# plays the playoff bracket (see _promo_playoff_winner). `barrage` = the
-# probability the tier-2 side survives a cross-league barrage against the
+# shows Champion / Auto / Playoff-berth / Promoted / Relegation, and the sim
+# actually plays the playoff bracket (see _promo_playoff_winner). `barrage` =
+# the probability the tier-2 side survives a cross-league barrage against the
 # top flight's relegation-playoff team (Germany/France) — the opponent isn't
 # in this league's pmatrix, so it's a historical base rate, not a sim.
+#
+# `title` added 2026-08-07 ("in the second division in england we give odds for
+# auto promotion, which is top 2, but we lack odds for the champion"). It was
+# missing from EVERY second tier, not just England's: the shape had gone
+# straight to `promo` because promotion is what a second tier is FOR, and
+# nobody publishing a Championship table omits who wins it.
+# Where `promo == 1` the auto-promotion place IS first place, so the two
+# buckets would print the same number under two headings — the `promo` bucket
+# is dropped there and `title` carries it, rather than shipping a duplicate
+# column. `promoted` still reports auto + playoff-winner combined either way.
 _PROMO = lambda promo, play, rel, barrage=None: [
-    {"key": "promo", "label": "Auto Promotion", "col": "Auto", "top": promo, "card": False},
+    {"key": "title", "label": "Champion", "col": "Champ", "top": 1},
+] + ([{"key": "promo", "label": "Auto Promotion", "col": "Auto", "top": promo, "card": False}]
+     if promo > 1 else []) + [
     {"key": "playoff", "label": "Promo Playoff", "col": "Playoff", "band": play, "card": False},
     {"key": "promoted", "label": "Promoted", "col": "Promoted",
      "promo_top": promo, "playoff_band": play,
@@ -421,8 +433,12 @@ _LIGUILLA = lambda: [
 # down, 38-round double round-robin, no post-season). Kept separate rather than
 # making `play` optional inside `_PROMO` so the promotion-playoff sim path
 # (`_promo_playoff_winner`) is never reachable for these leagues.
+# `title` added 2026-08-07 for the same reason as `_PROMO`'s, and suppressed
+# the same way when promotion is a single place and therefore the title itself.
 _PROMO_DIRECT = lambda promo, rel=0: [
-    {"key": "promo", "label": "Promotion", "col": "Promoted", "top": promo}] + (
+    {"key": "title", "label": "Champion", "col": "Champ", "top": 1}] + (
+    [{"key": "promo", "label": "Promotion", "col": "Promoted", "top": promo}]
+    if promo > 1 else []) + (
     [{"key": "releg", "label": "Relegation", "col": "Releg", "bottom": rel}] if rel else [])
 # Regular season + post-season bracket (round 6, 2026-07-24). The shape shared by
 # Central America's Apertura/Clausura leagues, USL League One, the Indian Super
@@ -733,7 +749,12 @@ OUTLOOK = {
     # put in a trailing "releg" bucket.
     "eerste-divisie": {"name": "Eerste Divisie", "source": "espn", "n": 20,
                        "confederation": "UEFA",
+                       # `title` mirrors _PROMO's (2026-08-07). These buckets are
+                       # written out rather than generated, so the helper's fix
+                       # did not reach them — the one league that would have kept
+                       # the defect after every other second tier lost it.
                        "buckets": [
+                           {"key": "title", "label": "Champion", "col": "Champ", "top": 1},
                            {"key": "promo", "label": "Auto Promotion", "col": "Auto", "top": 2, "card": False},
                            {"key": "playoff", "label": "Promo Playoff", "col": "Playoff", "band": [3, 8], "card": False},
                            {"key": "promoted", "label": "Promoted", "col": "Promoted",

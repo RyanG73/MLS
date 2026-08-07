@@ -503,6 +503,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .ucl-line,.rz-line{font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:3px var(--s3);font-weight:700;font-family:var(--mono)}
 .ucl-line{color:var(--qualify);border-top:1px dashed rgba(61,220,132,.35)}
 .rz-line{color:var(--drop);border-top:1px dashed rgba(255,93,93,.35)}
+/* Legend under the ladder — the one place the "100 = league average" rule is
+   stated where a touch reader can see it. (2026-08-07) */
+.tlad-legend{font-size:11px;line-height:1.45;color:var(--txt-3);padding:8px var(--s3) 2px;border-top:1px solid var(--line-3);max-width:78ch}
+.tlad-legend b{color:var(--txt-2);font-weight:700}
 /* The raw Global ELO column is the widest number in the table and the least
    useful at a glance; ELO+ (league average = 100) carries the same comparison in
    three characters, so a narrow screen keeps ELO+ and drops the raw rating.
@@ -1027,6 +1031,9 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .grow.done{opacity:.92}
 .gr-time{font-family:var(--mono);font-weight:800;font-size:12px;color:var(--txt-1);line-height:1.1}
 .gr-time .sub{display:block;font-size:9px;font-weight:700;color:var(--txt-3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+/* Phone-only: the draw price, which lives in the probability bar everywhere
+   else and would otherwise vanish with it. Same place `.mx-draw` puts it. */
+.gr-draw{display:none}
 .gr-team{display:flex;align-items:center;gap:8px;min-width:0}
 .gr-team.home{justify-content:flex-end;text-align:right}.gr-team.away{justify-content:flex-start}
 .gr-team .crest{width:24px;height:24px}
@@ -1067,13 +1074,48 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
   .cal-btn{width:100%;min-height:42px}
   .cal-menu{left:0;right:auto;width:min(100%,280px)}
 }
+/* ── Phone match row (2026-08-07 feedback: "team names are extremely cut off in
+   the vertical format. really, matches should be displayed the same format as
+   they are on the home page").
+   The same complaint the Matches board got on 2026-08-05, on the view that
+   never received that fix. The old six-track row — time | home | proj | bar |
+   proj | away — spent 262px of 343px on fixed tracks, gaps and padding, so each
+   team track resolved to ~40px; minus a 20px crest and an 8px gap the NAME got
+   12px. "New England Revolution" wants 141px. The win % was hidden outright to
+   buy room, which is the number a reader came for.
+   Now each club owns a full-width row and the kickoff runs down a left rail
+   spanning both, exactly as `.mxcard` does on the Matches board. The middle bar
+   goes (it restated the two percentages beside it), which pays for putting the
+   win % back. Projected goals keep a narrow right column on each club's own
+   row, so nothing published here is lost on a phone. ── */
 @media(max-width:640px){
-  .grow{grid-template-columns:66px minmax(0,1fr) 34px minmax(82px,1fr) 34px minmax(0,1fr);gap:6px;padding:7px 8px}
-  .gr-odds{display:none}
-  .gr-team .crest{width:20px;height:20px}
-  .gr-team .tn{font-size:12px}
-  .gr-time{font-size:11px}
+  .grow{grid-template-columns:52px minmax(0,1fr) 34px;
+    grid-template-areas:"time home hxg" "time away axg";
+    align-items:center;gap:2px 8px;padding:5px 8px}
+  .gr-time{grid-area:time;align-self:center;font-size:11px;line-height:1.2}
+  /* "Kickoff"/"Result" is a desktop column header doing no work on a phone: a
+     bare time reads as a kickoff, and a played row already carries its score
+     and `.done`. Dropping it is ~12px a row, i.e. one more match per screen. */
+  .gr-time .sub{display:none}
+  /* Takes the slot "Kickoff" just vacated, so the draw survives losing the bar
+     without costing the row a pixel. */
+  .gr-draw{display:block;font-family:var(--mono);font-size:10px;font-weight:600;
+    color:var(--txt-3);margin-top:2px;white-space:nowrap}
+  .gr-xg .sub{font-size:7.5px;line-height:1.1}
+  /* Both sides read crest → name → win %. The DOM cannot give that for free:
+     home is name/odds/crest and away is crest/odds/name so the two mirror each
+     other around the bar on desktop. `order` puts them in one reading order
+     here without touching the markup — same trick as `.mx-team`. */
+  .gr-team.home{grid-area:home}
+  .gr-team.away{grid-area:away}
+  .gr-team.home,.gr-team.away{justify-content:flex-start;text-align:left;gap:8px;min-height:22px}
+  .gr-team .crest{order:1;width:22px;height:22px;flex:none}
+  .gr-team .tn{order:2;flex:1;min-width:0;font-size:13px;font-weight:600}
+  .gr-odds{order:3;font-size:12px;color:var(--txt-2)}
   .gr-xg{font-size:11px}
+  .gr-xg.home{grid-area:hxg}
+  .gr-xg.away{grid-area:axg}
+  .gr-bar{display:none}
   .cbar{height:16px}
   .cbar>span{font-size:8px}
 }
@@ -1276,6 +1318,15 @@ html.booting #boot{display:block;max-width:1180px;margin:0 auto;padding:18px 16p
      gives their background something to cover. */
   .tlad .thead>span:nth-child(1),.tlad .thead>span:nth-child(2){
     align-self:stretch;display:flex;align-items:center}
+  /* 12px, not 14px (2026-08-07 feedback). The club cell is FROZEN here, so its
+     width comes off the screen before any data column can be seen — 176px of
+     341px on a 375px phone, with the table itself running 823px. The paired
+     canvas measurement in clubColWidth(names,true) shrinks with this, which is
+     the half that actually moves the grid track — and it arrives as --tgrid-p,
+     which exists only in this band so the font and the metric can never
+     disagree. --tgrid-m keeps the 14px measurement for 760–1024px. */
+  .tlad .tname{font-size:12px}
+  .tlad .thead,.tlad .trow{grid-template-columns:var(--tgrid-p,var(--tgrid-m,var(--tgrid)))}
   /* The frozen pane needs an edge, or names and numbers appear to collide. */
   .tlad .trow>.tcell{box-shadow:6px 0 6px -6px rgba(0,0,0,.55)}
   .tlad .thead>span:nth-child(2){box-shadow:6px 0 6px -6px rgba(0,0,0,.55)}
@@ -1289,6 +1340,14 @@ html.booting #boot{display:block;max-width:1180px;margin:0 auto;padding:18px 16p
      visible, so left-sticky keeps them where they can be read instead of
      sliding off to the left with the columns. */
   .ucl-line,.rz-line{position:sticky;left:0}
+  /* The header keeps the short "ELO+" on a phone — the full label is ~40px
+     wider, which is most of what the 12px club font just reclaimed. The legend
+     below the table carries the full name, so nothing is lost. */
+  .elop-lg{display:none}
+  /* Inside the scroll container a block child resolves 100% against max-content
+     (~800px), so it would run off the right edge. Cap it to what the phone can
+     actually show; left-sticky then holds it still while the table scrolls. */
+  .tlad-legend{position:sticky;left:0;max-width:calc(100vw - 44px)}
 }
 @media(max-width:480px){
   .heat{font-size:11px;padding:4px 0}
@@ -2057,13 +2116,20 @@ const crest=(name,logo,strict)=>{const l=_logoFor(name,logo,strict);
 // Widest club name in px (canvas-measured) so table club columns never truncate —
 // tables scroll horizontally on narrow screens instead (2026-07-09 feedback).
 // +26 crest +9 .tcell gap +10 slack (measurement can run before the webfont settles).
-function clubColWidth(names){
+// `narrow` measures at the phone size instead. The club column is FROZEN at
+// max-width:760px, so its width is subtracted from the screen before any data
+// column is visible: on a 375px phone it was holding 176px of 341px, and the
+// table ran 823px wide inside that viewport. Shrinking the CSS font alone
+// reclaims nothing — this measurement is what the grid track is built from, so
+// the two have to move together. (2026-08-07 feedback: "the font of team names
+// should be smaller. that would create more space to see more of the table")
+function clubColWidth(names,narrow){
   const c=clubColWidth._c||(clubColWidth._c=document.createElement('canvas').getContext('2d'));
-  // Must match what .tlad .tname actually renders (700 14px) — measuring at the
-  // old 600 12px under-reserved the lane by ~15%, so the longest club name in a
-  // table set the floor a little too low. (2026-07-31)
-  c.font='700 14px Inter,sans-serif';
-  const w=Math.max(60,...names.map(n=>c.measureText(n||'').width));
+  // Must match what .tlad .tname actually renders (700 14px, 700 12px on a
+  // phone) — measuring at the old 600 12px under-reserved the lane by ~15%, so
+  // the longest club name in a table set the floor a little too low. (2026-07-31)
+  c.font=narrow?'700 12px Inter,sans-serif':'700 14px Inter,sans-serif';
+  const w=Math.max(narrow?52:60,...names.map(n=>c.measureText(n||'').width));
   return Math.ceil(w)+26+9+10;
 }
 /* Width of a .thead .c label, for the all-definite mobile track list (--tgrid-m).
@@ -2766,6 +2832,9 @@ function ladderPanel({heading,meta,teams,cols,maxOf,rowMod,cutLine,tip,gate}){
   const hc=(v,k,t)=>v<0.05?`<span class="heat z"${tipOf(t)}>·</span>`
     :`<span class="heat" style="${heat(v,metricRGB(k),mx[k])}"${tipOf(t)}>${oddsFmt(v)}</span>`;
   const clubw=clubColWidth(teams.map(t=>t.team));
+  // The phone template measures at the phone font, so a resize between the two
+  // never leaves one template built from the other's metrics.
+  const clubwM=clubColWidth(teams.map(t=>t.team),true);
   // minmax(max-content, .5fr), not minmax(40px, .5fr): under the 40px floor the
   // outcome headers overflowed their own tracks on a phone and printed over
   // each other — "CONTINENTAL" and "RELEG" rendered as "CONTINENREALEG". An fr
@@ -2779,17 +2848,24 @@ function ladderPanel({heading,meta,teams,cols,maxOf,rowMod,cutLine,tip,gate}){
   // track, because the same breakpoint display:none's that cell; a template with
   // more tracks than cells shifts every outcome column one place left.
   const outM=cols.map(c=>`${headColWidth(c.label)}px`).join(' ');
-  const gridM=`26px ${clubw}px 44px 38px 42px 52px ${headColWidth('ELO+',38)}px ${outM}${hasUp?' 96px':''}`.trim();
+  const gridM=`26px ${clubw}px 44px 38px 42px 52px ${headColWidth('League ELO+',38)}px ${outM}${hasUp?' 96px':''}`.trim();
+  // Phone twin of the twin. --tgrid-m spans the whole 1024px band, but the 12px
+  // club font only applies at 760px, so building --tgrid-m from the phone
+  // measurement clipped "Manchester United" everywhere between the two. Same
+  // track COUNT as --tgrid-m — only the club width differs — so the
+  // cells-vs-tracks hazard the 1024px comment describes cannot apply here.
+  const gridP=`26px ${clubwM}px 44px 38px 42px 52px ${headColWidth('ELO+',38)}px ${outM}${hasUp?' 96px':''}`.trim();
   const box=el('div','panel ladder tlad'+(hasUp?' tlad-w':''));
   box.style.setProperty('--tgrid',grid);
   box.style.setProperty('--tgrid-m',gridM);
+  box.style.setProperty('--tgrid-p',gridP);
   const eloMean=leagueEloMean(teams);
   box.appendChild(el('div','panel-h',
     `<span class="dot"></span><h2>${heading}</h2><span class="meta">${meta}</span>`));
   if(gate)box.appendChild(gate);
   box.appendChild(el('div','thead',
     `<span></span><span>Club</span><span class="c">Pts</span><span class="c">GP</span><span class="c">GD</span><span class="c c-proj">Proj</span>`+
-    `<span class="c c-elo">Global ELO</span><span class="c c-elop" title="Rating relative to this league — league average = 100">ELO+</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
+    `<span class="c c-elo">Global ELO</span><span class="c c-elop" title="Rating relative to this league — league average = 100"><span class="elop-lg">League </span>ELO+</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
     (hasUp?`<span class="c c-w5${IntelStore.unlocked()?'':' locked'}">Next 5 Sim${IntelStore.unlocked()?'':' <span class="w5-lock" aria-hidden="true">🔒</span>'}</span>`:'')));
   teams.forEach((t,i)=>{
     const rank=i+1;
@@ -2805,6 +2881,12 @@ function ladderPanel({heading,meta,teams,cols,maxOf,rowMod,cutLine,tip,gate}){
     const cut=cutLine&&cutLine(rank,teams.length);
     if(cut)box.appendChild(cut);
   });
+  // What the column header can only say on hover (2026-08-07 feedback: "with an
+  // indicator somewhere that 100 is average within each league"). A title=
+  // attribute is invisible on a touch device, which is where this table is
+  // hardest to read. Left-sticky for the same reason the cut-line captions are.
+  box.appendChild(el('div','tlad-legend',
+    '<b>League ELO+</b> rates a club against its OWN league — 100 is that league’s average, 125 is a 100-point edge over it. Global ELO is the cross-league scale.'));
   return box;
 }
 function tableLadder(){
@@ -3692,11 +3774,12 @@ function renderGames(){
     const scoreSub=played?'Score':'Proj';
     const row=el('div','grow'+(played?' done':''));
     row.innerHTML=
-      `<span class="gr-time">${matchTime(g)}<span class="sub">${played?'Result':'Kickoff'}</span></span>`+
+      `<span class="gr-time">${matchTime(g)}<span class="sub">${played?'Result':'Kickoff'}</span>`+
+        (played||g.pD==null?'':`<span class="gr-draw">draw ${Math.round(g.pD*100)}%</span>`)+`</span>`+
       `<span class="gr-team home"><span class="tn">${g.home}</span><span class="gr-odds">${matchQuote(g.pH)}</span>${crest(g.home,g.hlogo)}</span>`+
-      `<span class="gr-xg">${hVal}<span class="sub">${scoreSub}</span></span>`+
+      `<span class="gr-xg home">${hVal}<span class="sub">${scoreSub}</span></span>`+
       `<span class="gr-bar">${cbar(g)}</span>`+
-      `<span class="gr-xg">${aVal}<span class="sub">${scoreSub}</span></span>`+
+      `<span class="gr-xg away">${aVal}<span class="sub">${scoreSub}</span></span>`+
       `<span class="gr-team away">${crest(g.away,g.alogo)}<span class="gr-odds">${matchQuote(g.pA)}</span><span class="tn">${g.away}</span></span>`;
     // Venue/weather stay in a compact expansion; proprietary model inputs are
     // intentionally not exposed in the public match UI.
@@ -4519,7 +4602,11 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
    in the table redrawing the number immediately to its right, and at 320px that
    cost pushed the rating column off-screen entirely and truncated the "Global ELO"
    header to "CR". Its 120px went to ELO+ and to letting the headers breathe. */
-.pr-head,.pr-row{display:grid;grid-template-columns:42px minmax(210px,1.6fr) minmax(150px,.8fr) 68px 84px;align-items:center;gap:var(--s3);padding:8px var(--s3)}
+/* 78px, not 68px, for the League ELO+ track: the renamed header measures 66px
+   at 700 9px mono, and 2px of clearance is not enough to survive a webfont
+   swap — it would wrap to two lines and take the sticky header with it. The
+   width comes out of the club column, which has ~440px here. (2026-08-07) */
+.pr-head,.pr-row{display:grid;grid-template-columns:42px minmax(210px,1.6fr) minmax(150px,.8fr) 78px 84px;align-items:center;gap:var(--s3);padding:8px var(--s3)}
 .pr-head{position:sticky;top:0;z-index:2;background:var(--ink-2);border-bottom:1px solid var(--line-2);font:700 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3)}
 /* Both numeric headers right-align over their numbers; the labels are short
    enough now that neither wraps or clips at 320px. */
@@ -4556,7 +4643,7 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
 @media(max-width:900px){
   .pr-intro{grid-template-columns:repeat(4,1fr)}
   .pr-copy{grid-column:1/-1;border-right:0;border-bottom:1px solid var(--line-2)}
-  .pr-head,.pr-row{grid-template-columns:36px minmax(160px,1.5fr) minmax(110px,.7fr) 60px 66px;gap:8px}
+  .pr-head,.pr-row{grid-template-columns:36px minmax(160px,1.5fr) minmax(110px,.7fr) 70px 66px;gap:8px}
 }
 @media(max-width:620px){
   .pr-intro{grid-template-columns:repeat(2,1fr)}
@@ -4623,9 +4710,10 @@ if (_isPower && window.POWER_DATA) {
         <div class="pr-count"></div>
       </div>
       <div class="pr-panel">
-        <div class="pr-head"><span>Rank</span><span>Club</span><span class="pr-conf">Confederation</span><span title="Rating against this club's own league — league average = 100">ELO+</span><span><a href="/global-elo/">Global ELO</a></span></div>
+        <div class="pr-head"><span>Rank</span><span>Club</span><span class="pr-conf">Confederation</span><span title="Rating against this club's own league — league average = 100"><span class="elop-lg">League </span>ELO+</span><span><a href="/global-elo/">Global ELO</a></span></div>
         <div class="pr-list"></div>
       </div>
+      <div class="tlad-legend"><b>League ELO+</b> rates a club against its OWN league — 100 is that league’s average, 125 is a 100-point edge over it. <b>Global ELO</b> is the cross-league scale, so the two answer different questions about the same club.</div>
       <div class="pr-method" id="pr-method">
         <h2>How this ladder is built</h2>
         <p>Every ranked club keeps its domestic ELO, then receives a measured league or tier bridge plus a confederation shift fitted on Club World Cup meetings. Leagues without that bridge—and women’s competitions, which have no cross-gender match network—stay on their league pages until the evidence can support a global comparison. Cross-confederation gaps rest on ${P.cross_conf_matches||60} matches and are the least certain comparisons here. <a href="/global-elo/">More about Global ELO →</a></p>
@@ -4636,17 +4724,19 @@ if (_isPower && window.POWER_DATA) {
     let active='All';
     const draw=()=>{
       const q=(search.value||'').trim().toLowerCase();
-      // t.display is set only where two real clubs share a name and carries the
-      // country ("Liverpool (Uruguay)"), so searching the country finds the
-      // right one of the pair.
+      // t.country is set on EVERY member of a shared-name group; t.display —
+      // the name with the country appended — only on the lower-ranked ones, so
+      // the best-known club reads bare. Search reads t.country rather than
+      // t.display so "liverpool uruguay" and "liverpool england" both resolve,
+      // even though only one of the two is tagged on screen.
       const filtered=all.filter(t=>(active==='All'||t.confederation===active)&&
-        (!q||`${t.display||t.team} ${t.league_short} ${t.confederation}`.toLowerCase().includes(q)));
+        (!q||`${t.team} ${t.country||''} ${t.league_short} ${t.confederation}`.toLowerCase().includes(q)));
       list.innerHTML=filtered.length?filtered.map(t=>{
         const subtitle=`${t.league_short}${t.tier>1?` · Tier ${t.tier}`:''}${t.women?' · Women':''}`;
         const ep=prPlus(t);
         return `<div class="pr-row">
           <span class="pr-rank">${t.global_rank}</span>
-          <a class="pr-club" href="${clubURL(t.league,t.team)}">${crest(t.team,t.logo,!!t.display)}<span class="pr-team"><span class="pr-name">${prEsc(t.display||t.team)}</span><span class="pr-lg">${prEsc(subtitle)}</span></span></a>
+          <a class="pr-club" href="${clubURL(t.league,t.team)}">${crest(t.team,t.logo,!!t.country)}<span class="pr-team"><span class="pr-name">${prEsc(t.display||t.team)}</span><span class="pr-lg">${prEsc(subtitle)}</span></span></a>
           <span class="pr-conf">${prEsc(t.confederation)}</span>
           <span class="pr-elop ${ep>100?'up':ep<100?'dn':''}" title="${prEsc(t.team)} vs ${prEsc(t.league_short)} average (100)">${ep}</span>
           <span class="pr-str" title="${prEsc(t.team)} · Global ELO ${Math.round(t.strength)}">${Math.round(t.strength)}</span>
@@ -4979,6 +5069,10 @@ if (_isPower && window.POWER_DATA) {
 /* Tagline (2026-07-19: signature serif headline, balanced across two full
    lines; the old promise paragraph + recap CTA are gone) */
 .hx-tag h1{grid-area:headline;font-family:var(--serif);font-size:clamp(21px,2.9vw,34px);line-height:1.16;font-weight:800;letter-spacing:-.012em;margin:0;color:var(--txt-1);padding:2px 2px 0;text-wrap:balance;max-width:17.6em}
+/* Two headlines, one shown at a time. The phone rule below swaps in the short
+   one; a CSS swap rather than a JS one so a rotate cannot leave the wrong
+   headline behind. (2026-08-07 feedback: "maybe just a one line header") */
+.hx-h-brief{display:none}
 /* 2026-07-23 live-state hero: the tagline described the product to people who
    already pay for it. The h1 now states what changed; the tagline survives as
    a sub-line so crawlers and first-time visitors still get the promise. */
@@ -5110,6 +5204,23 @@ if (_isPower && window.POWER_DATA) {
   .hx-actions{margin-top:12px;padding:0}
   .hx-stories{display:none}  /* D lives behind the News tab on mobile */
   .hx-cols,.hx-newsband{grid-template-columns:1fr}
+}
+/* ── Phone hero (2026-08-07 feedback: "the header takes up too much space. I
+   like the track my club and explore free forecasts buttons, but maybe just a
+   one line header above it").
+   The block was 157px on a 375px screen — a 51px two-line headline and a 52px
+   three-line paragraph stacked above the 35px of buttons that are the only
+   thing on it a reader can act on. Now: one line of headline, then the
+   buttons, ~73px. The 21px headline is dropped to 17px so the short string
+   actually fits one line rather than wrapping to two and saving nothing.
+   The "forecasts remain free" promise moves off this hero on phones only; it
+   is still printed on the Club Watch panels and the subscribe page. ── */
+@media(max-width:700px){
+  .hx-tag h1{font-size:17px;line-height:1.2;max-width:none}
+  .hx-h-full{display:none}
+  .hx-h-brief{display:inline}
+  .hx-sub{display:none}
+  .hx-actions{margin-top:10px}
 }
 .eb-row{padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer}
 .eb-row:hover{background:var(--ink-2)}
@@ -5901,7 +6012,7 @@ if(_isHome && window.HOME_DATA){
   const target=$('#view-outlook')||$('main.wrap');
   if(target){ target.classList.remove('hidden'); target.innerHTML=`
     <div class="hx-wrap">
-    <div class="hx-tag"><h1>Know what every match means for your club's season.</h1>
+    <div class="hx-tag"><h1><span class="hx-h-full">Know what every match means for your club's season.</span><span class="hx-h-brief">What every match means for your club.</span></h1>
       <p class="hx-sub">Follow your club once. Entenser shows what changed, why it matters, and what comes next. Current forecasts across 70+ competitions remain free.</p>
       <div class="hx-actions">
         <a class="intel-btn primary" href="?league=intel">Track my club</a>

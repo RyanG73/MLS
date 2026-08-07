@@ -192,6 +192,13 @@ class TestPowerPayload:
         Brazil's Série B in 2025, and that payload still describes the completed
         2025 season, which is right for the Série B page and wrong for a global
         ladder. Two were genuinely different clubs sharing a name.
+
+        Since 2026-08-07 the BEST-RANKED club of a shared name renders bare and
+        only the others carry their country, so `display` is no longer the thing
+        to assert on. What still has to hold — and is what actually catches a
+        club listed twice — is that every row of a shared name carries a
+        `country` and that those countries are all different. One club in two
+        divisions has the SAME country twice and fails here.
         """
         path = WEBAPP_DATA / "power.js"
         _, data = _load_payload(path)
@@ -201,16 +208,28 @@ class TestPowerPayload:
         for name, group in seen.items():
             if len(group) == 1:
                 continue
-            # Two real clubs may share a name, but then every one of them has to
-            # carry a distinct display name or the ladder is unreadable.
-            displays = {r.get("display") for r in group}
-            assert None not in displays, (
-                f"power.js: {len(group)} rows named {name!r} and at least one has "
-                f"no `display` — either it is one club listed twice, or the "
-                f"disambiguation is missing: "
+            countries = [r.get("country") for r in group]
+            assert all(countries), (
+                f"power.js: {len(group)} rows named {name!r} and at least one "
+                f"carries no `country` — either it is one club listed twice, or "
+                f"the disambiguation is missing: "
                 f"{[(r['league'], r['global_rank']) for r in group]}")
-            assert len(displays) == len(group), (
-                f"power.js: {name!r} has duplicate display names {displays}")
+            assert len(set(countries)) == len(group), (
+                f"power.js: {name!r} appears {len(group)} times but resolves to "
+                f"only {len(set(countries))} countries {sorted(set(countries))} — "
+                f"that is one club listed twice, not two namesakes: "
+                f"{[(r['league'], r['global_rank']) for r in group]}")
+            # Exactly one renders bare, and it is the best-ranked of the group:
+            # "everyone knows the big liverpool" (2026-08-07).
+            bare = [r for r in group if not r.get("display")]
+            assert len(bare) == 1, (
+                f"power.js: {name!r} has {len(bare)} untagged rows, expected 1: "
+                f"{[(r['league'], r.get('display')) for r in group]}")
+            assert bare[0]["global_rank"] == min(r["global_rank"] for r in group), (
+                f"power.js: the untagged {name!r} is rank "
+                f"{bare[0]['global_rank']}, but rank "
+                f"{min(r['global_rank'] for r in group)} shares the name and is "
+                f"the one a reader means")
 
     def test_global_ranks_are_dense_and_unique(self):
         path = WEBAPP_DATA / "power.js"
