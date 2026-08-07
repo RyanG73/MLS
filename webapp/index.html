@@ -5089,7 +5089,7 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
       const dt=new Date(r.date+'T12:00:00');
       const day=dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
       const drv=r.driver&&r.driver_team
-        ? `<span class="mtw-drv">${commandEsc(r.driver_team)}'s <b>${commandEsc(r.driver)}</b> odds swing up to ${r.driver_swing_pp} points</span>` : '';
+        ? `<span class="mtw-drv">${commandEsc(r.driver_team)}'s <b>${commandEsc(r.driver)}</b> likelihood swings up to ${r.driver_swing_pp} points</span>` : '';
       return `<a class="mtw-row" href="?league=${r.league}">
         <span class="mtw-top"><span class="mtw-day">${day}</span>
           <span class="mtw-lg">${commandEsc(r.league_name)}</span>
@@ -5132,7 +5132,9 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
     // left the reader to guess why two lists of fixtures differed.
     return `<div class="eb-panel mtw">
       <div class="eb-h" style="padding:0 0 4px">Matches to watch</div>
-      <div class="cc-panel-note" style="padding:0 0 10px">Every fixture carries a <b>swing</b> score: how far it can move its league's title, European and relegation odds. A high score means the table looks materially different depending on the result.</div>
+      <!-- "likelihood", not "odds": the public layer is forecast-first, and the
+           race panel already calls these numbers likelihoods. -->
+      <div class="cc-panel-note" style="padding:0 0 10px">Every fixture carries a <b>swing</b> score: how far it can move its league's title, European and relegation likelihoods. A high score means the table looks materially different depending on the result.</div>
       <div class="mtw-rails">${yours}
         ${rail('One per league','the single most consequential match in each competition, biggest leagues first',norm)}
         ${rail('Biggest swings anywhere','the highest scores across all competitions — often leagues you have never watched',world)}</div>

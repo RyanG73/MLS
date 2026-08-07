@@ -928,10 +928,28 @@
     });
   }
 
-  function resolveHistoryMetric(data, preferred) {
+  // A pinned season target is a scenario choice, not a history choice, and the
+  // archive does not cover every metric equally — `spoon`, `conf_win` and `hfa`
+  // only started being recorded on 2026-08-01. Honouring a thinly-covered target
+  // silently truncated this panel to the handful of checkpoints that carried it,
+  // dropping the reconstructed replay the key advertises. Measured 2026-08-05:
+  // 114 of 1141 clubs with history were drawing such a stub, most of them pinned
+  // to `continental`. So an inherited target must clear a share of the best
+  // covered metric's checkpoints; a target the reader picked in the selector is
+  // always honoured, however thin, because they can see its count in the option.
+  var HISTORY_COVERAGE_FLOOR = 0.5;
+
+  function resolveHistoryMetric(data, preferred, explicit) {
     var counts = historyMetricCounts(data);
-    if (counts[preferred]) return preferred;
-    return historyMetricOrder(data)[0] || preferred;
+    var order = historyMetricOrder(data);
+    if (explicit && counts[preferred]) return preferred;
+    var widest = order.reduce(function (most, key) {
+      return Math.max(most, counts[key]);
+    }, 0);
+    var floor = widest * HISTORY_COVERAGE_FLOOR;
+    if (counts[preferred] >= floor) return preferred;
+    var covered = order.filter(function (key) { return counts[key] >= floor; });
+    return covered[0] || order[0] || preferred;
   }
 
   function historyShortDate(value) {
@@ -939,10 +957,10 @@
     return isNaN(date) ? String(value || "") : date.toLocaleDateString([], {month: "short", day: "numeric"});
   }
 
-  function trajectoryHTML(data, metric, compact) {
+  function trajectoryHTML(data, metric, compact, explicit) {
     var points = data.points || [];
     if (!points.length) return empty("Trajectory history has not accrued for this target.");
-    metric = resolveHistoryMetric(data, metric);
+    metric = resolveHistoryMetric(data, metric, explicit);
     var plotted = points.map(function (point) {
       var value = point.value != null ? point.value : point.pct != null ? point.pct : point.values && point.values[metric];
       var date = point.snapshot_date || point.date;
@@ -1010,8 +1028,10 @@
 
   function renderTimeMachine(data) {
     var counts = historyMetricCounts(data);
+    var explicit = !!state.historyTarget;
     var metric = resolveHistoryMetric(
-      data, state.historyTarget || state.selectedTarget || state.record.target_metric);
+      data, state.historyTarget || state.selectedTarget || state.record.target_metric,
+      explicit);
     var metrics = historyMetricOrder(data);
     var selector = metrics.length > 1
       ? '<div class="intel-history-controls"><div class="intel-field"><label for="intel-history-target">Historical target</label>' +
@@ -1020,7 +1040,7 @@
             escapeHtml(key.replace(/_/g, " ")) + ' · ' + counts[key] + ' checkpoints</option>';
         }).join("") + '</select></div></div>'
       : "";
-    return selector + trajectoryHTML(data, metric, false);
+    return selector + trajectoryHTML(data, metric, false, explicit);
   }
 
   function renderConsensus(data) {

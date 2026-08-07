@@ -16,6 +16,26 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-05 — Seven failing browser tests resolved: five stale assertions, two real product
+  defects.** Confirmed pre-existing at `80ccefc` and independent of the documentation commit
+  `7dce707`. Five tests encoded a UI that had been deliberately replaced and were corrected: the
+  ladder column is **Crossbar**, not "global elo" (`36ed152`); the per-league `.data-clock` build
+  stamp was removed with the round-3 masthead (`f0fbed9`); the five MLS race boxes moved from the
+  bespoke `.fav` strip to the shared `.races/.race` strip (2026-07-31), so the test now asserts all
+  five races by name instead of one; the trajectory switcher gained a "Changes since…" mode button
+  (`aa5eeaa`) that shares `.rm-switch`, so the assertion moved to `[data-race-metric]`, the selector
+  the panel's own handler uses; and the trading-term guard dropped bare `stake` — "what is at stake"
+  is how the product describes why a match matters — while gaining `bankroll`.
+  **Two were the product's fault, not the tests'.** (1) The plain-language rewrite in `f0fbed9`
+  introduced "odds" twice on the free Matches board; both now read "likelihood", matching the race
+  panel. (2) Club Watch's Season Forecast History honoured a pinned target with as few as 3 of 33
+  checkpoints, silently dropping the reconstructed replay — 114 of 1,141 clubs with history were
+  affected (measured over the local artifact tree, 2026-08-05). `resolveHistoryMetric` now requires
+  an inherited target to clear half the best-covered metric's checkpoints and honours an explicit
+  selector pick at any coverage. Proof: `tests/test_browser_smoke.py` + `tests/test_intelligence_browser.py`
+  83 passed / 2 skipped; rest of the suite 1,749 passed / 24 skipped. **Environment note:** the
+  browser intelligence tests need the gitignored `data/team_intelligence/` artifacts — a bare
+  worktree fails 8 of 9 on missing artifacts, not on product behaviour.
 - **2026-08-01 — Competitor deep dive executed across seven targets.** Prompt:
   `docs/prompts/competitor-deep-dive.md`. Report: `docs/competitor-deep-dive-2026-08-01.md`.
   Mechanics-level teardown of FanGraphs, FotMob, Rotowire, American Soccer Analysis, Sports

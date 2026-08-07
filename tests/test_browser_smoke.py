@@ -301,7 +301,9 @@ class TestLeaguePageRaceFirstLayout:
             h.lower()
             for h in page.locator(".tlad .thead > span").all_inner_texts()
         ]
-        assert headers[1:7] == ["club", "pts", "gp", "gd", "proj", "global elo"]
+        # "Crossbar" is the customer-facing name of the cross-league strength
+        # scale (owner decision 2026-08-01); `global_elo` stays the internal key.
+        assert headers[1:7] == ["club", "pts", "gp", "gd", "proj", "crossbar"]
         assert headers[-1] == "next 5 sim 🔒"
         assert page.locator(".tlad .tsub").count() == 0, (
             "League-table team cells should not retain the old GP/GD footnote"
@@ -419,11 +421,14 @@ class TestLeaguePageRaceFirstLayout:
         _load_route(page, webapp_url, "epl")
         identity = page.locator(".brand")
         assert identity.locator("#leagueTitle").inner_text() == "Premier League"
-        assert identity.locator("#sub > span:not(.data-clock)").all_inner_texts() == [
+        # The per-league `.data-clock` build stamp ("Forecast <date> · fitted
+        # model <date>") was removed with the round-3 masthead on 2026-08-01
+        # (f0fbed9); the identity block is now country + division only, and the
+        # page date lives once in the global `.mast-date`.
+        assert identity.locator("#sub > span").all_inner_texts() == [
             "ENGLAND",
             "DIVISION 1",
         ]
-        assert "Forecast" in identity.locator("#sub .data-clock").inner_text()
         status = page.locator("#acc")
         assert "PROJECTED SEASON\n26–27" in status.inner_text()
         assert "NEXT MATCH\nAug 21, 2026" in status.inner_text()
@@ -562,7 +567,11 @@ class TestLeaguePageRaceFirstLayout:
     ):
         _load_route(page, webapp_url, "epl")
         movement = page.locator(".race-movement")
-        switches = movement.locator(".rm-switch")
+        # `.rm-switch` is also worn by the "Changes since…" mode button (P5,
+        # aa5eeaa) and by "Back to trajectory". The projection categories are
+        # the ones carrying `data-race-metric`, which is the selector the panel's
+        # own click handler uses.
+        switches = movement.locator(".rm-switch[data-race-metric]")
         assert switches.all_inner_texts() == ["TITLE", "CHAMPIONS LG", "RELEGATION"]
         assert "rotates every 7 sec" in movement.locator(
             ".rm-rotate-note"
@@ -687,16 +696,24 @@ class TestLeagueMatchProjectionControls:
 
 
 class TestMlsTopBoxes:
-    """MLS must show all 5 title-race boxes: Cup, Shield, East, West, Spoon."""
+    """MLS must show all 5 race boxes: Cup, Shield, East, West, Spoon."""
 
-    def test_mls_shows_five_fav_cards(self, page: Page, webapp_url: str):
+    def test_mls_shows_five_race_cards(self, page: Page, webapp_url: str):
         _load_route(page, webapp_url, "mls")
-        cards = page.locator(".fav")
-        assert cards.count() == 5, f"Expected 5 .fav cards, got {cards.count()}"
-        labels = page.locator(".fav .lab").all_inner_texts()
-        # .fav .lab is CSS text-transform:uppercase, so inner_text() reflects the
+        # The bespoke five-card `.fav` strip was retired on 2026-07-31: MLS now
+        # renders its five races through the same `.races/.race` strip as every
+        # other league. The races themselves are the thing under test, not the
+        # markup that used to carry them.
+        cards = page.locator(".races .race")
+        assert cards.count() == 5, f"Expected 5 MLS race cards, got {cards.count()}"
+        # `.race .rk` is CSS text-transform:uppercase, so inner_text() reflects the
         # rendered case ("MLS CUP") rather than the source markup — compare case-insensitively.
-        assert any("mls cup" in l.lower() for l in labels), f"No MLS Cup card in {labels}"
+        labels = [label.lower() for label in cards.locator(".rk").all_inner_texts()]
+        for race in ("mls cup", "shield", "eastern conference",
+                     "western conference", "wooden spoon"):
+            assert any(race in label for label in labels), (
+                f"No {race} card in {labels}"
+            )
 
     def test_mls_uses_table_first_layout_neutral_links_and_dual_flags(
         self, page: Page, webapp_url: str
@@ -993,8 +1010,11 @@ class TestTeamsDashboard:
 
 
 class TestForecastFirstPublicLayer:
+    # `stake` is deliberately absent: "what is at stake" is how the product
+    # describes why a match matters, and "next match stakes" is a named Club
+    # Watch feature. `staking` and `bankroll` carry no such innocent reading.
     _TRADING_TERMS = re.compile(
-        r"\b(odds|bet|betting|edge|kelly|stake|staking|bookmaker|sportsbook|"
+        r"\b(odds|bet|betting|edge|kelly|staking|bankroll|bookmaker|sportsbook|"
         r"wager|roi|clv|market)\b",
         re.IGNORECASE,
     )
