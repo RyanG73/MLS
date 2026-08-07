@@ -41,3 +41,76 @@ def test_espn_get_raises_on_http_error():
     with patch("data_pipeline.http.requests.get", return_value=mock_resp):
         with pytest.raises(requests.HTTPError):
             espn_get("https://example.com/api")
+
+
+# ── rate-limit retry (2026-08-07) ────────────────────────────────────────────
+# ESPN answers a rate limit with 403 rather than 429, and then refuses every
+# endpoint rather than just the one that crossed the line. Without a retry the
+# pipeline turned that into "season not refreshed" and carried on: the Leagues
+# Cup match cache held only 2024 while a live 2026 tournament published a
+# forecast with 0 of 54 results, and the scheduled fast refresh failed outright.
+
+
+def _resp(status, payload=None):
+    """A response mock whose status_code is a real int, so membership of
+    _RETRY_STATUS behaves rather than silently matching a MagicMock."""
+    m = MagicMock()
+    m.status_code = status
+    m.reason = "Forbidden" if status == 403 else "OK"
+    m.url = "https://example.com/api"
+    m.headers = {}
+    m.json.return_value = payload if payload is not None else {}
+    if status >= 400:
+        m.raise_for_status.side_effect = requests.HTTPError(f"{status}")
+    return m
+
+
+# `attempts` is passed explicitly throughout: conftest sets the module default
+# to 1 for the session so the few tests that reach ESPN for real do not pay the
+# backoff ladder, and these tests must exercise retries regardless of it.
+
+
+def test_espn_get_retries_403_then_succeeds():
+    calls = [_resp(403), _resp(403), _resp(200, {"events": [1]})]
+    with patch("data_pipeline.http.requests.get", side_effect=calls) as get, \
+         patch("data_pipeline.http.time.sleep"):
+        assert espn_get("https://example.com/api", attempts=4) == {"events": [1]}
+    assert get.call_count == 3, "a 403 must be retried, not surfaced"
+
+
+def test_espn_get_does_not_retry_404():
+    """404 is a slug that does not exist and 400 a date window ESPN dislikes.
+    Both are deterministic; retrying only slows the build to the same answer."""
+    with patch("data_pipeline.http.requests.get", return_value=_resp(404)) as get, \
+         patch("data_pipeline.http.time.sleep"):
+        with pytest.raises(requests.HTTPError):
+            espn_get("https://example.com/api", attempts=4)
+    assert get.call_count == 1
+
+
+def test_espn_get_gives_up_after_max_attempts_and_raises():
+    with patch("data_pipeline.http.requests.get", return_value=_resp(403)) as get, \
+         patch("data_pipeline.http.time.sleep"):
+        with pytest.raises(requests.HTTPError):
+            espn_get("https://example.com/api", attempts=3)
+    assert get.call_count == 3, "must stop, so a dead source cannot hang a build"
+
+
+def test_espn_get_honours_retry_after_header():
+    limited = _resp(429)
+    limited.headers = {"Retry-After": "7"}
+    with patch("data_pipeline.http.requests.get",
+               side_effect=[limited, _resp(200, {"ok": True})]), \
+         patch("data_pipeline.http.time.sleep") as sleep:
+        assert espn_get("https://example.com/api", attempts=4) == {"ok": True}
+    waits = [c.args[0] for c in sleep.call_args_list if c.args and c.args[0] >= 1]
+    assert 7 in waits, f"Retry-After ignored; slept {waits}"
+
+
+def test_espn_get_retries_transient_connection_errors():
+    with patch("data_pipeline.http.requests.get",
+               side_effect=[requests.ConnectionError("reset"),
+                            _resp(200, {"ok": True})]) as get, \
+         patch("data_pipeline.http.time.sleep"):
+        assert espn_get("https://example.com/api", attempts=4) == {"ok": True}
+    assert get.call_count == 2
