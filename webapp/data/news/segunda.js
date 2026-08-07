@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"segunda","generated":"2026-08-06 12:58 UTC","items":[]};
+window.NEWS_DATA = {"league":"segunda","generated":"2026-08-07 11:46 UTC","items":[{"title":"Liverpool sign Spanish midfielder Ramos","link":"https://www.bbc.co.uk/sport/football/articles/cz6484p441yo?at_medium=RSS&at_campaign=rss","desc":"Liverpool have signed Spanish midfielder Natalia Ramos from CD Tenerife Femenino, subject to visa approval and international clearance.","published":"2026-08-06T13:39:35+00:00","source":"BBC Sport","is_analysis":false}]};

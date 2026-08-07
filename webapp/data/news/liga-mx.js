@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"liga-mx","generated":"2026-08-06 12:58 UTC","items":[{"title":"Son Heung-min continues post-World Cup hot streak with MLS All-Star Game MVP","link":"https://www.nytimes.com/athletic/7479403/2026/07/30/mls-all-star-game-son-heung-min-mvp-liga-mx/","desc":"The former Tottenham captain was the brightest star for MLS in another win over Liga MX counterparts.","published":"2026-07-30T04:07:39+00:00","source":"The Athletic","is_analysis":false}]};
+window.NEWS_DATA = {"league":"liga-mx","generated":"2026-08-07 11:46 UTC","items":[]};
