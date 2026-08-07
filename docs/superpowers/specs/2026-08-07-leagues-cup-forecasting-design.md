@@ -122,9 +122,22 @@ What is **established from repo data**:
   never facing or ranked against own league, top 4 per table to the quarter-finals, 3 points for a
   win and 1 for a draw. (Source: the competition's own `rules` string, which describes 2026.)
 
-What must be **verified from fetched data, not asserted**: the 2023 and 2025 formats. The repo
-holds no rows for either season and this design deliberately does not guess them. The rebuild
-should be checked for 2025 first; 2023 may need an explicit backfill fetch.
+**2023 resolved 2026-08-07** via API-Football (league id **772**; its free plan serves 2022–2024).
+Both early editions are now established from data rather than memory:
+
+| Season | Fixtures | Shape | Level matches |
+|---|---|---|---|
+| 2023 | 77 | 15 groups of 3 (45 matches) → R32 · R16 · QF · SF · 3rd · Final | **23 to penalties** |
+| 2024 | 77 | identical | **24 to penalties** |
+
+A 47-club field: 45 clubs in fifteen three-club groups playing two matches each, plus two seeded
+byes straight into a 32-team knockout. Both decided level matches by shootout — the opposite of the
+current edition's "1 for a draw". Both had own-league ties (Orlando City v Houston Dynamo in 2023's
+group stage; 29 MLS-v-MLS in 2024), so the two-table shape is wrong for both.
+
+**2025 remains unverified and is deliberately not described.** API-Football's free plan stops at
+2024 and the repo holds no rows for it. It is the transition year between the two shapes, so it is
+exactly the season a guess would most likely get wrong. It is recorded as unsupported and raises.
 
 ### B. Venue model
 

@@ -99,29 +99,40 @@ FORMATS: dict[str, dict] = {
 # given season. Without this, replaying 2024 would run it under 2026's rules and
 # report a number about nothing.
 #
-# Leagues Cup, established from the cached 2024 match data (77 rows):
-#   * 24 of 77 matches finished level in regulation and ALL 24 recorded a
-#     winner — 15 of 15 in the group stage. Shootouts were real, so a drawn
-#     match was worth 0 points to the loser.
-#   * Clubs faced their own league: 29 MLS-v-MLS and 4 LigaMX-v-LigaMX ties.
-#     The 2026 rule ("clubs never face and are never ranked against their own
-#     league") did not hold, so the two-table shape is wrong for that edition.
-#   * Rounds present: group-stage, round-of-32, round-of-16, QF, SF, third
-#     place, final — a far larger field than 2026's 36.
+# Leagues Cup. 2023 and 2024 are established from match data — the ESPN cache
+# for 2024 (77 rows) and API-Football league 772 for both seasons — not from
+# memory:
 #
-# 2023 and 2025 are deliberately absent rather than guessed: this repository
-# holds no rows for either season. `format_for` raises for a season recorded as
-# unsupported, so a caller cannot silently replay it under the wrong rules.
+#   season  fixtures  shape                                    level matches
+#   2023    77        15 groups of 3 (45) -> R32/R16/QF/SF/3rd/F   23 to penalties
+#   2024    77        identical                                    24 to penalties
+#
+#   * Both editions decided level matches by SHOOTOUT: 23 of 77 and 24 of 77
+#     carry a PEN status, and in the ESPN cache all 24 of 2024's drawn matches
+#     record a winner (15 of 15 in the group stage). A draw was worth 0 to the
+#     loser, the opposite of the current edition.
+#   * Both had a 47-club field: 45 in fifteen three-club groups, each club
+#     playing two matches, plus two seeded byes straight to a 32-team knockout.
+#   * Clubs faced their OWN league — 29 MLS-v-MLS and 4 LigaMX-v-LigaMX ties in
+#     2024, e.g. Orlando City v Houston Dynamo in 2023's group stage. The
+#     current rule ("clubs never face and are never ranked against their own
+#     league") did not hold, so the two-table shape is wrong for both.
+#
+# 2025 is recorded as unsupported but NOT described: API-Football's free plan
+# serves 2022-2024 only, and this repository holds no rows for it. It is the
+# transition year between the two shapes and guessing it would be worse than
+# refusing it. `format_for` raises for any season recorded here, so a caller
+# cannot silently replay one under another edition's rules.
 _UNSUPPORTED = "unsupported"
 
 SEASON_FORMATS: dict[str, dict[int, dict | str]] = {
     "leagues-cup": {
-        # 47-club field, three-club groups with byes, knockout from the round of
-        # 32. The engine has no phase type for that shape, so it is recorded and
-        # refused rather than approximated by the two-table sim.
+        # The engine has no phase type for "groups of three with byes into a
+        # round of 32", so these are recorded and refused rather than
+        # approximated by the two-table sim.
         2023: _UNSUPPORTED,
         2024: _UNSUPPORTED,
-        2025: _UNSUPPORTED,
+        2025: _UNSUPPORTED,   # shape unverified — see note above
     },
 }
 
