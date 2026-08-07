@@ -1,4 +1,5 @@
 import collections
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -258,3 +259,93 @@ class TestTwoTableGroup:
         for t in out["field"]:
             for k in ("QF","SF","Final","win"): assert k in t["odds"]
             assert 0.0 <= t["advance"] <= 1.0
+
+
+# ── Per-edition rules, venue and draw (2026-08-07 owner feedback) ────────────
+# "this is the fourth year of the competition and its rules have changed over
+# time and need to be accounted for in your modeling. In addition, factor in
+# home field vs. neutral site games played at true home or true neutral venues."
+
+def _lc_field():
+    return ([{"team": f"MLS{i}", "league": "mls", "strength": 1600} for i in range(18)] +
+            [{"team": f"MX{i}", "league": "liga-mx", "strength": 1600} for i in range(18)])
+
+
+class TestLeaguesCupEditions:
+    def test_current_edition_awards_a_point_for_a_draw(self):
+        """The sim awarded a shootout winner 3 and the loser 0 while the page
+        printed "1 for a draw" — 2023-24 rules under a 2026 description."""
+        assert bs.FORMATS["leagues-cup"]["phase"]["no_draws"] is False
+
+    def test_no_draws_flag_is_actually_read(self):
+        """It was decorative: the shootout branch ran unconditionally, so the
+        model had no way to express a competition that allows draws."""
+        import copy
+        shootout = copy.deepcopy(bs.FORMATS["leagues-cup"])
+        shootout["phase"]["no_draws"] = True
+        drawn = copy.deepcopy(bs.FORMATS["leagues-cup"])
+        drawn["phase"]["no_draws"] = False
+        field = _lc_field()
+        with patch.dict(bs.FORMATS, {"leagues-cup": shootout}):
+            a = bs.simulate("leagues-cup", field, N=200, seed=5)
+        with patch.dict(bs.FORMATS, {"leagues-cup": drawn}):
+            b = bs.simulate("leagues-cup", field, N=200, seed=5)
+        adv_a = [t["advance"] for t in a["field"]]
+        adv_b = [t["advance"] for t in b["field"]]
+        assert adv_a != adv_b, "the points rule changed nothing — flag still ignored"
+
+    def test_visiting_league_never_gets_a_true_home_match(self):
+        """Every edition has been played in the US and Canada, so a Liga MX club
+        listed as home is at an MLS or neutral ground. Measured on the 2024
+        cache: a home side won 44.2% of all matches but a Liga MX side nominally
+        at home won 28.0% (n=25), barely above the 24.7% away sides managed.
+
+        Asserted on the neutral flag each match is simulated with, not on
+        advance rates: the two tables each advance exactly 4 of 18, so no venue
+        effect can move that ratio — it moves WHICH clubs advance, and the
+        knockout seeding that follows.
+        """
+        assert bs.FORMATS["leagues-cup"]["phase"]["host_league"] == "mls"
+        field = _lc_field()
+        seen = []          # (home_league, neutral) per group-phase match
+
+        real = bs._sim_match
+
+        def spy(sh, sa, neutral, rng, conf="UEFA"):
+            seen.append(neutral)
+            return real(sh, sa, neutral, rng, conf=conf)
+
+        with patch.object(bs, "_sim_match", side_effect=spy):
+            bs.simulate("leagues-cup", field, N=1, seed=3)
+
+        # 18 clubs x 3 games = 54 group matches; alternate-home puts the Liga MX
+        # club nominally at home in a third of them, and every one of those must
+        # be simulated as neutral.
+        assert seen, "no matches simulated"
+        assert any(seen), "no match was treated as neutral — venue policy is not applied"
+        assert not all(seen), "every match neutral — MLS lost its real home advantage"
+
+    def test_pairings_are_drawn_not_alphabetical(self):
+        """Opponents used to be B[(k + gi) % len(B)] over field-ordered lists,
+        so a club's schedule was a function of its name and identical in every
+        simulation. Two seeds must now produce different tables."""
+        field = _lc_field()
+        a = bs.simulate("leagues-cup", field, N=150, seed=11)
+        b = bs.simulate("leagues-cup", field, N=150, seed=12)
+        adv_a = [t["advance"] for t in a["field"]]
+        adv_b = [t["advance"] for t in b["field"]]
+        assert adv_a != adv_b, "schedule uncertainty is not reaching the output"
+
+    def test_earlier_editions_refuse_rather_than_use_current_rules(self):
+        """2023-25 used a 47-club field with three-club groups and shootouts.
+        Replaying them under the 2026 two-table spec would be a number about
+        nothing, so format_for raises instead."""
+        for yr in (2023, 2024, 2025):
+            with pytest.raises(ValueError, match="cannot represent"):
+                bs.format_for("leagues-cup", yr)
+        assert bs.format_for("leagues-cup", 2026) is bs.FORMATS["leagues-cup"]
+
+    def test_format_for_leaves_every_other_competition_alone(self):
+        for comp in ("ucl", "europa", "conference", "libertadores"):
+            assert bs.format_for(comp, 2024) is bs.FORMATS[comp]
+            assert bs.format_for(comp) is bs.FORMATS[comp]

@@ -46,9 +46,20 @@ FORMATS: dict[str, dict] = {
         "conf": "Concacaf",
     },
     # Leagues Cup — 18 MLS + 18 Liga MX; two parallel tables; top 4 per table -> 8-team KO.
+    # This is the 2026 edition and the default; earlier editions differ, see
+    # SEASON_FORMATS below. `no_draws` is now READ (it was decorative before
+    # 2026-08-07, and the shootout branch ran unconditionally).
     "leagues-cup": {
         "phase": {"type": "two_table", "teams": 36, "games_each": 3,
-                  "advance_per_table": 4, "no_draws": True},
+                  "advance_per_table": 4, "no_draws": False,
+                  # Every edition to date has been played entirely in the United
+                  # States and Canada, so a Liga MX club listed as home is at an
+                  # MLS or neutral American ground. Measured on the 2024 cache:
+                  # a home side won 44.2% of all matches, but a Liga MX side
+                  # nominally at home won 28.0% (n=25) — barely above the 24.7%
+                  # that away sides managed. Handing it a home advantage it never
+                  # had biased every Liga MX projection upward.
+                  "host_league": "mls"},
         "ko": [{"round": "QF", "legs": 1}, {"round": "SF", "legs": 1},
                {"round": "Final", "legs": 1, "neutral": True}],
         "extra_time": True, "pens": True,
@@ -80,6 +91,54 @@ FORMATS: dict[str, dict] = {
         "conf": "CONMEBOL",
     },
 }
+
+
+# ── Per-edition overrides ────────────────────────────────────────────────────
+# A competition whose rules change between editions cannot be described by one
+# spec. FORMATS holds the CURRENT edition; anything here overrides it for a
+# given season. Without this, replaying 2024 would run it under 2026's rules and
+# report a number about nothing.
+#
+# Leagues Cup, established from the cached 2024 match data (77 rows):
+#   * 24 of 77 matches finished level in regulation and ALL 24 recorded a
+#     winner — 15 of 15 in the group stage. Shootouts were real, so a drawn
+#     match was worth 0 points to the loser.
+#   * Clubs faced their own league: 29 MLS-v-MLS and 4 LigaMX-v-LigaMX ties.
+#     The 2026 rule ("clubs never face and are never ranked against their own
+#     league") did not hold, so the two-table shape is wrong for that edition.
+#   * Rounds present: group-stage, round-of-32, round-of-16, QF, SF, third
+#     place, final — a far larger field than 2026's 36.
+#
+# 2023 and 2025 are deliberately absent rather than guessed: this repository
+# holds no rows for either season. `format_for` raises for a season recorded as
+# unsupported, so a caller cannot silently replay it under the wrong rules.
+_UNSUPPORTED = "unsupported"
+
+SEASON_FORMATS: dict[str, dict[int, dict | str]] = {
+    "leagues-cup": {
+        # 47-club field, three-club groups with byes, knockout from the round of
+        # 32. The engine has no phase type for that shape, so it is recorded and
+        # refused rather than approximated by the two-table sim.
+        2023: _UNSUPPORTED,
+        2024: _UNSUPPORTED,
+        2025: _UNSUPPORTED,
+    },
+}
+
+
+def format_for(comp_id: str, season: int | None = None) -> dict:
+    """The format spec governing `comp_id` in `season`.
+
+    Falls back to FORMATS[comp_id] when a season has no override, which keeps
+    every other competition — none of which has changed shape — untouched.
+    """
+    override = SEASON_FORMATS.get(comp_id, {}).get(season) if season else None
+    if override is _UNSUPPORTED:
+        raise ValueError(
+            f"{comp_id} {season} used a format this engine cannot represent; "
+            f"simulating it under {comp_id}'s current rules would be wrong. "
+            f"See SEASON_FORMATS in scripts/eval/bracket_sim.py.")
+    return override or FORMATS[comp_id]
 
 
 def make_league_schedule(field, matches_each: int, seed: int = 0):
@@ -220,7 +279,8 @@ def _pens(sh, sa, rng):
     return 0 if rng.random() < p_home else 1
 
 
-def _run_ko(alive, fmt, strengths, rng, reach, win, conf: str = "UEFA"):
+def _run_ko(alive, fmt, strengths, rng, reach, win, conf: str = "UEFA",
+            neutral_of=None):
     """Run the knockout rounds over `alive` (the entry field, a power of two).
     Mutates reach[round] (teams alive at the start of each round) and win[champion].
     Returns the champion index."""
@@ -236,8 +296,16 @@ def _run_ko(alive, fmt, strengths, rng, reach, win, conf: str = "UEFA"):
         else:  # single-leg round(s) — loop pairs (a 2-team final is the degenerate case)
             for k in range(0, len(alive), 2):
                 a, b = alive[k], alive[k + 1]
+                # A round already declared neutral stays neutral. Otherwise a
+                # competition may still rule that this particular host is not
+                # actually at home — the Leagues Cup plays its whole knockout in
+                # the United States, so a Liga MX side hosting a quarter-final
+                # is no more at home than it was in the group phase.
+                neutral = r.get("neutral", False)
+                if not neutral and neutral_of is not None:
+                    neutral = neutral_of(a)
                 w = sim_single_leg(strengths[a], strengths[b], rng,
-                                   neutral=r.get("neutral", False), conf=conf)
+                                   neutral=neutral, conf=conf)
                 nxt.append(a if w == 0 else b)
         alive = nxt
     win[alive[0]] += 1
@@ -289,8 +357,8 @@ def _simulate_bracket(comp_id, field, N, seed=0):
     return {"standings": [], "field": out_field}
 
 
-def _simulate_two_table(comp_id, field, N, seed=0):
-    fmt = FORMATS[comp_id]
+def _simulate_two_table(comp_id, field, N, seed=0, season=None):
+    fmt = format_for(comp_id, season)
     conf = fmt.get("conf", "UEFA")
     n = len(field)
     rng = np.random.default_rng(seed)
@@ -301,6 +369,13 @@ def _simulate_two_table(comp_id, field, N, seed=0):
     strengths = np.array([t["strength"] for t in field], dtype=float)
     adv_per = fmt["phase"]["advance_per_table"]
     games_each = fmt["phase"]["games_each"]
+    # Read, not assumed. The shootout branch used to run unconditionally while
+    # the published rules said "1 for a draw" — the sim was playing 2023-24 and
+    # the page was describing 2026. (2026-08-07)
+    no_draws = bool(fmt["phase"].get("no_draws", False))
+    # The league whose grounds host the competition. Every other club is at a
+    # neutral venue even when the fixture lists it as home.
+    host_league = fmt["phase"].get("host_league")
     # two tables, keyed by league
     tables = {}
     for i, t in enumerate(field):
@@ -309,20 +384,32 @@ def _simulate_two_table(comp_id, field, N, seed=0):
     if len(tkeys) != 2:
         raise ValueError(f"two_table expects exactly 2 leagues, got {tkeys}")
     A, B = tables[tkeys[0]], tables[tkeys[1]]
+    league_of = {i: t.get("league") for i, t in enumerate(field)}
 
     for _ in range(N):
         pts = np.zeros(n); gd = np.zeros(n)
-        # each club plays `games_each` cross-league games (rotated pairing, alt home)
+        # Resample the cross-league pairing every simulation. It used to be
+        # B[(k + gi) % len(B)] over field-ordered lists, i.e. ALPHABETICAL: a
+        # club's opponents were a deterministic function of its name and were
+        # identical in all N runs, so no schedule uncertainty reached a single
+        # published number. Permuting B and keeping the rotation preserves the
+        # property that matters — every club plays `games_each` DISTINCT
+        # opponents from the other league — while making which ones a draw.
+        Bp = [B[j] for j in rng.permutation(len(B))]
         for gi in range(games_each):
             for k in range(len(A)):
-                a = A[k]; b = B[(k + gi) % len(B)]
+                a = A[k]; b = Bp[(k + gi) % len(Bp)]
                 hi, ai = (a, b) if gi % 2 == 0 else (b, a)
-                hg, ag = _sim_match(strengths[hi], strengths[ai], False, rng, conf=conf)
+                # A nominal host from the visiting league is not actually home.
+                neutral = host_league is not None and league_of[hi] != host_league
+                hg, ag = _sim_match(strengths[hi], strengths[ai], neutral, rng, conf=conf)
                 gd[hi] += hg - ag; gd[ai] += ag - hg
                 if hg > ag: pts[hi] += 3
                 elif ag > hg: pts[ai] += 3
-                else:                              # no draws -> PK decides, winner +3
+                elif no_draws:                     # shootout decides, winner +3
                     pts[hi if _pens(strengths[hi], strengths[ai], rng) == 0 else ai] += 3
+                else:                              # 3 for a win, 1 for a draw
+                    pts[hi] += 1; pts[ai] += 1
         # rank each table; top adv_per advance
         seeded = {}
         for tk in tkeys:
@@ -335,7 +422,9 @@ def _simulate_two_table(comp_id, field, N, seed=0):
         alive = []
         for k in range(adv_per):
             alive.append(sa[k]); alive.append(sb[adv_per - 1 - k])
-        _run_ko(alive, fmt, strengths, rng, reach, win, conf=conf)
+        _run_ko(alive, fmt, strengths, rng, reach, win, conf=conf,
+                neutral_of=(None if host_league is None
+                            else lambda i: league_of[i] != host_league))
 
     out_field = []
     for i, t in enumerate(field):
@@ -459,7 +548,7 @@ def _simulate_groups(comp_id, field, N, seed=0, groups=None, qualifiers=None):
 
 
 def simulate(comp_id: str, field, N: int, seed: int = 0,
-             groups=None, qualifiers=None):
+             groups=None, qualifiers=None, season: int | None = None):
     """Full Monte-Carlo: league phase (if any) + knockout -> standings + odds.
 
     Returns {"standings": [...], "field": [...with odds...]}.
@@ -471,11 +560,11 @@ def simulate(comp_id: str, field, N: int, seed: int = 0,
     knockout-playoff (8 ties → 8 winners); R16 = 8 auto + 8 playoff winners.
     A "KOplayoff" reach counter is tracked for the 16 playoff teams.
     """
-    fmt = FORMATS[comp_id]
+    fmt = format_for(comp_id, season)
     if fmt["phase"]["type"] == "bracket":
         return _simulate_bracket(comp_id, field, N, seed)
     if fmt["phase"]["type"] == "two_table":
-        return _simulate_two_table(comp_id, field, N, seed)
+        return _simulate_two_table(comp_id, field, N, seed, season=season)
     if fmt["phase"]["type"] == "groups":
         return _simulate_groups(comp_id, field, N, seed,
                                 groups=groups, qualifiers=qualifiers)

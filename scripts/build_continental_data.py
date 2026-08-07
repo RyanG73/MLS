@@ -832,8 +832,12 @@ def build(comp_id: str, season: int | None, sims: int):
         if sim_quals:
             print(f"[{comp_id}] group stage complete — seeding the bracket from the "
                   f"{len(sim_quals)} teams that actually qualified")
+    # `season` selects the edition's rules. The Leagues Cup changed its points
+    # rule and its whole field shape between editions, so simulating one season
+    # under another's spec is silently wrong. (2026-08-07)
     result = bs.simulate(comp_id, field, N=sims,
-                         groups=sim_groups or None, qualifiers=sim_quals)
+                         groups=sim_groups or None, qualifiers=sim_quals,
+                         season=season)
     champ = sorted(
         ({"team": t["team"], "win_pct": round(t["odds"]["win"] * 100, 1)}
          for t in result["field"]),
