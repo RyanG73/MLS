@@ -128,8 +128,18 @@ _OFFSETS_JSON = Path("experiments/league_offsets.json")
 # ±150 of an uninformative prior would just encode the uninformed guess. They get
 # a wider bound; the held-out Brier and 10-seed robustness gates below are the
 # real protection, and they are unchanged.
+#
+# UEFA moved to 450 on 2026-08-05, with the ridge (see _RIDGE_BY_CONF). ±150 was
+# set when the UEFA ridge was strong enough that no league moved more than ~15
+# ELO, so it never bound on anything; at a ridge that lets the matches speak it
+# binds hardest on exactly the leagues whose prior is least trustworthy. Only
+# the big five carry a captured UEFA coefficient. The other fifteen are typed
+# estimates — _LEAGUE_COEFF's own PROVENANCE note says the 2026-07-31 additions
+# are "best-available ESTIMATES ... not a fresh capture" — and holding a fit to
+# ±150 of a guess is holding it to the guess. 450 still catches a runaway: an
+# unregularised fit sends Finland to -1427 (deviation 1184).
 _MAX_DELTA_FROM_PRIOR = 150.0
-_MAX_DELTA_BY_CONF = {"CONMEBOL": 600.0, "AFC": 600.0}
+_MAX_DELTA_BY_CONF = {"CONMEBOL": 600.0, "AFC": 600.0, "UEFA": 450.0}
 
 # Per-confederation ridge configuration: (lambda, weight_by_league_match_count).
 # UEFA/Concacaf keep the historical count-weighted ridge and its lambda — their
@@ -138,6 +148,34 @@ _MAX_DELTA_BY_CONF = {"CONMEBOL": 600.0, "AFC": 600.0}
 # the constant-weight ridge with a lambda chosen on held-out data by
 # scripts/eval/continental_calibrate.py (Stage 1).
 _RIDGE_BY_CONF: dict[str, tuple[float, bool]] = {
+    # UEFA, 2026-08-05. Was the CLI default 2e-5, which turned out to be strong
+    # enough that the fit was decorative: every fitted offset landed within ~15
+    # ELO of its coefficient prior, so the published ladder was really
+    # _K_COEFF * (coeff - 94) and the 743 continental matches were barely
+    # consulted. That is what put PSV 7th in the world, Club Brugge 10th and
+    # Union SG 12th, ahead of Liverpool (19th) and Leverkusen (28th).
+    #
+    # Chosen on MEAN held-out Brier across all 10 robustness seeds, not on one
+    # split (the sweep lives in the 2026-08-05 entry in PROJECT_HISTORY.md):
+    #
+    #     lambda   mean held-out Brier   vs prior   seeds won
+    #     2e-5           0.6088           -0.0008     10/10   <- was live
+    #     5e-6           0.6070           -0.0027     10/10
+    #     2e-6           0.6045           -0.0051     10/10
+    #     1e-6           0.6023           -0.0073     10/10
+    #     5e-7           0.6006           -0.0090     10/10   <- adopted
+    #     2e-7           0.5994           -0.0102      8/10   <- fails robustness
+    #
+    # 5e-7 is the loosest setting that still wins on every seed, and it extracts
+    # an order of magnitude more from the same matches than 2e-5 did. Looser than
+    # that the fit starts to separate — thin leagues run toward -infinity and the
+    # seed agreement breaks, which is the ridge earning its keep.
+    #
+    # ridge_by_count stays True here. The adaptive (constant-weight) form was
+    # measured too and is WORSE for UEFA: at a matched Brier of 0.6008 it wins
+    # only 8/10 seeds and sends Sweden 684 ELO from its prior, against 10/10 and
+    # 431 for the count-weighted fit at 5e-7.
+    "UEFA": (5e-7, True),
     "CONMEBOL": (3e-6, False),
     "AFC": (1e-5, False),
 }

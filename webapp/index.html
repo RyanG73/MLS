@@ -265,35 +265,87 @@ h1,h2,h3,.disp{font-family:"Archivo",sans-serif;letter-spacing:-.02em}
 .open-access .ilock,.open-access .intel-tag{display:none}
 /* ── mobile bottom tab bar ── */
 .bnav{display:none}
+/* Collapsed mobile search: a magnifying glass beside the wordmark. Desktop
+   never shows it — the full 240px field has room there. (2026-08-05) */
+.mast-searchbtn{display:none}
 @media(max-width:900px){
-  body{padding-bottom:84px}
-  .bnav{display:grid;grid-template-columns:repeat(6,1fr);position:fixed;left:0;right:0;bottom:0;z-index:70;
-    background:rgba(10,13,11,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line-3);padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
-  .bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--txt-3);text-decoration:none;margin:0 6px;padding:4px 0 3px;border-radius:10px}
+  /* Matches the one-line bar below (55px + safe area). It was 84px, sized for
+     the old two-line "Club Watch" tab, and left a dead strip under every page. */
+  body{padding-bottom:68px}
+  /* FLEX, not six equal columns (2026-08-05 feedback: "'club watch' goes to two
+     lines. it looks bad and takes up too much space"). At 375px a sixth of the
+     bar is 62px and "Club Watch" needs ~70 at the old 11px, so it wrapped —
+     and because the tallest item sets the bar height, one wrapped label made
+     every tab taller. Flexing on content lets the widest label take the room it
+     needs from the narrow ones ("Home", "Power") instead of from a second line;
+     nowrap then guarantees it, at any label set we ship later. */
+  .bnav{display:flex;align-items:stretch;position:fixed;left:0;right:0;bottom:0;z-index:70;
+    background:rgba(10,13,11,.96);backdrop-filter:blur(12px);border-top:1px solid var(--line-3);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .bnav a{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-size:10px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;color:var(--txt-3);text-decoration:none;margin:0 2px;padding:4px 2px 3px;border-radius:10px}
   .bnav a .ico{font-size:19px;line-height:1}
   /* current tab is "lit": soft green wash + icon glow (2026-07-19) */
   .bnav a.active{color:var(--txt-1);background:rgba(61,220,132,.10);box-shadow:inset 0 0 12px rgba(61,220,132,.08)}
   .bnav a.active .ico{filter:drop-shadow(0 0 6px rgba(61,220,132,.55))}
   /* Subscribe is the one action-tab among navigation-tabs (2026-07-17): filled pill */
-  .bnav a.bn-sub{align-self:center;justify-self:center;background:var(--qualify);color:#06120b;border-radius:999px;
-    padding:7px 14px;font-weight:800;font-size:11px}
+  .bnav a.bn-sub{flex:0 0 auto;align-self:center;background:var(--qualify);color:#06120b;border-radius:999px;
+    padding:8px 12px;font-weight:800;font-size:10px}
   .bnav a.bn-sub.active{outline:2px solid var(--txt-1);outline-offset:2px;color:#06120b}
-  .mast-top{grid-template-columns:1fr;justify-items:center;padding:10px var(--s4) 6px;gap:8px}
+  /* Masthead: wordmark centred, search collapsed to an icon on its right
+     (2026-08-05 feedback: "no need to take up extra space with the full bar").
+     .mast-right becomes display:contents so the button and the field are direct
+     grid items — the button sits in the wordmark's row, the field auto-places
+     onto row 2 and spans it, appearing only once #mast is .search-open. */
+  .mast-top{grid-template-columns:1fr auto 1fr;justify-items:center;align-items:center;padding:8px var(--s4) 7px;gap:7px}
   .mast-date,.mast-stat,.odds-lbl,.odds-toggle{display:none}
-  .mast-wordmark{font-size:24px}
+  /* Explicit columns, because auto-placement cannot be trusted here: .mast-date
+     is display:none and a display:none grid item is never placed, so the
+     wordmark would slide into column 1 and stop being centred. */
+  .mast-wordmark{font-size:24px;grid-column:2;grid-row:1}
   .mast-moose{width:26px;height:26px}
-  .mast-right{width:100%;align-items:stretch}
-  .mast-search{width:100%}
+  .mast-right{display:contents}
+  .mast-searchbtn{display:grid;place-items:center;justify-self:end;grid-column:3;grid-row:1;width:40px;height:40px;flex:none;
+    background:var(--ink-1);border:1px solid var(--line-3);border-radius:999px;color:var(--txt-2);padding:0;cursor:pointer}
+  .mast-searchbtn svg{width:18px;height:18px;display:block}
+  .mast-search{display:none;grid-column:1/-1;grid-row:2;width:100%;justify-self:stretch}
+  #mast.search-open .mast-search{display:block}
+  #mast.search-open .mast-searchbtn{border-color:var(--txt-3);color:var(--txt-1);background:var(--ink-2)}
   .ms-results{left:0;right:0;width:auto}
-  .mast-bar{justify-content:flex-start}
+  /* Freeze the country ribbon (2026-08-05 feedback: "freeze the top row on the
+     home page so the left right scroll is still available further down the
+     page"). It is the only horizontally-scrollable navigation on the page, and
+     it was unreachable without scrolling back to the very top.
+     #mast goes display:contents so the ribbon's containing block becomes <body>.
+     A sticky element is clipped to its containing block, so while #mast was a
+     box the ribbon could only stay put for the ~150px the masthead itself was
+     tall — it looked exactly like sticky "not working". body's background is
+     already --ink-0, so the only thing display:contents costs is #mast's bottom
+     border, which moves onto whichever band ends the masthead. */
+  #mast{display:contents}
+  .mast-bar{justify-content:flex-start;position:sticky;top:0;z-index:60;
+    background:var(--ink-0);border-bottom:2px solid var(--line-3)}
+  .mast-live{border-top:0;border-bottom:2px solid var(--line-3)}
 }
 
 header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7,8,9,.97),rgba(7,8,9,.86));
   backdrop-filter:blur(12px);border-bottom:1px solid var(--line-2)}
+/* Two sticky bars plus a frozen table header do not fit on a phone, and this
+   one is a ~180px title card rather than navigation — the frozen ribbon above
+   it already says where you are, and the table below needs the room for its own
+   frozen header row. It scrolls away with the rest of the page. Must sit AFTER
+   the rule above: same specificity, so source order decides. (2026-08-05) */
+@media(max-width:900px){header{position:static}}
 .head-in{display:flex;align-items:center;gap:var(--s4);padding:var(--s3) 0;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:var(--s3);min-width:250px}
 .beacon{width:44px;height:44px;border-radius:8px;flex:none;position:relative}
 .beacon img{background:#eef1f4;border-radius:8px;padding:4px}
+/* The near-white plate exists for club and league crests, which are drawn for
+   white. The Entenser fallback mark is entenser-icon-light.png — a pale moose
+   for DARK backgrounds — so on the plate it was a white moose on white, which
+   is what "the entenser logo is hard to see on this page" was (2026-08-05
+   feedback, reported on Global Power, where no league crest exists to replace
+   it). It gets the dark plate its artwork was drawn for. */
+.beacon img.beacon-fallback{background:var(--ink-2);border:1px solid var(--line-3);padding:5px}
 .brand h1{font-size:20px;font-weight:800;line-height:1.1}
 .brand h1 a{color:inherit;text-decoration:none}
 /* nowrap on the spans: "Division 1" was breaking after "Division" and dropping
@@ -305,6 +357,10 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
   color:var(--txt-3);font-weight:650;text-transform:uppercase;letter-spacing:.055em}
 .brand .sub span{white-space:nowrap}
 .brand .sub span+span:before{content:"·";margin-right:7px;color:var(--line-3)}
+/* Global Power and the other non-league routes never fill this, and an empty
+   grid still paints its border and padding — a stray 20px outlined box under
+   the page title. (2026-08-05) */
+.season-status:empty{display:none}
 .season-status{margin-left:auto;display:grid;grid-template-columns:auto minmax(220px,330px);
   align-items:center;gap:var(--s4);min-width:min(100%,480px);background:var(--ink-1);
   border:1px solid var(--line-2);border-radius:var(--r-md);padding:9px var(--s3)}
@@ -1107,6 +1163,52 @@ footer a:hover{color:var(--txt-2)}
      min-width:max-content keeps each row's background spanning the scrolled width */
   .ladder{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .tlad .thead,.tlad .trow{min-width:max-content}
+  /* ── Frozen panes (2026-08-05 feedback) ────────────────────────────────────
+     Three asks, one mechanism. `overflow-x:auto` already makes .ladder a scroll
+     container on BOTH axes (a `visible` overflow-y next to a non-visible
+     overflow-x computes to `auto`), so a sticky child here resolves against the
+     panel, not the viewport — which is why it needs a max-height to have
+     anything to stick within. Same shape as the Global Power list, which has
+     scrolled inside `.pr-list` with a sticky `.pr-head` since it shipped.
+
+     1. "weird dead space between league table and the header row": .panel-h is
+        a plain block, so its width is the panel's VISIBLE width (~341px) while
+        the rows below run to max-content (~620px). Scrolled right, it became a
+        floating --ink-2 bar with a --ink-1 void beside it. Sticky-left keeps it
+        covering the visible width at every scroll position.
+     2. "freeze the header row": .thead sticks to the top of that scrollport.
+     3. "freeze the team column": rank + club stick to its left edge.
+     The cells need an opaque background or the scrolled columns show through;
+     `inherit` picks up the row's own state, so hover and the cut-line bands
+     still read correctly. */
+  .ladder{max-height:calc(100dvh - 132px);overscroll-behavior:contain}
+  .ladder>.panel-h{position:sticky;left:0;z-index:6}
+  .tlad .trow{background:var(--ink-1)}
+  .tlad .thead{position:sticky;top:0;z-index:5;background:var(--ink-2)}
+  /* Row padding moves off the left edge so the frozen rank column sits flush
+     when scrolled instead of jumping 12px sideways the moment it pins. */
+  .tlad .thead,.tlad .trow{padding-left:0}
+  .tlad .thead>span:nth-child(1),.tlad .trow>.rank{position:sticky;left:0;z-index:2;background:inherit}
+  .tlad .thead>span:nth-child(2),.tlad .trow>.tcell{position:sticky;left:26px;z-index:2;background:inherit}
+  /* The rank header is an empty <span>, so it was 0px tall and painted nothing
+     — the GP column scrolled through the 26px strip beside "Club" and the
+     header read "GCLUB". Stretching the frozen header cells to the row height
+     gives their background something to cover. */
+  .tlad .thead>span:nth-child(1),.tlad .thead>span:nth-child(2){
+    align-self:stretch;display:flex;align-items:center}
+  /* The frozen pane needs an edge, or names and numbers appear to collide. */
+  .tlad .trow>.tcell{box-shadow:6px 0 6px -6px rgba(0,0,0,.55)}
+  .tlad .thead>span:nth-child(2){box-shadow:6px 0 6px -6px rgba(0,0,0,.55)}
+  /* The qualification / relegation stripe is an inset shadow on the ROW, which
+     the opaque frozen cells paint over as soon as the table scrolls. Moving it
+     onto the rank cell keeps it visible and keeps it flush at every offset. */
+  .tlad .trow.ucl,.tlad .trow.rz{box-shadow:none}
+  .tlad .trow.ucl>.rank{box-shadow:inset 3px 0 0 var(--qualify)}
+  .tlad .trow.rz>.rank{box-shadow:inset 3px 0 0 var(--drop)}
+  /* Cut-line captions are their own rows and are only as wide as the panel is
+     visible, so left-sticky keeps them where they can be read instead of
+     sliding off to the left with the columns. */
+  .ucl-line,.rz-line{position:sticky;left:0}
 }
 @media(max-width:480px){
   .heat{font-size:11px;padding:4px 0}
@@ -1115,11 +1217,16 @@ footer a:hover{color:var(--txt-2)}
 }
 /* Fix 3 — mobile horizontal overflow:
    .seg tab bar is inline-flex with 4 wide buttons (~440px) — make it scroll.
-   Body clip prevents any stray element from widening the document. */
+   Body clip prevents any stray element from widening the document.
+   `clip`, NOT `hidden` (2026-08-05): `overflow-x:hidden` sets overflow-y to
+   auto, which makes <body> a scroll container — and then every position:sticky
+   descendant resolves against a box that never scrolls, so it simply never
+   sticks. That silently defeated the frozen country ribbon and the frozen table
+   header row. `clip` clips without creating a scrollport, so both work. */
 @media(max-width:520px){
   .seg{overflow-x:auto;flex-wrap:nowrap;max-width:100%;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .seg::-webkit-scrollbar{display:none}
-  body{overflow-x:hidden}
+  body{overflow-x:clip}
 }
 /* Mobile what-if mode: keep Next-5 in its own column (matching desktop), but
    make the boxes bigger touch targets and let the strip scroll horizontally
@@ -1145,7 +1252,7 @@ footer a:hover{color:var(--txt-2)}
 <header>
   <div class="wrap head-in">
     <div class="brand">
-      <div class="beacon" id="leagueLogo"><img src="assets/branding/entenser-icon-light.png" alt="" style="width:100%;height:100%;object-fit:contain"></div>
+      <div class="beacon" id="leagueLogo"><img class="beacon-fallback" src="assets/branding/entenser-icon-light.png" alt="" style="width:100%;height:100%;object-fit:contain"></div>
       <div><h1 id="leagueTitle">MLS Projections</h1><div class="sub" id="sub"></div></div>
     </div>
     <div class="season-status" id="acc"></div>
@@ -1682,6 +1789,7 @@ function teamGateCardHTML(team){
       <div class="mast-date">${dstr}<span class="mast-stat">${(window.LEAGUES||[]).filter(l=>l.status==='live').length} leagues live</span></div>
       <a class="mast-wordmark" href="${location.pathname}"><img class="mast-moose" src="assets/branding/entenser-icon-light.png" alt="">Entenser</a>
       <div class="mast-right">
+        <button class="mast-searchbtn" id="msBtn" type="button" aria-label="Search leagues and teams" aria-expanded="false" aria-controls="msq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg></button>
         <div class="mast-search"><input id="msq" type="search" aria-label="Search leagues and teams" placeholder="Search leagues & teams…" autocomplete="off" spellcheck="false"><div class="ms-results" id="msr"></div></div>
         ${MARKET_MODE?`<span class="odds-lbl">Price Format</span><div class="odds-toggle" title="Price display format">${
           [['american','US'],['decimal','Dec'],['fractional','Frac']].map(([f,lbl])=>
@@ -1742,8 +1850,28 @@ function teamGateCardHTML(team){
     msq.addEventListener('focus',ensureIndex);
     msq.addEventListener('input',()=>{ensureIndex();searchRender(msq.value);});
     msq.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const first=msr.querySelector('a'); if(first) location.href=first.getAttribute('href'); }
-      if(e.key==='Escape'){ msr.classList.remove('open'); msq.blur(); }});
+      if(e.key==='Escape'){ msr.classList.remove('open'); msq.blur(); closeSearch(); }});
     document.addEventListener('click',e=>{ if(!e.target.closest('.mast-search')) msr.classList.remove('open'); });
+  }
+  // Collapsed mobile search (2026-08-05): the icon reveals the field on the row
+  // below. Desktop never hits this — .mast-searchbtn is display:none there, so
+  // the field is always visible and the class is inert.
+  const msBtn=$('#msBtn');
+  const closeSearch=()=>{ if(!msBtn) return;
+    mast.classList.remove('search-open'); msBtn.setAttribute('aria-expanded','false'); };
+  if(msBtn){
+    msBtn.addEventListener('click',()=>{
+      const open=!mast.classList.contains('search-open');
+      mast.classList.toggle('search-open',open);
+      msBtn.setAttribute('aria-expanded',open?'true':'false');
+      if(open&&msq){ ensureIndex(); msq.focus(); } else { msr.classList.remove('open'); }
+    });
+    // Tapping anywhere outside puts the field away again, so it never sits open
+    // eating a row while the reader is reading the page below it.
+    document.addEventListener('click',e=>{
+      if(!e.target.closest('.mast-search')&&!e.target.closest('.mast-searchbtn')
+         &&!msq.value) closeSearch();
+    });
   }
   // bottom tab bar (2026-07-18: News → Intel — the paywalled hub mockup — and
   // Subscribe → Account, which absorbed the email + favorites picker)
@@ -2472,7 +2600,12 @@ function ladderPanel({heading,meta,teams,cols,maxOf,rowMod,cutLine,tip,gate}){
   const hc=(v,k,t)=>v<0.05?`<span class="heat z"${tipOf(t)}>·</span>`
     :`<span class="heat" style="${heat(v,metricRGB(k),mx[k])}"${tipOf(t)}>${oddsFmt(v)}</span>`;
   const clubw=clubColWidth(teams.map(t=>t.team));
-  const outcomes=cols.map(()=>`minmax(40px,.5fr)`).join(' ');
+  // minmax(max-content, .5fr), not minmax(40px, .5fr): under the 40px floor the
+  // outcome headers overflowed their own tracks on a phone and printed over
+  // each other — "CONTINENTAL" and "RELEG" rendered as "CONTINENREALEG". An fr
+  // maximum still absorbs the spare width on a desktop, so this only ever
+  // widens a track that was too narrow to hold its label. (2026-08-05)
+  const outcomes=cols.map(()=>`minmax(max-content,.5fr)`).join(' ');
   const grid=`26px minmax(${clubw}px,2fr) 44px 38px 42px 52px 48px ${outcomes}${hasUp?' 96px':''}`.trim();
   const box=el('div','panel ladder tlad'+(hasUp?' tlad-w':''));
   box.style.setProperty('--tgrid',grid);
@@ -4186,6 +4319,10 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
 .pr-copy{padding:var(--s4);border-right:1px solid var(--line-2)}
 .pr-copy .eyebrow{display:block;font:700 10px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--floodlight);margin-bottom:var(--s2)}
 .pr-copy p{color:var(--txt-2);font-size:12.5px;line-height:1.58;max-width:760px}
+/* Nothing in this panel set a link colour, so the method jump and the Crossbar
+   column header rendered as default browser blue on a near-black page. */
+.pr-copy a,.pr-head a{color:var(--qualify);text-decoration:none;font-weight:600;white-space:nowrap}
+.pr-copy a:hover,.pr-head a:hover{text-decoration:underline}
 .pr-kpi{padding:var(--s3);display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--line-2)}
 .pr-kpi:last-child{border-right:0}
 .pr-kpi b{font:700 21px var(--mono);color:var(--txt-1)}
@@ -4216,6 +4353,16 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
 .pr-bar{display:block;height:100%;background:var(--floodlight)}
 .pr-str{text-align:right;font:700 14px var(--mono);color:var(--txt-1)}
 .pr-empty{padding:var(--s5);text-align:center;color:var(--txt-3)}
+/* Method note, moved below the ladder (2026-08-05 feedback: the description
+   "has WAY too long of a description that nobody is going to read and gets in
+   the way of reading the rankings"). It was ~75 words sitting above the fold on
+   a phone, pushing rank 1 to y≈1090. The words themselves stay — the evidence
+   caveats are the honest part of the page — they just stop standing in front of
+   the thing the reader came for. */
+.pr-method{border-top:1px solid var(--line-2);padding-top:var(--s3)}
+.pr-method h2{font:700 10px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--txt-3);margin-bottom:6px}
+.pr-method p{color:var(--txt-3);font-size:12px;line-height:1.55;max-width:760px}
+.pr-method a{color:var(--txt-2)}
 .sb-power{font-weight:600}
 @media(max-width:900px){
   .pr-intro{grid-template-columns:repeat(4,1fr)}
@@ -4241,7 +4388,11 @@ if (_isPower && window.POWER_DATA) {
   const seg=$('#seg'); if(seg) seg.style.display='none';
   document.querySelectorAll('main.wrap > section').forEach(s=>{ if(s.id!=='view-outlook') s.classList.add('hidden'); });
   const ttl=$('#leagueTitle'); if(ttl) ttl.textContent='Global Power Rankings';
-  const sub=$('#sub'); if(sub) sub.textContent='One continuous club ladder · domestic ELO translated onto the EPL-anchored global scale';
+  // Was "One continuous club ladder · domestic ELO translated onto the
+  // EPL-anchored global scale" — three uppercase lines of jargon standing
+  // between a phone reader and rank 1. What it explained now lives in the
+  // method note under the ladder. (2026-08-05)
+  const sub=$('#sub'); if(sub) sub.textContent='Every modelled club on one scale';
   const all=P.teams||[];
   const confs=(P.groups||[]).map(g=>g.confederation);
   const max=all.length?Math.max(...all.map(t=>t.strength)):1;
@@ -4253,7 +4404,7 @@ if (_isPower && window.POWER_DATA) {
     target.classList.remove('hidden');
     target.innerHTML=`<div class="pr-shell">
       <div class="pr-intro">
-        <div class="pr-copy"><span class="eyebrow">Shared strength scale</span><p>Every ranked club keeps its domestic ELO, then receives a measured league or tier bridge plus a confederation shift fitted on Club World Cup meetings. Leagues without that bridge—and women’s competitions, which have no cross-gender match network—stay on their league pages until the evidence can support a global comparison. Cross-confederation gaps rest on ${P.cross_conf_matches||60} matches and are the least certain comparisons here.</p></div>
+        <div class="pr-copy"><span class="eyebrow">Shared strength scale</span><p>One ladder across every modelled league. <a href="#pr-method">How it is built ↓</a></p></div>
         <div class="pr-kpi"><b>${all.length.toLocaleString()}</b><span>Clubs ranked</span></div>
         <div class="pr-kpi"><b>${(P.leagues||[]).length}</b><span>Leagues</span></div>
         <div class="pr-kpi"><b>${confs.length}</b><span>Confederations</span></div>
@@ -4269,6 +4420,10 @@ if (_isPower && window.POWER_DATA) {
       <div class="pr-panel">
         <div class="pr-head"><span>Rank</span><span>Club</span><span class="pr-conf">Confederation</span><span>Relative strength</span><span><a href="/crossbar/">Crossbar</a></span></div>
         <div class="pr-list"></div>
+      </div>
+      <div class="pr-method" id="pr-method">
+        <h2>How this ladder is built</h2>
+        <p>Every ranked club keeps its domestic ELO, then receives a measured league or tier bridge plus a confederation shift fitted on Club World Cup meetings. Leagues without that bridge—and women’s competitions, which have no cross-gender match network—stay on their league pages until the evidence can support a global comparison. Cross-confederation gaps rest on ${P.cross_conf_matches||60} matches and are the least certain comparisons here. <a href="/crossbar/">More about Crossbar →</a></p>
       </div>
     </div>`;
     const list=target.querySelector('.pr-list'),count=target.querySelector('.pr-count');
@@ -4349,6 +4504,11 @@ if (_isPower && window.POWER_DATA) {
 @media(max-width:520px){.cc-kpis{grid-template-columns:1fr}.cc-races{grid-template-columns:1fr}.cc-promise{padding:var(--s4)}}
 .eb-strip{padding:8px 16px;display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px}
 .eb-panel{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px}
+/* The "Matches to watch" panel zeroes its own children's horizontal padding
+   inline (`padding:0 0 4px`), on the assumption that the panel supplies it —
+   but nothing ever did, so the heading and the swing-score note sat flush
+   against the border, and the M of "MATCHES" read as clipped. (2026-08-05) */
+.eb-panel.mtw{padding:12px 14px}
 /* ── 2026-07-17 Matches redesign: PL-style fixture rows under the day strip,
    email + mover-ticker half row, ledger strip. ── */
 .fx-panel{padding:2px 14px 10px}
@@ -4727,9 +4887,14 @@ if (_isPower && window.POWER_DATA) {
   /* 2026-07-23: mobile leads with what changed since the last visit. The old
      order buried Upcoming Matches at y=1330 — below the fold on every phone —
      behind ~1300px of preseason tables reading 0 pts / 0 GD. Volatile first
-     (fix → movers), reference second (odds → table → results), ambient last. */
+     (fix → movers), reference second (odds → table → results), ambient last.
+     2026-08-05 feedback: "keep upcoming matches first, but then put title
+     probabilities and league tables before listing the rest." Movers and My
+     Matchday moved BELOW the two reference panels — they were sitting between
+     Matches and the tables, so the three panels bound to the same rotating
+     league were split by ~380px of unrelated content. */
   .hx-wrap{grid-template-columns:minmax(0,1fr);column-gap:0;
-    grid-template-areas:"tag" "matches" "fix" "movers" "odds" "table" "news"}
+    grid-template-areas:"tag" "matches" "odds" "table" "fix" "movers" "news"}
   .hx-mt{grid-template-columns:1fr;gap:0}
   .hx-mt-col+.hx-mt-col{margin-top:14px}
   .hx-tag{display:block}
@@ -4809,14 +4974,58 @@ if (_isPower && window.POWER_DATA) {
   .fxp-columns{display:none}
   .fxp-mobile{display:block}
 }
-@media(max-width:560px){
-  .mxcard{grid-template-columns:minmax(0,1fr) 116px minmax(0,1fr);grid-template-areas:"ko ko ko" "home market away";gap:3px 7px;min-height:62px;padding:4px 6px}
-  .mxcard .ko{grid-area:ko;text-align:center;border-bottom:1px solid var(--line);padding-bottom:2px}
+/* ── Phone fixture row (2026-08-05 feedback: "this format is bad — team names
+   are cut off. the bar in the middle isnt really helpful, the list of games
+   doesnt make great use of the space on a compact screen").
+   The old layout put home | bar | away side by side, so each club got
+   (375 − 116 bar − gaps) / 2 ≈ 116px for a crest, a name and a percentage —
+   "New England Revolution" never had a chance, and the bar was eating the
+   widest column on the narrowest screen to say what the two percentages beside
+   it already said.
+   Now each club owns a full-width row: kickoff runs down the left, the two
+   clubs stack, and the draw sits on a slim third line. A 20-character club name
+   fits at 13px with room to spare, and the row is SHORTER than the old one
+   (~62px → ~58px) because nothing is stacked inside a 116px column any more. */
+@media(max-width:700px){
+  .mxcard{grid-template-columns:58px minmax(0,1fr);
+    grid-template-areas:"ko home" "market away";
+    align-items:center;gap:1px 8px;min-height:0;padding:6px 4px}
+  .mxcard .ko{grid-area:ko;align-self:end;text-align:left;white-space:normal;line-height:1.25;font-size:11px}
+  /* Both sides read crest → name → number. The DOM cannot give that for free:
+     the home span is name/odds/crest and the away span is crest/odds/name, so
+     that the two mirror each other around the bar on desktop. `order` puts them
+     in one consistent reading order here without touching the markup. */
   .mx-team.home{grid-area:home}
   .mx-team.away{grid-area:away}
-  .mx-market{grid-area:market}
-  /* The odds figure is the only place a number survives on a phone, so it
-     stays — the bar carries no labels to fall back on any more. */
+  .mx-team.home,.mx-team.away{justify-content:flex-start;text-align:left;gap:8px;min-height:24px}
+  .mx-team .crest{order:1;width:22px;height:22px}
+  .mx-team .nm{order:2;flex:1;font-size:13px;font-weight:600}
+  .mx-team .odds-val{order:3;font-size:12.5px;color:var(--txt-2)}
+  /* The model's pick, since there is no bar to show it any more. */
+  .mx-team.lead .nm{color:var(--txt-1);font-weight:700}
+  .mx-team.lead .odds-val{color:var(--qualify);font-weight:700}
+  /* The draw price rides under the kickoff time in the left rail rather than
+     taking a third row of its own — that is the difference between an 80px and
+     a 58px fixture, i.e. between 9 and 13 matches per screen. */
+  .mx-market{grid-area:market;align-self:start}
+  .mx-market .cbar{display:none}
+  .mx-draw,.mx-result{text-align:left;font-size:10.5px;white-space:nowrap}
+  .mx-result{font-size:12px;font-weight:700}
+  /* Day heading: "Saturday, August 8" and "44 matches · favorites first" were
+     two flex children fighting over 375px, and both wrapped. */
+  .fxp-day{flex-direction:column;align-items:flex-start;gap:1px}
+}
+/* Narrow phones (320–400px): .wrap 16 + .fx-panel 14 + .mxcard 4 per side left a
+   258px row on a 320px screen, and the longest names ("New England Revolution",
+   "TSV Eintracht Braunschweig") still clipped. Reclaiming the chrome is worth
+   more here than the whitespace is. */
+@media(max-width:400px){
+  .fx-panel{padding-left:8px;padding-right:8px}
+  .mxcard{grid-template-columns:50px minmax(0,1fr);padding-left:2px;padding-right:2px}
+  /* 10px mono keeps "10:30 AM" on one line inside 50px — at 10.5px it wrapped
+     and made those rows 64px against the other rows' 62px. */
+  .mxcard .ko{font-size:10px;letter-spacing:-.01em}
+  .mx-team .nm{font-size:12.5px;letter-spacing:-.01em}
 }
 </style>
 <script>
@@ -4967,12 +5176,19 @@ function mxCard(g){
   const projected=up&&hasP;
   const market=projected
     ?`${cbar(g)}<span class="mx-draw">draw ${pc(g.pD)}${MARKET_MODE?' · '+oddsHTML(g.pD):''}</span>`
-    :`<span class="mx-result">${g.hg??'—'}–${g.ag??'—'} · FT</span>`;
+    // Just the score: the kickoff cell in the same row already reads "FT" (or
+    // "FT · 7:30 PM"), so the old "2–1 · FT" said it twice.
+    :`<span class="mx-result">${g.hg??'—'}–${g.ag??'—'}</span>`;
+  // Which side the model favours. On a phone the probability bar is hidden (it
+  // was costing 116px of a 375px row to duplicate the two numbers beside it),
+  // so the pick has to be legible from the row itself. A coin-flip marks
+  // neither side — same rule the home page's fixture rows use.
+  const hLead=projected&&g.pH>g.pA, aLead=projected&&g.pA>g.pH;
   return `<a class="mxcard" href="?league=${g.league}" data-ko="${commandEsc(g.ko||'')}" title="${commandEsc(g.home)} v ${commandEsc(g.away)}">
     <time class="ko">${_koTime(g)}</time>
-    <span class="mx-team home"><span class="nm">${commandEsc(g.home)}</span>${projected?(MARKET_MODE?oddsHTML(g.pH):`<span class="odds-val">${pc(g.pH)}</span>`):''}${crest(g.home,g.hlogo)}</span>
+    <span class="mx-team home${hLead?' lead':''}"><span class="nm">${commandEsc(g.home)}</span>${projected?(MARKET_MODE?oddsHTML(g.pH):`<span class="odds-val">${pc(g.pH)}</span>`):''}${crest(g.home,g.hlogo)}</span>
     <span class="mx-market">${market}</span>
-    <span class="mx-team away">${crest(g.away,g.alogo)}${projected?(MARKET_MODE?oddsHTML(g.pA):`<span class="odds-val">${pc(g.pA)}</span>`):''}<span class="nm">${commandEsc(g.away)}</span></span>
+    <span class="mx-team away${aLead?' lead':''}">${crest(g.away,g.alogo)}${projected?(MARKET_MODE?oddsHTML(g.pA):`<span class="odds-val">${pc(g.pA)}</span>`):''}<span class="nm">${commandEsc(g.away)}</span></span>
   </a>`;
 }
 function calStripHTML(){
@@ -5204,6 +5420,12 @@ if(_isHome && window.HOME_DATA){
   const T=H.tables||[];
   const slotIdx=T.findIndex(t=>t.slot);
   let tIdx=0, tPinned=false;
+  // tHeld: the reader took manual control by swiping (2026-08-05 mobile
+  // feedback: "it would be nice on mobile if you could swipe through that").
+  // Distinct from tPinned, which means the dropdown replaced the slot entry —
+  // both stop the 6s auto-advance, and tapping a dot hands control back.
+  let tHeld=false;
+  const _touch=window.matchMedia&&window.matchMedia('(hover:none)').matches;
   const tableHTML=t=>{
     const gd=v=>v==null?'—':(v>0?`+${v}`:`${v}`);
     const rows=t.rows.map((r,i)=>`<tr><td class="r" style="color:var(--txt-3)">${i+1}</td>
@@ -5213,8 +5435,15 @@ if(_isHome && window.HOME_DATA){
       <td class="r pct"><b>${r.pct}%</b></td></tr>`).join('');
     // While the reader's own pick is showing, the rotation is stopped — say so,
     // and say how to start it again, since the dots are the only way back.
-    const sub=tPinned?'your pick · click a dot to resume rotating'
+    // A swipe stops it the same way, so it needs the same escape hatch; on a
+    // touch device the resting state advertises the gesture, which otherwise
+    // has no affordance at all.
+    const base=tPinned?'your pick · tap a dot to resume rotating'
+      :tHeld?'tap a dot to resume rotating'
       :t.preseason?'preseason projection':(t.season_label||'auto-rotates');
+    // season_label is almost always set, so the hint is appended rather than
+    // substituted — otherwise the gesture is never advertised anywhere.
+    const sub=(!tPinned&&!tHeld&&_touch&&T.length>1)?`${base} · swipe to change`:base;
     return `<div class="hx-th"><b>${t.name}</b><span>${sub}</span></div>
       <table class="hx-tbl"><tr><th class="r">#</th><th>Club</th><th class="r">Pts</th><th class="r">GD</th><th class="r">${t.metric_label} %</th></tr>${rows}</table>
       <div class="hx-dots">${T.map((_,i)=>`<i class="${i===tIdx?'on':''}" data-i="${i}"></i>`).join('')}</div>`;
@@ -5510,9 +5739,32 @@ if(_isHome && window.HOME_DATA){
         el.addEventListener('click',e=>{ const d=e.target.closest('[data-i]'); if(!d) return;
           // Clicking any row or dot hands control back to the rotation — that
           // is the only way out of a pinned pick, so it must not be a dead end.
-          tPinned=false;
+          tPinned=false; tHeld=false;
           tGo(+d.dataset.i); track('home_table_jump',{league:T[tIdx].league}); }); });
-      if(T.length>1) setInterval(()=>{ if(!tPaused&&!tPinned) tGo(tIdx+1); },6000);
+      // ── Swipe the rotation (2026-08-05 mobile feedback) ──
+      // Listeners are passive and never preventDefault: the panels sit in a
+      // vertically-scrolling page, so a gesture that is even slightly vertical
+      // has to stay a scroll. Horizontal dominance (|dx| > 1.4·|dy|) plus a
+      // 45px floor is what separates "swipe" from "scrolled a bit crookedly".
+      if(T.length>1){
+        let sx=0, sy=0, st=0, tracking=false;
+        const onStart=e=>{ if(e.touches.length!==1){ tracking=false; return; }
+          sx=e.touches[0].clientX; sy=e.touches[0].clientY; st=Date.now(); tracking=true; };
+        const onEnd=e=>{
+          if(!tracking) return; tracking=false;
+          const t0=e.changedTouches&&e.changedTouches[0]; if(!t0) return;
+          const dx=t0.clientX-sx, dy=t0.clientY-sy;
+          if(Date.now()-st>800) return;                  // a slow drag is not a flick
+          if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.4) return;
+          tHeld=true; tPinned=false;
+          tGo(tIdx+(dx<0?1:-1));
+          track('home_table_swipe',{league:T[tIdx].league});
+        };
+        [tblEl,brdEl,mtEl].forEach(el=>{ if(!el) return;
+          el.addEventListener('touchstart',onStart,{passive:true});
+          el.addEventListener('touchend',onEnd,{passive:true}); });
+      }
+      if(T.length>1) setInterval(()=>{ if(!tPaused&&!tPinned&&!tHeld) tGo(tIdx+1); },6000);
     }
 
     // Dropdown → replace the board's slot entry, then send every rotating panel
