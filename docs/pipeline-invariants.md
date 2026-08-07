@@ -90,10 +90,10 @@ Breaking one of these is a decision, not an implementation choice. The technical
 ## Published figures
 
 16. **Cross-surface figures are measured, not typed.** Register them in `docs/figures.json`;
-    `scripts/check_docs.py` re-measures and fails on drift. The Crossbar page already reads its
+    `scripts/check_docs.py` re-measures and fails on drift. The Global ELO page already reads its
     counts from the payloads at build time — that is the pattern.
 
-17. **Check which population a figure describes before correcting it.** The Crossbar scale (every
+17. **Check which population a figure describes before correcting it.** The Global ELO scale (every
     club carrying a `global_elo`) and the bridged Global Power ladder (`power.js`, which also
     requires measured bridge evidence and excludes unbridged and women's competitions) are
     different populations. Both are correct for their own question.

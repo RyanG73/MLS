@@ -23,15 +23,52 @@ _log = logging.getLogger(__name__)
 _ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT = 25.0, 80.0, 0.40, 1500.0
 
 # Confederation-aware match constants. Sweep-calibrated via validate_continental.py
-# (ELO-wired backtest). Hard bounds: base_goals 1.2–1.7, goal_scale 2000–3500,
-# home_adv_elo 40–110 (physically-sane per the T7 lesson; insane values auto-rejected).
+# (ELO-wired backtest).
+#
+# Hard bounds: base_goals 1.2–1.7, home_adv_elo 40–130, goal_scale 800–3500.
+# The goal_scale floor was 2000 until 2026-08-06 and it was never justified —
+# every confederation calibrated against it sat at or near the floor, which is
+# what a binding constraint looks like. UEFA's own fit wanted ~1000 and beat the
+# floor value by 0.03 held-out Brier. What actually needs bounding is the
+# SCORELINE, since bracket_sim samples goals from these lambdas, so the real
+# constraint is on lambdas for an even tie (home 1.35–1.70, total 2.60–2.95) and
+# it is asserted directly in tests/test_bracket_sim.py.
 _CONF_CONST: dict[str, dict[str, float]] = {
-    # UEFA: physically-grounded priors (UCL avg ~2.7 goals/game, ~400-ELO gap => ~1.35× rate).
-    # Validation: UCL BEATS naive (see validate_continental.py).
+    # UEFA: CALIBRATED 2026-08-06 on the 743 cross-league continental matches,
+    # offsets refit at every grid point, scored on mean held-out 1X2 Brier over
+    # the same 10 seeds the bridge's robustness gate uses.
+    #
+    #   was 1.35 / 3000 / 80   Brier 0.6006   home .395 draw .247 away .358
+    #   now 1.25 / 1000 / 110  Brier 0.5708   home .478 draw .209 away .313
+    #   actual over 743                       home .503 draw .182 away .315
+    #
+    # These were the only confederation constants never fitted — the note they
+    # replace called them "physically-grounded priors", and Concacaf/CONMEBOL/AFC
+    # were all grid-swept while UEFA kept its typed guess. The guess was wrong in
+    # a way that mattered: at goal_scale 3000 a 300-ELO gap is only a 1.26x goal
+    # rate, so the model could not express dominance and predicted 39.5% home
+    # wins against an actual 50.3%. On 743 matches that is a ~6-sigma miss, not
+    # noise.
+    #
+    # It also explains the ladder complaint that started this. A model that
+    # under-predicts strong clubs has to put the missing strength SOMEWHERE, and
+    # the only free parameters are the league offsets — so leagues whose European
+    # entrants win a lot got inflated. Ligue 1 sat at -18 against a -81 prior,
+    # which put Lens 10th in the world. The EPL, being the anchor at 0, could not
+    # inflate and simply kept the largest residual of any league (+0.43 points
+    # per appearance), which is the same miss with nowhere to go. Recalibrated,
+    # Ligue 1 lands at -64 without anyone touching it.
+    #
+    # Constrained, not just optimised: bracket_sim draws real scorelines from
+    # these lambdas, so the grid was restricted to points where an even, non-
+    # neutral tie yields home 1.35-1.70 and 2.60-2.95 total goals. 1.25/1000/110
+    # gives 1.61 + 1.25 = 2.86. Unconstrained the Brier optimum keeps going to
+    # goal_scale ~900 for another 0.002, which is inside the noise on 743 matches
+    # and not worth an unphysical scoreline model.
     "UEFA": {
-        "base_goals": 1.35,
-        "goal_scale": 3000.0,
-        "home_adv_elo": 80.0,
+        "base_goals": 1.25,
+        "goal_scale": 1000.0,
+        "home_adv_elo": 110.0,
     },
     # Concacaf: calibrated by grid-sweep on ELO-wired validator (2018-2024).
     # Sweep: base_goals ∈ {1.2–1.7}, goal_scale ∈ {2000–3500}, home_adv_elo ∈ {40–110}.

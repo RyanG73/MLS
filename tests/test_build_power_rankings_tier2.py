@@ -9,10 +9,13 @@ def _fake_standings(league_id):
              "logo": None, "color": None}]
 
 
-def _league(league_id, name, conf="UEFA", tier=1):
+def _league(league_id, name, conf="UEFA", tier=1, country="England", season=2026):
+    # country and season carry the dedupe decision (_dedupe_clubs): same country
+    # means one club listed twice and the newest season wins; different countries
+    # mean two real clubs that both stay, disambiguated by country.
     return {"id": league_id, "name": name, "confederation": conf,
             "tier": tier, "women": False, "quality": "fitted",
-            "n_teams": 1}
+            "country": country, "season": season, "n_teams": 1}
 
 
 def test_rankings_use_composed_global_offset_for_second_tiers():

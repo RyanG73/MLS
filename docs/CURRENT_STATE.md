@@ -101,11 +101,11 @@ read the invariants first if you are about to change the pipeline.
   `elo_scale {anchor, offset, quality, method}` and a rounded `standings[].global_elo`. Tables,
   run-in cards and team pages display the shared rating; historical charts add the payload's
   constant offset client-side. `power.js` is one global rank (not one restarted rank per
-  confederation), currently **965 clubs / 55 leagues** with measured bridge evidence (measured
+  confederation), currently **958 clubs / 55 leagues** with measured bridge evidence (measured
   from `power.js` 2026-08-02; the previous "892 / 50" was stale). Unbridged leagues and women's
   competitions remain visible on their league pages but are excluded from the global ladder until
   a match network can place them honestly on that scale.
-  **Do not confuse this with the Crossbar page's count.** `/crossbar/` reports every club carrying
+  **Do not confuse this with the Global ELO page's count.** `/global-elo/` reports every club carrying
   a `global_elo` — 1,167 across 71 competitions (measured 2026-08-05; registered in
   `docs/figures.json`, which `scripts/check_docs.py` re-measures) — which is a strictly larger
   population than the bridged ladder. Two correct numbers for two different questions; quoting one

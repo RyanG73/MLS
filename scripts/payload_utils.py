@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -132,12 +133,79 @@ def read_js_payload(path: Path | str) -> dict | list | None:
         return None
 
 
+class PayloadRegression(ValueError):
+    """A write would replace a payload with an older or unrelated season."""
+
+
+# Fraction of the previous team set that may disappear in one write. Promotion
+# and relegation move 2-4 clubs in an 18-24 team league, so a legitimate season
+# rollover churns ~10-30%. 0.6 is far above anything real and far below the
+# 100% that a wrong-league write produces.
+_MAX_TEAM_CHURN = 0.6
+_ALLOW_REGRESSION_ENV = "ENTENSER_ALLOW_PAYLOAD_REGRESSION"
+
+
+def _assert_not_a_regression(path: Path, data: dict) -> None:
+    """Refuse a league payload that goes backwards in season or swaps its field.
+
+    Why this is a hard gate rather than a warning (2026-08-07): every upstream
+    fetch failure in this pipeline is silent. `build_league_data` catches its
+    own network errors, falls back to whatever history it can assemble — which
+    is the last COMPLETED season — writes a payload with a fresh `generated`
+    timestamp, and exits 0. Nothing downstream can tell.
+
+    Observed that morning: a local refresh ran while every 2026 source returned
+    404/403 and **38 payloads regressed to the prior season at once**. The
+    Spanish second tier came back holding ten Scottish clubs, and `power.js`
+    was then rebuilt from the corrupted set, so the published global ladder was
+    wrong too. The only reason it was caught is that someone happened to read
+    `segunda.js` by hand.
+
+    Set ENTENSER_ALLOW_PAYLOAD_REGRESSION=1 for a deliberate re-baseline.
+    """
+    if os.environ.get(_ALLOW_REGRESSION_ENV):
+        return
+    if not isinstance(data, dict) or not data.get("standings"):
+        return
+    old = read_js_payload(path)
+    if not isinstance(old, dict) or not old.get("standings"):
+        return                                  # first write, or unreadable
+
+    lid = (data.get("league") or {}).get("id") or path.stem
+    old_season, new_season = old.get("season"), data.get("season")
+    if (isinstance(old_season, int) and isinstance(new_season, int)
+            and new_season < old_season):
+        raise PayloadRegression(
+            f"{lid}: refusing to write season {new_season} over {old_season}. "
+            f"This is what a failed upstream fetch looks like — the builder "
+            f"falls back to the last completed season and reports success. "
+            f"Check the fetch log before retrying; set {_ALLOW_REGRESSION_ENV}=1 "
+            f"only if the rollback is intended.")
+
+    old_teams = {r.get("team") for r in old["standings"] if r.get("team")}
+    new_teams = {r.get("team") for r in data["standings"] if r.get("team")}
+    if old_teams:
+        churn = len(old_teams - new_teams) / len(old_teams)
+        if churn > _MAX_TEAM_CHURN:
+            gone = sorted(old_teams - new_teams)[:4]
+            arrived = sorted(new_teams - old_teams)[:4]
+            raise PayloadRegression(
+                f"{lid}: refusing to write — {churn:.0%} of the field changed in "
+                f"one build (limit {_MAX_TEAM_CHURN:.0%}). Promotion and "
+                f"relegation cannot do that; a wrong-league or wrong-season "
+                f"fetch can. Leaving: {gone}… Arriving: {arrived}… "
+                f"Set {_ALLOW_REGRESSION_ENV}=1 if this really is intended.")
+
+
 def write_js_payload(path: Path, var_name: str, data: dict) -> None:
     """Write ``window.<var_name> = <json>;`` enforcing finite values only.
 
     Raises ValueError (and does NOT write the file) if any non-finite float
     (NaN, Infinity, -Infinity) is present in *data*.  This is a hard gate:
     a partial or invalid payload is worse than a missing one.
+
+    Also refuses a league payload that regresses to an older season or swaps
+    out its field wholesale — see _assert_not_a_regression.
     """
     try:
         js = json.dumps(data, separators=(",", ":"), allow_nan=False)
@@ -145,6 +213,8 @@ def write_js_payload(path: Path, var_name: str, data: dict) -> None:
         raise ValueError(
             f"Non-finite value in payload for {path}: {exc}"
         ) from exc
+    path = Path(path)
+    _assert_not_a_regression(path, data)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"window.{var_name} = {js};\n")
 
@@ -161,15 +231,46 @@ def apply_global_elo_scale(data: dict, league_id: str) -> dict:
     from data_pipeline import coefficients as co  # lazy: keep stdlib-only imports cheap
 
     offset = float(co.global_elo_offset(league_id))
+    # Lower divisions also get their SPREAD translated, not just their level:
+    # a second tier's rating gaps overstate the favourite relative to its parent
+    # league's, so carrying a club's deviation across the boundary unchanged
+    # imports the exaggeration (see coefficients.tier_dispersion). 1.0 for every
+    # top flight, which is all but seven leagues, so this is a no-op for them.
+    disp = float(co.tier_dispersion(league_id))
+    ratings = [float(r["elo"]) for r in (data.get("standings") or [])
+               if isinstance(r.get("elo"), (int, float)) and math.isfinite(float(r["elo"]))]
+    # Pivot on the league's own mean: compressing about the mean leaves the
+    # league's overall position exactly where the fitted tier shift put it and
+    # only narrows the spread around it.
+    pivot = (sum(ratings) / len(ratings)) if ratings else 0.0
+
     for row in data.get("standings") or []:
         value = row.get("elo")
         if isinstance(value, (int, float)) and math.isfinite(float(value)):
-            row["global_elo"] = int(round(float(value) + offset))
+            scaled = pivot + disp * (float(value) - pivot) if disp != 1.0 else float(value)
+            # A club that has played in Europe is additionally judged on its own
+            # record there. The league offset is anchored on a COUNTRY
+            # coefficient, which measures how deep an association is rather than
+            # how good any one of its clubs is — so it under-rates the elite of
+            # a top-heavy league and over-rates the elite of a deep one. Zero
+            # for a club with no continental history, which is most of them.
+            adj = co.club_continental_offset(league_id, row.get("team") or "")
+            if adj:
+                row["global_elo_adj"] = round(adj, 1)
+            else:
+                row.pop("global_elo_adj", None)
+            row["global_elo"] = int(round(scaled + offset + adj))
     data["elo_scale"] = {
         "anchor": "EPL = 0",
         "base_field": "elo",
         "rating_field": "global_elo",
         "offset": round(offset, 3),
+        # dispersion/pivot let the browser translate the compact historical
+        # series the same way. Both are inert at 1.0/0.0 for a top flight, and
+        # older clients that only read `offset` degrade to the previous
+        # shift-only behaviour rather than breaking.
+        "dispersion": round(disp, 4),
+        "pivot": round(pivot, 2),
         "quality": co.global_elo_quality(league_id),
         "method": "domestic ELO + league bridge + Club World Cup confederation shift",
         "cross_conf_matches": 60,

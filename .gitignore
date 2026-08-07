@@ -57,6 +57,11 @@ experiments/*.json
 !experiments/league_offsets.json
 # Track the tier-2 → tier-1 ELO offsets (small, deterministic output of tier_bridge.py)
 !experiments/tier2_offsets.json
+# Track the per-club continental adjustments (club_bridge.py). coefficients.py
+# reads this at BUILD time; without it every club adjustment silently becomes
+# 0.0 and the whole layer is a no-op on the deployed site while looking healthy
+# in the repository — the same trap the confederation shifts note below records.
+!experiments/club_continental_offsets.json
 # Track the inter-confederation shifts (interconf_calibrate.py). coefficients.py
 # reads this at BUILD time; without it every confederation silently falls back to
 # a 0.0 shift and the cross-league scales stop connecting on the deployed site.
@@ -127,7 +132,10 @@ webapp/leagues/
 webapp/weekly/
 webapp/sitemap.xml
 webapp/open-data/
+# Both are build output of scripts/build_static_pages.py. /crossbar/ is the
+# retired name, kept as a canonical redirect to /global-elo/ (renamed 2026-08-07).
 webapp/crossbar/
+webapp/global-elo/
 webapp/exports/
 webapp/after-the-world-cup/
 webapp/football-forecasts/

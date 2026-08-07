@@ -3,11 +3,11 @@
 > **Dated evidence, as of 2026-08-01.** Superseded by `docs/STATUS.md`. Figures inside are as-of
 > and may be stale — re-measure before quoting, and never publish a number from here without
 > checking it against the payloads. This document contains *proposed* public copy: on 2026-08-02
-> seven instances of a stale Crossbar club count were found in it, some inside that copy, after
+> seven instances of a stale Global ELO club count were found in it, some inside that copy, after
 > the figure had already been corrected in `STATUS.md`. Corrected to 1,172 clubs / 71
 > competitions, measured from the payloads.
 >
-> Note the two populations, which are easy to confuse: `/crossbar/` reports every club carrying a
+> Note the two populations, which are easy to confuse: `/global-elo/` reports every club carrying a
 > rating (1,172 / 71); `power.js` is the narrower **bridged ladder** (965 / 55, measured bridge
 > evidence required). Quote the one that matches the claim.
 

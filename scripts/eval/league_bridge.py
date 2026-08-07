@@ -15,7 +15,8 @@ ELO timing — as-of-date (Refinement R2 → R3):
     looking up each team's most recent pre-match rating strictly before the
     continental match date.  If the team has no prior domestic match before
     that date (e.g. a newly-entered team) we fall back to the league initial
-    ELO (1500.0).  Champion ELO config: K=25, home_adv=80, regress=0.40.
+    ELO (1500.0).  ELO config: K=25, regress=0.40, home advantage per
+    competition via scripts.eval.elo.home_adv_for (55 outside MLS/Brazil).
 
 Validation gate:
     A 70/30 train/test split (stratified by confederation, fixed seed) compares
@@ -50,7 +51,7 @@ from scripts.build_continental_data import (
     _ESPN_TO_MODELED, _CONCACAF_ALIAS, META, _league_elos,
 )
 from scripts.eval.cross_league import match_probs, _ELO_K, _ELO_HA, _ELO_REGRESS, _ELO_INIT
-from scripts.eval.elo import compute_elo
+from scripts.eval.elo import compute_elo, home_adv_for
 
 _log = logging.getLogger(__name__)
 
@@ -235,7 +236,12 @@ def _build_elo_history(league_id: str) -> dict[str, tuple[list, list]]:
     df = df.sort_values("date").reset_index(drop=True)
 
     # compute_elo writes home_elo / away_elo as pre-match ratings.
-    rated = compute_elo(df, K=_K, home_adv=_HA, regress=_REGRESS, initial=_INIT)
+    # home_adv_for(league_id), not the flat _HA: this replay has to reproduce
+    # the ratings production publishes, and those became per-competition on
+    # 2026-08-07. Fitting offsets against a differently-computed rating would
+    # bake the discrepancy straight into the published ladder.
+    rated = compute_elo(df, K=_K, home_adv=home_adv_for(league_id),
+                        regress=_REGRESS, initial=_INIT)
 
     # Build per-team (dates, elos) parallel lists.
     history: dict[str, tuple[list, list]] = {}
@@ -362,41 +368,83 @@ def _team_name_index(league_id: str) -> dict[str, str]:
     return _TEAM_NAME_INDEX_CACHE[league_id]
 
 
+# ESPN continental name → the domestic frame's own name, for clubs no amount of
+# normalising will connect. Nearly all of these are football-data abbreviating a
+# name ESPN writes out in full. Every entry here was a club whose entire European
+# record was being discarded. (2026-08-07)
+_UEFA_NAME_ALIASES: dict[str, tuple[str, str]] = {
+    "Sporting CP":       ("primeira", "Sp Lisbon"),
+    "Sporting Lisbon":   ("primeira", "Sp Lisbon"),
+    "F.C. København":    ("denmark-superliga", "FC Copenhagen"),
+    "FC Copenhagen":     ("denmark-superliga", "FC Copenhagen"),
+    "Olympiacos":        ("greek-super", "Olympiakos"),
+    "PAOK Salonika":     ("greek-super", "PAOK"),
+    "Ajax Amsterdam":    ("eredivisie", "Ajax"),
+}
+
+
 def _resolve_uefa_team(espn_name: str) -> tuple[str, str] | None:
     """(league_id, frame_key) for an ESPN continental team name, or None.
 
-    Three tiers, cheapest/safest first: (1) the hand-curated big-5 map, (2)
-    exact normalized-name match against each extended league's own domestic
-    frame, (3) a close-but-not-exact fallback (difflib) for name variants the
-    normalizer alone doesn't catch — e.g. ESPN's "Ajax Amsterdam" vs the
-    domestic frame's "Ajax", or "Olympiacos" vs "Olympiakos" spelling drift.
-    Tier 3 requires a high similarity cutoff so it can't cross-match two
-    different clubs; worst case on a miss is just one dropped match, not a
-    wrong one.
+    Tiers, cheapest and safest first: (1) the hand-curated big-5 map, (2) the
+    alias table above, (3) exact normalized-name match, (4) substring for
+    city-suffix variants, (5) difflib for spelling drift.
+
+    Tiers 3-5 search EVERY modelled UEFA league. They used to search only
+    `_EXTENDED_UEFA`, which deliberately excludes the big five — so a big-5 club
+    absent from the hand map could never resolve at all, and its whole European
+    record was dropped in silence. Napoli, Sevilla, Villarreal, Marseille,
+    Newcastle, Wolfsburg and Union Berlin were all in that hole; measured
+    2026-08-07, only 60% of cached continental matches had BOTH clubs resolved,
+    and every unresolved match is evidence the bridge never sees.
+
+    Opening the big five is safe rather than merely convenient: across all
+    modelled UEFA leagues, 0 of 632 normalized club keys are claimed by more
+    than one league. The ambiguity guard below is there so that stays true as
+    leagues are added — on a collision it returns None (drop one match) instead
+    of guessing (poison many).
     """
     hit = _ESPN_TO_MODELED.get(espn_name)
     if hit:
         return hit
+    alias = _UEFA_NAME_ALIASES.get(espn_name)
+    if alias:
+        return alias
     key = _norm_team(espn_name)
     if not key:
         return None
-    for lid in _EXTENDED_UEFA:
-        idx = _team_name_index(lid)
-        if key in idx:
-            return (lid, idx[key])
+
+    exact = [(lid, _team_name_index(lid)[key])
+             for lid in _UEFA_LEAGUES if key in _team_name_index(lid)]
+    if len(exact) == 1:
+        return exact[0]
+    if len(exact) > 1:
+        _log.warning("resolve_uefa_team: %r is ambiguous across %s — dropping",
+                     espn_name, [lid for lid, _ in exact])
+        return None
+
     # substring tier — city-suffix variants ("Ajax Amsterdam" ⊇ "Ajax")
-    for lid in _EXTENDED_UEFA:
-        idx = _team_name_index(lid)
-        for nk, actual in idx.items():
-            if len(nk) >= 4 and (nk in key or key in nk):
-                return (lid, actual)
+    sub = {(lid, actual)
+           for lid in _UEFA_LEAGUES
+           for nk, actual in _team_name_index(lid).items()
+           if len(nk) >= 4 and (nk in key or key in nk)}
+    if len(sub) == 1:
+        return next(iter(sub))
+    if len(sub) > 1:
+        _log.warning("resolve_uefa_team: %r substring-matches %s — dropping",
+                     espn_name, sorted(sub)[:4])
+        return None
+
     # fuzzy tier — spelling drift (e.g. Olympiacos/Olympiakos)
     import difflib
-    for lid in _EXTENDED_UEFA:
+    fuzzy = set()
+    for lid in _UEFA_LEAGUES:
         idx = _team_name_index(lid)
         close = difflib.get_close_matches(key, idx.keys(), n=1, cutoff=0.85)
         if close:
-            return (lid, idx[close[0]])
+            fuzzy.add((lid, idx[close[0]]))
+    if len(fuzzy) == 1:
+        return next(iter(fuzzy))
     return None
 
 

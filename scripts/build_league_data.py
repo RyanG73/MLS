@@ -49,7 +49,7 @@ from models.research_model import (
     fit_dc, fit_temperature_scalar, fit_xgb,
 )
 import models.research_model as rm
-from scripts.eval.elo import compute_elo
+from scripts.eval.elo import compute_elo, home_adv_for
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
 from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON, CONCLUDED
 from scripts.eval.sim_variance import preseason_sigma_for_source, perturb_probs
@@ -254,7 +254,7 @@ def _tier_elo_series(lid: str) -> dict[str, list]:
         df = match_results(lid).sort_values("date")
         df = df.dropna(subset=["home_goals", "away_goals"])
         if not df.empty:
-            edf, _ = compute_elo(df, K=25, home_adv=80, regress=0.40,
+            edf, _ = compute_elo(df, K=25, home_adv=home_adv_for(lid), regress=0.40,
                                  club_prior_beta=0.75, return_ratings=True)
             long = pd.concat([
                 edf[["date", "home_team", "home_elo"]].rename(
@@ -305,7 +305,7 @@ def _get_tier_elo_map(lid: str) -> dict[str, float]:
         if df.empty:
             _TIER2_ELO_CACHE[lid] = {}
             return {}
-        _, elo_now_t = compute_elo(df, K=25, home_adv=80, regress=0.40,
+        _, elo_now_t = compute_elo(df, K=25, home_adv=home_adv_for(lid), regress=0.40,
                                    club_prior_beta=0.75,  # A8: club-prior target
                                    return_ratings=True)
         _TIER2_ELO_CACHE[lid] = dict(elo_now_t)
@@ -1379,7 +1379,7 @@ def main():
     played_all["label_result"] = played_all["label_result"].astype(int)
     max_played_season = int(played_all["season"].max())
     ts = args.season or max_played_season
-    df = build_league_features(played_all)
+    df = build_league_features(played_all, league_id=lid)
     feat = [c for c in LEAGUE_FEAT_BASE if c in df.columns]
 
     # ── Pre-season detection: check for ESPN next-season fixtures (understat leagues only) ──
@@ -1644,7 +1644,10 @@ def main():
     # rather than defaulting to league-average (0 in log-space = exp(0)=1.0 = average).
     allplayed = df.dropna(subset=["home_goals", "away_goals"])
     atk, dfd, ha, rho = fit_dc(allplayed)
-    _elo_df, elo_now = compute_elo(allplayed.sort_values("date"), K=25, home_adv=80,
+    # home_adv_for(lid), not a flat 80: 80 was promoted on MLS data and overstates
+    # the home side in every European league measured (scripts/eval/elo.py).
+    _elo_df, elo_now = compute_elo(allplayed.sort_values("date"), K=25,
+                                   home_adv=home_adv_for(lid),
                                    regress=0.40, return_ratings=True,
                                    club_prior_beta=0.75)  # A8: European seeding
 
@@ -1677,17 +1680,43 @@ def main():
                 _fd_name = _FD_TEAM_ALIASES.get(_pt, _pt)
                 _t2_elo = _tier2_elo_map.get(_pt) or _tier2_elo_map.get(_fd_name)
                 _t1_elo = _tier1_elo_map.get(_pt) or _tier1_elo_map.get(_fd_name)
+                # ── The bridged rating replaces this team's ELO as well as its
+                # DC params (2026-08-06). It used to set only atk/dfd, and
+                # `elo_now` came from compute_elo over THIS division's history —
+                # so a club returning to a division resumed the rating it left
+                # with, as though its season in the other tier had not happened.
+                #
+                # Burnley, reported as "high elo (#30) despite just being
+                # relegated": Championship ELO 1705, earned winning the
+                # Championship two seasons ago and untouched since. Its actual
+                # Premier League record over the season that relegated it puts it
+                # at 1359. It resumed at 1705 — +2.9 SD, the most extreme club in
+                # either division — and since championship_to_epl (-120) is the
+                # exact inverse of epl_to_championship (+120), the published
+                # global rating round-tripped back to 1585 and ranked it 30th in
+                # the world. The two halves of the seeding also plainly
+                # disagreed: DC said "a relegated side", ELO said "the best team
+                # in the division by two goals".
+                #
+                # Yo-yo clubs are the whole point of the reverse bridge, so the
+                # rating it computes has to be the one that ships.
                 if _t2_elo is not None and _tier2_lid is not None:
                     # promoted into a top flight → seed from tier-2 ELO (forward bridge)
                     _adj_elo = _t2_elo + co.tier2_offset(_tier2_lid)
                     atk[_pt], dfd[_pt] = _elo_to_dc_params(_adj_elo, atk, dfd, elo_now)
+                    _stale = elo_now.get(_pt)
+                    elo_now[_pt] = _adj_elo
                     print(f"[{lid}] promoted {_pt}: tier2_elo={_t2_elo:.0f} adj={_adj_elo:.0f} "
+                          f"elo {('%.0f' % _stale) if _stale is not None else 'new'}→{_adj_elo:.0f} "
                           f"DC=(atk={atk[_pt]:.3f}, dfd={dfd[_pt]:.3f})")
                 elif _t1_elo is not None and _tier1_lid is not None:
                     # relegated into a second tier → seed from tier-1 ELO (reverse bridge)
                     _adj_elo = _t1_elo + co.tier1_offset(lid)
                     atk[_pt], dfd[_pt] = _elo_to_dc_params(_adj_elo, atk, dfd, elo_now)
+                    _stale = elo_now.get(_pt)
+                    elo_now[_pt] = _adj_elo
                     print(f"[{lid}] relegated {_pt}: tier1_elo={_t1_elo:.0f} adj={_adj_elo:.0f} "
+                          f"elo {('%.0f' % _stale) if _stale is not None else 'new'}→{_adj_elo:.0f} "
                           f"DC=(atk={atk[_pt]:.3f}, dfd={dfd[_pt]:.3f})")
                 else:
                     atk[_pt] = _atk_flat

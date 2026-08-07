@@ -503,7 +503,14 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
 .ucl-line,.rz-line{font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:3px var(--s3);font-weight:700;font-family:var(--mono)}
 .ucl-line{color:var(--qualify);border-top:1px dashed rgba(61,220,132,.35)}
 .rz-line{color:var(--drop);border-top:1px dashed rgba(255,93,93,.35)}
-@media(max-width:620px){.tlad .thead .c-elo,.tlad .trow .eloc{display:none}}
+/* The raw Global ELO column is the widest number in the table and the least
+   useful at a glance; ELO+ (league average = 100) carries the same comparison in
+   three characters, so a narrow screen keeps ELO+ and drops the raw rating.
+   1024px, and it MUST be the same 1024px as the --tgrid-m band below. That track
+   list is built to match exactly the columns that are visible, so if the two
+   breakpoints disagree the band between them has one more cell than it has
+   tracks and every outcome column lands one place off. */
+@media(max-width:1024px){.tlad .thead .c-elo,.tlad .trow .eloc{display:none}}
 /* ── projected-finish range plot ── */
 .plotpanel .plot{padding:10px var(--s4) 14px}
 /* axis mirrors .frow's 104px-name + 9px-gap grid so ticks sit exactly over the bar
@@ -570,6 +577,11 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
    use, so the two layouts read identically. */
 /* ELO column */
 .eloc{font-family:"Archivo";font-weight:600;font-size:11.5px;text-align:center;color:var(--txt-2)}
+/* ELO+ is the column a reader scans for "is this club good FOR THIS LEAGUE", so
+   it carries more weight than the raw rating beside it. 100 is the league mean by
+   construction; above/below it tints so the split is readable without the number. */
+.elopc{font-family:"Archivo";font-weight:750;font-size:12px;text-align:center;color:var(--txt-2)}
+.elopc.up{color:var(--qualify)}.elopc.dn{color:var(--txt-3)}
 /* what-if boxes: next-5 result toggles */
 .wgroup{display:flex;gap:3px;justify-content:center}
 .wbox{width:13px;height:13px;border-radius:4px;border:1px solid var(--line-3);background:transparent;cursor:pointer;flex:none;transition:.1s}
@@ -617,8 +629,16 @@ header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(7
   .sim-gate-note{grid-template-columns:auto minmax(0,1fr)}
   .sg-cta{display:none}
   .sg-copy span{display:none}
-  .sim-gate-overlay{position:sticky;left:8px;top:8px;width:min(286px,calc(100vw - 40px));
-    margin:8px}
+  /* absolute, NOT sticky. This overlay is `visibility:hidden;opacity:0` until
+     the :has(...:hover) rule above reveals it — and a touch device has no
+     hover, so on a phone it is permanently invisible. As `position:sticky` it
+     still took part in normal flow and reserved 159px of height between the
+     panel heading and the header row: the owner's 2026-08-06 "huge gap between
+     the headers and the first teams ... only when you hold the phone
+     vertically" (the gap is portrait-only because this breakpoint is).
+     Absolute takes it out of flow, exactly as it is above 620px. */
+  .sim-gate-overlay{position:absolute;left:8px;top:8px;right:auto;
+    width:min(286px,calc(100vw - 40px));margin:0}
   .sim-gate-overlay::after{display:none}
   .sim-gate-overlay .sg-cta{display:block}
   .sim-gate-overlay .sg-copy span{display:inline}
@@ -1139,6 +1159,28 @@ footer a:hover{color:var(--txt-2)}
 .sup-form button{background:var(--qualify,#3ddc84);color:#06121d;font-weight:700;border:0;border-radius:var(--r-sm);padding:10px 18px;cursor:pointer;font-size:14px;white-space:nowrap}
 .sup-form button:hover{filter:brightness(1.07)}
 .hidden{display:none!important}
+/* ── Boot skeleton (2026-08-06) ────────────────────────────────────────────────
+   Only ever visible between first paint and the first rendered route. It is
+   display:none by default, so with JS disabled — or the instant .booting is
+   removed — it costs nothing and cannot be left on screen by a failed render. */
+#boot{display:none}
+/* <main> is deliberately NOT hidden while booting. It is empty at this point
+   anyway, and hiding it would give every renderer that measures layout during
+   its first pass a zero-size rect to work from. The skeleton simply sits above
+   an empty main and is removed in the same synchronous pass that fills it. */
+html.booting #boot{display:block;max-width:1180px;margin:0 auto;padding:18px 16px 0}
+#boot>*{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-md);
+  margin-bottom:10px;position:relative;overflow:hidden}
+.boot-bar{height:18px;max-width:320px}
+.boot-card{height:132px}
+.boot-row{height:44px}
+/* One shared sweep. Respects reduced-motion by simply not moving — the blocks
+   still read as placeholders without the animation. */
+#boot>*::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);
+  animation:bootsweep 1.25s ease-in-out infinite}
+@keyframes bootsweep{100%{transform:translateX(100%)}}
+@media(prefers-reduced-motion:reduce){#boot>*::after{animation:none}}
 
 @media(max-width:1280px){
   .ladders{grid-template-columns:1fr}
@@ -1158,11 +1200,40 @@ footer a:hover{color:var(--txt-2)}
    table, canvas-measured in JS (clubColWidth). Names never truncate; on narrow
    screens the whole table scrolls horizontally inside .ladder instead
    (2026-07-09 feedback — the old 68px floor ellipsized most names). */
-@media(max-width:760px){
-  /* full names + fixed odds columns exceed the viewport → scroll inside the panel;
-     min-width:max-content keeps each row's background spanning the scrolled width */
+/* ── Overflow band: the table is wider than its panel ──────────────────────────
+   1024px, not 760px. A landscape phone is 812-932px wide, and there the panel
+   was `overflow:hidden` from the base .ladder rule while the table ran 24px
+   past it — the last column was clipped with no gesture that could reach it.
+   Anywhere the table can overflow it must scroll, and anywhere it can overflow
+   its tracks must be definite (see below). The FROZEN PANES are a separate
+   concern and stay at 760px; they need a max-height, which is only worth
+   spending on a portrait phone. */
+@media(max-width:1024px){
   .ladder{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .tlad .thead,.tlad .trow{min-width:max-content}
+  /* ── Column alignment (2026-08-06 feedback: "the actual numbers dont line up
+     with the headers") ──────────────────────────────────────────────────────
+     .thead and each .trow are SEPARATE grid containers that happen to share a
+     track list. On desktop that is invisible: the container width is definite
+     and identical for all of them, so `2fr` and `minmax(max-content,.5fr)`
+     resolve to the same pixels in every one.
+
+     `min-width:max-content` breaks that. Each grid then sizes to ITS OWN
+     content, and a row's content is much wider than the header's — a row holds
+     a crest plus "Manchester City", the header holds "Club". Measured at 375px:
+     the club track was 171px in the header and 320px in the rows, and every
+     flexible track after it diverged too (43px vs 80px). The header was a
+     different table from the body.
+
+     So in this band the grid switches to --tgrid-m, which ladderPanel builds
+     with every track a definite px width (canvas-measured, same as the club
+     column). Definite tracks cannot resolve differently, so header and body
+     align by construction at any content width. Above 1024px there is no
+     overflow, every grid resolves against the same definite panel width, and
+     --tgrid's flexible tracks are still the right thing — they absorb the spare
+     width instead of leaving the table packed left on a wide screen. */
+  .tlad .thead,.tlad .trow{grid-template-columns:var(--tgrid-m,var(--tgrid));width:max-content;min-width:100%}
+}
+@media(max-width:760px){
   /* ── Frozen panes (2026-08-05 feedback) ────────────────────────────────────
      Three asks, one mechanism. `overflow-x:auto` already makes .ladder a scroll
      container on BOTH axes (a `visible` overflow-y next to a non-visible
@@ -1181,7 +1252,16 @@ footer a:hover{color:var(--txt-2)}
      The cells need an opaque background or the scrolled columns show through;
      `inherit` picks up the row's own state, so hover and the cut-line bands
      still read correctly. */
-  .ladder{max-height:calc(100dvh - 132px);overscroll-behavior:contain}
+  /* overflow-y MUST be set explicitly. The base rule is `.ladder{overflow:hidden}`,
+     so overflow-y was hidden here, not the `auto` the note above assumed — the
+     max-height clipped 442 of the table's 1120px with no way to reach it (owner,
+     2026-08-06: "you can only see down to 14th place"), and a sticky .thead
+     inside a scrollport that cannot scroll never sticks, which is the same
+     report's "the top row doesnt freeze".
+     overscroll-behavior is x-only: `contain` on both axes also swallowed the
+     page scroll at the end of the table, so a reader who scrolled to 20th was
+     stuck there. */
+  .ladder{max-height:calc(100dvh - 132px);overflow-y:auto;overscroll-behavior-x:contain}
   .ladder>.panel-h{position:sticky;left:0;z-index:6}
   .tlad .trow{background:var(--ink-1)}
   .tlad .thead{position:sticky;top:0;z-index:5;background:var(--ink-2)}
@@ -1253,12 +1333,57 @@ footer a:hover{color:var(--txt-2)}
   <div class="wrap head-in">
     <div class="brand">
       <div class="beacon" id="leagueLogo"><img class="beacon-fallback" src="assets/branding/entenser-icon-light.png" alt="" style="width:100%;height:100%;object-fit:contain"></div>
-      <div><h1 id="leagueTitle">MLS Projections</h1><div class="sub" id="sub"></div></div>
+      <!-- "MLS Projections" used to be hardcoded here. Every route overwrites it
+           from JS, but the overwrite cannot happen until the whole data chain at
+           the bottom of the document has loaded — so for that whole window the
+           page showed an empty body under a confident, usually WRONG headline
+           (owner, 2026-08-06: "an in between page pops that is almost completely
+           blank except it says MLS projections at the top"). "Entenser" is the
+           one title that is true on every route; bootTitle() upgrades it to the
+           real league name as soon as the URL can be read, which is immediately,
+           and the route renderers set the final value as before. -->
+      <div><h1 id="leagueTitle">Entenser</h1><div class="sub" id="sub"></div></div>
     </div>
     <div class="season-status" id="acc"></div>
   </div>
 </header>
 
+<!-- Boot skeleton. The data chain at the bottom of this document is parser-
+     blocking (leagues.js, logos.js, the per-league payload, sim-engine…), so
+     there is a real window where <main> is empty. It used to render as a blank
+     page, which reads as broken rather than as loading. This is inert markup
+     shown only while <html> carries .booting; the class is set by the inline
+     script below (never present with JS off, so no dead skeleton) and removed
+     once a route has rendered. -->
+<div id="boot" aria-hidden="true">
+  <div class="boot-bar" style="width:38%"></div>
+  <div class="boot-card"></div>
+  <div class="boot-bar" style="width:26%"></div>
+  <div class="boot-row"></div><div class="boot-row"></div><div class="boot-row"></div>
+  <div class="boot-row"></div><div class="boot-row"></div>
+</div>
+<script>
+// Two jobs, both needing only the URL, so both can run before any data loads.
+document.documentElement.className+=' booting';
+(function(){
+  try{
+    var id=new URLSearchParams(location.search).get('league');
+    if(!id||id==='power'||id==='leagues'||id==='intel'||id==='account') return;
+    // Humanise the slug as a provisional headline. leagues.js has the real
+    // display name, but it is one of the blocking scripts we are waiting on —
+    // and "Premier League" is not derivable from "epl" anyway, so this is only
+    // ever a placeholder that the route renderer replaces. It is still strictly
+    // better than naming a different competition. A slug that is ONE short
+    // token is an acronym in this registry (epl, mls, ucl, wsl) and uppercases;
+    // everything else title-cases word by word. The acronym test has to be
+    // whole-slug, not per-word — per-word turned la-liga into "LA Liga" and
+    // league-one into "League ONE".
+    var t=document.getElementById('leagueTitle');
+    if(t) t.textContent=(id.indexOf('-')<0&&id.length<=4)?id.toUpperCase()
+      :id.split('-').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
+  }catch(e){}
+})();
+</script>
 <main class="wrap" id="main">
   <div class="seg" role="tablist" id="seg">
     <button role="tab" aria-selected="true" data-view="outlook">League Projections</button>
@@ -1487,8 +1612,19 @@ const MARKET_MODE=(()=>{if(new URLSearchParams(location.search).get('market')!==
 // comparable across competitions and confederations.
 const ELO_SCALE=D.elo_scale||{};
 const ELO_SCALE_OFFSET=Number(ELO_SCALE.offset)||0;
+// Lower divisions translate their SPREAD as well as their level: a second
+// tier's rating gaps overstate the favourite relative to its parent league's,
+// so a club's deviation from its league mean is compressed before the shift is
+// applied (coefficients.tier_dispersion, measured 2026-08-07). Both default to
+// the inert values, so a top flight — and any older payload without these
+// fields — behaves exactly as it did when this was shift-only.
+const ELO_SCALE_DISP=Number(ELO_SCALE.dispersion)||1;
+const ELO_SCALE_PIVOT=Number(ELO_SCALE.pivot)||0;
 const _finiteElo=v=>v!==null&&v!==''&&Number.isFinite(Number(v));
-const scaledElo=v=>_finiteElo(v)?Number(v)+ELO_SCALE_OFFSET:NaN;
+const scaledElo=v=>{ if(!_finiteElo(v)) return NaN;
+  const n=Number(v);
+  return (ELO_SCALE_DISP===1?n:ELO_SCALE_PIVOT+ELO_SCALE_DISP*(n-ELO_SCALE_PIVOT))
+    +ELO_SCALE_OFFSET; };
 const publishedElo=row=>row&&_finiteElo(row.global_elo)
   ?Number(row.global_elo):scaledElo(row&&row.elo);
 const teamEloSeries=team=>((D.elo_history||{})[team]||[])
@@ -1908,8 +2044,15 @@ const fmt=v=>`${v.toFixed(1)}%`;                         // percentages with one
 // Global logo fallback: continental comps + scattered domestic rows ship no logo;
 // data/logos.js (window.TEAM_LOGOS) supplies one keyed by team name. See build_logo_map.py.
 const _logoMap=window.TEAM_LOGOS||{};
-const _logoFor=(name,logo)=>logo||_logoMap[name]||_logoMap[(name||'').trim()]||'';
-const crest=(name,logo)=>{const l=_logoFor(name,logo);
+// `strict` refuses the name-keyed fallback. That map cannot tell two clubs that
+// share a name apart, so for an ambiguous club it confidently returns the wrong
+// badge: Liverpool of Montevideo ships no logo of its own and was being drawn
+// with Liverpool FC's crest, 660 places below it on the same ladder. Callers
+// that know a name is ambiguous pass strict and get the monogram instead, which
+// is honest. (2026-08-07)
+const _logoFor=(name,logo,strict)=>logo||(strict?''
+  :(_logoMap[name]||_logoMap[(name||'').trim()]||''));
+const crest=(name,logo,strict)=>{const l=_logoFor(name,logo,strict);
   return `<span class="crest"><span class="mono">${monogram(name)}</span>${l?`<img src="${l}" alt="" loading="lazy" onerror="this.remove()">`:''}</span>`;};
 // Widest club name in px (canvas-measured) so table club columns never truncate —
 // tables scroll horizontally on narrow screens instead (2026-07-09 feedback).
@@ -1923,6 +2066,29 @@ function clubColWidth(names){
   const w=Math.max(60,...names.map(n=>c.measureText(n||'').width));
   return Math.ceil(w)+26+9+10;
 }
+/* Width of a .thead .c label, for the all-definite mobile track list (--tgrid-m).
+   Must match what .tlad .thead .c renders: 750 10.5px, uppercased, letter-spacing
+   normalised to 0 by its own rule. `min` is the widest VALUE the column can hold
+   ("100%" in an outcome column), so a short label like "UCL" still reserves
+   enough for the number underneath it. */
+function headColWidth(label,min=34){
+  const c=headColWidth._c||(headColWidth._c=document.createElement('canvas').getContext('2d'));
+  c.font='750 10.5px Inter,sans-serif';
+  return Math.ceil(Math.max(min,c.measureText(String(label||'').toUpperCase()).width))+10;
+}
+/* ELO+ — the club's rating relative to its OWN league, average = 100.
+   100 + (elo - league mean)/4, so a 100-point edge over the league reads +25 and
+   the scale spans roughly 65-150 in a top flight (owner decision, 2026-08-06).
+   Deliberately a DIFFERENCE, not a ratio: ELO's zero point is arbitrary, so
+   elo/mean has no meaning and would compress a whole league into 91-112.
+   The difference also makes the number bridge-invariant — global_elo is domestic
+   ELO plus a per-league constant, so the constant cancels and ELO+ is identical
+   whichever of the two you feed it. */
+const eloPlus=(elo,leagueMean)=>Math.round(100+(elo-leagueMean)/4);
+const leagueEloMean=rows=>{
+  const v=rows.map(r=>publishedElo(r)).filter(Number.isFinite);
+  return v.length?v.reduce((a,b)=>a+b,0)/v.length:1500;
+};
 /* visibility-safe team color on dark band */
 function hexrgb(h){h=(h||'#888').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
 const lum=([r,g,b])=>(0.2126*r+0.7152*g+0.0722*b)/255;
@@ -2001,7 +2167,7 @@ const FOOT_ATTR='Data: <a href="https://www.americansocceranalysis.com" target="
 // Trust/legal nav — shown in the footer on every route (P0 launch requirement).
 const FOOT_LEGAL='<div class="foot-legal"><a href="?league=about">About the model</a> · '+
   '<a href="/leagues/">All leagues</a> · '+
-  '<a href="/crossbar/">Crossbar</a> · '+
+  '<a href="/global-elo/">Global ELO</a> · '+
   '<a href="/football-forecasts/">Forecasts by league</a> · '+
   '<a href="/weekly/">This week</a> · '+
   '<a href="/after-the-world-cup/">After the World Cup</a> · '+
@@ -2606,15 +2772,24 @@ function ladderPanel({heading,meta,teams,cols,maxOf,rowMod,cutLine,tip,gate}){
   // maximum still absorbs the spare width on a desktop, so this only ever
   // widens a track that was too narrow to hold its label. (2026-08-05)
   const outcomes=cols.map(()=>`minmax(max-content,.5fr)`).join(' ');
-  const grid=`26px minmax(${clubw}px,2fr) 44px 38px 42px 52px 48px ${outcomes}${hasUp?' 96px':''}`.trim();
+  const grid=`26px minmax(${clubw}px,2fr) 44px 38px 42px 52px 48px 46px ${outcomes}${hasUp?' 96px':''}`.trim();
+  // Mobile twin: every track a definite px, so .thead and each .trow — separate
+  // grid containers — cannot resolve the same template to different widths (see
+  // the --tgrid-m note in the max-width:760px block). It also OMITS the raw ELO
+  // track, because the same breakpoint display:none's that cell; a template with
+  // more tracks than cells shifts every outcome column one place left.
+  const outM=cols.map(c=>`${headColWidth(c.label)}px`).join(' ');
+  const gridM=`26px ${clubw}px 44px 38px 42px 52px ${headColWidth('ELO+',38)}px ${outM}${hasUp?' 96px':''}`.trim();
   const box=el('div','panel ladder tlad'+(hasUp?' tlad-w':''));
   box.style.setProperty('--tgrid',grid);
+  box.style.setProperty('--tgrid-m',gridM);
+  const eloMean=leagueEloMean(teams);
   box.appendChild(el('div','panel-h',
     `<span class="dot"></span><h2>${heading}</h2><span class="meta">${meta}</span>`));
   if(gate)box.appendChild(gate);
   box.appendChild(el('div','thead',
     `<span></span><span>Club</span><span class="c">Pts</span><span class="c">GP</span><span class="c">GD</span><span class="c c-proj">Proj</span>`+
-    `<span class="c c-elo">Crossbar</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
+    `<span class="c c-elo">Global ELO</span><span class="c c-elop" title="Rating relative to this league — league average = 100">ELO+</span>`+cols.map(c=>`<span class="c">${c.label}</span>`).join('')+
     (hasUp?`<span class="c c-w5${IntelStore.unlocked()?'':' locked'}">Next 5 Sim${IntelStore.unlocked()?'':' <span class="w5-lock" aria-hidden="true">🔒</span>'}</span>`:'')));
   teams.forEach((t,i)=>{
     const rank=i+1;
@@ -2623,6 +2798,7 @@ function ladderPanel({heading,meta,teams,cols,maxOf,rowMod,cutLine,tip,gate}){
       `<span class="tcell">${crest(t.team,t.logo)}<span class="tcol"><a class="tname tlink" href="${clubURL(LID,t.team)}" data-team="${t.team}">${t.team}</a></span></span>`+
       `<span class="pts">${t.pts}</span><span class="gpc">${t.gp}</span><span class="gdc">${sgn(t.gd)}</span>`+
       `<span class="projc">${t.proj_pts}</span><span class="eloc">${Math.round(publishedElo(t))}</span>`+
+      (ep=>`<span class="elopc ${ep>100?'up':ep<100?'dn':''}">${ep}</span>`)(eloPlus(publishedElo(t),eloMean))+
       cols.map(c=>hc(t[c.key]||0,c.key,t)).join('')+
       (hasUp?whatifCell(t.team):'');
     box.appendChild(r);
@@ -2886,7 +3062,7 @@ function renderKnockout(){
   // League phase — single 36-team heat table (UCL / Europa / Conference)
   if(phases.includes('league')){
     const st=[...D.standings].sort((a,b)=>b.auto_advance-a.auto_advance);
-    h+='<div class="ko-pane'+off()+'" data-pane="league"><div class="panel ladder tlad" style="--tgrid:22px minmax('+clubColWidth(st.map(s=>s.team))+'px,1fr) 52px 56px 48px">'+
+    h+='<div class="ko-pane'+off()+'" data-pane="league"><div class="panel ladder tlad" style="--tgrid:22px minmax('+clubColWidth(st.map(s=>s.team))+'px,1fr) 52px 56px 48px;--tgrid-m:22px '+clubColWidth(st.map(s=>s.team))+'px 52px 56px 48px">'+
        '<div class="panel-h"><span class="dot"></span><h2>League phase</h2><span class="meta">'+st.length+' teams · top 8 advance</span></div>'+
        '<div class="thead"><span></span><span>Team</span><span class="c">Adv</span><span class="c">Playoff</span><span class="c">Out</span></div>';
     st.forEach((s,i)=>{h+='<div class="trow"><span class="rank">'+(i+1)+'</span>'+tcell(s.team,s.logo)+
@@ -2907,7 +3083,7 @@ function renderKnockout(){
     Object.keys(byT).sort().forEach(tk=>{
       const rows=byT[tk].sort((a,b)=>b.advance-a.advance);
       const title=tk==='liga-mx'?'Liga MX':tk==='mls'?'MLS':tk;
-      h+='<div class="panel ladder tlad" style="--tgrid:22px minmax('+clubColWidth(rows.map(s=>s.team))+'px,1fr) 52px">'+
+      h+='<div class="panel ladder tlad" style="--tgrid:22px minmax('+clubColWidth(rows.map(s=>s.team))+'px,1fr) 52px;--tgrid-m:22px '+clubColWidth(rows.map(s=>s.team))+'px 52px">'+
          '<div class="panel-h"><span class="dot"></span><h2>'+title+'</h2><span class="meta">top '+ADV+' advance</span></div>'+
          '<div class="thead"><span></span><span>Team</span><span class="c">Adv</span></div>';
       rows.forEach((s,i)=>{h+='<div class="trow"><span class="rank">'+(i+1)+'</span>'+tcell(s.team,s.logo)+koCell(s.advance,RG.adv)+'</div>';
@@ -2919,8 +3095,10 @@ function renderKnockout(){
   // Knockout — bracket + round-by-round heat matrix (chance of reaching each round)
   const fld=[...D.field].sort((a,b)=>b.odds.win-a.odds.win);
   const mgrid='minmax('+clubColWidth(fld.map(t=>t.team))+'px,1.3fr) '+rounds.map(()=>'1fr').join(' ')+' 1fr';
+  // Definite twin for <=760px — see the --tgrid-m note in that media block.
+  const mgridM=clubColWidth(fld.map(t=>t.team))+'px '+rounds.map(r=>headColWidth(r,44)+'px').join(' ')+' '+headColWidth('Win',44)+'px';
   h+='<div class="ko-pane'+off()+'" data-pane="ko">'+bracketTree()+
-     '<div class="panel ladder tlad" style="--tgrid:'+mgrid+'">'+
+     '<div class="panel ladder tlad" style="--tgrid:'+mgrid+';--tgrid-m:'+mgridM+'">'+
      '<div class="panel-h"><span class="dot"></span><h2>Round-by-round probabilities</h2><span class="meta">chance of reaching each round</span></div>'+
      '<div class="thead"><span>Team</span>'+rounds.map(r=>'<span class="c">'+r+'</span>').join('')+'<span class="c">Win</span></div>';
   fld.forEach(t=>{const mark=(D.outlook.concluded||t.modeled)?'':' <span class="ko-coef">~</span>';
@@ -2955,7 +3133,7 @@ const _PHASE_LABEL={first_60d:'First 60 days',mid:'Mid-season',late:'Late season
    NOTE: must be declared BEFORE the eager renderHealth() call below — a later
    const is still in its temporal dead zone when the call runs. */
 const FEATURE_DEFS={
-  'ELO':'Crossbar — one strength scale across every league we forecast, anchored on the Premier League. The domestic rating behind it updates after every result (K=25, home advantage +80)',
+  'ELO':'Global ELO — one strength scale across every league we forecast, anchored on the Premier League. The domestic rating behind it updates after every result (K=25, home advantage +80)',
   'xG rolling':'Expected goals for/against — shot-quality rolling averages over the last 3/5/10/15 matches',
   'Form':'Points per game over recent matches',
   'GK z-score':'Goalkeeper quality — saves above expected, standardized across the league',
@@ -4177,10 +4355,10 @@ function renderProfile(team,scroll){
     </div>${oddsRows||'<div class="hnote">No headline projection categories for this competition.</div>'}
     ${squadValueSummaryHTML(team)}</div>`;
   $('#teamProfile').innerHTML=
-    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">Projected #${projRank} of ${n} · Crossbar ${Number.isFinite(elo)?Math.round(elo):'—'}</div>
+    `<div class="prof-hd">${crest(team,s.logo)}<div><h2>${team}</h2><div class="sub">Projected #${projRank} of ${n} · Global ELO ${Number.isFinite(elo)?Math.round(elo):'—'}</div>
       <a class="intel-btn" id="profileClubWatch" href="${watchHref}">Track this club</a></div>
       <span class="fav-team-star${FavStore.hasTeam(LID,team)?' on':''}" id="favTeamStar" title="Pin to Favorites">${FavStore.hasTeam(LID,team)?'★':'☆'}</span></div>
-    <div class="pcard elo-panel"><div class="elo-panel-h"><div><h3>Crossbar history</h3><div class="hnote">Hover the line for the rating on any date · <a href="/crossbar/">what Crossbar means</a></div></div>
+    <div class="pcard elo-panel"><div class="elo-panel-h"><div><h3>Global ELO history</h3><div class="hnote">Hover the line for the rating on any date · <a href="/global-elo/">what Global ELO means</a></div></div>
       <div class="elo-now"><b style="color:${eloTier(elo)}">${Number.isFinite(elo)?Math.round(elo):'—'}</b><span>Current global ELO</span></div></div>
       <div class="chart-wrap big">${chart}</div>
       <div class="elo-key"><span class="top"><i></i>Top 25% starts · ${Math.round(ELO_HI)}</span><span class="avg"><i></i>League average · ${Math.round(ELO_AVG)}</span><span class="low"><i></i>Bottom 25% starts · ${Math.round(ELO_LO)}</span></div></div>
@@ -4218,7 +4396,7 @@ function renderTeams(){
   const teams=[...D.standings].sort((a,b)=>a.team.localeCompare(b.team));
   const menu=$('#profileTeamMenu');
   menu.innerHTML=teams.map(s=>`<div class="dd-opt team-dd-opt" role="option" data-team="${s.team}">
-    ${crest(s.team,s.logo)}<b>${s.team}</b><small>Crossbar ${Number.isFinite(currentElo(s.team))?Math.round(currentElo(s.team)):'—'}</small></div>`).join('');
+    ${crest(s.team,s.logo)}<b>${s.team}</b><small>Global ELO ${Number.isFinite(currentElo(s.team))?Math.round(currentElo(s.team)):'—'}</small></div>`).join('');
   const favorite=FavStore.teams().find(x=>x.league===LID&&stdByTeam.has(x.team));
   const raceKeys=['title','cup','shield','playoff','promo','liguilla','playoffs'];
   const raceKey=raceKeys.find(k=>D.standings.some(s=>s[k]!=null))||
@@ -4276,7 +4454,7 @@ function renderCoeffs(){
       <span class="heat" style="background:rgba(61,220,132,.18)">${r.ucl??'—'}</span>
       <span class="heat" style="background:rgba(74,163,255,.15)">${r.europa??'—'}</span>
       <span class="heat" style="background:rgba(74,163,255,.08)">${r.conf??'—'}</span></div>`).join('');
-  const table=`<div class="panel ladder tlad" style="--tgrid:26px minmax(150px,1fr) 56px 44px 44px 44px">
+  const table=`<div class="panel ladder tlad" style="--tgrid:26px minmax(150px,1fr) 56px 44px 44px 44px;--tgrid-m:26px 150px 56px 44px 44px 44px">
     <div class="panel-h"><span class="dot"></span><h2>Country ranking — modeled leagues</h2><span class="meta">${C.coeff_season} 5-year coefficients</span></div>
     <div class="thead"><span>#</span><span>Association</span><span class="c">Coeff</span><span class="c">UCL</span><span class="c">UEL</span><span class="c">UECL</span></div>${rows}</div>
     <div class="hnote">★ = European Performance Spot holder (bonus Champions League place this season). ${C.note}</div>`;
@@ -4319,7 +4497,7 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
 .pr-copy{padding:var(--s4);border-right:1px solid var(--line-2)}
 .pr-copy .eyebrow{display:block;font:700 10px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--floodlight);margin-bottom:var(--s2)}
 .pr-copy p{color:var(--txt-2);font-size:12.5px;line-height:1.58;max-width:760px}
-/* Nothing in this panel set a link colour, so the method jump and the Crossbar
+/* Nothing in this panel set a link colour, so the method jump and the Global ELO
    column header rendered as default browser blue on a near-black page. */
 .pr-copy a,.pr-head a{color:var(--qualify);text-decoration:none;font-weight:600;white-space:nowrap}
 .pr-copy a:hover,.pr-head a:hover{text-decoration:underline}
@@ -4336,9 +4514,16 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
 .pr-search:focus{outline:1px solid var(--floodlight);outline-offset:1px}
 .pr-count{width:100%;font:500 10px var(--mono);color:var(--txt-3)}
 .pr-panel{background:var(--ink-1);border:1px solid var(--line-2);overflow:hidden}
-.pr-head,.pr-row{display:grid;grid-template-columns:42px minmax(210px,1.4fr) minmax(150px,.8fr) minmax(120px,1fr) 72px;align-items:center;gap:var(--s3);padding:8px var(--s3)}
+/* Four columns, not five. The relative-strength bar is gone (owner, 2026-08-06:
+   "the relative strength bar line is unnecessary") — it spent the widest track
+   in the table redrawing the number immediately to its right, and at 320px that
+   cost pushed the rating column off-screen entirely and truncated the "Global ELO"
+   header to "CR". Its 120px went to ELO+ and to letting the headers breathe. */
+.pr-head,.pr-row{display:grid;grid-template-columns:42px minmax(210px,1.6fr) minmax(150px,.8fr) 68px 84px;align-items:center;gap:var(--s3);padding:8px var(--s3)}
 .pr-head{position:sticky;top:0;z-index:2;background:var(--ink-2);border-bottom:1px solid var(--line-2);font:700 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3)}
-.pr-head span:last-child{text-align:right}
+/* Both numeric headers right-align over their numbers; the labels are short
+   enough now that neither wraps or clips at 320px. */
+.pr-head span:last-child,.pr-head span:nth-child(4){text-align:right}
 .pr-list{max-height:72vh;overflow:auto}
 .pr-row{min-height:47px;border-bottom:1px solid var(--line)}
 .pr-row:last-child{border-bottom:0}
@@ -4349,9 +4534,13 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
 .pr-name{font-size:13px;font-weight:650;color:var(--txt-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-lg{font-size:10px;color:var(--txt-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-conf{font:700 10px var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--txt-2)}
-.pr-barwrap{height:6px;background:var(--ink-3);overflow:hidden}
-.pr-bar{display:block;height:100%;background:var(--floodlight)}
 .pr-str{text-align:right;font:700 14px var(--mono);color:var(--txt-1)}
+/* ELO+ — the club against its OWN league, 100 = league average. It sits beside
+   the global rating so a reader can separate "good club" from "good league":
+   a 1585 in the Championship and a 1585 in the Premier League are the same
+   global number and very different seasons. */
+.pr-elop{text-align:right;font:700 13px var(--mono);color:var(--txt-2)}
+.pr-elop.up{color:var(--qualify)}.pr-elop.dn{color:var(--txt-3)}
 .pr-empty{padding:var(--s5);text-align:center;color:var(--txt-3)}
 /* Method note, moved below the ladder (2026-08-05 feedback: the description
    "has WAY too long of a description that nobody is going to read and gets in
@@ -4367,14 +4556,27 @@ if(!_homeDataRoute&&!_isEdgeBoard&&!_isPower&&!_infoPage){
 @media(max-width:900px){
   .pr-intro{grid-template-columns:repeat(4,1fr)}
   .pr-copy{grid-column:1/-1;border-right:0;border-bottom:1px solid var(--line-2)}
-  .pr-head,.pr-row{grid-template-columns:36px minmax(160px,1.3fr) minmax(110px,.7fr) minmax(80px,.8fr) 58px;gap:8px}
+  .pr-head,.pr-row{grid-template-columns:36px minmax(160px,1.5fr) minmax(110px,.7fr) 60px 66px;gap:8px}
 }
 @media(max-width:620px){
   .pr-intro{grid-template-columns:repeat(2,1fr)}
   .pr-kpi:nth-of-type(3),.pr-kpi:nth-of-type(5){border-right:0}
   .pr-kpi:nth-of-type(-n+3){border-bottom:1px solid var(--line-2)}
   .pr-search{margin-left:0;width:100%;font-size:16px}
-  .pr-head,.pr-row{grid-template-columns:32px minmax(140px,1fr) minmax(64px,.55fr) 54px;padding:7px 8px}
+  /* Confederation drops here, so this is a 4-track list for 4 visible cells:
+     rank, club, ELO+, rating. Every track is definite except the club, which
+     takes what is left — at 320px that is 26+44+52 plus three 6px gaps and 16px
+     of padding, leaving the club 134px inside a 288px panel. The old list added
+     up to 11px MORE than the panel, and .pr-panel is overflow:hidden, so the
+     rating column was simply cut off at the screen edge. */
+  .pr-head,.pr-row{grid-template-columns:26px minmax(0,1fr) 44px 52px;padding:7px 8px;gap:6px}
+  /* "GLOBAL ELO" is wider than its 52px track. It is allowed to wrap here (the
+     .pr-head a rule sets nowrap for the desktop layout, where it fits) — a
+     two-line header is fine, a header sliced off mid-word is not. */
+  .pr-head a{white-space:normal}
+  .pr-head{align-items:end;line-height:1.15}
+  /* nth-child still counts the hidden .pr-conf, so 4 and 5 remain ELO+ and the
+     rating and the base right-alignment rule keeps applying to both. */
   .pr-head .pr-conf,.pr-row .pr-conf{display:none}
   .pr-name{font-size:12px}
   .pr-list{max-height:none}
@@ -4395,10 +4597,13 @@ if (_isPower && window.POWER_DATA) {
   const sub=$('#sub'); if(sub) sub.textContent='Every modelled club on one scale';
   const all=P.teams||[];
   const confs=(P.groups||[]).map(g=>g.confederation);
-  const max=all.length?Math.max(...all.map(t=>t.strength)):1;
-  const min=all.length?Math.min(...all.map(t=>t.strength)):0;
-  const span=Math.max(1,max-min);
   const prEsc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // ELO+ per club, against its own league's mean. Computed from `strength`, but
+  // it would be identical from raw `elo`: the bridge is one additive constant
+  // per league, so it cancels out of (club - league mean). See eloPlus().
+  const _lgSum={},_lgN={};
+  all.forEach(t=>{_lgSum[t.league]=(_lgSum[t.league]||0)+t.strength;_lgN[t.league]=(_lgN[t.league]||0)+1;});
+  const prPlus=t=>eloPlus(t.strength,_lgSum[t.league]/_lgN[t.league]);
   const target=$('#view-outlook')||$('main.wrap');
   if(target){
     target.classList.remove('hidden');
@@ -4418,12 +4623,12 @@ if (_isPower && window.POWER_DATA) {
         <div class="pr-count"></div>
       </div>
       <div class="pr-panel">
-        <div class="pr-head"><span>Rank</span><span>Club</span><span class="pr-conf">Confederation</span><span>Relative strength</span><span><a href="/crossbar/">Crossbar</a></span></div>
+        <div class="pr-head"><span>Rank</span><span>Club</span><span class="pr-conf">Confederation</span><span title="Rating against this club's own league — league average = 100">ELO+</span><span><a href="/global-elo/">Global ELO</a></span></div>
         <div class="pr-list"></div>
       </div>
       <div class="pr-method" id="pr-method">
         <h2>How this ladder is built</h2>
-        <p>Every ranked club keeps its domestic ELO, then receives a measured league or tier bridge plus a confederation shift fitted on Club World Cup meetings. Leagues without that bridge—and women’s competitions, which have no cross-gender match network—stay on their league pages until the evidence can support a global comparison. Cross-confederation gaps rest on ${P.cross_conf_matches||60} matches and are the least certain comparisons here. <a href="/crossbar/">More about Crossbar →</a></p>
+        <p>Every ranked club keeps its domestic ELO, then receives a measured league or tier bridge plus a confederation shift fitted on Club World Cup meetings. Leagues without that bridge—and women’s competitions, which have no cross-gender match network—stay on their league pages until the evidence can support a global comparison. Cross-confederation gaps rest on ${P.cross_conf_matches||60} matches and are the least certain comparisons here. <a href="/global-elo/">More about Global ELO →</a></p>
       </div>
     </div>`;
     const list=target.querySelector('.pr-list'),count=target.querySelector('.pr-count');
@@ -4431,17 +4636,20 @@ if (_isPower && window.POWER_DATA) {
     let active='All';
     const draw=()=>{
       const q=(search.value||'').trim().toLowerCase();
+      // t.display is set only where two real clubs share a name and carries the
+      // country ("Liverpool (Uruguay)"), so searching the country finds the
+      // right one of the pair.
       const filtered=all.filter(t=>(active==='All'||t.confederation===active)&&
-        (!q||`${t.team} ${t.league_short} ${t.confederation}`.toLowerCase().includes(q)));
+        (!q||`${t.display||t.team} ${t.league_short} ${t.confederation}`.toLowerCase().includes(q)));
       list.innerHTML=filtered.length?filtered.map(t=>{
-        const w=8+92*(t.strength-min)/span;
         const subtitle=`${t.league_short}${t.tier>1?` · Tier ${t.tier}`:''}${t.women?' · Women':''}`;
+        const ep=prPlus(t);
         return `<div class="pr-row">
           <span class="pr-rank">${t.global_rank}</span>
-          <a class="pr-club" href="${clubURL(t.league,t.team)}">${crest(t.team,t.logo)}<span class="pr-team"><span class="pr-name">${prEsc(t.team)}</span><span class="pr-lg">${prEsc(subtitle)}</span></span></a>
+          <a class="pr-club" href="${clubURL(t.league,t.team)}">${crest(t.team,t.logo,!!t.display)}<span class="pr-team"><span class="pr-name">${prEsc(t.display||t.team)}</span><span class="pr-lg">${prEsc(subtitle)}</span></span></a>
           <span class="pr-conf">${prEsc(t.confederation)}</span>
-          <span class="pr-barwrap" title="${prEsc(t.team)} · Crossbar ${Math.round(t.strength)}"><span class="pr-bar" style="width:${w.toFixed(1)}%"></span></span>
-          <span class="pr-str">${Math.round(t.strength)}</span>
+          <span class="pr-elop ${ep>100?'up':ep<100?'dn':''}" title="${prEsc(t.team)} vs ${prEsc(t.league_short)} average (100)">${ep}</span>
+          <span class="pr-str" title="${prEsc(t.team)} · Global ELO ${Math.round(t.strength)}">${Math.round(t.strength)}</span>
         </div>`;
       }).join(''):'<div class="pr-empty">No clubs match this filter.</div>';
       count.textContent=`Showing ${filtered.length.toLocaleString()} of ${all.length.toLocaleString()} clubs · ranks remain global`;
@@ -5323,10 +5531,10 @@ if(_isEdgeBoard && window.EDGE_BOARD_DATA){
     ML.fixtures.slice().sort((a,b)=>b.pct-a.pct||b.leverage-a.leverage)
       .forEach(r=>{ if(!seenL.has(r.league)){ seenL.add(r.league); norm.push(r); } });
     // Tier first (a first division outranks a fourth), then league strength —
-    // the Crossbar offset. Tier alone left 267 fixtures tied at tier 1, so the
+    // the Global ELO offset. Tier alone left 267 fixtures tied at tier 1, so the
     // rail fell through to raw leverage and led with Uruguay, Bolivia and
     // Honduras while promising "biggest leagues first". Strength is what that
-    // promise actually means, and it is the number /crossbar/ publishes.
+    // promise actually means, and it is the number /global-elo/ publishes.
     norm.sort((a,b)=>(a.tier||9)-(b.tier||9)
       ||(b.league_strength??-9999)-(a.league_strength??-9999)
       ||b.pct-a.pct||b.leverage-a.leverage);
@@ -5721,7 +5929,24 @@ if(_isHome && window.HOME_DATA){
       const body=$('#mvBody');
       if(body&&mvRegion==='league') body.innerHTML=moversBoardBody();
     };
-    const tGo=i=>{ tIdx=(i+T.length)%T.length; renderCE(); };
+    // Scroll anchoring. Every rotation swaps four panels at once, and the
+    // leagues genuinely differ in size — a 20-row table for an 18-row one, nine
+    // fixtures for three. Whatever sits ABOVE the panel the reader is looking at
+    // changes height, the browser holds scrollTop fixed, and the page appears to
+    // jump under them (owner, 2026-08-06: "the UI jump scrolls up and down").
+    // Pinning the anchor element's viewport position across the swap keeps the
+    // thing being read exactly where it was. Applies to the 6s auto-advance too,
+    // which had the same jump and no gesture to blame it on.
+    const tGo=(i,anchor)=>{
+      const el=anchor||tblEl;
+      const before=(el&&window.scrollY>0)?el.getBoundingClientRect().top:null;
+      tIdx=(i+T.length)%T.length;
+      renderCE();
+      if(before!=null){
+        const after=el.getBoundingClientRect().top;
+        if(Math.abs(after-before)>1) window.scrollBy(0,after-before);
+      }
+    };
 
     const mvPillsEl=$('.mv-pills');
     if(mvPillsEl){ mvPillsEl.addEventListener('click',e=>{
@@ -5741,28 +5966,99 @@ if(_isHome && window.HOME_DATA){
           // is the only way out of a pinned pick, so it must not be a dead end.
           tPinned=false; tHeld=false;
           tGo(+d.dataset.i); track('home_table_jump',{league:T[tIdx].league}); }); });
-      // ── Swipe the rotation (2026-08-05 mobile feedback) ──
-      // Listeners are passive and never preventDefault: the panels sit in a
-      // vertically-scrolling page, so a gesture that is even slightly vertical
-      // has to stay a scroll. Horizontal dominance (|dx| > 1.4·|dy|) plus a
-      // 45px floor is what separates "swipe" from "scrolled a bit crookedly".
+      // ── Swipe the rotation (2026-08-05, reworked 2026-08-06) ──
+      // The first version only decided at touchend, so nothing moved under the
+      // finger and the league changed by teleporting ("it doesnt actually show
+      // the animation of swiping"). Now the panel tracks the finger and the
+      // commit is a slide-out/slide-in.
+      //
+      // Axis is latched ONCE, at 6px of travel, and never revisited: a carousel
+      // that keeps re-deciding mid-gesture steals scrolls near the end of a
+      // drag. Until it latches both interpretations stay open, so a vertical
+      // scroll that begins with a little sideways drift is never captured.
+      // touchmove is the only non-passive listener, and it preventDefaults ONLY
+      // after latching 'x' — that is what stops the page creeping vertically
+      // during a horizontal swipe, and on the 'y' branch it returns before
+      // touching the event at all.
       if(T.length>1){
-        let sx=0, sy=0, st=0, tracking=false;
-        const onStart=e=>{ if(e.touches.length!==1){ tracking=false; return; }
-          sx=e.touches[0].clientX; sy=e.touches[0].clientY; st=Date.now(); tracking=true; };
+        const SLOP=6, COMMIT=45, DOMINANCE=1.4;
+        let sx=0, sy=0, st=0, axis=null, drag=null;
+        const width=()=>Math.max(1,(drag||document.body).getBoundingClientRect().width);
+        const settle=(el,ms)=>{ if(!el) return;
+          el.style.transition=ms?`transform ${ms}ms cubic-bezier(.22,.61,.36,1),opacity ${ms}ms ease`:'none'; };
+        const rest=el=>{ if(!el) return;
+          el.style.transform=''; el.style.opacity=''; el.style.willChange='';
+          if(el.parentElement) el.parentElement.style.overflowX=''; };
+        const clear=()=>{ axis=null; if(drag){ const d=drag; drag=null;
+          settle(d,180); rest(d); setTimeout(()=>settle(d,0),200); } };
+        const onStart=e=>{
+          if(e.touches.length!==1){ clear(); return; }
+          sx=e.touches[0].clientX; sy=e.touches[0].clientY; st=Date.now();
+          axis=null; drag=e.currentTarget; settle(drag,0);
+          drag.style.willChange='transform';
+          if(drag.parentElement) drag.parentElement.style.overflowX='clip';
+        };
+        const onMove=e=>{
+          if(!drag||e.touches.length!==1) return;
+          const dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
+          if(axis===null){
+            if(Math.abs(dx)<SLOP&&Math.abs(dy)<SLOP) return;   // still ambiguous
+            axis=Math.abs(dx)>Math.abs(dy)*DOMINANCE?'x':'y';
+            if(axis==='y'){ const d=drag; drag=null; rest(d); return; }
+          }
+          if(axis!=='x') return;
+          e.preventDefault();                    // the page must not scroll now
+          // Resistance past the commit distance, so the card cannot be dragged
+          // clean off the screen and the threshold is felt rather than guessed.
+          const raw=dx/width();
+          const eased=Math.sign(raw)*Math.min(.42,Math.abs(raw)*(Math.abs(dx)>COMMIT?.45:.85));
+          drag.style.transform=`translateX(${(eased*width()).toFixed(1)}px)`;
+          drag.style.opacity=String(1-Math.min(.4,Math.abs(eased)*1.3));
+        };
         const onEnd=e=>{
-          if(!tracking) return; tracking=false;
-          const t0=e.changedTouches&&e.changedTouches[0]; if(!t0) return;
-          const dx=t0.clientX-sx, dy=t0.clientY-sy;
-          if(Date.now()-st>800) return;                  // a slow drag is not a flick
-          if(Math.abs(dx)<45||Math.abs(dx)<Math.abs(dy)*1.4) return;
+          const el=drag; drag=null;
+          if(!el||axis!=='x'){ axis=null; rest(el); return; }
+          axis=null;
+          const t0=e.changedTouches&&e.changedTouches[0];
+          const dx=t0?t0.clientX-sx:0;
+          // A short fast flick counts as well as a long drag, but 28px not 18 —
+          // at 18 a stray thumb twitch on a scrolling page changed the league.
+          const flick=Date.now()-st<300&&Math.abs(dx)>28;
+          if(!(flick||Math.abs(dx)>=COMMIT)){         // not far enough — spring back
+            settle(el,190); rest(el); setTimeout(()=>settle(el,0),200); return;
+          }
+          const dir=dx<0?1:-1;
           tHeld=true; tPinned=false;
-          tGo(tIdx+(dx<0?1:-1));
-          track('home_table_swipe',{league:T[tIdx].league});
+          // Out, swap, in. The swap happens at the far edge where the panel is
+          // transparent, so the content change itself is never seen.
+          settle(el,130);
+          el.style.transform=`translateX(${-dir*width()*0.5}px)`;
+          el.style.opacity='0';
+          const w=width();
+          setTimeout(()=>{
+            settle(el,0);
+            el.style.transform=`translateX(${dir*w*0.5}px)`;   // jump to the far side
+            el.style.opacity='0';
+            tGo(tIdx+dir,el);                    // el is the scroll anchor
+            track('home_table_swipe',{league:T[tIdx].league});
+            // A timer, NOT requestAnimationFrame. rAF does not fire in a
+            // backgrounded or throttled tab, and the one thing that must never
+            // be skipped here is rest() — skipping it leaves the panel parked
+            // off-screen at opacity 0, i.e. the league table silently gone. The
+            // 16ms is only to give the start style a frame to be applied; if it
+            // is missed the panel snaps in, which is a lost animation and not a
+            // lost panel. Cleanup is chained inside so it cannot outrun rest().
+            setTimeout(()=>{
+              settle(el,200); rest(el);
+              setTimeout(()=>settle(el,0),220);
+            },16);
+          },135);
         };
         [tblEl,brdEl,mtEl].forEach(el=>{ if(!el) return;
           el.addEventListener('touchstart',onStart,{passive:true});
-          el.addEventListener('touchend',onEnd,{passive:true}); });
+          el.addEventListener('touchmove',onMove,{passive:false});
+          el.addEventListener('touchend',onEnd,{passive:true});
+          el.addEventListener('touchcancel',clear,{passive:true}); });
       }
       if(T.length>1) setInterval(()=>{ if(!tPaused&&!tPinned&&!tHeld) tGo(tIdx+1); },6000);
     }
@@ -6316,7 +6612,7 @@ if(_infoPage){
     <p class="lead">Entenser is an independent football prediction system. It estimates win / draw / loss probabilities from team strength and form and, as far as we know, is <b>the only football model that grades itself in public</b>: every forecast is scored against what actually happened, hits and misses on the same page.</p>
     <h3>How a prediction is built</h3>
     <ul>
-      <li><b><a href="/crossbar/">Crossbar</a></b> tracks each team's strength over time, then places every league on one Premier-League-anchored scale so clubs from different competitions can be compared.</li>
+      <li><b><a href="/global-elo/">Global ELO</a></b> tracks each team's strength over time, then places every league on one Premier-League-anchored scale so clubs from different competitions can be compared.</li>
       <li><b>Dixon–Coles</b> models goal rates with a 120-day time-decay, so recent matches matter more.</li>
       <li>A <b>season-weighted XGBoost</b> classifier (5-model seed bag) blends xG, form, rest and schedule features.</li>
       <li>The two are combined and then <b>temperature-calibrated</b> so a stated 60% really happens about 60% of the time.</li>
@@ -6426,6 +6722,20 @@ if(_infoPage){
       track('league_nav', {to: to||'command-center'});
     }
   }, true);
+})();
+</script>
+<script>
+// Take the skeleton down. This runs after every route renderer above, so by
+// here <main> holds real content. The load listener is a belt-and-braces second
+// chance: if a renderer throws, the skeleton must still come down — a stuck
+// skeleton hides a page that may be perfectly usable underneath.
+(function(){
+  var off=function(){
+    document.documentElement.classList.remove('booting');
+    var b=document.getElementById('boot'); if(b&&b.parentNode) b.parentNode.removeChild(b);
+  };
+  off();
+  window.addEventListener('load',off);
 })();
 </script>
 <script src="intelligence.js?v=20260731"></script>

@@ -782,10 +782,10 @@ trigger; the ones that rotted have neither.** So the rules became code. `scripts
 (in `make test`) asserts that every file under `docs/` is filed in `PLAN.md`, that no doc reference
 dangles, that no doc instructs work on a retired branch, that `PLAN.md` stays inside its stated
 100-line budget, and that every figure in the new `docs/figures.json` still matches what the
-payloads measure. It found a real drift on its first run: the Crossbar club count had moved from
+payloads measure. It found a real drift on its first run: the Global ELO club count had moved from
 1,172 to 1,167 with the 2026-08-05 refresh, three days after being corrected by hand.
 
-Two figure populations were separated for good, having twice been confused: the Crossbar scale
+Two figure populations were separated for good, having twice been confused: the Global ELO scale
 (every club carrying a `global_elo` — 1,167 across 71) and the bridged Global Power ladder
 (`power.js`, which also requires measured bridge evidence — 965 across 55). Both are correct for
 their own question, and replacing one with the other *introduces* an error. Nineteen standing

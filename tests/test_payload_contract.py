@@ -183,6 +183,43 @@ class TestLeaguePayloadRequiredFields:
 class TestPowerPayload:
     """POWER_DATA payload must have the minimum required structure."""
 
+    def test_no_club_is_ranked_twice(self):
+        """A club appears once, and a shared NAME is disambiguated by country.
+
+        Nine names were duplicated before 2026-08-07, and they were two problems
+        with one symptom. Seven were a single club listed in two divisions at
+        once — Athletico-PR, Coritiba, Remo and Chapecoense were promoted out of
+        Brazil's Série B in 2025, and that payload still describes the completed
+        2025 season, which is right for the Série B page and wrong for a global
+        ladder. Two were genuinely different clubs sharing a name.
+        """
+        path = WEBAPP_DATA / "power.js"
+        _, data = _load_payload(path)
+        seen = {}
+        for row in data["teams"]:
+            seen.setdefault(row["team"], []).append(row)
+        for name, group in seen.items():
+            if len(group) == 1:
+                continue
+            # Two real clubs may share a name, but then every one of them has to
+            # carry a distinct display name or the ladder is unreadable.
+            displays = {r.get("display") for r in group}
+            assert None not in displays, (
+                f"power.js: {len(group)} rows named {name!r} and at least one has "
+                f"no `display` — either it is one club listed twice, or the "
+                f"disambiguation is missing: "
+                f"{[(r['league'], r['global_rank']) for r in group]}")
+            assert len(displays) == len(group), (
+                f"power.js: {name!r} has duplicate display names {displays}")
+
+    def test_global_ranks_are_dense_and_unique(self):
+        path = WEBAPP_DATA / "power.js"
+        _, data = _load_payload(path)
+        ranks = [r["global_rank"] for r in data["teams"]]
+        assert ranks == list(range(1, len(ranks) + 1)), (
+            "power.js: global_rank must be 1..n with no gaps or repeats — "
+            "dropping a duplicate row without renumbering leaves a hole")
+
     def test_power_has_groups(self):
         path = WEBAPP_DATA / "power.js"
         var_name, data = _load_payload(path)
@@ -233,14 +270,63 @@ class TestGlobalEloPayload:
             f"standings row: {dupes}")
 
     def test_global_elo_reconciles_with_raw_rating(self, domestic_payload):
+        """global_elo must be reproducible from elo and the published elo_scale.
+
+        The translation was a pure shift until 2026-08-07 and is now shift plus
+        a spread term for lower divisions, because a second tier's rating gaps
+        overstate the favourite relative to its parent league's. `dispersion`
+        and `pivot` are published alongside `offset` precisely so this stays
+        checkable from the payload alone — a reader must never have to know a
+        constant that only lives in the repository.
+        """
         path, data = domestic_payload
         scale = data.get("elo_scale")
         assert scale, f"{path.name}: missing elo_scale"
         offset = scale["offset"]
+        disp = scale.get("dispersion", 1.0)
+        pivot = scale.get("pivot", 0.0)
+        assert 0.5 <= disp <= 1.0, f"{path.name}: implausible dispersion {disp}"
         for row in data["standings"]:
             if isinstance(row.get("elo"), (int, float)):
                 assert "global_elo" in row, f"{path.name}: {row['team']} missing global_elo"
-                assert row["global_elo"] == pytest.approx(row["elo"] + offset, abs=.51)
+                # global_elo_adj is this club's OWN continental record, published
+                # on the row precisely so the total stays reproducible from the
+                # payload rather than needing a file only the repo has.
+                adj = row.get("global_elo_adj", 0.0)
+                expected = pivot + disp * (row["elo"] - pivot) + offset + adj
+                assert row["global_elo"] == pytest.approx(expected, abs=.51)
+
+    def test_club_adjustments_are_bounded_and_only_on_played_clubs(self, domestic_payload):
+        """A per-club adjustment must stay a correction, never a rewrite.
+
+        It is shrunk toward zero by the evidence behind it (club_bridge), so a
+        club with a handful of European matches should barely move. Anything
+        past 150 ELO means the shrinkage is not doing its job.
+        """
+        path, data = domestic_payload
+        for row in data["standings"]:
+            adj = row.get("global_elo_adj")
+            if adj is None:
+                continue
+            assert abs(adj) <= 150, (
+                f"{path.name}: {row['team']} carries a {adj:+.0f} club adjustment")
+
+    def test_only_lower_divisions_carry_a_spread_correction(self, domestic_payload):
+        """A top flight must be translated by a shift alone.
+
+        tier_dispersion composes along the promotion chain and returns 1.0 for
+        anything that is not below a modelled top flight, so a dispersion other
+        than 1.0 on a top-flight payload means the chain has picked up a hop it
+        should not have.
+        """
+        from data_pipeline import coefficients as co
+        path, data = domestic_payload
+        lid = (data.get("league") or {}).get("id") or path.stem
+        disp = (data.get("elo_scale") or {}).get("dispersion", 1.0)
+        if lid not in co._TIER1_FOR:
+            assert disp == pytest.approx(1.0), (
+                f"{path.name}: {lid} is not a second tier but carries "
+                f"dispersion {disp}")
 
 
 # ── Public payload privacy contract ───────────────────────────────────────────

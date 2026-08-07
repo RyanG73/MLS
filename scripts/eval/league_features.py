@@ -24,12 +24,16 @@ from __future__ import annotations
 
 import pandas as pd
 
-from scripts.eval.elo import compute_elo
+from scripts.eval.elo import compute_elo, home_adv_for
 from scripts.eval.feature_builders import add_rolling_features
 
 # Champion hyperparameters (CLAUDE.md "Key decisions"). ELO regress default is
-# already 0.40 in elo.py; K and HOME_ADV are named here so the build is explicit.
+# already 0.40 in elo.py; K is named here so the build is explicit.
 ELO_K: float = 25.0
+# Retained for callers that import it by name. Home advantage became
+# per-competition on 2026-08-07 (scripts.eval.elo.home_adv_for) because a flat
+# 80 — promoted on MLS data — was optimal in ZERO of 19 European leagues swept.
+# This constant is MLS's value; build paths should call home_adv_for(league_id).
 ELO_HOME_ADV: float = 80.0
 ELO_REGRESS: float = 0.40
 XG_WINDOWS: tuple[int, ...] = (3, 5, 10, 15)
@@ -52,7 +56,8 @@ LEAGUE_FEAT_BASE: list[str] = [
 ]
 
 
-def build_league_features(played: pd.DataFrame) -> pd.DataFrame:
+def build_league_features(played: pd.DataFrame,
+                         league_id: str | None = None) -> pd.DataFrame:
     """Add ELO + rolling xG/form features to a played-matches canonical frame.
 
     Args:
@@ -60,6 +65,9 @@ def build_league_features(played: pd.DataFrame) -> pd.DataFrame:
                 completed matches, with integer home_goals/away_goals and an
                 integer label_result. Must be the full history (the rolling
                 windows and ELO are walk-forward and need every prior match).
+        league_id: competition id, used only to pick the ELO home advantage
+                (per-competition since 2026-08-07). None keeps the module
+                default, which is the pooled European value.
 
     Returns:
         Copy of ``played`` (sorted by date) with all LEAGUE_FEAT_BASE columns
@@ -67,7 +75,10 @@ def build_league_features(played: pd.DataFrame) -> pd.DataFrame:
         of those at match level), so those optional columns are not added.
     """
     df = played.sort_values("date").reset_index(drop=True)
-    df = compute_elo(df, K=ELO_K, home_adv=ELO_HOME_ADV, regress=ELO_REGRESS)
+    # Per-competition home advantage (2026-08-07): a flat 80 was promoted on
+    # MLS data and overstates the home side in every European league measured.
+    df = compute_elo(df, K=ELO_K, home_adv=home_adv_for(league_id),
+                     regress=ELO_REGRESS)
     df = add_rolling_features(
         df, XG_WINDOWS, FORM_WINDOWS, GAMES_14D_DAYS,
         xpass_by_game={}, has_ppda=False, has_poss=False, has_sp_xg=False,

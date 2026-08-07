@@ -90,17 +90,39 @@ class TestConfederationConstants:
         assert "Concacaf" in _CONF_CONST
 
     def test_uefa_const_values(self):
+        # Recalibrated 2026-08-06 on 743 continental matches (was 1.35/3000/80,
+        # the only never-fitted confederation). See cross_league._CONF_CONST.
         c = _CONF_CONST["UEFA"]
-        assert c["base_goals"] == pytest.approx(1.35)
-        assert c["goal_scale"] == pytest.approx(3000.0)
-        assert c["home_adv_elo"] == pytest.approx(80.0)
+        assert c["base_goals"] == pytest.approx(1.25)
+        assert c["goal_scale"] == pytest.approx(1000.0)
+        assert c["home_adv_elo"] == pytest.approx(110.0)
 
     def test_concacaf_const_within_sane_bounds(self):
         c = _CONF_CONST["Concacaf"]
-        # Physically-sane bounds: base_goals 1.2-1.7, goal_scale 2000-3500, home_adv 40-110
+        # Physically-sane bounds: base_goals 1.2-1.7, goal_scale 800-3500, home_adv 40-130
         assert 1.2 <= c["base_goals"] <= 1.7
-        assert 2000.0 <= c["goal_scale"] <= 3500.0
-        assert 40.0 <= c["home_adv_elo"] <= 110.0
+        assert 800.0 <= c["goal_scale"] <= 3500.0
+        assert 40.0 <= c["home_adv_elo"] <= 130.0
+
+    @pytest.mark.parametrize("conf", ["UEFA", "Concacaf", "CONMEBOL", "AFC"])
+    def test_constants_produce_a_realistic_scoreline(self, conf):
+        """The real bound on these constants is the SCORELINE, not the ratio.
+
+        bracket_sim samples goals from match_lambdas, so a set of constants that
+        wins on 1X2 Brier while implying a 4-goal average would corrupt every
+        knockout tie. The 1X2 objective never sees goals and cannot catch that,
+        so an evenly-matched non-neutral tie is asserted here instead. This is
+        what replaced the old goal_scale >= 2000 floor, which bound on the fit
+        without bounding what actually mattered (2026-08-06).
+        """
+        if conf not in _CONF_CONST:
+            pytest.skip(f"{conf} not configured")
+        lam_h, lam_a = match_lambdas(1600.0, 1600.0, neutral=False, conf=conf)
+        assert 1.30 <= lam_h <= 1.80, f"{conf}: home rate {lam_h:.2f} unrealistic"
+        assert 1.05 <= lam_a <= 1.50, f"{conf}: away rate {lam_a:.2f} unrealistic"
+        assert 2.40 <= lam_h + lam_a <= 3.10, (
+            f"{conf}: {lam_h + lam_a:.2f} goals for an even tie is not football")
+        assert lam_h > lam_a, f"{conf}: home advantage is not positive"
 
     def test_module_aliases_match_uefa(self):
         from scripts.eval.cross_league import BASE_GOALS, GOAL_SCALE, HOME_ADV_ELO

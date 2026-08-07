@@ -50,7 +50,7 @@ each other are often two different measurements:
 | Figure key in `docs/figures.json` | Population | Source |
 |---|---|---|
 | `power_ladder_clubs` / `power_ladder_leagues` | the bridged Global Power ladder | `webapp/data/power.js` |
-| `crossbar_clubs` / `crossbar_competitions` | every club carrying a `global_elo` — strictly larger | all `webapp/data/*.js` payloads |
+| `global_elo_clubs` / `global_elo_competitions` | every club carrying a `global_elo` — strictly larger | all `webapp/data/*.js` payloads |
 
 Both are right for their own question. Blindly replacing one with the other *introduces* an error.
 The values are named rather than typed here on purpose: this table itself carried a stale
@@ -66,7 +66,7 @@ d=json.loads(re.search(r'=\s*(\{.*\})',pathlib.Path('webapp/data/power.js').read
 print(len(d['teams']),'teams |',len({t['league'] for t in d['teams']}),'leagues')"
 ```
 
-Precedent: on 2026-08-02 a Crossbar count was corrected in `STATUS.md` and left stale in nine
+Precedent: on 2026-08-02 a Global ELO count was corrected in `STATUS.md` and left stale in nine
 other places, including `CLAUDE.md` and proposed public marketing copy.
 
 ## Deleting a document — mandatory sequence

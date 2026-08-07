@@ -91,8 +91,8 @@ def build(days: int, sims: int, scope: str) -> dict:
             # the small-volatile-league bias it exists to fix (observed live
             # 2026-08-01: Uruguay 78, Bolivia 61, Honduras above everything).
             #
-            # league_strength is the Crossbar offset for the competition: the
-            # same number /crossbar/ publishes, and the honest meaning of the
+            # league_strength is the Global ELO offset for the competition: the
+            # same number /global-elo/ publishes, and the honest meaning of the
             # rail's own promise, "biggest leagues first".
             r["tier"] = meta.get("tier") or 9
             r["league_strength"] = round(float(co.global_elo_offset(r["league"])), 1)

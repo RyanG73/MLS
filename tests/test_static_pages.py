@@ -194,7 +194,7 @@ def test_sitemap_wellformed_and_complete(built):
     non_league = {loc for loc in set(locs[2:]) - league_locs - club_locs
                   if not dated_weekly.match(loc)}
     assert non_league <= {
-        f"{SITE}/weekly/", f"{SITE}/open-data/", f"{SITE}/crossbar/",
+        f"{SITE}/weekly/", f"{SITE}/open-data/", f"{SITE}/global-elo/",
         f"{SITE}/after-the-world-cup/", f"{SITE}/football-forecasts/"}
     for u in root:
         lm = u.find(f"{ns}lastmod")
@@ -389,31 +389,54 @@ def test_club_watch_copy_obeys_the_claim_matrix(built):
         assert phrase not in lowered, f"banned claim {phrase!r} on league page"
 
 
-# ── /crossbar/ — the named cross-league strength scale (P6, 2026-08-01) ──────
+# ── /global-elo/ — the named cross-league strength scale (P6) ─────────────────
 # Naming a number creates a claim surface. These lock the page to what the
 # grading record actually supports, and keep its figures derived from the live
 # payloads rather than written down where they can silently go stale.
+# Shipped as /crossbar/ on 2026-08-01, renamed 2026-08-06.
 
-def test_crossbar_page_is_built_and_self_canonical(built):
+
+def test_retired_crossbar_url_still_resolves_to_global_elo(built):
+    """The old URL must not 404 — it shipped everywhere for five days.
+
+    /crossbar/ was in every league-page footer, every club page, the sitemap and
+    the RSS feed while the scale carried that name. GitHub Pages serves this
+    site, so there is no server-side redirect to configure and the forward has
+    to be a page. It carries a canonical to the new URL so the indexed one
+    consolidates rather than competing, and it must stay OUT of the sitemap —
+    a sitemap lists destinations, not forwarding addresses.
+    """
     page = (built / "crossbar" / "index.html").read_text()
-    canon = re.search(r'rel="canonical" href="([^"]+)"', page).group(1)
-    assert canon == f"{SITE}/crossbar/"
-    assert "<h1>Crossbar</h1>" in page
-    ld = json.loads(re.search(
-        r'<script type="application/ld\+json">(.*?)</script>', page, re.S).group(1))
-    assert ld["@type"] == "DefinedTerm" and ld["name"] == "Crossbar"
-
-
-def test_crossbar_page_is_in_the_sitemap(built):
+    assert re.search(r'rel="canonical" href="([^"]+)"', page).group(1) == \
+        f"{SITE}/global-elo/"
+    assert 'http-equiv="refresh"' in page and "/global-elo/" in page
+    assert "noindex" in page
+    assert '<a href="/global-elo/">' in page, "needs a followable link, not only a meta refresh"
     root = ET.parse(built / "sitemap.xml").getroot()
     ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
     locs = [u.find(f"{ns}loc").text for u in root]
-    assert f"{SITE}/crossbar/" in locs
+    assert f"{SITE}/crossbar/" not in locs, "a redirect stub must not be in the sitemap"
+
+def test_global_elo_page_is_built_and_self_canonical(built):
+    page = (built / "global-elo" / "index.html").read_text()
+    canon = re.search(r'rel="canonical" href="([^"]+)"', page).group(1)
+    assert canon == f"{SITE}/global-elo/"
+    assert "<h1>Global ELO</h1>" in page
+    ld = json.loads(re.search(
+        r'<script type="application/ld\+json">(.*?)</script>', page, re.S).group(1))
+    assert ld["@type"] == "DefinedTerm" and ld["name"] == "Global ELO"
 
 
-def test_crossbar_figures_are_derived_from_the_payloads(built):
+def test_global_elo_page_is_in_the_sitemap(built):
+    root = ET.parse(built / "sitemap.xml").getroot()
+    ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
+    locs = [u.find(f"{ns}loc").text for u in root]
+    assert f"{SITE}/global-elo/" in locs
+
+
+def test_global_elo_figures_are_derived_from_the_payloads(built):
     """The headline count and the table must match what the site publishes."""
-    page = (built / "crossbar" / "index.html").read_text()
+    page = (built / "global-elo" / "index.html").read_text()
     rated = []
     for p in sorted((built / "data").glob("*.js")):
         payload = read_js_payload(p)
@@ -426,34 +449,34 @@ def test_crossbar_figures_are_derived_from_the_payloads(built):
     assert f"{max(rated):,}" in page
 
 
-def test_crossbar_table_is_sorted_by_the_scale(built):
-    page = (built / "crossbar" / "index.html").read_text()
+def test_global_elo_table_is_sorted_by_the_scale(built):
+    page = (built / "global-elo" / "index.html").read_text()
     vals = [int(v.replace(",", "")) for v in
             re.findall(r'<td class="tm">[^<]*</td><td class="tm">[^<]*</td><td>([\d,]+)</td>', page)]
     assert len(vals) >= 4, vals
     assert vals == sorted(vals, reverse=True), vals
 
 
-def test_crossbar_page_makes_no_accuracy_or_betting_claim(built):
+def test_global_elo_page_makes_no_accuracy_or_betting_claim(built):
     """docs/paid-claim-matrix.md: no profit, edge, picks or staking language,
     and no accuracy assertion the public grading record does not support."""
-    text = re.sub(r"<[^>]+>", " ", (built / "crossbar" / "index.html").read_text()).lower()
+    text = re.sub(r"<[^>]+>", " ", (built / "global-elo" / "index.html").read_text()).lower()
     for banned in ("guaranteed", "profit", "beat the market", "picks", "staking",
                    "most accurate", "best model", "sharp", "value bet"):
-        assert banned not in text, f"crossbar page makes a banned claim: {banned!r}"
+        assert banned not in text, f"global elo page makes a banned claim: {banned!r}"
     # And it must state the market-blind invariant plainly — that is the point.
     assert "not built from bookmaker odds" in text
 
 
-def test_crossbar_page_states_its_own_limits(built):
-    text = (built / "crossbar" / "index.html").read_text().lower()
+def test_global_elo_page_states_its_own_limits(built):
+    text = (built / "global-elo" / "index.html").read_text().lower()
     assert "where it is weakest" in text
     assert "between confederations" in text
 
 
 def test_club_pages_name_and_link_the_scale(built):
     for (lid, slug), page in list(_club_pages(built).items())[:30]:
-        if "global_elo" not in page and 'class="k">Crossbar<' not in page:
+        if "global_elo" not in page and 'class="k">Global ELO<' not in page:
             continue
-        assert 'class="k">Crossbar<' in page, f"{lid}/{slug} still labels the metric Global ELO"
-        assert 'href="/crossbar/"' in page, f"{lid}/{slug} does not link the explainer"
+        assert 'class="k">Global ELO<' in page, f"{lid}/{slug} still labels the metric Global ELO"
+        assert 'href="/global-elo/"' in page, f"{lid}/{slug} does not link the explainer"

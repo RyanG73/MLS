@@ -25,15 +25,15 @@
 - **This file may state a decision or a threshold. It may not state a measurement.** Club counts,
   league counts, Brier scores and test counts go stale and are then quoted as authoritative from
   here. They belong in `CURRENT_STATE.md` or are measured at build time.
-- **A figure on more than one surface has one source, measured rather than typed.** `/crossbar/`
+- **A figure on more than one surface has one source, measured rather than typed.** `/global-elo/`
   already does this — it reads its counts from the payloads at build time.
 - **When you correct a fact, grep for it before you commit:**
   `rg '<old value>' docs/ CLAUDE.md README.md .claude/ --glob '!**/worktrees/**'`. A correction
   that lands in one file and not its siblings is worse than the original error, because now the
-  repository disagrees with itself. Precedent: on 2026-08-01 a Crossbar count was fixed in
+  repository disagrees with itself. Precedent: on 2026-08-01 a Global ELO count was fixed in
   `STATUS.md` and left stale in nine places, including this file.
 - **Check which population a figure describes before "correcting" it.** `power_ladder_*` in
-  `docs/figures.json` counts the bridged `power.js` ladder; `crossbar_*` counts every club
+  `docs/figures.json` counts the bridged `power.js` ladder; `global_elo_*` counts every club
   carrying a rating, a strictly larger population. Both are right for their own question, and
   quoting one for the other is the mistake to avoid. The values are deliberately not repeated
   here — this file states decisions, not measurements, and the two that used to sit on this line
@@ -70,7 +70,12 @@ is merged and retained for history.
 - Verification protocol: judge harness experiments on a single bagged run (--xgb-bag 5 --seed 42,
   σ≈0.0002) and confirm gate-bound claims at a second base seed.
 - Calibration: temperature scaling (single T parameter, minimise NLL on cal fold)
-- ELO: K=25, HOME_ADV=80, REGRESS=40% (promoted 2026-06-07: whl=6 + regress=0.40 synergistic; avg Brier 0.6337, cal_err 0.0195; prior "50% wins" was measured at whl=4)
+- ELO: K=25, REGRESS=40% (promoted 2026-06-07: whl=6 + regress=0.40 synergistic; avg Brier 0.6337,
+  cal_err 0.0195; prior "50% wins" was measured at whl=4). **HOME_ADV is per competition since
+  2026-08-07** — `scripts.eval.elo.home_adv_for`, 80 for MLS and the Brasileirão, 55 everywhere
+  else. The old flat 80 was promoted on MLS data and was optimal in ZERO of 19 European leagues
+  swept end to end; MLS keeps 80, so the champion config is unchanged. Build paths must call
+  `home_adv_for(league_id)` rather than passing a literal.
 - DC time-decay: 120-day half-life
 - xG windows: (3, 5, 10, 15) matches — eval harness default; champion feat_base includes all four
 - Edge threshold: 8% before live betting
@@ -79,11 +84,22 @@ is merged and retained for history.
   Watch sells is that someone watched it — what changed while you were away, the evidence behind it,
   saved scenarios, per-club history. A lock must sit on the continuity layer, never on a figure the
   public site already publishes, or the "free forever" promise printed on the site becomes false.
-- **Crossbar** is the public name of the shared cross-league strength scale (owner decision
-  2026-08-01, from a three-name shortlist). Internally it stays `global_elo`; the customer-facing
-  name is Crossbar. It names a *scale*, not an accuracy claim — nothing about the name may imply
-  predictive performance, profitability, or betting utility. Coverage is a measurement, not a
-  decision — read it from the payloads or `docs/STATUS.md`, never from here.
+- **Global ELO** is the public name of the shared cross-league strength scale (owner decision
+  2026-08-06, replacing "Crossbar", which held the name from 2026-08-01). The internal field was
+  always `global_elo`; the public label now matches it, so there is one name to learn instead of
+  two. The shortlist's own con column had already predicted the failure — "cute; less
+  self-describing, needs the explainer to do more work". The retired `/crossbar/` URL still
+  resolves and canonicals to `/global-elo/`; do not remove that redirect, the old URL shipped in
+  every club page footer and in the sitemap for the five days the old name was live. It names a *scale*, not an accuracy claim — nothing
+  about the name may imply predictive performance, profitability, or betting utility. Coverage is
+  a measurement, not a decision — read it from the payloads or `docs/STATUS.md`, never from here.
+- **The UEFA match constants are fitted, not typed** (2026-08-06). `_CONF_CONST["UEFA"]` in
+  `scripts/eval/cross_league.py` was the last confederation still carrying hand-set "physically
+  grounded" priors while every other one had been grid-swept, and it was wrong enough to bend the
+  published ladder: it predicted 39.5% home wins against an actual 50.3%, and the league offsets
+  were absorbing the difference. Any future change to these constants must be scored on held-out
+  1X2 Brier AND constrained so `match_lambdas` still yields a realistic scoreline — `bracket_sim`
+  samples goals from them, and the 1X2 objective cannot see goals.
 - **Refunds: full refund inside 30 days of first payment** (owner decision 2026-08-01, resolving
   `G0.7`). Not pro-rata, and not pro-rated at the monthly rate the way Rotowire's terms do it. The
   simpler sentence is worth more than the recovered revenue on a launch built on trust.

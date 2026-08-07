@@ -19,7 +19,7 @@ HTTP response, experiment sample, cohort date, or decision memo.
 - **2026-08-05 — Seven failing browser tests resolved: five stale assertions, two real product
   defects.** Confirmed pre-existing at `80ccefc` and independent of the documentation commit
   `7dce707`. Five tests encoded a UI that had been deliberately replaced and were corrected: the
-  ladder column is **Crossbar**, not "global elo" (`36ed152`); the per-league `.data-clock` build
+  ladder column is **Global ELO**, not "global elo" (`36ed152`); the per-league `.data-clock` build
   stamp was removed with the round-3 masthead (`f0fbed9`); the five MLS race boxes moved from the
   bespoke `.fav` strip to the shared `.races/.race` strip (2026-07-31), so the test now asserts all
   five races by name instead of one; the trajectory switcher gained a "Changes since…" mode button
@@ -65,12 +65,12 @@ HTTP response, experiment sample, cohort date, or decision memo.
   uniform 62px, and club-name truncation down from 7 rows to 1 at 320px (a 26-character name).
   **Proof:** 1,752 tests pass / 21 skipped (Playwright suites uninstalled locally);
   `scripts/check_docs.py` PASS; the committed payloads and `power.js` are in the diff, and the
-  gitignored static pages were rebuilt locally only to confirm `/crossbar/` re-measures itself.
+  gitignored static pages were rebuilt locally only to confirm `/global-elo/` re-measures itself.
   **Shipped and verified in production the same day.** Commit `4a72ec0`, Pages run `31116599915`
   and API run `31116599746`, both success. Verified against `https://entenser.com` rather than
   localhost: the live Matches slate renders 118 fixtures at a uniform 62px with zero truncated
   names, the ribbon holds `top:0` deep in the page, the Eredivisie table keeps its club column
-  through a 380px horizontal scroll, `/crossbar/` reads 697–1,797, and the live ladder returns PSV
+  through a 380px horizontal scroll, `/global-elo/` reads 697–1,797, and the live ladder returns PSV
   27th and Club Brugge 54th.
   **One hazard worth repeating:** the daily refresh landed mid-session and touched eight of the
   payloads this change also rewrites. The payloads are build artifacts, so the fix was to discard

@@ -20,7 +20,10 @@ Values below captured 2026-06 (2025-26 season end).
 """
 from __future__ import annotations
 import json
+import logging
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
 
 # ── fitted-offset JSON (Approach C) ──────────────────────────────────────────
 # Lazy-loaded once on first call to league_offset(); absent file ⇒ fallback to
@@ -98,9 +101,43 @@ def confederation_shift(league_id: str) -> float:
     return float(_load_conf_shift().get(conf, 0.0)) if conf else 0.0
 
 
-# ELO points per UEFA-coefficient point (calibrated in validate_continental.py,
-# a later task; this is the starting prior).
-_K_COEFF = 3.0
+# ELO points per UEFA-coefficient point.
+#
+# FITTED 2026-08-06/07 (was 3.0, described in its own comment as "the starting
+# prior" for a calibration task that was never done). This one number sets how
+# far apart the leagues sit on the published ladder, and it was too small by
+# more than half:
+#
+#     fitted 4.04 +/- 0.33 on the 743 cross-league continental matches
+#     z vs 3.0 = +3.2 · held-out Brier 0.5621 -> 0.5596 (-0.0025), 6/10 seeds
+#
+# REFITTED 2026-08-07 alongside the fresh coefficient capture. It first came out
+# 4.72 against the old table; the captured table spans England-to-France 34.2
+# points where the old one spanned 27, so the same physical gap needs a smaller
+# multiplier. k and _LEAGUE_COEFF are one calibration in two pieces — refit k
+# whenever the table is recaptured, and never edit one alone.
+#
+# The held-out margin is smaller than it was (-0.0025 against -0.0079) because
+# the baseline itself got better: at k=3.0 the fresh coefficients already score
+# 0.5621 where the old ones scored 0.5656. Most of what k was straining to
+# correct was a wrong input table, not a wrong multiplier.
+#
+# What 3.0 did: the ENTIRE Belgian league sat 117 ELO below the Premier League —
+# about the gap between an EPL title contender and a mid-table side — so any club
+# that dominated a weak league landed in the world top ten. That is the general
+# cause behind every "X is not a top ten team in Europe" report: PSV on
+# 2026-08-05, then Club Brugge, Union SG and Galatasaray on 2026-08-07. It was
+# never really about those leagues; the whole scale was compressed.
+#
+# Corroborated two ways beyond the fit itself. Per-league: at 3.0 the leagues
+# drift off their own coefficient priors and at the fitted value they sit on it,
+# mean |z| across 16 leagues falling to ~0.9 where a perfectly calibrated set
+# gives ~0.8. Per-club: residuals ran from big-five elite UNDER-rated (Bayern
+# +2.6, Real Madrid +2.0) to small-league clubs OVER-rated (Celtic -2.1,
+# Galatasaray -1.3) — exactly the gradient a too-small multiplier produces.
+#
+# 4.0, not 4.04: the standard error is 0.33, so the third digit is noise.
+_K_COEFF = 4.0
 
 # Strength (ELO points) assigned to an unknown/unlisted club — conservative,
 # roughly a mid-table side in a weak European league.
@@ -128,27 +165,45 @@ _REF_LEAGUE = "epl"
 # Twice is a pattern, so the fallback in league_offset() no longer returns 0.0
 # for an unlisted UEFA league — see _UEFA_UNLISTED_COEFF.
 #
-# PROVENANCE: the big-5 + C1 values were captured 2026-06 from the UEFA 5-year
-# country ranking. The values added 2026-07-31 are best-available ESTIMATES on
-# that same scale, not a fresh capture — they should be refreshed from
-# https://www.uefa.com/nationalassociations/uefarankings/country/ at the next
-# annual review. What the ranking is actually sensitive to is their ORDER and
-# rough spacing, both of which are well established; a few points either way
-# moves a club a place or two, not thirty.
+# PROVENANCE: FRESH CAPTURE 2026-08-07, five-year association coefficients as
+# published for 2025-26. This replaces a mixed table in which only the big five
+# and six C1 leagues had ever been captured (2026-06) and ten more were typed
+# estimates added 2026-07-31 — the note this replaces asked for exactly this
+# refresh "at the next annual review", and by 2026-08-07 the estimates were
+# carrying the whole cross-league scale through _K_COEFF.
+#
+# The refresh is not cosmetic. Four of the estimates were wrong by enough to
+# move clubs tens of places, and every correction lands in the direction the
+# continental residuals had independently been pointing:
+#
+#   league               was    now     residual measured before the capture
+#   eredivisie          61.0   51.6     z = -2.8 (over-rated)  <- the largest
+#   austria-bundesliga  33.0   25.3     z = -0.9 (over-rated)
+#   scottish-prem       32.0   25.1     z = -0.3 (over-rated)
+#   swiss-super-league  33.0   29.1     z = +0.2
+#   poland-ekstraklasa  32.0   43.5     z = +1.9 (UNDER-rated) <- wrong way up
+#   serie-a             76.0   87.7     Italy was below Spain here; it is not
+#
+# The Eredivisie is the headline. It carried a hand-written -206 override that
+# existed purely because its coefficient said 61 while its results said far
+# less; the true value is 51.6, which is most of that gap. A wrong input had
+# been patched at the output for a month.
+#
+# The scale also changed: England-to-France spans 34.2 points here against 27
+# before, so _K_COEFF is refitted alongside this table — the two are meaningless
+# apart. Do not edit one without the other.
 _LEAGUE_COEFF: dict[str, float] = {
-    "epl": 94.0, "la-liga": 79.0, "serie-a": 76.0, "bundesliga": 74.0,
-    "ligue-1": 67.0,
-    # C1 leagues (2026-07): same coefficient scale. Used by the fallback path
-    # only — experiments/league_offsets.json has no bridge fit for these yet.
-    "eredivisie": 61.0, "primeira": 60.0, "belgian-pro": 55.0,
-    "super-lig": 45.0, "greek-super": 38.0, "scottish-prem": 32.0,
-    # Added 2026-07-31 — the ten modeled top flights that were priced as EPL
-    # equivalents. Estimates on the scale above; see PROVENANCE.
-    "norway-eliteserien": 35.0, "denmark-superliga": 34.0,
-    "austria-bundesliga": 33.0, "swiss-super-league": 33.0,
-    "poland-ekstraklasa": 32.0, "sweden-allsvenskan": 25.0,
-    "romania-liga1": 23.0, "ireland-premier": 17.0,
-    "finland-veikkausliiga": 13.0,
+    "epl": 101.852, "serie-a": 87.660, "la-liga": 82.368,
+    "bundesliga": 80.116, "ligue-1": 67.653,
+    "primeira": 63.650, "belgian-pro": 57.850, "eredivisie": 51.562,
+    "super-lig": 47.575, "poland-ekstraklasa": 43.525, "greek-super": 41.312,
+    "denmark-superliga": 36.181, "norway-eliteserien": 34.212,
+    "swiss-super-league": 29.075, "sweden-allsvenskan": 25.625,
+    "austria-bundesliga": 25.250, "scottish-prem": 25.050,
+    "romania-liga1": 24.500, "ireland-premier": 16.093,
+    # Finland is outside the published top 35 and keeps an estimate, on the new
+    # scale — the only value in this table that is not a capture.
+    "finland-veikkausliiga": 12.500,
     # russia-premier is deliberately NOT here — see _russia_coeff().
 }
 
@@ -157,7 +212,9 @@ _LEAGUE_COEFF: dict[str, float] = {
 # enough that nobody has entered its coefficient, which is strong evidence it is
 # not a strong league. The old behaviour — falling through to 0.0, i.e. the EPL's
 # own offset — was the exact opposite inference.
-_UEFA_UNLISTED_COEFF = 15.0
+# 12.0 on the 2026-08-07 scale: the published table runs to ~13.5 at 35th, so an
+# association absent from it sits just below that. Was 15.0 on the old scale.
+_UEFA_UNLISTED_COEFF = 12.0
 
 # ── Russia: a league with no external evidence, by political fact ─────────────
 # Russian clubs have been suspended from UEFA since February 2022, so no
@@ -179,7 +236,12 @@ _UEFA_UNLISTED_COEFF = 15.0
 #
 # This is a documented estimate, not a measurement, and the league page reports
 # it as such via global_elo_quality() -> "suspended_estimate".
-_RUSSIA_LAST_VALID_COEFF = 36.0     # accrued through 2021-22, the last full season
+# 39.0 on the 2026-08-07 coefficient scale (was 36.0 on the pre-refresh one, and
+# the whole table moved). The decay then lands 2026 at ~20, against the 17.3
+# UEFA still publishes for a country that has played nobody since 2022 — close
+# enough that the mechanism is behaving, and deliberately not pinned to the
+# published figure, which is itself a frozen number rather than a measurement.
+_RUSSIA_LAST_VALID_COEFF = 39.0     # accrued through 2021-22, the last full season
 _RUSSIA_SUSPENDED_FROM = 2022
 _RUSSIA_DECAY_PER_SEASON = 0.85
 
@@ -212,9 +274,69 @@ _CONCACAF_OFFSET: dict[str, float] = {
 # domestic ELO (1822/1811/1821) — i.e. reuses calibration the codebase already
 # trusted elsewhere instead of inventing a new number. Superseded automatically if
 # this league ever gets a real bridge-regression fit into league_offsets.json.
-_MANUAL_LEAGUE_OFFSET: dict[str, float] = {
-    "primeira": -195.0,
-}
+#
+# eredivisie, 2026-08-06: the SAME failure as Primeira, found the same way and
+# fixed with a measurement instead of an anchor. After the UEFA match constants
+# were recalibrated (see cross_league._CONF_CONST), every league's coefficient
+# prior was tested one at a time against its own continental record by profile
+# likelihood — all others held at their priors, so the question is only "does
+# THIS league's record reject THIS league's prior". Seventeen leagues were
+# inside noise of their prior. The Eredivisie was not:
+#
+#   n=101 appearances · observed 1.12 points per appearance · expected 1.51
+#   MLE offset -197 +/- 30  vs prior -99   ->  z = -3.3
+#
+# -197 is that MLE. It is the reason PSV Eindhoven ranked 6th in the world off
+# a 1804 domestic ELO: the Eredivisie's internal ratings are inflated by a
+# top-heavy league, and a -99 offset did not remove enough of it. Note that
+# Ligue 1, the other league reported as too high on 2026-08-06, came out at
+# z=+1.7 — its -81 prior is FINE and needed no override; what had put Lens 10th
+# was the fitted offset (-18) that the mis-calibrated constants demanded.
+#
+# Superseded automatically if this league gets a bridge-regression fit that
+# passes the robustness gate into league_offsets.json.
+# BOTH ENTRIES REMOVED 2026-08-07. They were the same bug wearing two names.
+#
+# Primeira was added 2026-07-13 because "the generic _K_COEFF static fallback
+# gave it only a -102 offset, which under-penalizes its inflated domestic ELO".
+# Eredivisie was added 2026-08-06 for the identical symptom, measured the same
+# way. Neither league was the problem: _K_COEFF was 3.0, so EVERY league below
+# the big five was under-penalised, and these two were simply the first to be
+# noticed. With _K_COEFF fitted to 4.7 the coefficient scale reaches them on its
+# own — Primeira's own continental record now sits 0.7 sigma from its
+# coefficient-derived prior, against 1.1 before, and it no longer needs a
+# hand-placed number to look right.
+#
+# Eredivisie is the one league still drifting (z = -2.9 at k = 4.7). It is left
+# to the bridge regression, which has 101 matches of evidence for it and a gate
+# that decides whether to trust them. A hand-written override here would
+# pre-empt that gate with a number nobody re-measures.
+#
+# The bar for an entry here: THIS league's own continental record has to reject
+# THIS league's coefficient prior, repeatedly and independently. Looking wrong is
+# not enough — if several leagues need an entry at once, the scale is wrong, and
+# that is the mistake this dict made twice before.
+#
+# EMPTY, and the way it emptied is the point.
+#
+# The Eredivisie entry (-206, added 2026-08-06) survived less than a day. It was
+# measured honestly — profile-likelihood MLE -244 +/- 30, z = -2.9, corroborated
+# by a league-residual check over 101 appearances — and it was still a patch on
+# the wrong layer. Its coefficient said 61 when the published value is 51.6. The
+# league was never anomalous; the input was wrong, and every "measurement" of
+# the anomaly was really a measurement of that error.
+#
+# With the 2026-08-07 capture the Eredivisie sits 1.2 sigma from its own
+# coefficient prior and needs nothing at all. Primeira, the other long-standing
+# override, went the same way for the same reason.
+#
+# So the bar for adding an entry here is higher than "I measured a deviation".
+# Check the INPUT first: is this league's coefficient current, and is _K_COEFF
+# fitted against the table it belongs to? Two overrides in this repo's history,
+# both hand-measured, both correct arithmetic, and both symptoms of a stale
+# coefficient table. An entry is only justified for a league whose published
+# coefficient is right and whose results still disagree.
+_MANUAL_LEAGUE_OFFSET: dict[str, float] = {}
 
 # Cross-league strength (ELO points) for clubs, on the SAME scale as the modeled
 # domestic-ELO+offset ratings (which span ~1388-1711 for the UCL field). The big-5
@@ -281,6 +403,30 @@ def league_offset(league_id: str) -> float:
     # confederation number each path produces keeps its meaning and only the
     # cross-confederation comparison changes (see _CONF_SHIFT).
     shift = confederation_shift(league_id)
+
+    # A hand-measured override outranks the fitted file. This used to be the
+    # other way round, on the reasoning that "a real bridge-regression fit
+    # supersedes a hand-calibrated value" — which was true when the file only
+    # ever held fits. It no longer does: when `league_bridge` rejects a fit at
+    # its robustness gate it writes the PRIORS to the same file, so an override
+    # was being shadowed by a copy of the very prior it existed to correct.
+    #
+    # Found the hard way on 2026-08-07 — the Eredivisie override was added,
+    # payloads and power.js were rebuilt, and PSV Eindhoven did not move an ELO
+    # point. Nothing warned; the number was simply ignored. An entry in
+    # _MANUAL_LEAGUE_OFFSET is a deliberate, documented measurement and the file
+    # is regenerated by a script, so the human decision wins and a genuine
+    # future fit supersedes it by DELETING the entry (as Primeira's was).
+    if league_id in _MANUAL_LEAGUE_OFFSET:
+        manual = _MANUAL_LEAGUE_OFFSET[league_id] + shift
+        fitted = _load_fitted() or {}
+        if league_id in fitted and abs(float(fitted[league_id]) + shift - manual) > 1.0:
+            _log.info(
+                "coefficients: %s uses the manual override %.1f, not the %.1f in "
+                "experiments/league_offsets.json (delete the override to adopt the file)",
+                league_id, manual, float(fitted[league_id]) + shift)
+        return manual
+
     fitted = _load_fitted()
     if fitted is not None and league_id in fitted:
         return float(fitted[league_id]) + shift
@@ -398,6 +544,54 @@ def tier2_offset(tier2_league_id: str) -> float:
     return _TIER2_PRIORS.get(key, 0.0)
 
 
+# ── cross-tier DISPERSION ─────────────────────────────────────────────────────
+# A tier bridge has always been a pure shift, which assumes a second tier's
+# rating gaps mean the same thing as its parent's. Measured on the domestic
+# matches of both leagues, they do not.
+#
+# The test is a logistic refit of match result on the league's own pre-match
+# rating gap: a slope of 1.0 means the league's ELO gaps predict its own results
+# honestly, below 1.0 means they overstate the favourite. Top flights average
+# 0.91; second tiers average 0.70. So a club 200 points clear of the Championship
+# is NOT 200 points clear on the Premier League's scale, and translating it with
+# a shift alone carries the whole exaggeration across the boundary. That is the
+# mechanism behind relegated and promoted clubs arriving over-rated.
+#
+# Ratios below are child_slope / parent_slope, each measured 2026-08-07 over
+# 3,600-6,600 domestic matches per league:
+#
+#   championship / epl          0.782 +/- 0.055     league-one / championship  1.026 +/- 0.079
+#   bundesliga-2 / bundesliga   0.723 +/- 0.074     league-two / league-one    0.823 +/- 0.071
+#   ligue-2      / ligue-1      0.802 +/- 0.072     serie-b    / serie-a       0.872 +/- 0.067
+#   segunda      / la-liga      0.875 +/- 0.062
+#
+# league-one/championship is 1.03 — the English third tier is no more dispersed
+# than the second. The compression is at the EPL boundary, not at every step, so
+# it is stored per hop rather than assumed uniform.
+_TIER_DISPERSION: dict[str, float] = {
+    "championship": 0.782,
+    "bundesliga-2": 0.723,
+    "serie-b": 0.872,
+    "segunda": 0.875,
+    "ligue-2": 0.802,
+    "league-one": 1.026,
+    "league-two": 0.823,
+}
+
+
+def tier_dispersion(league_id: str) -> float:
+    """Multiplier on a club's deviation from its LEAGUE MEAN, onto the top-flight
+    scale. 1.0 for a top flight; composes along the promotion chain, so League
+    Two is translated through League One and the Championship.
+    """
+    factor, current, seen = 1.0, league_id, set()
+    while current in _TIER1_FOR and current not in seen:
+        seen.add(current)
+        factor *= _TIER_DISPERSION.get(current, 1.0)
+        current = _TIER1_FOR[current]
+    return factor
+
+
 def global_elo_offset(league_id: str) -> float:
     """Additive offset from a league's domestic ELO onto the global EPL scale.
 
@@ -419,6 +613,42 @@ def global_elo_offset(league_id: str) -> float:
         offset += tier2_offset(current)
         current = _TIER1_FOR[current]
     return offset + league_offset(current)
+
+
+# ── per-club continental adjustment ──────────────────────────────────────────
+# Fitted by scripts/eval/club_bridge.py. A league offset is anchored on the UEFA
+# country coefficient, which measures an association's DEPTH — how many of its
+# clubs qualify and how far they collectively go — and is therefore not a claim
+# about any single club. Applied flat it under-rates the elite of a top-heavy
+# league and over-rates the elite of a deep-but-not-elite one.
+#
+# This layer speaks only for clubs that have actually played in Europe, using
+# their own results, shrunk by how many they have. A club with no continental
+# history is untouched, which is correct: for that club the league really is the
+# only evidence there is.
+_CLUB_CONT: dict[str, float] | None = None
+_CLUB_CONT_LOADED: bool = False
+_CLUB_CONT_JSON = Path(__file__).parent.parent / "experiments" / "club_continental_offsets.json"
+
+
+def _load_club_cont() -> dict[str, float]:
+    global _CLUB_CONT, _CLUB_CONT_LOADED
+    if _CLUB_CONT_LOADED:
+        return _CLUB_CONT or {}
+    _CLUB_CONT_LOADED = True
+    try:
+        blob = json.loads(_CLUB_CONT_JSON.read_text())
+        # `offsets` is empty unless the fit beat the league-only ladder on
+        # held-out data, so a rejected fit degrades to no adjustment at all.
+        _CLUB_CONT = blob.get("offsets") or {}
+    except (FileNotFoundError, json.JSONDecodeError, AttributeError):
+        _CLUB_CONT = {}
+    return _CLUB_CONT
+
+
+def club_continental_offset(league_id: str, team: str) -> float:
+    """ELO adjustment from this club's OWN European record. 0.0 if it has none."""
+    return float(_load_club_cont().get(f"{league_id}|{team}", 0.0))
 
 
 def global_elo_quality(league_id: str) -> str:

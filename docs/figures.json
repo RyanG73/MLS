@@ -1,7 +1,7 @@
 {
   "_README": [
     "Cross-surface figures: one source, measured rather than typed (CLAUDE.md fact rules).",
-    "A figure belongs here when it appears on more than one surface \u2014 docs, the public site, or",
+    "A figure belongs here when it appears on more than one surface — docs, the public site, or",
     "marketing copy. `scripts/check_docs.py` re-measures each one and fails when it drifts, and",
     "greps the repo for values listed in `stale`.",
     "",
@@ -9,70 +9,78 @@
     "parsed power.js payload, payload_rows() yields (league_id, row) for every standings row in",
     "webapp/data/*.js, champion() returns experiments/champion.json.",
     "",
-    "IMPORTANT: crossbar_* and power_ladder_* describe DIFFERENT populations. The Crossbar scale is",
+    "IMPORTANT: global_elo_* and power_ladder_* describe DIFFERENT populations. The Global ELO scale is",
     "every club carrying a global_elo; the Global Power ladder additionally requires measured bridge",
     "evidence and excludes unbridged and women's competitions. Both are correct for their own",
     "question. Quoting one for the other is the mistake this file exists to prevent."
   ],
   "figures": {
-    "crossbar_clubs": {
+    "global_elo_clubs": {
       "value": 1167,
       "population": "every club row carrying a global_elo, across all league payloads",
       "measure": "sum(1 for _, r in payload_rows() if r.get('global_elo') is not None)",
       "surfaces": [
         "docs/STATUS.md",
-        "webapp /crossbar/ page"
+        "webapp /global-elo/ page"
       ],
       "stale": [
         "892"
       ],
-      "note": "Moves with every payload rebuild \u2014 1172 on 2026-08-02, 1167 on 2026-08-05. Quote it from here or from the page, never from memory."
+      "note": "Moves with every payload rebuild — 1172 on 2026-08-02, 1167 on 2026-08-05. Quote it from here or from the page, never from memory."
     },
-    "crossbar_min": {
-      "value": 697,
-      "population": "lowest global_elo on the Crossbar scale",
+    "global_elo_min": {
+      "value": 749,
+      "population": "lowest global_elo on the Global ELO scale",
       "measure": "min(r['global_elo'] for _, r in payload_rows() if r.get('global_elo') is not None)",
       "surfaces": [
         "docs/STATUS.md",
-        "webapp /crossbar/ page"
+        "webapp /global-elo/ page"
       ],
       "stale": [
-        "770"
+        "770",
+        "697",
+        "762",
+        "748"
       ],
-      "note": "Moves with every recalibration of the league offsets. 770 before the 2026-08-05 UEFA ridge refit, 697 after."
+      "note": "Moves with every recalibration. Latest step 2026-08-07: fresh UEFA coefficient capture, _K_COEFF refit, per-competition HOME_ADV, tier dispersion, and the per-club continental layer (club_bridge)."
     },
-    "crossbar_max": {
-      "value": 1797,
-      "population": "highest global_elo on the Crossbar scale",
+    "global_elo_max": {
+      "value": 1742,
+      "population": "highest global_elo on the Global ELO scale",
       "measure": "max(r['global_elo'] for _, r in payload_rows() if r.get('global_elo') is not None)",
       "surfaces": [
         "docs/STATUS.md",
-        "webapp /crossbar/ page"
+        "webapp /global-elo/ page"
       ],
       "stale": [
-        "1770"
+        "1770",
+        "1797",
+        "1767"
       ],
-      "note": "Moves with every recalibration of the league offsets. 1770 before the 2026-08-05 UEFA ridge refit, 1797 after."
+      "note": "Moves with every recalibration. Latest step 2026-08-07: fresh UEFA coefficient capture, _K_COEFF refit, per-competition HOME_ADV, tier dispersion, and the per-club continental layer (club_bridge)."
     },
-    "crossbar_competitions": {
+    "global_elo_competitions": {
       "value": 71,
       "population": "competitions with at least one club carrying a global_elo",
       "measure": "len({lid for lid, r in payload_rows() if r.get('global_elo') is not None})",
       "surfaces": [
         "docs/STATUS.md",
-        "webapp /crossbar/ page"
+        "webapp /global-elo/ page"
       ],
       "stale": []
     },
     "power_ladder_clubs": {
-      "value": 965,
+      "value": 958,
       "population": "clubs on the bridged Global Power ladder (power.js)",
       "measure": "len(power()['teams'])",
       "surfaces": [
         "docs/CURRENT_STATE.md",
         "webapp ?league=power"
       ],
-      "stale": []
+      "stale": [
+        "965"
+      ],
+      "note": "965 -> 958 on 2026-08-07: seven clubs were ranked TWICE, each a promoted side still carried by its old division's completed-season payload (build_power_rankings._dedupe_clubs). Not the same population as global_elo_clubs, which counts every club carrying a rating."
     },
     "power_ladder_leagues": {
       "value": 55,

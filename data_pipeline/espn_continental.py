@@ -66,8 +66,12 @@ def _fetch(slug: str, y0: int, y1: int, calendar_year: bool = False) -> list[dic
     try:
         return espn_get(url, params).get("events", [])
     except Exception as e:
-        logger.warning("ESPN %s %s fetch failed: %s", slug, y0, e)
-        return []
+        # None, not []. A caller cannot otherwise tell "this season genuinely had
+        # no matches" from "ESPN returned 403", and the cache merge below has to
+        # tell them apart — treating a failure as an empty season deletes that
+        # season's cached evidence permanently. (2026-08-07)
+        logger.warning("ESPN %s %s fetch FAILED (season not refreshed): %s", slug, y0, e)
+        return None
 
 
 def _parse(events: list[dict], season: int, completed_only: bool) -> list[dict]:
@@ -156,29 +160,56 @@ def continental_results(comp_id: str, seasons: range | None = None,
     else:
         fetch_range = seasons if seasons is not None else range(2018, 2027)
         frames = []
+        refreshed: set[int] = set()      # seasons ESPN actually answered for
+        failed: list[int] = []
         for y in fetch_range:
-            rows = _parse(_fetch(slug, y, y + 1,
-                                 calendar_year=comp_id in CALENDAR_YEAR_COMPS),
-                         y, completed_only=True)
+            events = _fetch(slug, y, y + 1,
+                            calendar_year=comp_id in CALENDAR_YEAR_COMPS)
+            if events is None:           # transport failure — NOT an empty season
+                failed.append(y)
+                time.sleep(0.25)
+                continue
+            refreshed.add(y)
+            rows = _parse(events, y, completed_only=True)
             if rows:
                 frames.append(pd.DataFrame(rows))
             time.sleep(0.25)
         fresh = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
-        # Merge with existing cache: keep all old seasons NOT in the refetch window,
-        # then append the freshly-fetched rows, deduplicating on match_id (fresh wins).
+        # Merge with the existing cache. A season is only allowed to be REPLACED
+        # if ESPN answered for it; anything else is retained.
+        #
+        # This used to key on `set(fetch_range)`, which is every season the cache
+        # can hold — so "keep all old seasons NOT in the refetch window" kept
+        # nothing, and any season whose fetch failed was dropped on the spot.
+        # On 2026-08-07 06:32 a refresh hit 403s and all three UEFA competitions
+        # silently lost season 2025: the cross-league evidence behind the global
+        # ladder fell from 743 matches to 528, with no error and no signal, and
+        # the next bridge refit would have re-fitted every league offset on the
+        # smaller set as though nothing had happened. Cache erosion from a
+        # transient upstream failure is the worst kind of data bug — it is
+        # invisible, it is permanent, and it moves published numbers.
         if cache.exists():
             existing = pd.read_parquet(cache)
-            refetch_season_set = set(fetch_range)
-            old_kept = existing[~existing["season"].isin(refetch_season_set)]
+            old_kept = existing[~existing["season"].isin(refreshed)]
             if not fresh.empty:
                 combined = pd.concat([old_kept, fresh], ignore_index=True)
                 # Dedup on match_id: keep last occurrence (fresh rows were appended last).
                 df = combined.drop_duplicates(subset=["match_id"], keep="last").reset_index(drop=True)
             else:
                 df = old_kept.reset_index(drop=True)
+            if failed:
+                kept = sorted(set(existing["season"]) & set(failed))
+                logger.warning(
+                    "espn_continental %s: %d season(s) failed to refresh (%s); "
+                    "retained cached rows for %s",
+                    comp_id, len(failed), failed, kept or "none")
         else:
             df = fresh
+            if failed:
+                logger.warning(
+                    "espn_continental %s: no cache and %d season(s) failed (%s) "
+                    "— cache built from a partial fetch", comp_id, len(failed), failed)
 
         if not df.empty:
             cache.parent.mkdir(parents=True, exist_ok=True)

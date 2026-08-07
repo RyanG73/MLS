@@ -16,6 +16,50 @@ import pandas as pd
 DEFAULT_INITIAL_ELO: float = 1500.0
 DEFAULT_REGRESS:     float = 0.40   # promoted 2026-06-07 (synergistic with whl=6)
 
+# ── home advantage, per competition ──────────────────────────────────────────
+# HOME_ADV was a single 80 for every league until 2026-08-07. It was promoted on
+# 2026-06-07 against MLS data, and it is right for MLS — it is not right for a
+# European domestic league, where the same value overstates the home side in
+# every season measured.
+#
+# Swept end to end (compute_elo re-run at each value, so the ratings themselves
+# are refitted, not just re-scored), objective = log-loss of the expected score
+# against the realised score, which is what ELO optimises:
+#
+#   19 European domestic leagues, ~86,000 matches: best mean log-loss at
+#   HOME_ADV = 55 (0.64065) against 0.64356 at 80. **80 was optimal in ZERO of
+#   the 19.** Mean bias +0.0358 at 80 versus +0.0031 at 55.
+#   MLS, 5,746 matches: best 90 (0.65670), 80 gives 0.65692 — a 0.0002
+#   difference, so 80 stays and the champion config is untouched.
+#   Brazil Série A, 5,524 matches: best 90, 80 within 0.0003 — likewise kept.
+#
+# The split is mechanical rather than arbitrary: MLS and the Brasileirão are
+# continental-scale travel leagues, and that is exactly where a large home
+# advantage is expected. Everything measured outside them preferred 40-70
+# (Japan 40, Sweden 40, Denmark 40, Austria 40, Switzerland 40, Argentina 55,
+# Liga MX 55, Poland 55, Romania 55, Russia 55, Norway 70, China 70), so 55 is
+# the default rather than a guess for the leagues not individually swept.
+#
+# Individual per-league values are deliberately NOT stored: the log-loss curves
+# are shallow and a 19-league pooled estimate is far better identified than any
+# one of them. Only the two travel leagues, where the effect is mechanical and
+# large, get their own entry.
+DEFAULT_HOME_ADV: float = 55.0
+_HOME_ADV_BY_LEAGUE: dict[str, float] = {
+    "mls": 80.0,
+    "brazil-serie-a": 80.0,
+}
+
+
+def home_adv_for(league_id: str | None) -> float:
+    """Home advantage in ELO points for a competition.
+
+    Falls back to DEFAULT_HOME_ADV, which is the pooled European estimate — a
+    much better prior for an unswept league than the old universal 80, which no
+    league outside MLS and Brazil preferred.
+    """
+    return _HOME_ADV_BY_LEAGUE.get(league_id or "", DEFAULT_HOME_ADV)
+
 
 def compute_elo(
     df: pd.DataFrame,

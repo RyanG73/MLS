@@ -391,7 +391,7 @@ def _footer(generated: str) -> str:
     return (f'<footer>Data updated {E(generated or "recently")} · '
             f'rebuilt daily from public match data · '
             f'<a href="/?league=about">methodology</a> · '
-            f'<a href="/crossbar/">Crossbar</a> · '
+            f'<a href="/global-elo/">Global ELO</a> · '
             f'<a href="/leagues/">all leagues</a> · '
             f'<a href="/?league=data-sources">data sources</a> · '
             f'© Entenser</footer>\n</main>\n</body>\n</html>\n')
@@ -973,9 +973,10 @@ def club_page(lg: dict, d: dict, row: dict, aliases: list[str],
     if rating is None:
         rating = row.get("elo")
     if rating is not None:
-        # Named Crossbar 2026-08-01 (owner decision). The payload field stays
-        # `global_elo`; only the customer-facing label changed.
-        metrics.append(("Crossbar", f"{float(rating):.0f}", "cross-league strength"))
+        # Called "Crossbar" 2026-08-01 to 2026-08-06, then renamed Global ELO
+        # (owner: the coined name did not tell a reader what the number was).
+        # The payload field was `global_elo` throughout; the label now matches it.
+        metrics.append(("Global ELO", f"{float(rating):.0f}", "cross-league strength"))
     for key, label in cols:
         if row.get(key) is not None:
             metrics.append((label, pct(row.get(key)), "season probability"))
@@ -987,8 +988,8 @@ def club_page(lg: dict, d: dict, row: dict, aliases: list[str],
         ) + "</div>")
         if row.get("global_elo") is not None:
             parts.append(
-                f'<p class="sub">Crossbar puts {E(team)} on the same strength scale as every '
-                f'other club we forecast — <a href="/crossbar/">how the scale works</a>.</p>')
+                f'<p class="sub">Global ELO puts {E(team)} on the same strength scale as every '
+                f'other club we forecast — <a href="/global-elo/">how the scale works</a>.</p>')
 
     if upcoming:
         parts.append("<h2>Upcoming matches — win probabilities</h2><div class=\"fx\">")
@@ -1428,19 +1429,20 @@ def sitemap(entries: list[tuple[str, str]]) -> str:
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
-# ── /crossbar/ — the named cross-league strength scale (P6) ───────────────────
-# Owner named it 2026-08-01 from a three-way shortlist. Internally the field
-# stays `global_elo`; Crossbar is the customer-facing name. It names a *scale*,
-# never an accuracy claim — every sentence here has to survive
-# docs/paid-claim-matrix.md.
+# ── /global-elo/ — the cross-league strength scale (P6) ───────────────────────
+# Shipped as "Crossbar" on 2026-08-01, renamed Global ELO on 2026-08-06: a coined
+# word made the reader learn a name before they could read a number, and the
+# internal field had always been `global_elo` anyway. /crossbar/ still resolves
+# (see crossbar_redirect_page). It names a *scale*, never an accuracy claim —
+# every sentence here has to survive docs/paid-claim-matrix.md.
 #
 # Comparison rows are read from the live payloads rather than written down, so
 # this page cannot drift from what the rest of the site publishes.
-_CROSSBAR_SHOWCASE = [
+_GLOBAL_ELO_SHOWCASE = [
     "epl", "brazil-serie-a", "eredivisie", "championship",
     "norway-eliteserien", "argentina-primera", "liga-mx", "mls", "japan-j1",
 ]
-_CROSSBAR_QUALITY_COPY = {
+_GLOBAL_ELO_QUALITY_COPY = {
     "tier_bridge": "measured against a league it shares promotion with",
     "fitted": "fitted from continental matches this league actually played",
     "confederation_anchor": "anchored on its confederation's results",
@@ -1451,10 +1453,10 @@ _CROSSBAR_QUALITY_COPY = {
 }
 
 
-def _crossbar_rows(payloads: dict, registry: list[dict]) -> list[dict]:
+def _global_elo_rows(payloads: dict, registry: list[dict]) -> list[dict]:
     names = {lg["id"]: lg.get("name") or lg["id"] for lg in registry}
     rows = []
-    for lid in _CROSSBAR_SHOWCASE:
+    for lid in _GLOBAL_ELO_SHOWCASE:
         d = payloads.get(lid)
         if not d:
             continue
@@ -1476,9 +1478,36 @@ def _crossbar_rows(payloads: dict, registry: list[dict]) -> list[dict]:
     return rows
 
 
-def crossbar_page(payloads: dict, registry: list[dict], site: str) -> str:
-    canonical = f"{site}/crossbar/"
-    rows = _crossbar_rows(payloads, registry)
+def crossbar_redirect_page(site: str) -> str:
+    """Keep the retired /crossbar/ URL alive, pointing at /global-elo/.
+
+    The scale was called Crossbar between 2026-08-01 and 2026-08-06, and in that
+    window the URL shipped in every league-page footer, every club page, the
+    sitemap and the RSS feed. GitHub Pages serves this site, so there is no
+    server-side redirect to configure — the 301 has to be a page. It carries a
+    canonical to the new URL so the indexed one consolidates rather than
+    competing, and it is deliberately NOT in the sitemap: a sitemap should list
+    destinations, not forwarding addresses.
+    """
+    target = f"{site}/global-elo/"
+    return (
+        '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f'<title>Global ELO — Entenser</title>\n'
+        f'<link rel="canonical" href="{target}">\n'
+        '<meta name="robots" content="noindex, follow">\n'
+        f'<meta http-equiv="refresh" content="0; url=/global-elo/">\n'
+        '<style>body{background:#070809;color:#e8ecf1;font:15px/1.55 -apple-system,'
+        "'Segoe UI',Roboto,sans-serif;padding:48px 16px;text-align:center}"
+        'a{color:#3ddc84}</style>\n</head>\n<body>\n'
+        '<p>Crossbar is now called <a href="/global-elo/">Global ELO</a>.</p>\n'
+        '<script>location.replace("/global-elo/");</script>\n'
+        '</body>\n</html>\n')
+
+
+def global_elo_page(payloads: dict, registry: list[dict], site: str) -> str:
+    canonical = f"{site}/global-elo/"
+    rows = _global_elo_rows(payloads, registry)
     everything = [s.get("global_elo") for d in payloads.values()
                   for s in (d.get("standings") or [])
                   if s.get("global_elo") is not None]
@@ -1494,12 +1523,12 @@ def crossbar_page(payloads: dict, registry: list[dict], site: str) -> str:
             quality_counts[q] = quality_counts.get(q, 0) + 1
     generated = max((d.get("generated") or "") for d in payloads.values()) if payloads else ""
 
-    title = "Crossbar — one strength scale across every league we forecast — Entenser"
-    desc = (f"Crossbar puts {n_clubs:,} clubs from {n_leagues} competitions on a single "
+    title = "Global ELO — one strength scale across every league we forecast — Entenser"
+    desc = (f"Global ELO puts {n_clubs:,} clubs from {n_leagues} competitions on a single "
             "comparable strength scale, so a Championship side and a Brasileirão side can be "
             "read against each other. Built without bookmaker odds.")
     jsonld = {"@context": "https://schema.org", "@type": "DefinedTerm",
-              "name": "Crossbar", "url": canonical,
+              "name": "Global ELO", "url": canonical,
               "description": ("Entenser's shared cross-league club strength scale. A club's "
                               "domestic rating plus a league offset, so clubs in different "
                               "competitions sit on one axis."),
@@ -1507,15 +1536,15 @@ def crossbar_page(payloads: dict, registry: list[dict], site: str) -> str:
                                    "name": "Entenser football forecasting",
                                    "url": f"{site}/"}}
     p = [_head(title, desc, canonical, f"{site}/assets/og/og-image.png", jsonld)]
-    p.append("<h1>Crossbar</h1>")
+    p.append("<h1>Global ELO</h1>")
     p.append('<div class="sub">One strength scale across every league we forecast.</div>')
     p.append(
-        "<p><b>Crossbar is a single number for how strong a club is, on a scale that means the "
+        "<p><b>Global ELO is a single number for how strong a club is, on a scale that means the "
         "same thing in every competition.</b> Bayern and a Norwegian champion and an MLS side all "
         "sit on the same axis, so you can read them against each other instead of guessing how two "
         "leagues compare.</p>")
     p.append(
-        f'<div class="note">Right now Crossbar covers <b>{n_clubs:,} clubs</b> across '
+        f'<div class="note">Right now Global ELO covers <b>{n_clubs:,} clubs</b> across '
         f'<b>{n_leagues} competitions</b>, running from about <b>{lo:,}</b> to <b>{hi:,}</b>. '
         f'Higher is stronger. Updated {E(generated[:10])}.</div>')
 
@@ -1524,7 +1553,7 @@ def crossbar_page(payloads: dict, registry: list[dict], site: str) -> str:
         p.append("<p>The strongest club in each competition, and that competition's midpoint. "
                  "The gaps between leagues are the point.</p>")
         p.append('<div class="tblwrap"><table><thead><tr><th>Competition</th>'
-                 '<th>Strongest club</th><th>Crossbar</th>'
+                 '<th>Strongest club</th><th>Global ELO</th>'
                  '<th>League midpoint</th></tr></thead><tbody>')
         for r in rows:
             p.append(f'<tr><td class="tm">{E(r["league"])}</td>'
@@ -1537,22 +1566,22 @@ def crossbar_page(payloads: dict, registry: list[dict], site: str) -> str:
             'the top of a second tier can sit level with the top of a first tier somewhere else, '
             'and a dominant club in a smaller league can outrate most of a bigger one.</p>')
 
-    p.append("<h2>What Crossbar is not</h2>")
+    p.append("<h2>What Global ELO is not</h2>")
     p.append(
         "<ul>"
         "<li><b>Not a form table.</b> It moves with results, but it is a measure of strength over "
         "time, not of who is hot this month.</li>"
         "<li><b>Not built from bookmaker odds.</b> No betting line is an input to anything "
-        "Entenser publishes. That is the whole point of the model, and it is why Crossbar can "
+        "Entenser publishes. That is the whole point of the model, and it is why Global ELO can "
         "disagree with the market.</li>"
         "<li><b>Not a betting rating.</b> It is not a price, not an edge, and not advice.</li>"
-        "<li><b>Not a trophy count.</b> History only reaches Crossbar through results the model "
+        "<li><b>Not a trophy count.</b> History only reaches Global ELO through results the model "
         "has actually seen.</li>"
         "</ul>")
 
     p.append("<h2>How it is built</h2>")
     p.append(
-        "<p>Every club has a domestic rating earned from its own league's results. Crossbar adds "
+        "<p>Every club has a domestic rating earned from its own league's results. Global ELO adds "
         "one offset per league, placing that whole league on the shared axis. The offset comes "
         "from continental matches — clubs from different leagues actually playing each other — "
         "and from promotion and relegation links between tiers.</p>")
@@ -1560,13 +1589,13 @@ def crossbar_page(payloads: dict, registry: list[dict], site: str) -> str:
         '<div class="note"><b>The offset cannot change a forecast.</b> Adding the same number to '
         'every club in a league leaves the differences inside that league untouched, and those '
         'differences are what the match and season forecasts use. Moving a league up or down the '
-        'Crossbar scale does not move any of its probabilities.</div>')
+        'Global ELO scale does not move any of its probabilities.</div>')
 
     p.append("<h2>Where it is weakest</h2>")
     if quality_counts:
         p.append("<p>Not every league's placement rests on the same evidence:</p><ul>")
         for q, n in sorted(quality_counts.items(), key=lambda kv: -kv[1]):
-            copy = _CROSSBAR_QUALITY_COPY.get(q, q.replace("_", " "))
+            copy = _GLOBAL_ELO_QUALITY_COPY.get(q, q.replace("_", " "))
             p.append(f"<li><b>{n} competition{'s' if n != 1 else ''}</b> — {E(copy)}.</li>")
         p.append("</ul>")
     p.append(
@@ -1576,7 +1605,7 @@ def crossbar_page(payloads: dict, registry: list[dict], site: str) -> str:
         "and they should move as competitions like the Club World Cup add evidence. Treat a "
         "50-point gap across confederations as noise, not a ranking.</p>")
     p.append(
-        '<p class="sub">Crossbar changes when the evidence does. A recalibration on 2026-08-01 '
+        '<p class="sub">Global ELO changes when the evidence does. A recalibration on 2026-08-01 '
         'moved several European clubs by dozens of places once ten top divisions that had been '
         'missing a coefficient were given one. We publish those corrections rather than quietly '
         'restating them.</p>')
@@ -1663,9 +1692,12 @@ def main(argv: list[str] | None = None) -> int:
     (out / "open-data").mkdir(parents=True, exist_ok=True)
     (out / "open-data" / "index.html").write_text(data_page(exported, site),
                                                   encoding="utf-8")
+    (out / "global-elo").mkdir(parents=True, exist_ok=True)
+    (out / "global-elo" / "index.html").write_text(
+        global_elo_page(payloads, registry, site), encoding="utf-8")
     (out / "crossbar").mkdir(parents=True, exist_ok=True)
     (out / "crossbar" / "index.html").write_text(
-        crossbar_page(payloads, registry, site), encoding="utf-8")
+        crossbar_redirect_page(site), encoding="utf-8")
 
     # Weekly recap page (launch plan H1) — optional: only when weekly.js exists.
     # Dated archive pages (roadmap 1.5) come from the F-3 archive; the latest
@@ -1704,7 +1736,7 @@ def main(argv: list[str] | None = None) -> int:
         forecast_rss(rss_recaps, site), encoding="utf-8")
     if exported:
         extra.append((f"{site}/open-data/", max_lastmod))
-        extra.append((f"{site}/crossbar/", max_lastmod))
+        extra.append((f"{site}/global-elo/", max_lastmod))
 
     # Forecast-first European acquisition page. It deliberately links into the
     # existing league documents rather than creating a second data experience.

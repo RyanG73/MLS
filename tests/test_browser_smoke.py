@@ -301,9 +301,13 @@ class TestLeaguePageRaceFirstLayout:
             h.lower()
             for h in page.locator(".tlad .thead > span").all_inner_texts()
         ]
-        # "Crossbar" is the customer-facing name of the cross-league strength
-        # scale (owner decision 2026-08-01); `global_elo` stays the internal key.
-        assert headers[1:7] == ["club", "pts", "gp", "gd", "proj", "crossbar"]
+        # "Global ELO" is the customer-facing name of the cross-league strength
+        # scale (owner decision 2026-08-06, replacing "Crossbar"); `global_elo`
+        # was and remains the internal key. ELO+ sits beside it — the same club
+        # measured against its own league, average 100 — and is the column that
+        # survives on a phone, where the raw rating is dropped for width.
+        assert headers[1:8] == [
+            "club", "pts", "gp", "gd", "proj", "global elo", "elo+"]
         assert headers[-1] == "next 5 sim 🔒"
         assert page.locator(".tlad .tsub").count() == 0, (
             "League-table team cells should not retain the old GP/GD footnote"
