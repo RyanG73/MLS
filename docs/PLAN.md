@@ -43,8 +43,9 @@ Owner-gated drafts. **Figures predate the current payloads — re-measure agains
 before publishing.** **Retire:** on publication.
 
 **Built but unwired — documentation for real code that has not shipped.**
-`postgame-win-expectancy.md` (`scripts/postgame_win_expectancy.py` exists, calibration-validated)
-· `projection-drift-tracking.md`. **Retire:** on ship; deleting one orphans working code.
+`postgame-win-expectancy.md` (`scripts/postgame_win_expectancy.py` exists, calibration-validated) · `projection-drift-tracking.md`. **Retire:** on ship; deleting one orphans working code.
+
+**Open specs — `docs/superpowers/specs/`; designed, owner has not approved, nothing built.** `2026-08-07-uefa-competition-forecasting-design.md` · `2026-08-07-leagues-cup-forecasting-design.md`. **Retire:** deleted on ship like a plan, with 2–3 sentences into `PROJECT_HISTORY.md`.
 
 **Dated evidence — superseded by `STATUS.md`, kept for its reasoning.** Each opens with an as-of
 stamp; figures inside are frozen at that date. `competitive-intelligence-2026-07-combined.md` ·
@@ -86,8 +87,7 @@ positioning, and unvalidated community features stay deferred.
 ## Documentation rules
 
 Scope: `STATUS.md` = claims + proof · active plan = decision context, checklists, verdicts ·
-`CURRENT_STATE.md` = configuration, measured results, commands · `PROJECT_HISTORY.md` = completed
-narrative and durable decisions · `PLAN.md` = navigation, under 100 lines.
+`CURRENT_STATE.md` = configuration, measured results, commands · `PROJECT_HISTORY.md` = completed narrative and durable decisions · `PLAN.md` = navigation, under 100 lines.
 
 - Completed plans **and specs** are summarized in history and deleted; Git retains the text. The
   rule covers reports and audits too — that gap is how `docs/` reached 37 files.
