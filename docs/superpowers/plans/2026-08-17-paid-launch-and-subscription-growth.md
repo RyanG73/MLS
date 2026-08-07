@@ -38,7 +38,9 @@ HTTP response, experiment sample, cohort date, or decision memo.
   worktree fails 8 of 9 on missing artifacts, not on product behaviour. Where Playwright is not
   installed both suites skip silently, which is how seven failures survived several green runs;
   a run that reports ~1,750 tests rather than ~1,830 did not exercise the browser layer.
-  Re-verified unchanged at 1,832 / 26 after merging the 2026-08-06 mobile and ridge work.
+  Re-verified after merging the 2026-08-06 mobile and ridge work: **1,835 passed / 23 skipped in
+  the main checkout**, 1,832 / 26 in a worktree — the three-test gap is gitignored data that only
+  the main checkout has, not a behavioural difference.
 - **2026-08-05 — Owner mobile review: eleven items, all addressed; one was a model bug.** Verified
   in-browser at 375×812 against the local build, not asserted from source. Home reordered to
   matches → title probabilities → league tables → the rest; the league carousel takes a swipe
