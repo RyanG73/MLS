@@ -79,23 +79,46 @@ def _ops_budget(plan: str) -> int:
     return min(ops, PLANS[plan]["daily"])
 
 
-def spend_today(now: datetime | None = None) -> int:
+def spend_today(now: datetime | None = None, kind: str | None = None) -> int:
     """API-Football requests recorded since 00:00 UTC (success and failure —
     both hit the API). Missing health file means zero recorded spend; an
-    unreadable one fails closed."""
+    unreadable one fails closed.
+
+    `kind` ("ops" | "backfill") counts only that allowance's spend, read from
+    the endpoint label `_get` writes. Counting them together was a real defect:
+    a 46k-request backfill on 2026-08-08 pushed the total past the 2,000 ops
+    allowance and locked the daily refresh out for the rest of the UTC day —
+    exactly the coupling the separate allowances exist to prevent. Rows
+    predating the labelling carry a bare endpoint and count as ops, which
+    keeps the guard conservative rather than under-counting."""
     from data_pipeline import source_health
     path = source_health._HEALTH_PATH
     if not path.exists():
         return 0
     try:
         df = pd.read_parquet(path, columns=["source_name", "fetched_at"])
+        try:                       # health files predating per-kind labelling
+            df["endpoint"] = pd.read_parquet(path, columns=["endpoint"])["endpoint"]
+        except Exception:          # noqa: BLE001 — absent column, not a read failure
+            df["endpoint"] = ""
     except Exception as exc:
         raise BudgetError(f"cannot count spend from {path}: {exc}") from exc
     now = now or datetime.now(timezone.utc)
     midnight = now.astimezone(timezone.utc).replace(
         hour=0, minute=0, second=0, microsecond=0)
     fetched = pd.to_datetime(df["fetched_at"], utc=True, errors="coerce", format="ISO8601")
-    return int(((df["source_name"] == "api_football") & (fetched >= midnight)).sum())
+    mask = (df["source_name"] == "api_football") & (fetched >= midnight)
+    if kind is not None:
+        ep = df["endpoint"].astype(str)
+        labelled = ep.str.startswith(("ops:", "backfill:"))
+        # An unlabelled /fixtures/statistics row is backfill spend: nothing in
+        # the operational path ever calls that endpoint. Everything else
+        # unlabelled counts as ops, keeping the guard conservative.
+        legacy_backfill = ~labelled & ep.str.contains("fixtures/statistics")
+        is_kind = ep.str.startswith(f"{kind}:")
+        mask &= ((is_kind | legacy_backfill) if kind == "backfill"
+                 else (is_kind | (~labelled & ~legacy_backfill)))
+    return int(mask.sum())
 
 
 def check_budget(kind: str = "ops", now: datetime | None = None) -> None:
@@ -111,7 +134,7 @@ def check_budget(kind: str = "ops", now: datetime | None = None) -> None:
         allowance = max(daily - ops, 0)
     else:
         raise BudgetError(f"unknown budget kind {kind!r} (ops|backfill)")
-    spent = spend_today(now=now)
+    spent = spend_today(now=now, kind=kind)
     if spent >= allowance:
         raise BudgetExceeded(
             f"{kind} budget exhausted: {spent} spent today >= {allowance} "

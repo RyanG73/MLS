@@ -152,3 +152,58 @@ def test_throttle_delay_default_plan_is_free(monkeypatch):
     from data_pipeline import api_budget
     monkeypatch.delenv("API_FOOTBALL_PLAN", raising=False)
     assert api_budget.throttle_delay() == pytest.approx(12.0)  # 60 / (10 * 0.5)
+
+
+# ── the allowances must be counted separately, not just configured separately ─
+def test_backfill_spend_does_not_exhaust_the_ops_allowance(health_path, monkeypatch):
+    """Measured 2026-08-08: a 46k-request backfill left spend_today() at 46k,
+    so every OPS check failed against its 2,000 allowance for the rest of the
+    UTC day — the daily refresh was locked out by the one-off it was supposed
+    to be insulated from. Spend must be counted PER KIND."""
+    from data_pipeline import api_budget
+    monkeypatch.setenv("API_FOOTBALL_PLAN", "mega")
+    monkeypatch.setenv("API_FOOTBALL_OPS_BUDGET", "2000")
+    now = datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc)
+    rows = [{"source_name": "api_football", "success": True,
+             "endpoint": "backfill:fixtures/statistics",
+             "fetched_at": (now - timedelta(minutes=1)).isoformat()}
+            for _ in range(46000)]
+    rows += [{"source_name": "api_football", "success": True,
+              "endpoint": "ops:fixtures",
+              "fetched_at": (now - timedelta(minutes=1)).isoformat()}
+             for _ in range(5)]
+    _write_health(health_path, rows)
+    assert api_budget.spend_today(kind="ops", now=now) == 5
+    assert api_budget.spend_today(kind="backfill", now=now) == 46000
+    assert api_budget.spend_today(now=now) == 46005          # total, unfiltered
+    api_budget.check_budget("ops", now=now)                  # must NOT raise
+
+
+def test_unlabelled_legacy_rows_count_as_ops(health_path, monkeypatch):
+    """Rows recorded before per-kind labelling carry a bare endpoint; treat
+    them as ops so the guard stays conservative rather than under-counting."""
+    from data_pipeline import api_budget
+    monkeypatch.setenv("API_FOOTBALL_PLAN", "pro")
+    now = datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc)
+    _write_health(health_path, [
+        {"source_name": "api_football", "success": True, "endpoint": "fixtures",
+         "fetched_at": (now - timedelta(minutes=1)).isoformat()}])
+    assert api_budget.spend_today(kind="ops", now=now) == 1
+
+
+def test_unlabelled_statistics_rows_count_as_backfill(health_path, monkeypatch):
+    """/fixtures/statistics is only ever called by the backfill job, so an
+    unlabelled row for it is backfill spend — without this the 46k sheets
+    fetched before labelling existed would have counted as ops and locked the
+    daily refresh out until the next UTC reset."""
+    from data_pipeline import api_budget
+    monkeypatch.setenv("API_FOOTBALL_PLAN", "mega")
+    now = datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc)
+    _write_health(health_path, [
+        {"source_name": "api_football", "success": True,
+         "endpoint": "fixtures/statistics",
+         "fetched_at": (now - timedelta(minutes=1)).isoformat()},
+        {"source_name": "api_football", "success": True, "endpoint": "fixtures",
+         "fetched_at": (now - timedelta(minutes=1)).isoformat()}])
+    assert api_budget.spend_today(kind="ops", now=now) == 1
+    assert api_budget.spend_today(kind="backfill", now=now) == 1

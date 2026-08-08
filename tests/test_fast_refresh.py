@@ -237,3 +237,101 @@ def test_mls_fast_simulation_updates_conference_and_cup_targets():
     assert round(sum(row["cup"] for row in result.values()), 1) == 100.0
     assert result["v1:east-0"]["conf_win"] == 100.0
     assert result["v1:west-0"]["conf_win"] == 100.0
+
+
+# ── spine routing (Stage 3): migrated leagues must not depend on ESPN ────────
+# The fast refresh is what failed seven consecutive times on 2026-08-07 and
+# motivated the whole API-Football migration — yet on 2026-08-08 it was still
+# 100% ESPN, so leagues already migrated in build_league_data (northern-super-
+# league, usl-super-league) kept failing here behind the ESPN circuit breaker.
+
+def _af_fixtures_payload():
+    return {"response": [
+        {"fixture": {"id": 77, "date": "2026-08-08T23:00:00+00:00",
+                     "status": {"short": "FT"}},
+         "league": {"season": 2026},
+         "teams": {"home": {"name": "Calgary Wild W"},
+                   "away": {"name": "AFC Toronto W"}},
+         "goals": {"home": 2, "away": 1}},
+        {"fixture": {"id": 78, "date": "2026-08-10T23:00:00+00:00",
+                     "status": {"short": "NS"}},
+         "league": {"season": 2026},
+         "teams": {"home": {"name": "Ottawa Rapid W"},
+                   "away": {"name": "Halifax Tides W"}},
+         "goals": {"home": None, "away": None}},
+    ]}
+
+
+def test_spine_scoreboard_is_provider_neutral_and_name_mapped(monkeypatch):
+    """Same row shape as fetch_scoreboard, with team names mapped to OUR
+    canonical spellings — the payload is keyed on those."""
+    from data_pipeline import api_football
+    monkeypatch.setattr(api_football, "_get",
+                        lambda path, params, budget="ops": _af_fixtures_payload())
+    rows = fast_refresh.fetch_spine_scoreboard(
+        "northern-super-league", now=dt.datetime(2026, 8, 9, tzinfo=dt.timezone.utc))
+    assert {r["home"] for r in rows} == {"Calgary Wild FC", "Ottawa Rapid FC"}
+    assert set(rows[0]) == {"provider_id", "date", "ko", "home", "away",
+                            "completed", "hg", "ag"}
+    done = [r for r in rows if r["completed"]]
+    assert len(done) == 1 and done[0]["hg"] == 2 and done[0]["ag"] == 1
+    assert [r for r in rows if not r["completed"]][0]["hg"] is None
+
+
+def test_refresh_league_uses_spine_and_never_calls_espn(monkeypatch, tmp_path):
+    from data_pipeline import api_football
+    from data_pipeline import source_registry
+
+    def no_espn(*a, **k):
+        raise AssertionError("ESPN called for a spine-routed league")
+
+    monkeypatch.setattr(fast_refresh, "fetch_scoreboard", no_espn)
+    monkeypatch.setattr(api_football, "_get",
+                        lambda path, params, budget="ops": _af_fixtures_payload())
+    monkeypatch.setitem(source_registry.REGISTRY, "northern-super-league",
+                        {"fixtures": ["api_football", "espn"]})
+    seen = {}
+    monkeypatch.setattr(fast_refresh, "apply_feed",
+                        lambda payload, rows, **kw: seen.update(rows=rows) or {"updated": 0})
+    payload_dir = tmp_path
+    write_js_payload(payload_dir / "northern-super-league.js", "LEAGUE_DATA",
+                     {"league": {"id": "northern-super-league"}})
+    reg = tmp_path / "leagues.js"
+    write_js_payload(reg, "LEAGUES", [{"id": "northern-super-league",
+                                       "espn_code": "can.w.nsl", "status": "live"}])
+    out = fast_refresh.refresh_league("northern-super-league",
+                                      payload_dir=payload_dir, registry_path=reg)
+    assert out["league_id"] == "northern-super-league"
+    assert {r["home"] for r in seen["rows"]} == {"Calgary Wild FC", "Ottawa Rapid FC"}
+
+
+def test_refresh_league_still_uses_espn_when_unrouted(monkeypatch, tmp_path):
+    called = {}
+    monkeypatch.setattr(fast_refresh, "fetch_scoreboard",
+                        lambda code, now=None: called.setdefault("code", code) or [])
+    monkeypatch.setattr(fast_refresh, "apply_feed",
+                        lambda payload, rows, **kw: {"updated": 0})
+    write_js_payload(tmp_path / "epl.js", "LEAGUE_DATA", {"league": {"id": "epl"}})
+    reg = tmp_path / "leagues.js"
+    write_js_payload(reg, "LEAGUES", [{"id": "epl", "espn_code": "eng.1",
+                                       "status": "live"}])
+    fast_refresh.refresh_league("epl", payload_dir=tmp_path, registry_path=reg)
+    assert called["code"] == "eng.1"
+
+
+def test_select_leagues_includes_spine_league_without_espn_code(monkeypatch, tmp_path):
+    """A spine-routed league with no ESPN slug must still be selectable —
+    gating on espn_code alone excluded the very leagues the migration serves."""
+    from data_pipeline import source_registry
+    monkeypatch.setitem(source_registry.REGISTRY, "canadian-pl",
+                        {"fixtures": ["api_football"]})
+    reg = tmp_path / "leagues.js"
+    write_js_payload(reg, "LEAGUES", [{"id": "canadian-pl", "espn_code": None,
+                                       "status": "live"}])
+    write_js_payload(tmp_path / "canadian-pl.js", "LEAGUE_DATA",
+                     {"sim": {"n": 1}, "standings": [{}], "games": [{}],
+                      "data_status": "full_forecast"})
+    out = fast_refresh.select_leagues(
+        payload_dir=tmp_path, registry_path=reg,
+        now=dt.datetime(2026, 8, 9, 10, 5, tzinfo=dt.timezone.utc))
+    assert out == ["canadian-pl"]

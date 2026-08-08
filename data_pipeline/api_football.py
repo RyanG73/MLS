@@ -162,9 +162,12 @@ def _get(path: str, params: dict, budget: str = "ops") -> dict:
         # indistinguishable from success at the HTTP layer and would otherwise
         # never appear in source_health. On the free plan that is 100 requests
         # a day, which a single backfill can spend. (2026-08-08)
-        record_fetch("api_football", path, ok=False, error=str(e))
+        # Endpoint carries the budget kind so spend can be counted PER
+        # ALLOWANCE — without it a backfill's spend also exhausts the ops
+        # budget, which is the coupling the two allowances exist to prevent.
+        record_fetch("api_football", f"{budget}:{path}", ok=False, error=str(e))
         raise
-    record_fetch("api_football", path, ok=True,
+    record_fetch("api_football", f"{budget}:{path}", ok=True,
                  raw=len(payload.get("response") or []))
     # After recording (the request really happened and counts as spend):
     # the silent-lapse guard — headers disagreeing with the configured plan

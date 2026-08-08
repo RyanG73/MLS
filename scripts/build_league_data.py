@@ -2439,10 +2439,6 @@ def main():
         # column collapses to 0/100 off the games played so far. Surfaces as a
         # warning note rather than being passed off as a real forecast.
         "no_fixture_feed": _no_fixture_feed,
-        # Which source answered, per column family (spec §6.2): a fallback
-        # build must be distinguishable from a healthy one on the payload
-        # itself, not only in source_health.
-        "provenance": _provenance,
         "league": {"id": lid, "name": cfg["name"], "logo": _stub_league_logo(lid),
                    "confederation": cfg.get("confederation", "UEFA"),
                    "status": "live", "pct_complete": pct},
@@ -2513,6 +2509,12 @@ def main():
         "generated": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M UTC"),
         "provenance": {"git_commit": git_commit, "model_file": "models/research_model.py",
                        "data_source": f"{cfg['source']}:{lid}",
+                       # Which source actually answered, per column family
+                       # (spec §6.2). `data_source` above is the CONFIGURED
+                       # primary; `sources` is what the router really used, so
+                       # a fallback build is distinguishable from a healthy one
+                       # on the payload itself, not only in source_health.
+                       "sources": _provenance,
                        "metric_convention": "brier_sum_form (range 0-2; random ~0.64); "
                                             "league avg = recent walk-forward folds"}}
 

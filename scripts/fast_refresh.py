@@ -83,7 +83,13 @@ def select_leagues(payload_dir: Path = PAYLOAD_DIR,
     registry = load_registry(registry_path)
     selected = []
     for league_id, row in sorted(registry.items()):
-        if not row.get("espn_code") or row.get("status") != "live":
+        # "Feed-backed" means ESPN OR the spine: a league routed to
+        # API-Football needs no ESPN slug, and gating on espn_code alone
+        # would silently exclude exactly the leagues the migration exists
+        # to serve (canadian-pl has no working ESPN slug at all).
+        if row.get("status") != "live":
+            continue
+        if not row.get("espn_code") and not uses_spine(league_id):
             continue
         payload = read_js_payload(payload_dir / f"{league_id}.js")
         if not isinstance(payload, dict):
@@ -144,6 +150,67 @@ def fetch_scoreboard(espn_code: str,
             "ko": kickoff,
             "home": home_name,
             "away": away_name,
+            "completed": completed,
+            "hg": home_goals,
+            "ag": away_goals,
+        })
+    return rows
+
+
+_FINISHED_AF = {"FT", "AET", "PEN"}
+
+
+def uses_spine(league_id: str) -> bool:
+    """True when the source registry routes this league's fixtures to
+    API-Football first (spec §6.1). Unrouted leagues keep ESPN, unchanged."""
+    from data_pipeline.source_registry import sources_for
+    return sources_for(league_id, "fixtures", default="espn")[0] == "api_football"
+
+
+def fetch_spine_scoreboard(league_id: str,
+                           now: dt.datetime | None = None) -> list[dict]:
+    """API-Football equivalent of fetch_scoreboard — same provider-neutral row
+    shape, same ±2-day window, one request per refresh.
+
+    This exists because the fast refresh was the ORIGINAL failure that
+    motivated the migration (seven consecutive 403s on 2026-08-07) and yet
+    stayed ESPN-only through Stage 3: leagues already migrated in
+    build_league_data still died here behind the ESPN circuit breaker.
+    """
+    from data_pipeline import api_football
+
+    af_id, seasons = api_football.LEAGUE[league_id]
+    current = _utc_now(now)
+    lo = (current.date() - dt.timedelta(days=2)).isoformat()
+    hi = (current.date() + dt.timedelta(days=2)).isoformat()
+    payload = api_football._get(
+        "fixtures",
+        {"league": af_id, "season": max(seasons), "from": lo, "to": hi})
+    names = api_football._team_names().get(league_id, {})
+    rows = []
+    for event in payload.get("response") or []:
+        fixture, teams = event.get("fixture") or {}, event.get("teams") or {}
+        home = (teams.get("home") or {}).get("name")
+        away = (teams.get("away") or {}).get("name")
+        kickoff = fixture.get("date")
+        kickoff_dt = _iso(kickoff)
+        if not home or not away or kickoff_dt is None:
+            continue
+        completed = (fixture.get("status") or {}).get("short") in _FINISHED_AF
+        goals = event.get("goals") or {}
+        home_goals = away_goals = None
+        if completed:
+            try:
+                home_goals = int(goals.get("home"))
+                away_goals = int(goals.get("away"))
+            except (TypeError, ValueError):
+                continue
+        rows.append({
+            "provider_id": str(fixture.get("id")),
+            "date": kickoff_dt.date().isoformat(),
+            "ko": kickoff,
+            "home": names.get(home, home),
+            "away": names.get(away, away),
             "completed": completed,
             "hg": home_goals,
             "ag": away_goals,
@@ -299,14 +366,16 @@ def refresh_league(league_id: str, payload_dir: Path = PAYLOAD_DIR,
                    sims: int | None = None) -> dict:
     registry = load_registry(registry_path)
     row = registry.get(league_id) or {}
+    spine = uses_spine(league_id)
     espn_code = row.get("espn_code")
-    if not espn_code:
+    if not spine and not espn_code:
         raise ValueError(f"{league_id} has no ESPN scoreboard code")
     path = payload_dir / f"{league_id}.js"
     payload = read_js_payload(path)
     if not isinstance(payload, dict):
         raise ValueError(f"no readable payload for {league_id}")
-    feed = fetch_scoreboard(espn_code, now=now)
+    feed = (fetch_spine_scoreboard(league_id, now=now) if spine
+            else fetch_scoreboard(espn_code, now=now))
     result = apply_feed(payload, feed, now=now, sims=sims)
     write_js_payload(path, "LEAGUE_DATA", payload)
     return {"league_id": league_id, **result}
