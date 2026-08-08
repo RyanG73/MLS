@@ -343,7 +343,7 @@ buy.** Nothing beyond the free tier is spent until the owner confirms the Mega p
 | **2 — Validate on free key** | ~20 | none | one league builds end-to-end from the spine; payload compared column by column |
 | **☑ Purchase checkpoint** | 0 | **owner buys Mega** | "infrastructure complete, ready to buy" — nothing beyond the free tier before this |
 | **3 — Tier A migration** | ~30/day | Mega active | 30 leagues on the spine, ESPN as fallback |
-| **4 — Statistics backfill** | ✅ done: 46,485 (~4.5 h) | stage-1 quality proof | 46,205 sheets, 92.1% carry xG, 52 competitions |
+| **4 — Statistics backfill** | ✅ done: 46,485 (~4.5 h) | stage-1 quality proof | 46,205 sheets; **43.9% usable xG**, 7 competitions ≥90% |
 | **5 — Tier C validation sample** | ~400 | measured comparison | API-Football xG vs understat, match-for-match, one league-season |
 | **6 — Tier D expansion** | ~1/day each | owner picks from the §5 menu | new competitions |
 
