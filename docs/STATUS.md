@@ -350,12 +350,17 @@ These require account access or business decisions and cannot be completed from 
   identity unified (DATA_STATUS flip deferred until CI rebuilds their payloads); CI carries
   `API_FOOTBALL_KEY`/`API_FOOTBALL_PLAN=mega`. Batch 1's observation week runs on CI; batch 2
   gates on it. **Stage 4 complete:** 46,205 statistics sheets fetched across 205 league-season
-  units / 52 competitions for 46,485 requests (31% of one Mega day, ~4.5 h). **92.1% carry
-  `expected_goals`** — 29 competitions at ≥99%, 9 at 95–99%, and **14 below 95%** (uruguay-primera
-  19%, finland 39%, liga-f 49%, k-league-1 56%, canadian-pl 57%, conference/bolivia 63%, thai/
-  france-premiere-ligue 78%, wsl 79%, ireland/ucl 81%, leagues-cup 88%, paraguay 93%) where the
-  provider simply has no sheet for many fixtures. The data is INERT — per invariant 4 it reaches
-  the model only through a gated Brier-compared experiment, which is the next owner decision.
+  units / 52 competitions for 46,485 requests (31% of one Mega day, ~4.5 h). **Usable xG is 43.9%
+  — corrected from an initially reported 92.1%**, which counted sheets where the `expected_goals`
+  field appeared; API-Football emits that field with a **null value** about half the time.
+  Counting matches where BOTH teams carry a real value — the only form a rolling window can use —
+  **only 7 competitions clear 90%**: `championship` (1,664 matches), `brazil-serie-a` (1,343),
+  `segunda` (1,140, 100%), `super-lig` (1,026), `eredivisie` (920), `primeira` (919),
+  `belgian-pro` (937). 11 are partial (50–90%), **34 are under 50%**. Honest headline: the
+  platform's xG coverage roughly **doubles, 7 competitions → 14** (understat 5 + ASA 2 + these 7,
+  all previously football-data sourced with no xG at all) — not the "90% of competitions" §10 of
+  the spec claims, which is corrected there. The data is INERT — per invariant 4 it reaches the
+  model only through a gated Brier-compared experiment.
 - **Three Stage-3 defects found and fixed by exercising the migration against production**
   (2026-08-08, commit `3a871e6`, suite 1999 passed): (1) **payload provenance was never actually
   published** — `"provenance"` was assigned twice in one dict literal in `build_league_data`, so

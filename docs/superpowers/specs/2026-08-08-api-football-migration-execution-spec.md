@@ -475,33 +475,56 @@ requests — 31% of a single Mega day.** The ~46k projection derived at Stage 1 
 within 1%. Runtime ~4.5 hours, paced by network round-trip (~126 sheets/min), never by quota: the
 Mega rate limit was never the binding constraint.
 
-**xG coverage: 42,577 of 46,205 sheets carry `expected_goals` — 92.1%.** Not uniform, and the
-distribution is what matters for the feature campaign:
+**xG coverage — CORRECTED 2026-08-08. The usable figure is 43.9%, not the 92.1% first reported.**
 
-| Coverage | Competitions | Notes |
+The first measurement counted sheets where the `expected_goals` *field appeared*. API-Football
+frequently emits that field with a **null value**, so presence is not a value. Counting sheets where
+BOTH teams carry a non-null xG — the only form the rolling-window features can consume:
+
+| | Sheets | Share |
 |---|---|---|
-| ≥99% | **29** | usable as-is; complete rolling windows |
-| 95–99% | 9 | usable; occasional gaps |
-| <95% | **14** | gappy — see below |
+| Both teams have real xG — **usable** | **20,276** | **43.9%** |
+| Field present but null on one or both | 22,447 | 48.6% |
+| Empty response (no stat sheet at all) | 3,482 | 7.5% |
+
+Per competition, at the ≥90% bar a rolling window actually needs:
+
+| Tier | Count | Competitions |
+|---|---|---|
+| **Usable (≥90%)** | **7** | `championship` (1,664 matches), `brazil-serie-a` (1,343), `segunda` (1,140, 100%), `super-lig` (1,026), `eredivisie` (920), `primeira` (919), `belgian-pro` (937) |
+| Partial (50–90%) | 11 | norway-eliteserien, swiss-super-league, poland-ekstraklasa, japan-j1, romania-liga1, denmark-superliga, china-super, libertadores, europa, sweden-allsvenskan, ucl |
+| Poor (<50%) | **34** | incl. liga-mx, bundesliga-2, serie-b, ligue-2, the Scottish and English lower tiers, most of CONMEBOL, wsl, liga-f |
+
+**What this does to the migration's headline claim.** §10 argues the spine "makes the *same model*
+better on 90% of the competitions it serves". That is now measurably false as stated. The honest
+claim is narrower and still worth having: **the platform's xG coverage roughly doubles, from 7
+competitions to 14** — the existing understat 5 and ASA 2, plus these 7 — and the 7 are substantial
+leagues (all currently football-data sourced, none of which had any xG). The other 45 gain shots,
+possession and cards, which are *candidate* features requiring their own experiments, not the
+champion's xG windows.
 
 By season: 2023 **95.6%**, 2024 93.1%, 2025 90.4%, 2026 81.5% (in-progress seasons lag — sheets
 are published after the match, so the newest fixtures are thinnest). The 2023 figure settles the
 boundary question: xG does not fade toward its first year, it stops abruptly before it, exactly as
 the Stage-1 probe measured.
 
-The 14 below 95% are: `uruguay-primera` (19%), `finland-veikkausliiga` (39%), `liga-f` (49%),
-`k-league-1` (56%), `canadian-pl` (57%), `conference` (63%), `bolivia-profesional` (63%),
-`thai-league-1` (78%), `france-premiere-ligue` (78%), `wsl` (79%), `ireland-premier` (81%),
-`ucl` (81%), `leagues-cup` (88%), `paraguay-primera` (93%). The shortfall is almost entirely
-**empty responses** — the provider has no stat sheet for that fixture at all — not sheets missing
-the xG field. **These leagues cannot be assumed to have model-usable xG**, and the feature campaign
-must gate per league on realised coverage rather than on "the backfill ran".
+By season the usable share still rises going back (2023 is richest), consistent with the Stage-1
+boundary finding; the in-progress 2026 season is thinnest because sheets publish after matches.
 
-**Sampling caution, recorded because it misled this session's own progress reports:** mid-run
-samples of "the newest N sheets by mtime" showed 98–100% coverage and were quoted as evidence. That
-sample is ordered by whichever league was in flight, not by anything representative — the true
-figure was 92.1% the whole time. Coverage claims must come from a full pass over the store, which
-is cheap and needs no requests.
+**Two measurement errors in one session, same shape — recorded so the third one is avoided.**
+Both overstated coverage, both were caught only by a full pass over the store, and both were
+quoted to the owner as fact before being checked:
+
+1. **Sampling by recency.** Mid-run progress reports sampled "the newest N sheets by mtime" and saw
+   98–100%. That ordering follows whichever league is in flight, not anything representative.
+2. **Counting presence, not value.** The completion report counted sheets where `expected_goals`
+   appeared at all. It appears with a null value about half the time, so the real figure was less
+   than half what was reported.
+
+The rule both violate: **a coverage claim must be a full pass over the artifact, asserting the
+condition the consumer actually needs.** Here the consumer is a rolling xG window, which needs both
+teams' non-null values in the same match — not a field, and not one side. The full pass costs
+seconds and zero requests; there is no reason to ever estimate it.
 
 **Resumability was exercised twice, not just designed:** a provider-side `5xEr` bug killed the
 first run at 676 sheets (fixed: transient errors skip and retry, 20 consecutive abort as systemic),
