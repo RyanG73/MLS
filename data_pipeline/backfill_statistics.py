@@ -37,6 +37,11 @@ MAP_PATH = Path("config/api_football_league_map.json")
 
 XG_SINCE = 2023            # measured 2026-08-08: expected_goals absent 2022, present 2023+
 _FINISHED = {"FT", "AET", "PEN"}
+# Transient provider errors (measured live 2026-08-08: a '5xEr' "bug on our
+# side" response mid-run) are skipped per fixture and retried on the next run.
+# Sustained failure is systemic — abort rather than burn quota on a broken
+# endpoint.
+MAX_CONSECUTIVE_FAILURES = 20
 
 
 def plan_backfill(league_map: dict, exclude: set[str],
@@ -90,9 +95,10 @@ def run_units(units: list[tuple[str, int, int]],
     NEW sheets fetched this run. Exits cleanly on BudgetExceeded (resume
     later); PlanMismatch and everything else propagate."""
     from data_pipeline import api_football
-    from data_pipeline.api_budget import BudgetExceeded
+    from data_pipeline.api_budget import BudgetExceeded, PlanMismatch
     STORE.mkdir(parents=True, exist_ok=True)
     done = 0
+    consecutive_failures = 0
     for lid, af_id, season in units:
         try:
             inventory = _inventory(af_id, season)
@@ -114,6 +120,20 @@ def run_units(units: list[tuple[str, int, int]],
                 print(f"[backfill] budget stop at {lid}/{season} "
                       f"fixture {fid}: {exc}")
                 return done
+            except PlanMismatch:
+                raise            # a lapse must stop the job, loudly
+            except Exception as exc:  # noqa: BLE001 — transient provider error
+                consecutive_failures += 1
+                print(f"[backfill] fixture {fid} failed ({exc}); "
+                      f"skipping, will retry next run "
+                      f"({consecutive_failures} consecutive)")
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    raise RuntimeError(
+                        f"{consecutive_failures} consecutive failures — "
+                        "aborting as systemic, resume when the provider "
+                        "recovers") from exc
+                continue
+            consecutive_failures = 0
             out.write_text(json.dumps(payload))
             done += 1
     return done

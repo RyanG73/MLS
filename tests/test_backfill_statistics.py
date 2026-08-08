@@ -123,6 +123,49 @@ def test_progress_counts_from_disk_without_requests(env, monkeypatch):
     assert calls == []                       # progress is a disk read, period
 
 
+def test_transient_fixture_error_is_skipped_and_retried_later(env, monkeypatch):
+    """One fixture returning a provider-side error ('5xEr' bug, measured on
+    the first live run) must not kill a 45k-request job: skip it, store
+    nothing for it (so a rerun retries it), keep going."""
+    from data_pipeline import api_football, backfill_statistics as bf
+    calls = []
+    real = _fake_api(calls)
+
+    def flaky(path, params, budget="ops"):
+        if path == "fixtures/statistics" and params["fixture"] == 101:
+            raise RuntimeError("API-Football error: {'bug': 'our side', 'error': '5xEr'}")
+        return real(path, params, budget)
+
+    monkeypatch.setattr(api_football, "_get", flaky)
+    done = bf.run_units([("brazil-serie-a", 71, 2024)])
+    assert done == 2                                   # 100 and 102 stored
+    assert not (bf.STORE / "101.json").exists()        # NOT cached as done
+    calls.clear()
+    monkeypatch.setattr(api_football, "_get", real)    # provider recovered
+    assert bf.run_units([("brazil-serie-a", 71, 2024)]) == 1   # retries 101
+
+
+def test_sustained_failures_abort_as_systemic(env, monkeypatch):
+    """Every request failing is not transience — abort before burning quota
+    on a broken endpoint."""
+    from data_pipeline import api_football, backfill_statistics as bf
+    calls = []
+    real = _fake_api(calls)
+
+    def broken(path, params, budget="ops"):
+        if path == "fixtures/statistics":
+            raise RuntimeError("provider down")
+        return real(path, params, budget)
+
+    monkeypatch.setattr(api_football, "_get", broken)
+    monkeypatch.setattr(bf, "MAX_CONSECUTIVE_FAILURES", 2)
+    units = [("brazil-serie-a", 71, s) for s in (2022, 2023, 2024)]
+    with pytest.raises(RuntimeError, match="consecutive"):
+        bf.run_units(units)
+    stats_attempts = [p for p, _ in calls if p == "fixtures/statistics"]
+    assert len(stats_attempts) == 2                    # stopped at the cap
+
+
 def test_plan_mismatch_propagates_loudly(env, monkeypatch):
     """A lapsed plan mid-backfill must stop the job, not be absorbed as a
     per-fixture failure."""
