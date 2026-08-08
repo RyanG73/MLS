@@ -173,23 +173,28 @@ jobs:
           git add webapp/assets/og/ 2>/dev/null || true
           git diff --staged --quiet && echo "No changes." || (
             git commit -m "chore(data): weekly European league refresh [$(date -u +%Y-%m-%d)]"
-            # Rebase-and-retry. This job runs for ~1h45m and a single push
-            # rejection used to discard every league it had just rebuilt: run
-            # 31224260724 built all 70 leagues and then failed on "failed to
-            # push some refs" because a docs commit landed on main mid-run.
-            # The rebase is safe for these paths — they are generated payloads
-            # staged explicitly above, not hand-edited files.
+            # Rebase-and-retry. This job runs for ~2h50m and a single push
+            # rejection discards every league it just rebuilt: run 31224260724
+            # lost 1h45m and 31226978927 lost 2h50m, both to "failed to push
+            # some refs" when another commit landed on main mid-run.
+            #
+            # --autostash is REQUIRED, not tidiness. The step above stages
+            # explicit paths (never `git add -A`), so the build's other tracked
+            # changes are still unstaged at this point and plain `git pull
+            # --rebase` refuses outright: "cannot pull with rebase: You have
+            # unstaged changes". That is what failed run 31226978927 — the
+            # retry existed and could not run.
             for attempt in 1 2 3; do
               if git push; then
                 echo "pushed on attempt $attempt"; break
               fi
               if [ "$attempt" = 3 ]; then
-                echo "::error::push failed after 3 rebase attempts"; exit 1
+                echo "::error::push still rejected after 3 rebase attempts"; exit 1
               fi
               echo "push rejected — rebasing onto origin/main and retrying"
-              git pull --rebase origin main || {
-                echo "::error::rebase conflicted; refusing to force a data commit"
-                git rebase --abort || true
+              git pull --rebase --autostash origin main || {
+                echo "::error::rebase failed; refusing to force a data commit"
+                git rebase --abort 2>/dev/null || true
                 exit 1
               }
             done

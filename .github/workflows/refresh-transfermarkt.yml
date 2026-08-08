@@ -80,5 +80,22 @@ jobs:
           git add data/transfermarkt_squad_values_*_mapped.csv data/transfermarkt_snapshots/
           git diff --staged --quiet && echo "No changes." || (
             git commit -m "chore(data): weekly Transfermarkt snapshot [$(date -u +%Y-%m-%d)]"
-            git push
+            # Rebase-and-retry, same shape as refresh-leagues.yml. --autostash
+            # is required: this step stages explicit paths, so the build's other
+            # tracked changes are unstaged here and a plain `git pull --rebase`
+            # refuses with "cannot pull with rebase: You have unstaged changes".
+            for attempt in 1 2 3; do
+              if git push; then
+                echo "pushed on attempt $attempt"; break
+              fi
+              if [ "$attempt" = 3 ]; then
+                echo "::error::push still rejected after 3 rebase attempts"; exit 1
+              fi
+              echo "push rejected — rebasing onto origin/main and retrying"
+              git pull --rebase --autostash origin main || {
+                echo "::error::rebase failed; refusing to force a data commit"
+                git rebase --abort 2>/dev/null || true
+                exit 1
+              }
+            done
           )
