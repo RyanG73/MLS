@@ -356,6 +356,21 @@ These require account access or business decisions and cannot be completed from 
   france-premiere-ligue 78%, wsl 79%, ireland/ucl 81%, leagues-cup 88%, paraguay 93%) where the
   provider simply has no sheet for many fixtures. The data is INERT — per invariant 4 it reaches
   the model only through a gated Brier-compared experiment, which is the next owner decision.
+- **Three Stage-3 defects found and fixed by exercising the migration against production**
+  (2026-08-08, commit `3a871e6`, suite 1999 passed): (1) **payload provenance was never actually
+  published** — `"provenance"` was assigned twice in one dict literal in `build_league_data`, so
+  Python kept the model block and silently discarded the routing block; invariant 5 was false for a
+  day while being reported as shipped. Now nested as `provenance.sources`, with an AST test that
+  fails on any duplicate key in the payload builders. (2) **Fast refresh was still 100% ESPN** —
+  the workflow whose seven consecutive 403s motivated this entire migration never consulted the
+  source registry, so the two leagues already migrated kept dying behind the ESPN circuit breaker;
+  it now routes through the spine (`fetch_spine_scoreboard`), and `select_leagues` no longer gates
+  on `espn_code` alone (which would have excluded canadian-pl outright). (3) **Backfill spend
+  exhausted the ops allowance** — spend was counted in aggregate, so the 46k-sheet backfill locked
+  the daily refresh out for the rest of the UTC day, exactly the coupling two allowances exist to
+  prevent; spend is now counted per kind. **Note: ESPN's circuit breaker is open site-wide as of
+  22:05 UTC**, so every unmigrated league's fast refresh is failing — which is the argument for
+  continuing Tier A migration, not a new problem.
   Spec: `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
 - Club Watch season history: the existing History view now consumes the reconstructed early-season
   dataset, preserves exact-archive precedence and point provenance, selects a useful historical
