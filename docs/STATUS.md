@@ -340,8 +340,11 @@ These require account access or business decisions and cannot be completed from 
   by owner 2026-08-08**). **Stage 2 passed** (~6 requests): Brasileirão 2022–2024 built from the
   spine and diffed against football-data — 1,140/1,140 scorelines agree, standings identical,
   champion feature builder accepts the frame unmodified; ten club-name pairs measured as the
-  Stage-3 name-map seed. Next per the spec: build the resumable backfill job (§6.5), then the
-  purchase checkpoint ("infrastructure complete, ready to buy") before any paid-tier request.
+  Stage-3 name-map seed. **Backfill job built** (`data_pipeline/backfill_statistics.py`,
+  resumable/idempotent, statistics-only, 205 units / 52 competitions planned, refuses to run on
+  the free plan by construction). **Purchase checkpoint reached: infrastructure complete, ready
+  to buy** — owner buys Mega ($39, month 1), then Stage 3 begins; nothing beyond the free tier
+  is spent before that confirmation.
   Spec: `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
 - Club Watch season history: the existing History view now consumes the reconstructed early-season
   dataset, preserves exact-archive precedence and point provenance, selects a useful historical

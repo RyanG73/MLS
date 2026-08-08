@@ -325,8 +325,16 @@ to **~46k requests**; historical closing odds **do not exist** on this API.
 2022–2024 from the spine vs football-data: 1,140/1,140 scorelines agree, standings identical,
 champion feature builder accepts the frame unmodified. Ten club-name pairs measured (the Stage-3
 name-map seed); API-Football spellings drift across seasons (K-League problem, now confirmed
-systemic). Next: build the resumable backfill job (§6.5, blind — the checkpoint requires it),
-then declare **"infrastructure complete, ready to buy."**
+systemic).
+
+**Backfill job built, 2026-08-08, zero requests** (`data_pipeline/backfill_statistics.py`, 6
+tests): statistics-only per owner decision, one JSON per fixture id, restart re-reads rather than
+re-requests (verified: zero repeat requests on rerun, empty sheets cached), clean exit on budget
+exhaustion with progress kept, PlanMismatch propagates. The real plan derives **205 league-season
+units across 52 competitions** (xG era 2023+, the 8 real-xG competitions excluded), recent-first.
+Live fail-closed proof on the free plan: `--run` refused before its first request ("0 allowed,
+plan=free"). **The purchase checkpoint's conditions are met — infrastructure complete, ready to
+buy.** Nothing beyond the free tier is spent until the owner confirms the Mega purchase.
 
 | Stage | Requests | Gate | Output |
 |---|---|---|---|
