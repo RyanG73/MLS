@@ -726,8 +726,14 @@ class TestMlsTopBoxes:
         _load_route(page, webapp_url, "mls")
         title = page.locator("#leagueTitle").inner_text()
         assert "🇺🇸" in title and "🇨🇦" in title and "MLS" in title
-        mast_mls = page.get_by_role("link", name="🇺🇸 🇨🇦 MLS", exact=True)
-        assert "🇺🇸" in mast_mls.inner_text()
+        # The masthead item is "🇺🇸 USA" since 2026-08-08, not "🇺🇸 🇨🇦 MLS".
+        # Promoting MLS to the bar had given it a direct link and no dropdown,
+        # so the USL divisions, the NWSL and the USL Super League were reachable
+        # only through the Americas menu, behind a dozen South American entries.
+        # The page HEADING above still carries both flags — that is MLS the
+        # competition, which does span two countries; this is the nav GROUP.
+        mast_usa = page.get_by_role("link", name="🇺🇸 USA", exact=True)
+        assert "USA" in mast_usa.inner_text()
         assert "🇨🇦" in mast_mls.inner_text()
 
         positions = page.evaluate(

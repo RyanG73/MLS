@@ -29,7 +29,7 @@
       "note": "Moves with every payload rebuild — 1172 on 2026-08-02, 1167 on 2026-08-05. Quote it from here or from the page, never from memory."
     },
     "global_elo_min": {
-      "value": 750,
+      "value": 749,
       "population": "lowest global_elo on the Global ELO scale",
       "measure": "min(r['global_elo'] for _, r in payload_rows() if r.get('global_elo') is not None)",
       "surfaces": [
@@ -41,7 +41,7 @@
         "697",
         "762",
         "748",
-        "749"
+        "750"
       ],
       "note": "Moves with every recalibration. Latest step 2026-08-07: fresh UEFA coefficient capture, _K_COEFF refit, per-competition HOME_ADV, tier dispersion, and the per-club continental layer (club_bridge)."
     },

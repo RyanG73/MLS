@@ -1891,6 +1891,16 @@ function teamGateCardHTML(team){
   // beside them, and the row is legible without them. Country items keep flags.
   const MAST_GROUPS=[
     ['England','\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}','England',groups['England']||[]],
+    // USA is a real group with a menu, not the bare "MLS" link it replaced
+    // (2026-08-08 feedback: "we lost all lower division leagues from the
+    // America's section"). Promoting MLS to the bar gave it a direct link and
+    // no dropdown, so the only route to the USL divisions, the NWSL and the USL
+    // Super League was the Americas menu — where they sit behind a dozen South
+    // American entries. Filtered by COUNTRY rather than a league-id list, so a
+    // US league added later appears here without a code change. They stay in
+    // the Americas menu too; both routes still reach them.
+    ['USA','\u{1F1FA}\u{1F1F8}','USA',
+      (groups['Americas']||[]).filter(l=>l.country==='United States')],
     ['Spain','\u{1F1EA}\u{1F1F8}','Spain',groups['Spain']||[]],
     ['Italy','\u{1F1EE}\u{1F1F9}','Italy',groups['Italy']||[]],
     ['Germany','\u{1F1E9}\u{1F1EA}','Germany',groups['Germany']||[]],
@@ -1906,7 +1916,12 @@ function teamGateCardHTML(team){
   const _NAV_OF_GROUP={'England':'England','Spain':'Spain','Italy':'Italy','Germany':'Germany',
     'France':'France','MLS':'Americas','Americas':'Americas','South America':'Americas',
     'Other Europe':'Europe','Asia':'Asia','Africa':'Africa'};
-  const navKeyFor=l=>l.group==='Cups'?(_EURO_CUPS.has(l.id)?'Europe':'Americas'):(_NAV_OF_GROUP[l.group]||'Europe');
+  // A US league highlights USA rather than Americas — it now has its own bar
+  // item, and two items lighting up for one page reads as a bug. Country is
+  // checked before group because every US league still belongs to the Americas
+  // GROUP; that is what keeps it in both menus.
+  const navKeyFor=l=>l.group==='Cups'?(_EURO_CUPS.has(l.id)?'Europe':'Americas')
+    :(l.country==='United States'?'USA':(_NAV_OF_GROUP[l.group]||'Europe'));
   const tierTxt=l=>l.tier?`${l.country} · tier ${l.tier}`:(l.country||'');
   // Women's competitions carry a "W" badge (2026-07-25 feedback). A badge beats
   // an "(W)" name suffix here because several women's sides share their club
@@ -1951,8 +1966,9 @@ function teamGateCardHTML(team){
   let bar=`<div class="mb-item"><a href="${location.pathname}" class="${_isHome?'active':''}">\u{1F3E0} Home</a></div>`
          +`<div class="mb-item"><a href="?league=command" class="${_isEdgeBoard?'active':''}">⚽ Matches</a></div>`
          +`<div class="mb-item"><a href="?league=power" class="${_isPower?'active':''}">↗ Global Power</a></div>`;
-  const _mlsActive=!_isEdgeBoard&&!_homeDataRoute&&!_infoPage&&LID==='mls';
-  const _hasMLS=(window.LEAGUES||[]).some(l=>l.id==='mls');
+  // _mlsActive / _hasMLS retired 2026-08-08: MLS is no longer a special-cased
+  // bare link in the bar, so its active state falls out of activeGroup like
+  // every other country's.
   MAST_GROUPS.forEach(([g,flag,label,ls])=>{ if(!ls.length) return;
     menuHTML[g]=menuSections(ls);
     // Long menus (Europe, Americas) stack into columns instead of one endless
@@ -1961,11 +1977,7 @@ function teamGateCardHTML(team){
     // count sections — Europe's ~20 countries still earn three columns.
     const nSec=new Set(ls.map(l=>l.group==='Cups'?'Continental':(l.country||'Other'))).size;
     menuCols[g]=nSec>=9?3:nSec>=4?2:1;
-    bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${ls[0].id}" class="${activeGroup===g&&!_mlsActive?'active':''}">${flag?flag+' ':''}${label}</a></div>`;
-    // MLS rides in the top bar directly after England (2026-07-25 feedback). It
-    // stays inside the Americas menu as well, so both routes still reach it.
-    if(g==='England'&&_hasMLS)
-      bar+=`<div class="mb-item"><a href="?league=mls" class="${_mlsActive?'active':''}">🇺🇸 🇨🇦 MLS</a></div>`;});
+    bar+=`<div class="mb-item" data-group="${g}"><a href="?league=${ls[0].id}" class="${activeGroup===g?'active':''}">${flag?flag+' ':''}${label}</a></div>`;});
   // Intel (paywalled hub mockup) + Account replace the old News/Subscribe pair (2026-07-18)
   bar+=`<div class="mb-item"><a href="?league=intel" class="${_isIntel?'active':''}">\u{1F4E1} Club Watch<span class="intel-tag">PRO</span></a></div>`
       +`<div class="mb-item"><a href="?league=account" class="${_isAccount?'active':''}">\u{1F464} Account</a></div>`;
