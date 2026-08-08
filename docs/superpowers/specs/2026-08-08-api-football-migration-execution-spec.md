@@ -189,7 +189,8 @@ events and (probably) odds. Measured: **17,851 fixtures in one season** across b
 
 The nine-season figure is a **ceiling, not a commitment**. Stage 1 measures which leagues and
 seasons actually carry real xG; the job spends a request only where the stat sheet exists and feeds
-a model feature, and stops at whatever depth the data runs out. The deferred families (lineups,
+a model feature, and stops at whatever depth the data runs out. *(Measured 2026-08-08: xG appears
+from the 2023 season, so the realistic ceiling is ~46k — see Stage 1's answers in §7.)* The deferred families (lineups,
 odds, events — §3.1) would add roughly another 300k *if* ever revived; they are no part of this
 budget.
 
@@ -313,7 +314,13 @@ response headers, ≤50% r/m throttle, spend counted from `source_health.parquet
 pagination (`_get_paged` follows `paging{current,total}`), source registry + router
 (`data_pipeline/source_registry.py`, empty by default — no league's sourcing changed), and payload
 `provenance` per column family via `build_league_data._routed_frame`. 34 tests; full suite 1975
-passed / 0 failed. Next: Stage 1.
+passed / 0 failed.
+
+**Stage 1 complete, 2026-08-08, 13 free-key requests.** The five questions are answered as
+measured facts below; the league map is drafted 78/78 (`config/api_football_league_map.json`).
+Headline: xG starts with the **2023 season**, so the statistics backfill ceiling drops from ~139k
+to **~46k requests**; historical closing odds **do not exist** on this API. Next: owner reviews
+the map (the Stage-1 gate), then Stage 2 free-key end-to-end validation.
 
 | Stage | Requests | Gate | Output |
 |---|---|---|---|
@@ -326,17 +333,45 @@ passed / 0 failed. Next: Stage 1.
 | **5 — Tier C validation sample** | ~400 | measured comparison | API-Football xG vs understat, match-for-match, one league-season |
 | **6 — Tier D expansion** | ~1/day each | owner picks from the §5 menu | new competitions |
 
-### Stage 1 — the five questions everything else depends on
-1. Are statistics/odds/lineups keyed **per fixture or per league+season**? Decides whether the
-   backfill ceiling is ~139k requests or a few hundred.
-2. Does `/statistics` carry **real xG**, for which leagues, how far back?
-3. Are `/odds` **Pinnacle closing**, or a different book or timing? (Feeds the deferred §3.1 odds
-   work — cheap to answer while probing, no part of this migration's spend.)
-4. How far back does the paid plan serve — **does it reach 2017**?
-5. Does a **552-fixture** season page? (232 did not.)
+### Stage 1 — the five questions, ANSWERED 2026-08-08 (13 free-key requests)
 
-**Acceptance:** every answer written into this document as a measured fact with the probe that
-produced it. Stages 4 and 5 are not scoped until they exist.
+Probes: `scripts/api_football_probe.py` (+ two season-bracketing follow-ups); raw responses cached
+in `data/api_football/probe/` (gitignored, regenerable — the probe never re-spends on a cached
+answer). All 13 requests governor-checked, throttled at 12 s, recorded in `source_health`, and the
+plan assertion held on every response.
+
+1. **Per fixture — measured.** `/fixtures/statistics?fixture=<id>` answers (2 rows, one per team);
+   `?league=40&season=2024` is rejected: *"The Fixture field is required. The League field do not
+   exist."* Lineups likewise answer per fixture. The per-fixture cost shape in §4.2 is real.
+2. **Yes, real xG — from the 2023 season.** `expected_goals` present in Championship 2024 and 2023
+   statistics, **absent in 2022**; Brasileirão 2024 has it too (plus `goals_prevented`, a
+   goalkeeper metric relevant to the deferred lineups work). Sampled one finished fixture per
+   season. **Consequence: the xG-era backfill is ~3 seasons (2023+), not nine** — the ~139k
+   ceiling drops to **~46k requests**, a fraction of one Mega day. Statistics *without* xG (shots,
+   possession, cards) run much deeper — catalogue `statistics` coverage median start 2016 — a
+   future-features option, not champion-feature material. Catalogue flags say 60 of our 78
+   competitions carry fixture statistics at all; 18 never do (incl. argentina-nacional, a-league,
+   ecuador-ligapro, liga-expansion-mx, the lower Scottish tiers) — those stay xG-less on any source.
+3. **Pinnacle exists; closing history does not.** Pinnacle is one of 33 bookmakers in
+   `/odds/bookmakers`, but `/odds?fixture=<finished 2024>` returns **0 rows** — odds for completed
+   fixtures are purged. There is no historical closing-odds backfill on this API, full stop.
+   Tier B's "football-data keeps the odds column" is now measured, not cautious; any future
+   `/odds`-vs-Pinnacle comparison must be a *live capture at close*, not a backfill.
+4. **64 of 78 reach 2017** by catalogue season metadata (fixtures/results). The 14 that do not are
+   young leagues (Northern Super League 2025, USL Super League 2024) or API depth limits (Poland,
+   Chile, India 2018; NWSL, Ireland, USL League One, Libertadores/Sudamericana 2019; Canadian PL
+   2020; Conference 2021). Invariant 3 holds regardless: those leagues keep their current sources
+   for history — the spine takes current seasons, the registry's ordered lists handle the split.
+   Caveat: these are the provider's own coverage flags; the free key cannot fetch pre-2022 to
+   verify, so paid-tier spot-checks are part of Stage 3 batch validation.
+5. **No paging even at 557.** Championship 2024 returned 557 fixtures in one response,
+   `paging {current: 1, total: 1}` (2022 and 2023 likewise). `_get_paged` stands ready anyway.
+
+**League map: drafted and 78/78 mapped** — `config/api_football_league_map.json`, generated
+offline from the single cached catalogue request (1,239 leagues) by
+`scripts/api_football_map_draft.py`. 77 of 78 at high/anchor confidence; the one review flag is
+real: **API-Football splits Paraguay into two ids (Apertura 250 / Clausura 252)**, which the
+Stage-3 wiring must merge. Gate: owner reviews the map before Stage 3 uses it.
 
 ### Stage 2 — the comparison that defines success
 Build one league end-to-end from the spine and diff it against the ESPN-built payload: same clubs,

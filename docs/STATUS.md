@@ -331,8 +331,14 @@ These require account access or business decisions and cannot be completed from 
   ≤50%-of-plan throttle), pagination handling in the API-Football adapter, and a per-family
   source registry (`data_pipeline/source_registry.py`) wired through `build_league_data` with
   payload `provenance` published. Registry is empty, so no league's sourcing changed. 34 new
-  tests; suite 1975 passed / 0 failed. Next per the spec: Stage 1 free-key probes (~10 requests),
-  then Stage 2, then the purchase checkpoint before any paid-tier request. Spec:
+  tests; suite 1975 passed / 0 failed. **Stage 1 also complete** (13 free-key requests, all
+  governed and recorded): statistics are per-fixture; real xG exists from the **2023 season**
+  (backfill ceiling drops ~139k → ~46k); historical closing odds do not exist on the API
+  (football-data keeps the odds column, now measured); 64/78 competitions reach 2017 by catalogue
+  metadata; a 557-fixture season does not page. League map drafted 78/78
+  (`config/api_football_league_map.json`, 77 high/anchor; Paraguay needs two ids). Next per the
+  spec: owner reviews the map, then Stage 2 free-key validation, then the purchase checkpoint
+  before any paid-tier request. Spec:
   `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
 - Club Watch season history: the existing History view now consumes the reconstructed early-season
   dataset, preserves exact-archive precedence and point provenance, selects a useful historical
