@@ -130,10 +130,24 @@ def _fetch_csv(div: str, start_year: int) -> pd.DataFrame | None:
         r.raise_for_status()
         raw_path.parent.mkdir(parents=True, exist_ok=True)
         raw_path.write_text(r.text)
-        return pd.read_csv(io.StringIO(r.text))
+        df = pd.read_csv(io.StringIO(r.text))
     except Exception as e:
         logger.warning("football-data %s %s fetch failed (%s)", div, start_year, e)
+        # A 404 here is routine and expected pre-season — football-data does not
+        # publish a division's CSV until its season starts, which is exactly why
+        # the Championship could not rebuild on 2026-08-08. Recording it makes
+        # "the file does not exist yet" distinguishable from "the site is down"
+        # without reading a build log. (2026-08-08)
+        _health(div, start_year, ok=False, raw=0, error=str(e))
         return None
+    _health(div, start_year, ok=True, raw=len(df))
+    return df
+
+
+def _health(div: str, start_year: int, ok: bool, raw: int, error: str | None = None) -> None:
+    from data_pipeline.source_health import record_fetch
+    record_fetch("football_data", f"{_season_code(start_year)}/{div}.csv",
+                 ok=ok, raw=raw, error=error)
 
 
 def _parse_results(df: pd.DataFrame, league_id: str, season: int) -> pd.DataFrame:

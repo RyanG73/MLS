@@ -109,13 +109,24 @@ def _require_key() -> str:
 
 
 def _get(path: str, params: dict) -> dict:
-    r = requests.get(f"{_BASE}/{path}", headers={_HDR_KEY: _require_key()},
-                     params=params, timeout=30)
-    r.raise_for_status()
-    payload = r.json()
-    errs = payload.get("errors")
-    if errs:  # API-Football returns 200 with an errors object on quota/plan issues
-        raise RuntimeError(f"API-Football error for {path} {params}: {errs}")
+    from data_pipeline.source_health import record_fetch
+    try:
+        r = requests.get(f"{_BASE}/{path}", headers={_HDR_KEY: _require_key()},
+                         params=params, timeout=30)
+        r.raise_for_status()
+        payload = r.json()
+        errs = payload.get("errors")
+        if errs:  # API-Football returns 200 with an errors object on quota/plan issues
+            raise RuntimeError(f"API-Football error for {path} {params}: {errs}")
+    except Exception as e:
+        # Quota exhaustion arrives as a 200 with an `errors` object, so it is
+        # indistinguishable from success at the HTTP layer and would otherwise
+        # never appear in source_health. On the free plan that is 100 requests
+        # a day, which a single backfill can spend. (2026-08-08)
+        record_fetch("api_football", path, ok=False, error=str(e))
+        raise
+    record_fetch("api_football", path, ok=True,
+                 raw=len(payload.get("response") or []))
     return payload
 
 

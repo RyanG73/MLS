@@ -22,6 +22,19 @@ def _no_espn_backoff_in_tests():
     yield
     http._MAX_ATTEMPTS, http._MIN_INTERVAL = saved
 
+
+@pytest.fixture(autouse=True)
+def _reset_espn_breaker():
+    """The circuit breaker is process-wide by design — it tracks one host's
+    behaviour across a whole build. That makes it leak between tests, where a
+    test that exhausts retries would trip it for everything after. Reset per
+    test rather than per session."""
+    from data_pipeline import http
+
+    http.reset_breaker()
+    yield
+    http.reset_breaker()
+
 # Disable seleniumbase pytest plugin — system-installed seleniumbase conflicts
 # with pytest-html absence.  Our tests don't use seleniumbase at all.
 def pytest_configure(config):

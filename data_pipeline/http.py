@@ -51,6 +51,65 @@ _MIN_INTERVAL = 0.35       # floor between consecutive requests, process-wide
 _last_request = 0.0
 _lock = threading.Lock()
 
+# ── circuit breaker ──────────────────────────────────────────────────────────
+# Retrying is right for a transient limit and actively harmful for a sustained
+# one. ESPN blocks by IP across every endpoint, so once it is refusing, every
+# subsequent request in the run is doomed — and with the retry ladder each one
+# costs FOUR requests instead of one. Measured on the 2026-08-08 rebuild: 560
+# ESPN attempts, of which a large share were retries against a host that had
+# already made its answer clear.
+#
+# After `_BREAKER_THRESHOLD` consecutive rate-limit failures the breaker opens
+# and calls fail immediately without touching the network, for `_BREAKER_COOLDOWN`
+# seconds. That does two things at once: it stops the build wasting minutes on
+# certain failures, and it stops us extending our own block. Any success closes
+# it — a single probe after the cooldown is enough to recover.
+_BREAKER_THRESHOLD = 5
+_BREAKER_COOLDOWN = 120.0
+
+_consecutive_failures = 0
+_breaker_opened_at = 0.0
+
+
+class RateLimited(requests.RequestException):
+    """Raised while the breaker is open, so callers treat it as a transport
+    failure and keep their existing "season not refreshed" semantics rather
+    than mistaking it for an empty result."""
+
+
+def _breaker_is_open() -> bool:
+    global _consecutive_failures
+    with _lock:
+        if _consecutive_failures < _BREAKER_THRESHOLD:
+            return False
+        if time.monotonic() - _breaker_opened_at >= _BREAKER_COOLDOWN:
+            _consecutive_failures = 0        # cooldown served — allow one probe
+            return False
+        return True
+
+
+def _note_outcome(ok: bool) -> None:
+    global _consecutive_failures, _breaker_opened_at
+    with _lock:
+        if ok:
+            _consecutive_failures = 0
+        else:
+            _consecutive_failures += 1
+            if _consecutive_failures == _BREAKER_THRESHOLD:
+                _breaker_opened_at = time.monotonic()
+                logger.warning(
+                    "ESPN circuit breaker OPEN after %d consecutive rate-limit "
+                    "failures — skipping requests for %.0fs",
+                    _BREAKER_THRESHOLD, _BREAKER_COOLDOWN)
+
+
+def reset_breaker() -> None:
+    """Clear breaker state. For tests and for a caller that knows the situation
+    changed (a new run, a different host)."""
+    global _consecutive_failures, _breaker_opened_at
+    with _lock:
+        _consecutive_failures, _breaker_opened_at = 0, 0.0
+
 
 def _throttle() -> None:
     """Keep a floor between consecutive ESPN requests.
@@ -95,6 +154,11 @@ def espn_get(url: str, params: dict | None = None, timeout: int = 30,
     to 9m41s before this was made overridable.
     """
     attempts = attempts if attempts is not None else _MAX_ATTEMPTS
+    if _breaker_is_open():
+        raise RateLimited(
+            f"ESPN circuit breaker open — skipping {url} without a request. "
+            f"{_BREAKER_THRESHOLD}+ consecutive rate-limit failures; retrying "
+            f"now would extend the block rather than shorten it.")
     last: Exception | None = None
     for attempt in range(attempts):
         _throttle()
@@ -106,6 +170,7 @@ def espn_get(url: str, params: dict | None = None, timeout: int = 30,
         else:
             if r.status_code not in _RETRY_STATUS:
                 r.raise_for_status()          # 400/404 and friends surface now
+                _note_outcome(True)           # host is answering — close the breaker
                 return r.json()
             last = requests.HTTPError(
                 f"{r.status_code} {r.reason} for url: {r.url}", response=r)
@@ -121,4 +186,8 @@ def espn_get(url: str, params: dict | None = None, timeout: int = 30,
                     last, delay, attempt + 1, attempts)
         time.sleep(delay)
 
+    # Attempts spent. Count it ONCE per call, not once per attempt: the breaker
+    # measures how many distinct requests the host has refused, not how hard we
+    # tried on any one of them.
+    _note_outcome(False)
     raise last

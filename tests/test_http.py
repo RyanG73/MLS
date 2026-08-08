@@ -107,6 +107,74 @@ def test_espn_get_honours_retry_after_header():
     assert 7 in waits, f"Retry-After ignored; slept {waits}"
 
 
+def test_breaker_opens_after_repeated_refusals_and_then_stops_requesting():
+    """Retrying is right for a transient limit and harmful for a sustained one.
+    ESPN blocks by IP across every endpoint, so once it refuses, each further
+    call costs four requests to learn nothing — and extends our own block."""
+    from data_pipeline import http
+
+    http.reset_breaker()
+    with patch("data_pipeline.http.requests.get", return_value=_resp(403)) as get, \
+         patch("data_pipeline.http.time.sleep"):
+        for _ in range(http._BREAKER_THRESHOLD):
+            with pytest.raises(requests.HTTPError):
+                espn_get("https://example.com/api", attempts=1)
+        calls_before = get.call_count
+        # Breaker is now open: further calls must not touch the network at all.
+        for _ in range(10):
+            with pytest.raises(http.RateLimited):
+                espn_get("https://example.com/api", attempts=4)
+        assert get.call_count == calls_before, (
+            f"{get.call_count - calls_before} requests issued while the breaker "
+            f"was open — the point is to stop asking")
+
+
+def test_breaker_reopens_the_gate_after_the_cooldown():
+    from data_pipeline import http
+
+    http.reset_breaker()
+    with patch("data_pipeline.http.requests.get", return_value=_resp(403)), \
+         patch("data_pipeline.http.time.sleep"):
+        for _ in range(http._BREAKER_THRESHOLD):
+            with pytest.raises(requests.HTTPError):
+                espn_get("https://example.com/api", attempts=1)
+    # Pretend the cooldown has elapsed; one probe must be allowed through.
+    http._breaker_opened_at -= http._BREAKER_COOLDOWN + 1
+    with patch("data_pipeline.http.requests.get",
+               return_value=_resp(200, {"ok": True})) as get:
+        assert espn_get("https://example.com/api", attempts=1) == {"ok": True}
+    assert get.call_count == 1
+
+
+def test_a_success_closes_the_breaker():
+    """A single good answer means the host is serving again; the failure count
+    must not carry over and trip the breaker on unrelated later calls."""
+    from data_pipeline import http
+
+    http.reset_breaker()
+    seq = [_resp(403)] * (http._BREAKER_THRESHOLD - 1) + [_resp(200, {"ok": True})]
+    with patch("data_pipeline.http.requests.get", side_effect=seq), \
+         patch("data_pipeline.http.time.sleep"):
+        for _ in range(http._BREAKER_THRESHOLD - 1):
+            with pytest.raises(requests.HTTPError):
+                espn_get("https://example.com/api", attempts=1)
+        assert espn_get("https://example.com/api", attempts=1) == {"ok": True}
+    assert http._consecutive_failures == 0
+
+
+def test_a_404_does_not_count_toward_the_breaker():
+    """A missing slug is not the host refusing us. Counting deterministic 4xx
+    would open the breaker on a config typo and hide a real outage behind it."""
+    from data_pipeline import http
+
+    http.reset_breaker()
+    with patch("data_pipeline.http.requests.get", return_value=_resp(404)):
+        for _ in range(http._BREAKER_THRESHOLD + 2):
+            with pytest.raises(requests.HTTPError):
+                espn_get("https://example.com/api", attempts=1)
+    assert http._consecutive_failures == 0, "404s must not trip the breaker"
+
+
 def test_espn_get_retries_transient_connection_errors():
     with patch("data_pipeline.http.requests.get",
                side_effect=[requests.ConnectionError("reset"),

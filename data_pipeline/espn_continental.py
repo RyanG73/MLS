@@ -75,14 +75,35 @@ def _fetch(slug: str, y0: int, y1: int, calendar_year: bool = False) -> list[dic
     else:
         params = {"dates": f"{y0}0701-{y1}0630", "limit": 500}
     try:
-        return espn_get(url, params).get("events", [])
+        events = espn_get(url, params).get("events", [])
     except Exception as e:
         # None, not []. A caller cannot otherwise tell "this season genuinely had
         # no matches" from "ESPN returned 403", and the cache merge below has to
         # tell them apart — treating a failure as an empty season deletes that
         # season's cached evidence permanently. (2026-08-07)
         logger.warning("ESPN %s %s fetch FAILED (season not refreshed): %s", slug, y0, e)
+        _record(slug, y0, ok=False, raw=0, error=str(e))
         return None
+    _record(slug, y0, ok=True, raw=len(events))
+    return events
+
+
+def _record(slug: str, season: int, ok: bool, raw: int, error: str | None = None) -> None:
+    """Log this fetch to source_health.
+
+    Called from `_fetch` rather than from each caller because that is the single
+    choke point for every continental request — one call site covers all
+    competitions and all seasons, successes and failures alike.
+
+    Recording the FAILURES is the point. The recorder had only ever been called
+    after a successful parse, so a feed going dark left no trace in
+    source_health at all: on 2026-08-07 the Leagues Cup lost 9 of 9 seasons to
+    403s and the only evidence was a warning line in a workflow log nobody was
+    reading. (2026-08-08)
+    """
+    from data_pipeline.source_health import record_fetch
+    record_fetch("espn_continental", f"{slug}/scoreboard?season={season}",
+                 ok=ok, raw=raw, error=error)
 
 
 def _parse(events: list[dict], season: int, completed_only: bool) -> list[dict]:
@@ -183,7 +204,25 @@ def continental_results(comp_id: str, seasons: range | None = None,
         frames = []
         refreshed: set[int] = set()      # seasons ESPN actually answered for
         failed: list[int] = []
+        # A COMPLETED season's results are immutable. Refetching them every run
+        # spent most of the request budget re-learning facts that cannot change:
+        # eight continental slugs cost 19 requests each in the 2026-08-08
+        # rebuild, against ~12 for a typical league. Only the current season and
+        # the one before it can still move (a late-finishing edition, a
+        # corrected scoreline), so anything older that is already cached is
+        # skipped and carried through the merge below untouched. `use_cache`
+        # False still means "re-derive from the network" for everything that can
+        # actually change. (2026-08-08)
+        cached_seasons: set[int] = set()
+        if cache.exists():
+            try:
+                cached_seasons = set(pd.read_parquet(cache)["season"].unique().tolist())
+            except Exception as exc:     # corrupt cache → refetch everything
+                logger.debug("%s: cache unreadable, refetching all: %s", comp_id, exc)
+        newest = max(fetch_range) if len(fetch_range) else 0
         for y in fetch_range:
+            if y in cached_seasons and y < newest - 1:
+                continue                 # settled history, already held
             events = _fetch(slug, y, y + 1,
                             calendar_year=comp_id in CALENDAR_YEAR_COMPS)
             if events is None:           # transport failure — NOT an empty season

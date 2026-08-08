@@ -178,3 +178,33 @@ def coverage_gate_status(floors: Optional[dict] = None) -> dict:
             "endpoint":   str(r.get("endpoint", "")),
         }
     return status
+
+
+def record_fetch(source_name: str, endpoint: str, ok: bool,
+                 raw: int = 0, parsed: int | None = None,
+                 error: Optional[str] = None) -> None:
+    """Never-raising wrapper around record_source_run for adapter fetch paths.
+
+    Two reasons this exists rather than each adapter repeating the boilerplate:
+
+    1. **Failures must be recorded.** record_source_run had only ever been
+       called after a SUCCESSFUL parse, so a feed going dark left no trace —
+       on 2026-08-07 ESPN 403'd for hours across three scheduled jobs and the
+       only evidence was warning lines in workflow logs nobody was reading.
+       `ok=False` writes a row with `success` False and the error attached.
+    2. **Recording must never break a build.** Health accounting is
+       observability, not a data dependency; a failure to write the parquet
+       must not take a refresh down with it. Swallowing that in one place beats
+       five copies of the same try/except.
+    """
+    try:
+        record_source_run(
+            source_name=source_name,
+            endpoint=endpoint,
+            raw_count=raw,
+            parsed_count=raw if parsed is None else parsed,
+            error_message=None if ok else (error or "unknown error"),
+        )
+    except Exception as exc:                       # noqa: BLE001 — see docstring
+        logger.debug("source_health: could not record %s/%s: %s",
+                     source_name, endpoint, exc)

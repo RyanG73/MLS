@@ -110,15 +110,28 @@ def _fetch_csv(country: str, use_cache: bool = True) -> pd.DataFrame | None:
         r.raise_for_status()
         raw_path.parent.mkdir(parents=True, exist_ok=True)
         raw_path.write_text(r.text)
-        return pd.read_csv(io.StringIO(r.text))
+        df = pd.read_csv(io.StringIO(r.text))
     except Exception as e:
         logger.warning("football-data new-leagues %s fetch failed (%s)", country, e)
+        from data_pipeline.source_health import record_fetch
         if use_cache and raw_path.exists():
             try:
-                return pd.read_csv(raw_path)
+                cached = pd.read_csv(raw_path)
             except Exception:
                 pass
+            else:
+                # Served from a stale cache. Recorded as a FAILURE on purpose:
+                # the build succeeds, but the feed did not answer, and that is
+                # precisely the state that is otherwise invisible — a run looks
+                # green while its data quietly ages. (2026-08-08)
+                record_fetch("football_data_intl", f"{country}.csv", ok=False,
+                             raw=len(cached), error=f"served from cache: {e}")
+                return cached
+        record_fetch("football_data_intl", f"{country}.csv", ok=False, error=str(e))
         return None
+    from data_pipeline.source_health import record_fetch
+    record_fetch("football_data_intl", f"{country}.csv", ok=True, raw=len(df))
+    return df
 
 
 def _parse_results(df: pd.DataFrame) -> pd.DataFrame:

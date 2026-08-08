@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from data_pipeline.http import espn_get
+from data_pipeline.source_health import record_fetch
 from data_pipeline.match_time import competition_date
 from data_pipeline.understat import _COLS, _coerce
 
@@ -254,10 +255,17 @@ def _fetch_events(slug: str, season: int, calendar_year: bool = False) -> list[d
     # silently truncated them.
     params = {"dates": window, "limit": 1000}
     try:
-        return espn_get(url, params).get("events", [])
+        events = espn_get(url, params).get("events", [])
     except Exception as e:
         logger.warning("ESPN %s season=%s fetch failed: %s", slug, season, e)
+        # Record the failure, not just the success — a fixture feed going dark
+        # is otherwise invisible outside a workflow log. (2026-08-08)
+        record_fetch("espn_fixtures", f"{slug}/scoreboard?season={season}",
+                     ok=False, error=str(e))
         return []
+    record_fetch("espn_fixtures", f"{slug}/scoreboard?season={season}",
+                 ok=True, raw=len(events))
+    return events
 
 
 def _parse_events(events: list[dict], league_id: str, season: int) -> list[dict]:

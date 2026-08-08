@@ -59,6 +59,49 @@ def test_conference_starts_at_its_first_edition(no_cache):
     assert min(_years_requested("conference")) == 2021
 
 
+def test_settled_seasons_already_cached_are_not_refetched(tmp_path, monkeypatch):
+    """A completed season's results cannot change, so refetching them every run
+    spent the request budget re-learning fixed facts — eight continental slugs
+    cost 19 requests each in the 2026-08-08 rebuild. Only the current season and
+    the one before it can still move."""
+    monkeypatch.setattr(ec, "_CACHE_DIR", tmp_path)
+    cache = tmp_path / "ucl.parquet"
+    pd.DataFrame([
+        {"match_id": f"m{y}", "date": f"{y}-09-01", "season": y,
+         "round": "league-phase", "home_team": "A", "away_team": "B",
+         "neutral": False, "home_goals": 1, "away_goals": 0,
+         "winner": "A", "is_result": True, "home_id": None, "away_id": None}
+        for y in range(2018, 2025)
+    ]).to_parquet(cache)
+
+    seen = []
+    with patch.object(ec, "_fetch", side_effect=lambda s, y0, y1, calendar_year=False:
+                      (seen.append(y0), [])[1]), \
+         patch.object(ec.time, "sleep"):
+        ec.continental_results("ucl", range(2018, 2027), use_cache=False)
+
+    assert 2018 not in seen and 2023 not in seen, f"refetched settled seasons: {seen}"
+    assert 2025 in seen and 2026 in seen, f"did not refresh live seasons: {seen}"
+
+
+def test_an_uncached_old_season_is_still_fetched(tmp_path, monkeypatch):
+    """The skip is 'already held', not 'old'. A gap in history must still fill."""
+    monkeypatch.setattr(ec, "_CACHE_DIR", tmp_path)
+    pd.DataFrame([
+        {"match_id": "m", "date": "2024-09-01", "season": 2024,
+         "round": "league-phase", "home_team": "A", "away_team": "B",
+         "neutral": False, "home_goals": 1, "away_goals": 0,
+         "winner": "A", "is_result": True, "home_id": None, "away_id": None}
+    ]).to_parquet(tmp_path / "ucl.parquet")
+
+    seen = []
+    with patch.object(ec, "_fetch", side_effect=lambda s, y0, y1, calendar_year=False:
+                      (seen.append(y0), [])[1]), \
+         patch.object(ec.time, "sleep"):
+        ec.continental_results("ucl", range(2018, 2027), use_cache=False)
+    assert 2021 in seen, f"a season missing from the cache must be fetched: {seen}"
+
+
 def test_a_narrower_caller_range_is_still_respected(no_cache):
     """Clamping must not widen a window — the refresh workflow asks for just the
     previous and current year and must keep getting exactly that."""
