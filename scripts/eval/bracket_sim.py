@@ -118,11 +118,14 @@ FORMATS: dict[str, dict] = {
 #     current rule ("clubs never face and are never ranked against their own
 #     league") did not hold, so the two-table shape is wrong for both.
 #
-# 2025 is recorded as unsupported but NOT described: API-Football's free plan
-# serves 2022-2024 only, and this repository holds no rows for it. It is the
-# transition year between the two shapes and guessing it would be worse than
-# refusing it. `format_for` raises for any season recorded here, so a caller
-# cannot silently replay one under another edition's rules.
+# 2025 is deliberately NOT listed. The owner confirmed on 2026-08-07 that it was
+# played under the same rules as 2026, so it falls through to FORMATS and the
+# current two-table spec governs it. That makes 2025 the earliest season this
+# engine can replay — the only thing a backtest needs beyond it is 2025 MATCH
+# data, which nothing here has established to be unavailable.
+#
+# `format_for` raises for any season recorded below, so a caller cannot silently
+# replay one under another edition's rules.
 _UNSUPPORTED = "unsupported"
 
 SEASON_FORMATS: dict[str, dict[int, dict | str]] = {
@@ -132,7 +135,6 @@ SEASON_FORMATS: dict[str, dict[int, dict | str]] = {
         # approximated by the two-table sim.
         2023: _UNSUPPORTED,
         2024: _UNSUPPORTED,
-        2025: _UNSUPPORTED,   # shape unverified — see note above
     },
 }
 

@@ -337,12 +337,18 @@ class TestLeaguesCupEditions:
         assert adv_a != adv_b, "schedule uncertainty is not reaching the output"
 
     def test_earlier_editions_refuse_rather_than_use_current_rules(self):
-        """2023-25 used a 47-club field with three-club groups and shootouts.
-        Replaying them under the 2026 two-table spec would be a number about
-        nothing, so format_for raises instead."""
-        for yr in (2023, 2024, 2025):
+        """2023 and 2024 used a 47-club field with three-club groups and
+        shootouts. Replaying them under the two-table spec would be a number
+        about nothing, so format_for raises instead."""
+        for yr in (2023, 2024):
             with pytest.raises(ValueError, match="cannot represent"):
                 bs.format_for("leagues-cup", yr)
+
+    def test_2025_runs_under_the_current_rules(self):
+        """Owner-confirmed 2026-08-07: 2025 was played under the same rules as
+        2026. It is therefore the earliest season this engine can replay, which
+        is what a backtest starts from."""
+        assert bs.format_for("leagues-cup", 2025) is bs.FORMATS["leagues-cup"]
         assert bs.format_for("leagues-cup", 2026) is bs.FORMATS["leagues-cup"]
 
     def test_format_for_leaves_every_other_competition_alone(self):

@@ -135,9 +135,9 @@ byes straight into a 32-team knockout. Both decided level matches by shootout �
 current edition's "1 for a draw". Both had own-league ties (Orlando City v Houston Dynamo in 2023's
 group stage; 29 MLS-v-MLS in 2024), so the two-table shape is wrong for both.
 
-**2025 remains unverified and is deliberately not described.** API-Football's free plan stops at
-2024 and the repo holds no rows for it. It is the transition year between the two shapes, so it is
-exactly the season a guess would most likely get wrong. It is recorded as unsupported and raises.
+**2025 was played under the same rules as 2026** (owner-confirmed 2026-08-07). It therefore needs no
+override and runs under the current two-table spec — which makes **2025 the earliest season this
+engine can replay**, and the natural start of any backtest.
 
 ### B. Venue model
 
@@ -188,14 +188,17 @@ Sample size must be published beside any score. Three or four editions is very t
 
 ---
 
-## Data-quality issue noticed in passing
+## A "data-quality issue" that was not one
 
-The Liga MX table in the live payload includes **Atlante**, which is a Liga de Expansión club rather
-than a Liga MX one. Either the ESPN roster is stale or club resolution has placed it wrongly. This
-is the failure mode `scripts/eval/continental_resolve.py` was written to prevent, and its docstring
-already warns that names alone are insufficient across these confederations. Worth confirming
-against the refreshed roster before the field is trusted — a wrong club in the field is a wrong
-forecast for every club in that table.
+An earlier draft of this document flagged **Atlante** in the Liga MX table as a resolution failure,
+on the assumption it was still a Liga de Expansión club. **That was wrong.** Atlante won promotion
+to Liga MX for this season (owner-confirmed 2026-08-07), and the `liga-mx` payload carries them
+among its 18 clubs with 4 points from 3 games played. Club resolution had placed them correctly.
+
+Kept here rather than deleted because the reasoning is the useful part: a club appearing in an
+unexpected division is exactly as likely to be a promotion as a bug, and `continental_resolve.py`
+resolves by ESPN team id precisely so that it does not have to guess. The check that settles it is
+the domestic payload, not recollection of which division a club played in last year.
 
 ---
 
@@ -220,8 +223,11 @@ after.
    alphabetical fixtures, the wrong points rule, and an unearned home advantage for Liga MX clubs.
    Leaving it up is defensible — it is a projection, not a claim of accuracy — but it is the
    owner's call, and pulling it is also reasonable.
-2. **2023 backfill.** Is one edition of extra history worth an explicit fetch, given the backtest
-   sample is tiny either way?
+2. **Is the backtest worth building at all?** With 2023 and 2024 unrepresentable by this engine,
+   the replayable history is 2025 and the part of 2026 already played — one completed edition. A
+   calibration number from a single tournament says almost nothing, and publishing it would imply
+   more than it supports. The honest options are to build it and label the sample plainly, or to
+   defer it until there are three or four replayable editions. Recommendation: defer.
 3. **Third-place match.** Present in 2024 and named in the 2026 rules, but absent from the `ko`
    ladder in `FORMATS`. Should it be modelled, or explicitly declared out of scope like the
    unmodelled barrages elsewhere?
