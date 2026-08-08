@@ -69,6 +69,15 @@ jobs:
             echo "::warning::Failed leagues:$FAILED"
           fi
 
+      # The ladder is derived from the league payloads, so rebuilding leagues
+      # without it leaves power.js quoting ratings the payloads no longer hold —
+      # 206 clubs disagreed after run 31234585894, and the live Global Power
+      # page served them. refresh-daily.yml has always done this; this job never
+      # did, which is the same gap that put a stale ladder into production on
+      # 2026-08-02. Runs before the derived surfaces below, which read it.
+      - name: Rebuild the global power ladder
+        run: python scripts/build_power_rankings.py
+
       - name: Archive odds snapshot
         run: python scripts/archive_odds_snapshot.py
 

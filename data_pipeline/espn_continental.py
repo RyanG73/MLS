@@ -53,6 +53,17 @@ SLUGS = {
 # would split an edition across two "seasons".
 CALENDAR_YEAR_COMPS = {"libertadores", "sudamericana", "club-world-cup"}
 
+# Earliest season a competition existed, where that is later than the default
+# window. Only competitions whose founding date is certain are listed — the
+# caches cannot be used to infer this, because a cache holds the seasons ESPN
+# happened to ANSWER for, not the seasons that exist (the UCL cache starts at
+# 2021 for a competition that is decades old).
+_DEFAULT_FIRST_SEASON = 2018
+_FIRST_SEASON = {
+    "leagues-cup": 2023,   # owner-confirmed 2026-08-08
+    "conference": 2021,    # UEFA Conference League's first edition was 2021-22
+}
+
 
 def _fetch(slug: str, y0: int, y1: int, calendar_year: bool = False) -> list[dict]:
     url = f"{_BASE}/{slug}/scoreboard"
@@ -158,7 +169,17 @@ def continental_results(comp_id: str, seasons: range | None = None,
     if use_cache and cache.exists():
         df = pd.read_parquet(cache)
     else:
-        fetch_range = seasons if seasons is not None else range(2018, 2027)
+        # Never ask for a season the competition did not exist in. The window
+        # starts at 2018 for everything, so the Leagues Cup — founded 2023 —
+        # was requesting 2018 through 2022 on every refresh: five requests that
+        # can never return a row, against an API that rate-limits by IP and then
+        # refuses EVERY endpoint for a while. Run 31234585894 fetched nine
+        # seasons for it and lost all nine to 403s. (Owner, 2026-08-08:
+        # "leagues cup began in 2023".) Applied to a caller-supplied range too,
+        # so `--from-year 2018` is clamped rather than obeyed.
+        first = _FIRST_SEASON.get(comp_id, _DEFAULT_FIRST_SEASON)
+        fetch_range = (range(max(seasons.start, first), seasons.stop)
+                       if seasons is not None else range(first, 2027))
         frames = []
         refreshed: set[int] = set()      # seasons ESPN actually answered for
         failed: list[int] = []

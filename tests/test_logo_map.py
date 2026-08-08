@@ -41,8 +41,14 @@ REGIONS = {"Europe", "North America", "South America"}
 #   Aurora (Bolivia)         vs Aurora FC (Guatemala)    — identical after norm()
 #   Nacional (Uruguay)       vs C.D. Nacional (Portugal) — identical after norm()
 #   Atlanta (Argentina)      vs Atlanta United (USA)
-#   San Antonio Bulo Bulo (Bolivia) vs San Antonio FC (USA)
 #   AFC Toronto (Canada)     vs Toronto FC (USA)
+#
+# San Antonio Bulo Bulo (Bolivia) vs San Antonio FC (USA) used to sit in this
+# list and did NOT belong: their names do not normalise identically, so it was a
+# resolver bug rather than a structural limit. Fixed 2026-08-08 by confining the
+# global substring pass to names with no known country — a club whose country is
+# known has already had that country searched, so a global prefix hit is a
+# different club that merely starts the same way.
 #
 # The real fix is to key the map by (league_id, name) — or by the team_id the
 # payloads already carry — and have the webapp look up with its own league in
@@ -50,7 +56,7 @@ REGIONS = {"Europe", "North America", "South America"}
 # so it is tracked separately rather than bolted on here.
 KNOWN_NAME_CLASHES = {
     "364.png", "2674.png", "7764.png", "7225.png", "93.png",
-    "131213.png", "3472.png", "18418.png", "18265.png", "7318.png",
+    "131213.png", "3472.png", "18418.png", "7318.png",
 }
 
 

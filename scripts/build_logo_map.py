@@ -270,14 +270,34 @@ def main():
             hit = _sub_match(k, by_country.get(c, {}))
             if hit:
                 return hit
-        for f in confs:                          # 5. same confederation, substring
-            hit = _sub_match(k, by_conf.get(f, {}))
-            if hit:
-                return hit
-        # 6. global substring, last resort. Safe now that _sub_match refuses
-        #    single-token keys, and it is the only route for the ~600 entries
-        #    from foreign_logos.json, which carry no country/confederation at
-        #    all (they never appear in a payload row).
+        # 5. same confederation, substring — ONLY for names with no known
+        #    country. A confederation is not a country: England and Scotland are
+        #    both UEFA, so this pass let "queens park" prefix-match "queens park
+        #    rangers" and drew Scotland's Queens Park in QPR's crest (caught by
+        #    test_countries_do_not_share_a_crest after the 2026-08-08 rebuild
+        #    brought scottish-champ back in). If a club's country IS known and
+        #    step 4 found nothing in it, then a cross-border prefix hit here is a
+        #    false positive by construction — the two clubs are in different
+        #    countries and merely start the same way. The pass still earns its
+        #    place for continental rows, which carry a confederation and no
+        #    country. (2026-08-08)
+        if not countries:
+            for f in confs:
+                hit = _sub_match(k, by_conf.get(f, {}))
+                if hit:
+                    return hit
+        # 6. global substring, last resort — and, like step 5, only for names
+        #    with no known country. Its own purpose says so: it exists for the
+        #    ~600 entries from foreign_logos.json, which carry no country or
+        #    confederation at all because they never appear in a payload row.
+        #    A club whose country IS known has already had that country searched
+        #    exactly (step 1) and by substring (step 4); reaching here means no
+        #    club in its own country matches, so a global prefix hit is a
+        #    different club that merely starts the same way. That is how
+        #    Scotland's Queens Park — logo-less in the scottish-champ payload —
+        #    reached "queens park rangers" and wore QPR's crest. (2026-08-08)
+        if countries:
+            return None
         return _sub_match(k, norm_index, multi_token_query=True)
 
     # apply explicit aliases first (authoritative for no-overlap cases)
