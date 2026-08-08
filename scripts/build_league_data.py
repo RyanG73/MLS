@@ -1209,6 +1209,26 @@ def _load_frame(league_id: str, source: str, asa_key: str | None = None):
     raise ValueError(f"Unknown source '{source}' for league '{league_id}'")
 
 
+_ROUTABLE_SOURCES = ("understat", "footballdata", "footballdata_intl",
+                     "espn", "api_football", "asa")
+
+
+def _routed_frame(league_id: str, cfg: dict) -> tuple[pd.DataFrame, dict]:
+    """Registry-resolved canonical frame plus its provenance.
+
+    With no source_registry.REGISTRY entry this is exactly
+    _load_frame(cfg["source"]) — one load, today's behavior — but the source
+    that answered is returned so the payload can publish it. When an entry
+    exists (Stage 3 migration), sources are tried in its order and a fallback
+    is recorded in source_health rather than silently absorbed.
+    """
+    from data_pipeline.source_registry import resolve
+    loaders = {s: (lambda s=s: _load_frame(league_id, s, cfg.get("asa_key")))
+               for s in _ROUTABLE_SOURCES}
+    frame, src = resolve(league_id, "fixtures", loaders, default=cfg["source"])
+    return frame, {"fixtures": src}
+
+
 def _per_conf_members(key, conf_arrays, top_n: int):
     """Indices of the top `top_n` teams WITHIN each conference by sim key.
 
@@ -1370,7 +1390,7 @@ def main():
     cfg = OUTLOOK[lid]
 
     # ── Load + feature-build the full history (played only) ───────────────────
-    frame = _load_frame(lid, cfg["source"], cfg.get("asa_key"))
+    frame, _provenance = _routed_frame(lid, cfg)
     # football-data-intl leagues: the source CSV's refresh cadence varies by
     # country (Brazil tracked live; Japan's file lagged a full season
     # boundary, per docs/league-expansion-report.md's live-verification note)
@@ -2419,6 +2439,10 @@ def main():
         # column collapses to 0/100 off the games played so far. Surfaces as a
         # warning note rather than being passed off as a real forecast.
         "no_fixture_feed": _no_fixture_feed,
+        # Which source answered, per column family (spec §6.2): a fallback
+        # build must be distinguishable from a healthy one on the payload
+        # itself, not only in source_health.
+        "provenance": _provenance,
         "league": {"id": lid, "name": cfg["name"], "logo": _stub_league_logo(lid),
                    "confederation": cfg.get("confederation", "UEFA"),
                    "status": "live", "pct_complete": pct},

@@ -325,6 +325,15 @@ These require account access or business decisions and cannot be completed from 
 
 ## Recently completed
 
+- API-Football migration Stage 0 (2026-08-08, build blind, zero requests): budget governor
+  (`data_pipeline/api_budget.py` — fail-closed ops/backfill allowances counted from
+  `source_health.parquet`, plan assertion from rate-limit headers as the silent-lapse guard,
+  ≤50%-of-plan throttle), pagination handling in the API-Football adapter, and a per-family
+  source registry (`data_pipeline/source_registry.py`) wired through `build_league_data` with
+  payload `provenance` published. Registry is empty, so no league's sourcing changed. 34 new
+  tests; suite 1975 passed / 0 failed. Next per the spec: Stage 1 free-key probes (~10 requests),
+  then Stage 2, then the purchase checkpoint before any paid-tier request. Spec:
+  `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
 - Club Watch season history: the existing History view now consumes the reconstructed early-season
   dataset, preserves exact-archive precedence and point provenance, selects a useful historical
   target when the current target lacks prior coverage, and includes the frozen path in the free

@@ -66,3 +66,101 @@ def test_results_and_upcoming_split(monkeypatch):
     monkeypatch.setitem(api_football.LEAGUE, "canadian-pl", (468, [2025, 2026]))
     up = api_football.upcoming_fixtures("canadian-pl")
     assert (~up["is_result"]).all() and len(up) == 1
+
+
+# ── pagination (spec Stage 0: built blind, tested against fixtures) ──────────
+def _page_fixture(fid: int) -> dict:
+    return {"fixture": {"id": fid, "date": "2025-04-05T23:00:00+00:00",
+                        "status": {"short": "FT"}},
+            "league": {"season": 2025},
+            "teams": {"home": {"name": f"H{fid}"}, "away": {"name": f"A{fid}"}},
+            "goals": {"home": 1, "away": 0}}
+
+
+def test_get_paged_merges_all_pages(monkeypatch):
+    from data_pipeline import api_football
+    calls = []
+
+    def fake_get(path, params, budget="ops"):
+        page = params.get("page", 1)
+        calls.append(page)
+        return {"response": [_page_fixture(page)],
+                "paging": {"current": page, "total": 3}}
+
+    monkeypatch.setattr(api_football, "_get", fake_get)
+    payload = api_football._get_paged("fixtures", {"league": 1, "season": 2025})
+    assert calls == [1, 2, 3]
+    assert [f["fixture"]["id"] for f in payload["response"]] == [1, 2, 3]
+
+
+def test_get_paged_single_page_makes_one_request(monkeypatch):
+    from data_pipeline import api_football
+    calls = []
+
+    def fake_get(path, params, budget="ops"):
+        calls.append(params.get("page", 1))
+        return {"response": [_page_fixture(1)],
+                "paging": {"current": 1, "total": 1}}
+
+    monkeypatch.setattr(api_football, "_get", fake_get)
+    payload = api_football._get_paged("fixtures", {"league": 1, "season": 2025})
+    assert calls == [1] and len(payload["response"]) == 1
+
+
+# ── governor wiring: budget before, plan assertion after, throttle pacing ────
+class _FakeResponse:
+    def __init__(self, headers=None):
+        self.headers = headers or {}
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return {"response": [_page_fixture(1)]}
+
+
+@pytest.fixture
+def isolated_health(tmp_path, monkeypatch):
+    from data_pipeline import source_health
+    monkeypatch.setattr(source_health, "_HEALTH_PATH",
+                        tmp_path / "source_health.parquet")
+
+
+def test_get_refuses_before_requesting_when_budget_exhausted(monkeypatch, isolated_health):
+    from data_pipeline import api_football, api_budget
+    monkeypatch.setenv("API_FOOTBALL_KEY", "test-key")
+
+    def no_network(*a, **k):
+        raise AssertionError("HTTP request made despite exhausted budget")
+
+    monkeypatch.setattr(api_football.requests, "get", no_network)
+    monkeypatch.setattr(api_budget, "check_budget",
+                        lambda kind="ops", now=None: (_ for _ in ()).throw(
+                            api_budget.BudgetExceeded("spent")))
+    with pytest.raises(api_budget.BudgetExceeded):
+        api_football._get("fixtures", {"league": 1})
+
+
+def test_get_raises_plan_mismatch_from_response_headers(monkeypatch, isolated_health):
+    from data_pipeline import api_football, api_budget
+    monkeypatch.setenv("API_FOOTBALL_KEY", "test-key")
+    monkeypatch.setenv("API_FOOTBALL_PLAN", "pro")
+    monkeypatch.setattr(api_football.time, "sleep", lambda s: None)
+    monkeypatch.setattr(
+        api_football.requests, "get",
+        lambda *a, **k: _FakeResponse({"x-ratelimit-requests-limit": "100"}))
+    with pytest.raises(api_budget.PlanMismatch):
+        api_football._get("fixtures", {"league": 1})
+
+
+def test_get_paces_at_plan_throttle_delay(monkeypatch, isolated_health):
+    from data_pipeline import api_football
+    monkeypatch.setenv("API_FOOTBALL_KEY", "test-key")
+    monkeypatch.setenv("API_FOOTBALL_PLAN", "free")   # 10 r/m → 12 s at 50%
+    sleeps = []
+    monkeypatch.setattr(api_football.time, "sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(
+        api_football.requests, "get",
+        lambda *a, **k: _FakeResponse({"x-ratelimit-requests-limit": "100"}))
+    api_football._get("fixtures", {"league": 1})
+    assert sleeps == [pytest.approx(12.0)]

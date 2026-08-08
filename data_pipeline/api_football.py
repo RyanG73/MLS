@@ -108,8 +108,13 @@ def _require_key() -> str:
     return k
 
 
-def _get(path: str, params: dict) -> dict:
+def _get(path: str, params: dict, budget: str = "ops") -> dict:
+    from data_pipeline import api_budget
     from data_pipeline.source_health import record_fetch
+    # Fails closed BEFORE the request: a refusal makes no request and records
+    # no spend. `budget` is "ops" for refresh paths, "backfill" for bulk jobs —
+    # separate allowances, so a backfill can never eat the refresh's capacity.
+    api_budget.check_budget(budget)
     try:
         r = requests.get(f"{_BASE}/{path}", headers={_HDR_KEY: _require_key()},
                          params=params, timeout=30)
@@ -127,6 +132,31 @@ def _get(path: str, params: dict) -> dict:
         raise
     record_fetch("api_football", path, ok=True,
                  raw=len(payload.get("response") or []))
+    # After recording (the request really happened and counts as spend):
+    # the silent-lapse guard — headers disagreeing with the configured plan
+    # must be an outage, never a quiet regression to Free's 2024-capped data.
+    api_budget.assert_plan(getattr(r, "headers", None) or {})
+    # Firewall-safe pacing: ≤50% of the plan's per-minute limit, every call.
+    time.sleep(api_budget.throttle_delay())
+    return payload
+
+
+def _get_paged(path: str, params: dict, budget: str = "ops") -> dict:
+    """Follow `paging {current, total}` and return one payload with the full
+    merged `response` list. Built blind per Stage 0 — a 232-fixture season
+    measured unpaged, but whether a 552-fixture one pages is a Stage-1
+    question, and the handling must exist before it is answered."""
+    payload = _get(path, params, budget=budget)
+    paging = payload.get("paging") or {}
+    total = int(paging.get("total") or 1)
+    page = int(paging.get("current") or 1)
+    while page < total:
+        page += 1
+        nxt = _get(path, {**params, "page": page}, budget=budget)
+        payload["response"].extend(nxt.get("response") or [])
+        total = int((nxt.get("paging") or {}).get("total") or total)
+    if "paging" in payload:
+        payload["paging"] = {"current": 1, "total": 1}
     return payload
 
 
@@ -195,9 +225,9 @@ def _fetch_league(af_id: int, seasons: list[int]) -> pd.DataFrame:
         if cache.exists() and s != latest:
             payload = json.loads(cache.read_text())
         else:
-            payload = _get("fixtures", {"league": af_id, "season": s})
+            # _get paces every request at the plan throttle, so no extra sleep.
+            payload = _get_paged("fixtures", {"league": af_id, "season": s})
             cache.write_text(json.dumps(payload))
-            time.sleep(1)                      # gentle on the free tier
         frames.append(_parse_fixtures(payload, exclude, af_id))
     frames = [f for f in frames if not f.empty]
     if not frames:
@@ -230,7 +260,7 @@ def team_logos(league_id: str) -> dict[str, dict]:
     if cache.exists():
         payload = json.loads(cache.read_text())
     else:
-        payload = _get("teams", {"league": af_id, "season": max(seasons)})
+        payload = _get_paged("teams", {"league": af_id, "season": max(seasons)})
         _CACHE.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(payload))
     out: dict[str, dict] = {}

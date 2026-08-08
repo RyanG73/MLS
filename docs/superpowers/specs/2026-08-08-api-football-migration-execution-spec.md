@@ -307,6 +307,14 @@ fixture id; restart re-reads rather than re-requests; progress and spend both qu
 
 ## 7. Stages
 
+**Progress — Stage 0 complete, 2026-08-08, zero requests spent.** Shipped: budget governor
+(`data_pipeline/api_budget.py` — separate fail-closed ops/backfill allowances, plan assertion from
+response headers, ≤50% r/m throttle, spend counted from `source_health.parquet` since 00:00 UTC),
+pagination (`_get_paged` follows `paging{current,total}`), source registry + router
+(`data_pipeline/source_registry.py`, empty by default — no league's sourcing changed), and payload
+`provenance` per column family via `build_league_data._routed_frame`. 34 tests; full suite 1975
+passed / 0 failed. Next: Stage 1.
+
 | Stage | Requests | Gate | Output |
 |---|---|---|---|
 | **0 — Build blind** | **0** | none | registry, provenance, budget governor, pagination handling, all against fixtures |
