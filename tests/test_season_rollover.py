@@ -33,8 +33,11 @@ DATA = ROOT / "webapp" / "data"
 # problems, not build problems, and must stay listed (with the reason) rather
 # than quietly widening the tolerance for everyone else.
 SOURCE_BLOCKED = {
-    "canadian-pl": "API-Football free plan: newest season is 2024",
-    "k-league-1": "API-Football free plan: 2022-2024 only",
+    # canadian-pl and k-league-1 were blocked by the API-Football FREE plan's
+    # 2024 season cap. The paid plan (2026-08-08) removed it — CPL's rebuilt
+    # payload runs to 2026-10-25 — and this file's own accuracy test is what
+    # flagged the stale entries. Removed rather than kept "just in case": the
+    # list is for sources that genuinely cannot supply a newer season.
     # Poland remains results-only, but its results source now supplies the
     # current 2026 season, so it is no longer blocked on season rollover.
     # finland-veikkausliiga is deliberately NOT here: it has no ESPN slug either,

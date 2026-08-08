@@ -204,12 +204,12 @@ REGISTRY = [
 #   results_only — current-season results but no forward-fixture feed
 #   historical   — newest available season is in the past (stale source)
 DATA_STATUS = {
-    # Both leagues' seasons widened to current on the paid plan (2026-08-08) —
-    # flip these to full_forecast (delete the lines) ONLY after the first CI
-    # rebuild ships payloads carrying the new seasons; flipping before that
-    # makes validate_payloads fail on the stale payloads.
-    "canadian-pl": "historical",             # stale label; current seasons now fetchable
-    "k-league-1": "historical",              # stale label; current seasons now fetchable
+    # canadian-pl and k-league-1 were "historical" while the API-Football FREE
+    # plan capped their newest season at 2024. The paid plan (2026-08-08)
+    # widened both to current, and the CI rebuild confirmed it: CPL's payload
+    # now spans 2026-04-04 → 2026-10-25, 54% complete, with 50 forward
+    # fixtures. Both are full_forecast — the default — so they carry no entry
+    # here at all.
     "poland-ekstraklasa": "results_only",    # no ESPN slug — no forward fixtures
     "finland-veikkausliiga": "results_only",  # no ESPN slug — no forward fixtures
     # Round 6: calendar-year league sitting MID-season (116 of ~230 matches played)
