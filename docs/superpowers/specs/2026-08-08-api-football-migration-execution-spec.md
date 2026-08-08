@@ -319,8 +319,14 @@ passed / 0 failed.
 **Stage 1 complete, 2026-08-08, 13 free-key requests.** The five questions are answered as
 measured facts below; the league map is drafted 78/78 (`config/api_football_league_map.json`).
 Headline: xG starts with the **2023 season**, so the statistics backfill ceiling drops from ~139k
-to **~46k requests**; historical closing odds **do not exist** on this API. Next: owner reviews
-the map (the Stage-1 gate), then Stage 2 free-key end-to-end validation.
+to **~46k requests**; historical closing odds **do not exist** on this API.
+
+**Map approved by owner; Stage 2 passed, 2026-08-08 (~6 requests, 19 total today).** Brasileirão
+2022–2024 from the spine vs football-data: 1,140/1,140 scorelines agree, standings identical,
+champion feature builder accepts the frame unmodified. Ten club-name pairs measured (the Stage-3
+name-map seed); API-Football spellings drift across seasons (K-League problem, now confirmed
+systemic). Next: build the resumable backfill job (§6.5, blind — the checkpoint requires it),
+then declare **"infrastructure complete, ready to buy."**
 
 | Stage | Requests | Gate | Output |
 |---|---|---|---|
@@ -373,10 +379,40 @@ offline from the single cached catalogue request (1,239 leagues) by
 real: **API-Football splits Paraguay into two ids (Apertura 250 / Clausura 252)**, which the
 Stage-3 wiring must merge. Gate: owner reviews the map before Stage 3 uses it.
 
-### Stage 2 — the comparison that defines success
-Build one league end-to-end from the spine and diff it against the ESPN-built payload: same clubs,
-same fixture count, same canonical columns, same standings. **Free-tier honesty: this validates the
-mechanism, not current-season coverage**, since the free plan stops at 2024.
+### Stage 2 — the comparison that defines success — PASSED 2026-08-08 (~6 requests)
+
+League: **brazil-serie-a** (id 71), chosen over an ESPN league deliberately — its football-data
+source carries real scorelines (a stronger diff than goals-only), sits fully inside the free key's
+2022–2024 window, and loads its comparison frame from cached CSVs, so validation never depended on
+ESPN's rate limiter. Runner: `scripts/api_football_stage2_validate.py`; report cached at
+`data/api_football/probe/stage2_report.json`.
+
+Measured, three full seasons (2022, 2023, 2024):
+
+- **1,140 of 1,140 fixtures matched** on (season, home, away) — 380 per season, both sides.
+- **Scorelines: 1,140/1,140 agree. Zero disagreements.**
+- **Standings: identical** — 20 teams per season, computed points tables match exactly.
+- **The champion feature builder accepts the spine frame unmodified** (1,140 rows → 67 feature
+  columns), so downstream is equivalence-by-construction: the canonical frame is the whole
+  interface (§6.3).
+
+Two migration facts the diff surfaced, both now measured rather than anticipated:
+
+1. **Ten club-name pairs differ between API-Football and football-data** (Flamengo↔Flamengo RJ,
+   Fortaleza EC↔Fortaleza, Vasco DA Gama↔Vasco, …) — encoded in the validator's `SPINE_RENAME`.
+   This is the seed of the per-league name map Stage 3 needs, in the `FD_ESPN` tradition.
+2. **API-Football's own spellings drift across seasons** ("Atletico Paranaense" in 2022,
+   "Athletico Paranaense" later; "RB Bragantino"→"Bragantino") — the K-League `TEAM_RENAME`
+   problem confirmed as systemic, so Stage 3's per-league validation must always diff a full
+   season set, not a sample.
+
+One local deviation from this stage's original wording: no local payload rebuild was run — local
+rebuilds regress payloads (recorded failure mode; CI owns payload writes). Frame-level equivalence
+plus the feature-build acceptance is the mechanism proof; the first CI-built payload from the spine
+arrives with Stage 3's first batch.
+
+**Free-tier honesty stands: this validates the mechanism, not current-season coverage**, since the
+free plan stops at 2024.
 
 ### The purchase checkpoint — between Stages 2 and 3
 **Nothing is purchased yet.** Stages 0–2 run entirely on zero requests and the free key (~30

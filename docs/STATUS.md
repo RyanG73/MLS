@@ -336,10 +336,13 @@ These require account access or business decisions and cannot be completed from 
   (backfill ceiling drops ~139k → ~46k); historical closing odds do not exist on the API
   (football-data keeps the odds column, now measured); 64/78 competitions reach 2017 by catalogue
   metadata; a 557-fixture season does not page. League map drafted 78/78
-  (`config/api_football_league_map.json`, 77 high/anchor; Paraguay needs two ids). Next per the
-  spec: owner reviews the map, then Stage 2 free-key validation, then the purchase checkpoint
-  before any paid-tier request. Spec:
-  `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
+  (`config/api_football_league_map.json`, 77 high/anchor; Paraguay needs two ids; **map approved
+  by owner 2026-08-08**). **Stage 2 passed** (~6 requests): Brasileirão 2022–2024 built from the
+  spine and diffed against football-data — 1,140/1,140 scorelines agree, standings identical,
+  champion feature builder accepts the frame unmodified; ten club-name pairs measured as the
+  Stage-3 name-map seed. Next per the spec: build the resumable backfill job (§6.5), then the
+  purchase checkpoint ("infrastructure complete, ready to buy") before any paid-tier request.
+  Spec: `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
 - Club Watch season history: the existing History view now consumes the reconstructed early-season
   dataset, preserves exact-archive precedence and point provenance, selects a useful historical
   target when the current target lacks prior coverage, and includes the frozen path in the free
