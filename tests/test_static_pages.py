@@ -203,9 +203,13 @@ def test_sitemap_wellformed_and_complete(built):
 
 def test_data_status_notes_present_on_exception_leagues(built):
     pages = _pages(built)
-    for lid, needle in [("canadian-pl", "Archive"),
-                        ("k-league-1", "Archive"),
-                        ("poland-ekstraklasa", "Results only"),
+    # canadian-pl and k-league-1 carried an "Archive" note while the
+    # API-Football FREE plan capped them at 2024. The paid plan (2026-08-08)
+    # returned both to full_forecast and the note correctly stopped rendering —
+    # this is the fourth place that stale limitation was recorded, after
+    # fetch_league_teams.DATA_STATUS, webapp/leagues.js, and the rollover
+    # suite's SOURCE_BLOCKED.
+    for lid, needle in [("poland-ekstraklasa", "Results only"),
                         ("finland-veikkausliiga", "Results only")]:
         if lid in pages:
             assert needle in pages[lid], f"{lid}: missing '{needle}' note"

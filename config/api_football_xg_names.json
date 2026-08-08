@@ -1,0 +1,53 @@
+{
+  "_comment": "OUR canonical club name -> API-Football's, used by data_pipeline/xg_store to join backfilled statistics onto football-data frames. Every pair below was read off the two unmatched name sets and confirmed club-by-club; fuzzy matching is NOT used to generate this file, because on 2026-08-08 it proposed 'Bristol City' -> 'Stoke City', which would have attributed one club's xG to another and looked entirely plausible in the data.",
+  "championship": {
+    "Hull": "Hull City",
+    "Oxford": "Oxford United",
+    "Sheffield United": "Sheffield Utd",
+    "Sheffield Weds": "Sheffield Wednesday",
+    "Stoke": "Stoke City"
+  },
+  "eredivisie": {
+    "Almere City": "Almere City FC",
+    "Volendam": "FC Volendam",
+    "For Sittard": "Fortuna Sittard",
+    "Nijmegen": "NEC Nijmegen",
+    "Zwolle": "PEC Zwolle"
+  },
+  "super-lig": {
+    "Ad. Demirspor": "Adana Demirspor",
+    "Buyuksehyr": "Başakşehir",
+    "Bodrumspor": "Bodrum FK",
+    "Karagumruk": "Fatih Karagümrük",
+    "Gaziantep": "Gaziantep FK",
+    "Genclerbirligi": "Gençlerbirliği S.K.",
+    "Goztep": "Göztepe",
+    "Kasimpasa": "Kasımpaşa"
+  },
+  "primeira": {
+    "Porto": "FC Porto",
+    "Sp Braga": "SC Braga",
+    "Sp Lisbon": "Sporting CP"
+  },
+  "belgian-pro": {
+    "Eupen": "AS Eupen",
+    "Club Brugge": "Club Brugge KV",
+    "Mechelen": "KV Mechelen",
+    "Westerlo": "KVC Westerlo",
+    "Oud-Heverlee Leuven": "OH Leuven",
+    "RWD Molenbeek": "RWDM",
+    "Standard": "Standard Liege",
+    "St. Gilloise": "Union St. Gilloise",
+    "Waregem": "Zulte Waregem"
+  },
+  "brazil-serie-a": {
+    "America MG": "America Mineiro",
+    "Atletico GO": "Atletico Goianiense",
+    "Athletico-PR": "Atletico Paranaense",
+    "Botafogo RJ": "Botafogo",
+    "Flamengo RJ": "Flamengo",
+    "Fortaleza": "Fortaleza EC",
+    "Bragantino": "RB Bragantino",
+    "Vasco": "Vasco DA Gama"
+  }
+}

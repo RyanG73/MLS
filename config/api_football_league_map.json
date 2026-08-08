@@ -253,11 +253,11 @@
   "odds_since": null
  },
  "segunda": {
-  "af_id": 140,
-  "af_name": "La Liga",
+  "af_id": 141,
+  "af_name": "Segunda División",
   "af_country": "Spain",
   "match_score": 0.8,
-  "confidence": "high",
+  "confidence": "verified-by-team-overlap",
   "first_season": 2010,
   "last_season": 2026,
   "n_seasons": 17,
@@ -265,7 +265,8 @@
   "statistics_since": 2014,
   "lineups_since": 2010,
   "events_since": 2010,
-  "odds_since": null
+  "odds_since": null,
+  "note": "Was 140 (La Liga) — fuzzy match scored our display name 'LaLiga 2' closer to 'La Liga' than to 'Segunda Division'. Caught 2026-08-08 when the xG join surfaced Real Madrid and Barcelona in a second-division frame."
  },
  "serie-a": {
   "af_id": 135,
