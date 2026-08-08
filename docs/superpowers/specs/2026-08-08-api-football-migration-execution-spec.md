@@ -18,41 +18,74 @@ Measured from the adapter and the payloads, not estimated.
 season** — every earlier season reads from disk. So a league in steady state costs **one request per
 refresh**.
 
+### Match data (`/fixtures`) — the cap never binds
+
 | Workload | Requests/day | Share of Pro's 7,500 |
 |---|---|---|
 | All 30 ESPN leagues, daily | **30** | **0.4%** |
 | Every one of the 70 leagues, daily | 70 | 0.9% |
 | One-time backfill, 70 leagues × 9 seasons | 630 | 8.4% of a single day |
-| Worst case with 4× pagination on every league | 280 | 3.7% |
 
-**You could move every league on the platform and use under 1% of the plan.** So "as many as
-possible without exceeding 7,500" has a disappointing answer: the ceiling never binds. The real
-question is not how many we can *afford* to move, but which ones we *should* — and that is decided
-by what each source uniquely provides.
+Pagination is a smaller worry than first thought: a cached response for a **232-fixture season came
+back as `paging {current: 1, total: 1}`** — one page. Still unproven at 552 (the English tiers), so
+the handler is built anyway and the assumption is checked in stage 1, not trusted.
+
+### Statistics and odds — where the cap *does* bind
+
+These are separate endpoints, and if they are keyed **per fixture** rather than per league the
+arithmetic changes completely. Measured across the built competitions: **17,851 fixtures in a single
+season.**
+
+| Workload (per-fixture assumption) | Requests | At 7,500/day |
+|---|---|---|
+| One season of statistics, every competition | **17,851** | **2.4 days** |
+| Nine seasons of history | 160,659 | **21 days** |
+| Steady state — only newly played matches | **~50–150/day** | **~2%** |
+
+**This is the real shape of the problem, and it vindicates the original framing.** Steady state is
+trivial; the *backfill* is what the cap constrains. A full historical statistics pull is a
+three-week background job, not something to run inside a refresh. Whether `/odds` batches by
+`league+season` — in which case it is cheap — or is per-fixture like statistics is a **stage-1
+question**, and it decides whether odds migration is a day or a month.
+
+Consequence for sequencing: match data can migrate immediately; statistics and odds are a separate,
+rate-limited backfill with its own budget, run once and then maintained incrementally.
 
 ---
 
 ## Which leagues move, and why
 
-The deciding fact: **API-Football supplies no xG** — `_parse_fixtures` writes `home_xg: np.nan`
-explicitly — **and no market odds**.
+**Correction, 2026-08-08 (owner).** An earlier draft of this spec said "API-Football supplies no xG
+and no market odds". That was wrong, and the error is worth keeping visible because it nearly halved
+the plan's ambition. What is actually true, verified against cached responses:
 
-| Current source | Leagues | Uniquely provides | Migrate? |
+- The **`/fixtures`** endpoint — the *only* one this adapter has ever called — returns exactly
+  `fixture, league, teams, goals, score` per match. No odds, no statistics, no xG. So
+  `_parse_fixtures` writing `home_xg: np.nan` is correct **for that endpoint**.
+- The plan **also includes Pre-match Odds, In-play Odds and Statistics** as separate endpoints. We
+  have never called them. "Our adapter does not fetch X" is not "the API does not have X", and the
+  first draft treated them as the same sentence.
+
+So the migration is potentially much larger than 30 leagues, and for the 30 ESPN ones it is an
+**upgrade rather than a lateral move** — they carry no xG today and could gain it.
+
+| Current source | Leagues | Today's unique value | Migrate? |
 |---|---|---|---|
-| **ESPN** | **30** | nothing — measured: **0 of 30 carry xG, 0 carry market odds** | ✅ **Yes** |
-| football-data | 17 | Pinnacle closing 1X2 odds — the betting benchmark | ❌ No |
-| football-data intl | 14 | Pinnacle closing odds (PSCH/PSCD/PSCA) | ❌ No |
-| understat | 5 | xG — a champion model input | ❌ No |
-| ASA | 2 | MLS xG | ❌ No |
+| **ESPN** | **30** | none — measured: **0 of 30 carry xG, 0 carry market odds** | ✅ **Yes, and may gain xG** |
+| football-data | 17 | Pinnacle closing 1X2 | ⚠️ Only if `/odds` is demonstrably as good |
+| football-data intl | 14 | Pinnacle closing 1X2 | ⚠️ Same |
+| understat | 5 | xG — a champion model input | ⚠️ Only if `/statistics` carries real xG |
+| ASA | 2 | MLS xG | ⚠️ Same |
 | API-Football | 2 | already there | — |
 
-**Migration target: the 30 ESPN leagues, and only those.** They lose nothing, because they have
-nothing to lose — ESPN gives them neither xG nor odds today. Every other league would trade a real
-model input or the value layer for a more reliable transport, which is a bad trade.
+**The 30 ESPN leagues move unconditionally** — nothing to lose, something to gain. Everything else
+moves only on evidence, and the bar is high: Pinnacle closing odds and understat xG are load-bearing
+for the value layer and the champion model respectively. "Available from the same vendor" is not
+evidence they are equivalent.
 
-That also means the migration is **not** a failover any more. For those 30, API-Football becomes the
-**primary** and ESPN the fallback — the reverse of the earlier design, and better: it moves the
-reliable source into the hot path instead of leaving it as a spare tyre nobody exercises.
+For migrated leagues API-Football becomes **primary** and ESPN the fallback — the reverse of the
+earlier failover design, and better: it puts the reliable source in the hot path instead of leaving
+it a spare tyre nobody exercises.
 
 ---
 
@@ -61,12 +94,23 @@ reliable source into the hot path instead of leaving it as a spare tyre nobody e
 These are the reasons to map before spending, and each is a genuine risk to correctness rather than
 to cost.
 
-1. **Pagination is not handled.** `_get` returns `payload["response"]` and nothing in the adapter
-   reads `paging.total` or `paging.current`. If API-Football pages a 380-fixture season, we would
-   silently ingest only the first page and every downstream table would be wrong with no error. The
-   2023 Leagues Cup pull returned all 77 fixtures in one response, so it is unpaged at that size —
-   **that proves nothing about a 380-match season.** Resolve first; it also changes the request
-   accounting.
+1. **Endpoint semantics for statistics and odds — the biggest unknown.** Are they keyed per fixture
+   or per `league+season`? That single answer is the difference between a 2.4-day backfill and a
+   21-day one, and between odds migration being cheap or being a month. Nothing else in this spec
+   moves until it is settled. Answer it from the documentation and one probe fixture, not by
+   launching a bulk job.
+2. **Does `/statistics` actually carry expected goals**, for which leagues, and how far back? "The
+   plan includes Statistics" does not mean every competition has xG in it. understat's xG is a
+   champion model input; replacing it with a thinner series would quietly degrade the model. Compare
+   on a league understat already covers, match by match, before trusting it anywhere.
+3. **Are `/odds` comparable to Pinnacle closing?** The value layer is benchmarked against Pinnacle
+   closing 1X2 specifically. A different book, or opening rather than closing prices, is a different
+   measurement — and the paper ledger's history would no longer be comparable to its future.
+4. **Pagination is not handled.** `_get` returns `payload["response"]` and nothing reads
+   `paging.total`. A cached 232-fixture season came back as `paging {current: 1, total: 1}`, so the
+   fixtures endpoint is unpaged at that size — **that proves nothing at 552**, which the English
+   tiers run, and nothing at all about the statistics endpoint. Build the handler; verify rather
+   than assume.
 2. **Season depth.** Training is 2017+ and 2020-excluded (`CLAUDE.md`). The free plan serves
    2022–2024. Whether the paid plan reaches 2017 for these leagues decides whether migration is
    possible at all without losing training history.
@@ -116,9 +160,15 @@ about it from a 403.
 | Stage | Requests | Gate |
 |---|---|---|
 | **0 — Build blind** | **0** | none — start immediately |
-| **1 — Map once** | **~1** | owner reviews the mapping file |
+| **1 — Map and probe** | **~5** | owner reviews the mapping; endpoint semantics settled |
 | **2 — Validate on free** | ~10 | none |
-| **3 — Migrate** | ~30/day | paid plan |
+| **3 — Migrate match data** | ~30/day | paid plan |
+| **4 — Statistics / odds backfill** | metered, weeks | only if stage 1 proves quality |
+
+Stages 3 and 4 are deliberately separate. Match data is a same-day migration with a trivial request
+cost; statistics and odds are a long metered backfill whose value depends entirely on the stage-1
+quality answers. Coupling them would hold a cheap, certain win hostage to an expensive, uncertain
+one.
 
 ### Stage 0 — build blind (no requests, no approval)
 Source router, budget guard, provenance field, pagination handling, and the mapping file's schema
@@ -128,12 +178,15 @@ and loader — all against mocks and committed fixtures.
 migrated league, falls back to ESPN when it fails, records which source answered, and refuses past
 budget. Pagination is exercised against a fixture with a multi-page `paging` object.
 
-### Stage 1 — map once (~1 request)
-Fetch the catalogue, cache and commit it, match the 30 offline, flag the ambiguous.
+### Stage 1 — map and probe (~5 requests)
+Fetch the catalogue once, cache and commit it, match offline, flag the ambiguous. Then spend a
+handful of deliberate probes on the four unknowns above: one statistics call and one odds call on a
+known fixture, and one fixtures call on a 552-match season.
 
-**Acceptance:** `config/api_football_leagues.json` committed with every one of the 30 either mapped
-or explicitly marked unavailable, and the ambiguous ones flagged for review. Pagination and season
-depth answered from the cached catalogue and one probe fixture.
+**Acceptance:** `config/api_football_leagues.json` committed with every candidate either mapped or
+explicitly marked unavailable. The probe results are written into this spec as measured facts —
+endpoint keying, whether xG is present and for which leagues, which book the odds come from, and
+whether 552 fixtures page. **Stage 4 is not scoped until those numbers exist.**
 
 ### Stage 2 — validate on the free key (~10 requests)
 Blackhole ESPN; confirm failover fires, provenance records, budget enforces, payloads still build.
