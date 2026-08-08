@@ -349,7 +349,13 @@ These require account access or business decisions and cannot be completed from 
   disagreements, recorded); CPL widened to 2020+, K League 1 to 2018+ with the Sangju→Gimcheon
   identity unified (DATA_STATUS flip deferred until CI rebuilds their payloads); CI carries
   `API_FOOTBALL_KEY`/`API_FOOTBALL_PLAN=mega`. Batch 1's observation week runs on CI; batch 2
-  gates on it. Next also: Stage 4 statistics backfill (~46k ceiling) can start any time on Mega.
+  gates on it. **Stage 4 complete:** 46,205 statistics sheets fetched across 205 league-season
+  units / 52 competitions for 46,485 requests (31% of one Mega day, ~4.5 h). **92.1% carry
+  `expected_goals`** — 29 competitions at ≥99%, 9 at 95–99%, and **14 below 95%** (uruguay-primera
+  19%, finland 39%, liga-f 49%, k-league-1 56%, canadian-pl 57%, conference/bolivia 63%, thai/
+  france-premiere-ligue 78%, wsl 79%, ireland/ucl 81%, leagues-cup 88%, paraguay 93%) where the
+  provider simply has no sheet for many fixtures. The data is INERT — per invariant 4 it reaches
+  the model only through a gated Brier-compared experiment, which is the next owner decision.
   Spec: `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
 - Club Watch season history: the existing History view now consumes the reconstructed early-season
   dataset, preserves exact-archive precedence and point provenance, selects a useful historical

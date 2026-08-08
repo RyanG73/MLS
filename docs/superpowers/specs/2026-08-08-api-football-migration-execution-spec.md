@@ -343,7 +343,7 @@ buy.** Nothing beyond the free tier is spent until the owner confirms the Mega p
 | **2 — Validate on free key** | ~20 | none | one league builds end-to-end from the spine; payload compared column by column |
 | **☑ Purchase checkpoint** | 0 | **owner buys Mega** | "infrastructure complete, ready to buy" — nothing beyond the free tier before this |
 | **3 — Tier A migration** | ~30/day | Mega active | 30 leagues on the spine, ESPN as fallback |
-| **4 — Statistics backfill** | metered, ~1–2 days on Mega | stage-1 quality proof | xG for the 63 leagues that have none — **statistics only** |
+| **4 — Statistics backfill** | ✅ done: 46,485 (~4.5 h) | stage-1 quality proof | 46,205 sheets, 92.1% carry xG, 52 competitions |
 | **5 — Tier C validation sample** | ~400 | measured comparison | API-Football xG vs understat, match-for-match, one league-season |
 | **6 — Tier D expansion** | ~1/day each | owner picks from the §5 menu | new competitions |
 
@@ -464,12 +464,53 @@ whose data disagrees materially is rolled back to ESPN-first and recorded.
 showing the spine answering for both leagues, plus the CPL/K-League payload rebuild landing, then
 the `DATA_STATUS` flip.
 
-### Stage 4 — statistics, and only statistics
-One request per played match against `/fixtures/statistics`, for the 63 xG-less leagues,
-recent-first per league and extending backward until the API's depth, the data's real xG coverage,
-or 2017 — whichever comes first (§4.2). Lineups, odds and events are deferred families (§3.1) and no
-part of this stage. Resumable and idempotent per §6.5: a job that can finish inside a Mega day must
-still survive being interrupted in the middle of one.
+### Stage 4 — statistics, and only statistics — COMPLETE 2026-08-08
+
+One request per played match against `/fixtures/statistics`, recent-first, for the competitions
+without a real xG source. Lineups, odds and events are deferred families (§3.1) and no part of this
+stage.
+
+**Result: 46,205 stat sheets across 205 league-season units and 52 competitions, for 46,485
+requests — 31% of a single Mega day.** The ~46k projection derived at Stage 1 was accurate to
+within 1%. Runtime ~4.5 hours, paced by network round-trip (~126 sheets/min), never by quota: the
+Mega rate limit was never the binding constraint.
+
+**xG coverage: 42,577 of 46,205 sheets carry `expected_goals` — 92.1%.** Not uniform, and the
+distribution is what matters for the feature campaign:
+
+| Coverage | Competitions | Notes |
+|---|---|---|
+| ≥99% | **29** | usable as-is; complete rolling windows |
+| 95–99% | 9 | usable; occasional gaps |
+| <95% | **14** | gappy — see below |
+
+By season: 2023 **95.6%**, 2024 93.1%, 2025 90.4%, 2026 81.5% (in-progress seasons lag — sheets
+are published after the match, so the newest fixtures are thinnest). The 2023 figure settles the
+boundary question: xG does not fade toward its first year, it stops abruptly before it, exactly as
+the Stage-1 probe measured.
+
+The 14 below 95% are: `uruguay-primera` (19%), `finland-veikkausliiga` (39%), `liga-f` (49%),
+`k-league-1` (56%), `canadian-pl` (57%), `conference` (63%), `bolivia-profesional` (63%),
+`thai-league-1` (78%), `france-premiere-ligue` (78%), `wsl` (79%), `ireland-premier` (81%),
+`ucl` (81%), `leagues-cup` (88%), `paraguay-primera` (93%). The shortfall is almost entirely
+**empty responses** — the provider has no stat sheet for that fixture at all — not sheets missing
+the xG field. **These leagues cannot be assumed to have model-usable xG**, and the feature campaign
+must gate per league on realised coverage rather than on "the backfill ran".
+
+**Sampling caution, recorded because it misled this session's own progress reports:** mid-run
+samples of "the newest N sheets by mtime" showed 98–100% coverage and were quoted as evidence. That
+sample is ordered by whichever league was in flight, not by anything representative — the true
+figure was 92.1% the whole time. Coverage claims must come from a full pass over the store, which
+is cheap and needs no requests.
+
+**Resumability was exercised twice, not just designed:** a provider-side `5xEr` bug killed the
+first run at 676 sheets (fixed: transient errors skip and retry, 20 consecutive abort as systemic),
+and 16 isolated network read timeouts were skipped mid-run and recovered by a 16-request rerun.
+Total loss across both incidents: zero sheets.
+
+**The data is inert.** Nothing here touches the champion model: invariant 4 requires new features
+to enter through a gated experiment with a Brier comparison, never as a consequence of a plumbing
+change. The xG feature campaign is the next decision, and it is the owner's.
 
 ---
 
