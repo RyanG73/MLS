@@ -57,7 +57,13 @@ class PlanMismatch(BudgetError):
 
 
 def expected_plan() -> str:
-    """The plan we believe we are on (env API_FOOTBALL_PLAN, default free)."""
+    """The plan we believe we are on (env API_FOOTBALL_PLAN, default free).
+
+    Consults the repo-root .env first: budget checks run BEFORE the first
+    request, so waiting for the request path's dotenv load would leave a
+    fresh process on the free-plan default and refuse a paid backfill."""
+    from data_pipeline.api_football import _load_dotenv
+    _load_dotenv()
     name = os.environ.get("API_FOOTBALL_PLAN", "free").strip().lower()
     if name not in PLANS:
         raise BudgetError(

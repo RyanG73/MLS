@@ -122,6 +122,18 @@ def test_assert_plan_missing_header_is_noop(monkeypatch):
     api_budget.assert_plan({})  # no raise
 
 
+def test_expected_plan_consults_dotenv_before_defaulting(monkeypatch):
+    """A fresh process (backfill CLI, cron) must see the .env plan BEFORE the
+    first budget check — otherwise check_budget runs against the free-plan
+    default and refuses a paid backfill (the 2026-08-08 stage-4 stall)."""
+    import os
+    from data_pipeline import api_football, api_budget
+    monkeypatch.delenv("API_FOOTBALL_PLAN", raising=False)
+    monkeypatch.setattr(api_football, "_load_dotenv",
+                        lambda: os.environ.setdefault("API_FOOTBALL_PLAN", "pro"))
+    assert api_budget.expected_plan() == "pro"
+
+
 def test_unknown_plan_name_fails_closed(monkeypatch):
     from data_pipeline import api_budget
     monkeypatch.setenv("API_FOOTBALL_PLAN", "premium-deluxe")
