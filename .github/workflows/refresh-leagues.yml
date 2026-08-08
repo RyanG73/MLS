@@ -18,6 +18,11 @@ permissions:
 # (matches the local build_all.sh; prevents ModuleNotFoundError in CI).
 env:
   PYTHONPATH: ${{ github.workspace }}
+  # API-Football spine (Stage 3, 2026-08-08) — see refresh-daily.yml for the
+  # plan/lapse-guard contract. Keep the plan value in sync across workflows.
+  API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+  API_FOOTBALL_PLAN: mega
+  API_FOOTBALL_OPS_BUDGET: "2000"
 
 jobs:
   refresh:

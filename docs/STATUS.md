@@ -342,9 +342,14 @@ These require account access or business decisions and cannot be completed from 
   champion feature builder accepts the frame unmodified; ten club-name pairs measured as the
   Stage-3 name-map seed. **Backfill job built** (`data_pipeline/backfill_statistics.py`,
   resumable/idempotent, statistics-only, 205 units / 52 competitions planned, refuses to run on
-  the free plan by construction). **Purchase checkpoint reached: infrastructure complete, ready
-  to buy** — owner buys Mega ($39, month 1), then Stage 3 begins; nothing beyond the free tier
-  is spent before that confirmation.
+  the free plan by construction). **Mega purchased and header-verified 2026-08-08; Stage 3
+  batch 1 shipped:** northern-super-league and usl-super-league migrated to spine-first with ESPN
+  fallback (100% scoreline agreement, standings identical; USL-SL gains its 2024 inaugural
+  season); costa-rica-primera held on ESPN-first (2015-history + 4 unadjudicated scoreline
+  disagreements, recorded); CPL widened to 2020+, K League 1 to 2018+ with the Sangju→Gimcheon
+  identity unified (DATA_STATUS flip deferred until CI rebuilds their payloads); CI carries
+  `API_FOOTBALL_KEY`/`API_FOOTBALL_PLAN=mega`. Batch 1's observation week runs on CI; batch 2
+  gates on it. Next also: Stage 4 statistics backfill (~46k ceiling) can start any time on Mega.
   Spec: `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
 - Club Watch season history: the existing History view now consumes the reconstructed early-season
   dataset, preserves exact-archive precedence and point provenance, selects a useful historical

@@ -16,6 +16,7 @@ source-agnostic.
 """
 from __future__ import annotations
 
+import functools
 import json
 import os
 import time
@@ -29,6 +30,11 @@ from data_pipeline.understat import _COLS
 
 _BASE = "https://v3.football.api-sports.io"
 _CACHE = Path("data/api_football")
+# Per-league canonical name map: {league_slug: {api_football_name: our_name}}.
+# Our names are the ESPN spellings the rest of the platform is keyed on
+# (crests, team_metadata, payloads). Measured per league during Stage-3
+# migration diffs — never typed from memory.
+_NAMES_PATH = Path("config/api_football_team_names.json")
 _FINISHED = {"FT", "AET", "PEN"}          # completed match statuses
 _HDR_KEY = "x-apisports-key"
 
@@ -36,18 +42,33 @@ _HDR_KEY = "x-apisports-key"
 # via `find_league_id()` before the first real build (see the plan's Task 9/10).
 LEAGUE: dict[str, tuple[int, list[int]]] = {
     # IDs confirmed live via find_league_id (2026-07-11). CPL is the only league
-    # that depends on API-Football (not on football-data OR ESPN). The FREE plan
-    # only serves seasons 2022–2024, so CPL ships results-only off the latest free
-    # season (2024); widen this range once a paid plan unlocks the current season.
+    # that depends on API-Football (not on football-data OR ESPN).
+    # Seasons widened 2026-08-08 on the paid plan (Mega): current seasons
+    # unlock (2025/2026 — was capped at the free tier's 2024) AND deeper
+    # history per the approved map (config/api_football_league_map.json —
+    # CPL's catalogue depth starts 2020, K League 1's starts 2016).
     # Finland/Poland are NOT here — their results+odds come from current
-    # football-data and they ship results-only (the free tier can't serve their
-    # 2026 upcoming fixtures anyway).
-    "canadian-pl":            (479, [2022, 2023, 2024]),
+    # football-data and they ship results-only.
+    "canadian-pl":            (479, [2020, 2021, 2022, 2023, 2024, 2025, 2026]),
     # Round 5 (2026-07-14): K League 1 (South Korea) has NO working ESPN slug
     # (kor.1 / kor.k1 / k.league.1 all confirmed live to return 0 teams) and
-    # is not on football-data.co.uk. Ships results-only off the free plan's
-    # 2022-2024 seasons, same treatment as CPL.
-    "k-league-1":             (292, [2022, 2023, 2024]),
+    # is not on football-data.co.uk.
+    # 2016/2017 deliberately excluded: 2017 is a measured data hole (15
+    # fixtures, 6 teams) and 2016 would sit orphaned across the gap. 2018+ is
+    # full (228/12 per season) — still four seasons deeper than the free tier.
+    "k-league-1":             (292, [2018, 2019, 2020, 2021,
+                                     2022, 2023, 2024, 2025, 2026]),
+    # ── Stage 3, batch 1 (2026-08-08): smallest Tier A leagues, migrated from
+    # ESPN with the spine primary and ESPN as registry fallback. Ids and season
+    # depth from the owner-approved map; team names normalized to ESPN spelling
+    # via config/api_football_team_names.json.
+    "northern-super-league":  (1182, [2025, 2026]),
+    "usl-super-league":       (1130, [2024, 2025, 2026]),
+    # HELD — not routed (no source_registry entry): spine history is 2016+ vs
+    # ESPN's 2015+, and 4/110 diffed scorelines disagreed. Entry retained for
+    # the statistics backfill and a future adjudicated migration.
+    "costa-rica-primera":     (162, [2016, 2017, 2018, 2019, 2020, 2021,
+                                     2022, 2023, 2024, 2025, 2026]),
 }
 
 # Some leagues' /fixtures response mixes in a promotion/relegation playoff vs a
@@ -61,18 +82,31 @@ LEAGUE: dict[str, tuple[int, list[int]]] = {
 # "Relegation Round". Excluded by exact round-name match so standings don't
 # pick up a 13th team for a handful of matches.
 ROUND_EXCLUDE: dict[int, set[str]] = {
-    292: {"Relegation Round"},
+    # K League 1: the cross-tier promotion/relegation playoff vs a K League 2
+    # side is round "Relegation Round" (bare, 2022–2024) or "Final" (2019,
+    # 2025 — measured 2026-08-08: those rounds' only non-league teams are
+    # K League 2 sides Busan I Park / Bucheon FC 1995 / Suwon Bluewings).
+    # The dash-numbered "Championship/Relegation Round - N" split fixtures are
+    # real league games and stay.
+    292: {"Relegation Round", "Final"},
 }
 
 # Some leagues' /fixtures response uses inconsistent team names for the SAME
-# club within one season. Found in K League 1's 2022 season: the military
-# rotation club is "Sangju Sangmu FC" in every "Regular Season" fixture but
-# "Gimcheon Sangmu FC" (its 2023+ name, after relocating cities) in that
-# season's "Relegation Round - N" fixtures — an API-side data artifact, not a
-# real name change mid-season. Renamed at parse time so 2022 doesn't split one
-# club's record across two identities. Keyed by (af_id, season).
+# club within one season, or a club renames across seasons and would split its
+# record into two identities. Keyed by (af_id, season); unification is FORWARD,
+# to the club's current name, matching how the platform keys crests/metadata.
+#
+# K League 1's military rotation club: "Sangju Sangmu FC" through 2022 (the
+# 2022 season mixes both spellings — regular season Sangju, relegation round
+# Gimcheon), "Gimcheon Sangmu FC" from 2024 (city relocation; 2021/2023 spent
+# in K League 2). One franchise, one identity: Gimcheon. The original
+# 2026-07-14 fix unified 2022 toward Sangju, which was right for a 2022-2024
+# window; with 2018+ history (2026-08-08) the current name wins.
 TEAM_RENAME: dict[tuple[int, int], dict[str, str]] = {
-    (292, 2022): {"Gimcheon Sangmu FC": "Sangju Sangmu FC"},
+    (292, 2018): {"Sangju Sangmu FC": "Gimcheon Sangmu FC"},
+    (292, 2019): {"Sangju Sangmu FC": "Gimcheon Sangmu FC"},
+    (292, 2020): {"Sangju Sangmu FC": "Gimcheon Sangmu FC"},
+    (292, 2022): {"Sangju Sangmu FC": "Gimcheon Sangmu FC"},
 }
 
 
@@ -237,16 +271,36 @@ def _fetch_league(af_id: int, seasons: list[int]) -> pd.DataFrame:
 
 
 # ── public API ───────────────────────────────────────────────────────────────
+@functools.lru_cache(maxsize=1)
+def _team_names() -> dict[str, dict[str, str]]:
+    """Load the per-league canonical name map (empty when absent)."""
+    try:
+        return json.loads(_NAMES_PATH.read_text())
+    except FileNotFoundError:
+        return {}
+
+
+def _apply_names(df: pd.DataFrame, league_id: str) -> pd.DataFrame:
+    names = _team_names().get(league_id)
+    if not names or df.empty:
+        return df
+    for col in ("home_team", "away_team"):
+        df[col] = df[col].map(lambda n: names.get(n, n))
+    return df
+
+
 def results_frame(league_id: str) -> pd.DataFrame:
-    """Full canonical frame (played + scheduled) across all configured seasons."""
+    """Full canonical frame (played + scheduled) across all configured seasons,
+    with team names normalized to our canonical (ESPN) spellings."""
     af_id, seasons = LEAGUE[league_id]
-    return _fetch_league(af_id, seasons)
+    return _apply_names(_fetch_league(af_id, seasons), league_id)
 
 
 def upcoming_fixtures(league_id: str) -> pd.DataFrame:
     """Not-yet-played fixtures for the latest configured season."""
     af_id, seasons = LEAGUE[league_id]
     df = _fetch_league(af_id, [max(seasons)]) if seasons else pd.DataFrame(columns=_COLS)
+    df = _apply_names(df, league_id)
     return df[~df["is_result"]].copy() if not df.empty else df
 
 
@@ -263,10 +317,12 @@ def team_logos(league_id: str) -> dict[str, dict]:
         payload = _get_paged("teams", {"league": af_id, "season": max(seasons)})
         _CACHE.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(payload))
+    names = _team_names().get(league_id, {})
     out: dict[str, dict] = {}
     for t in payload.get("response", []):
         team = t.get("team", {})
         name = team.get("name")
         if name:
-            out[name] = {"logo": team.get("logo"), "color": None}
+            # Keyed by our canonical spelling so crest lookups match the frame.
+            out[names.get(name, name)] = {"logo": team.get("logo"), "color": None}
     return out

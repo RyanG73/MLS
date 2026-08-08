@@ -28,9 +28,25 @@ from typing import Callable
 
 import pandas as pd
 
-# league_id → {family: [source, ...]} in priority order. Deliberately empty at
-# Stage 0; Tier A migration (Stage 3) adds entries batch by batch.
-REGISTRY: dict[str, dict[str, list[str]]] = {}
+# league_id → {family: [source, ...]} in priority order. Empty at Stage 0;
+# Tier A migration (Stage 3) adds entries batch by batch, each backed by a
+# full-season diff at 100% scoreline agreement before it lands here.
+REGISTRY: dict[str, dict[str, list[str]]] = {
+    # ── Stage 3, batch 1 (2026-08-08) ────────────────────────────────────────
+    # Validated: every shared-season fixture matched, 100% scoreline
+    # agreement, standings identical (see the spec's Stage-3 record).
+    # ESPN stays as ordered fallback; a spine failure is recorded in
+    # source_health and the build falls back rather than failing.
+    # NSL: spine adds 2026 in-progress coverage ESPN 403'd on during
+    # validation. USL Super League: spine adds the 2024 inaugural season
+    # ESPN never had — a history GAIN.
+    "northern-super-league": {"fixtures": ["api_football", "espn"]},
+    "usl-super-league":      {"fixtures": ["api_football", "espn"]},
+    # costa-rica-primera: HELD on ESPN-first (2026-08-08) — spine history
+    # starts 2016 vs ESPN's 2015 (invariant 3: no history loss), and 4 of 110
+    # matched fixtures disagreed on scorelines, unadjudicated. Revisit with a
+    # name-mapped full diff before any flip.
+}
 
 
 def sources_for(league_id: str, family: str, default: str) -> list[str]:

@@ -437,6 +437,33 @@ Smallest and least-watched leagues first. Each batch runs a full week with `sour
 the spine answering, spend published, and payloads byte-comparable apart from `generated`. Any league
 whose data disagrees materially is rolled back to ESPN-first and recorded.
 
+**Batch 1 shipped 2026-08-08 (Mega purchased and header-verified; ~35 requests, 66 total today).**
+
+- **Migrated to spine-first, ESPN fallback:** `northern-super-league` and `usl-super-league` —
+  the two smallest Tier A leagues. Validation: every shared-season fixture matched, **100%
+  scoreline agreement, standings identical**. Both are wins beyond reliability: the spine covers
+  NSL's in-progress 2026 (which ESPN 403'd on *during the validation itself*) and adds USL Super
+  League's 2024 inaugural season, which ESPN never had. Name maps measured (API-Football suffixes
+  women's teams with " W") in `config/api_football_team_names.json`, applied in the adapter so
+  frames carry ESPN-canonical spellings.
+- **Held on ESPN-first, recorded:** `costa-rica-primera` — spine history starts 2016 vs ESPN's
+  2015 (invariant 3), and 4 of 110 name-matched fixtures disagreed on scorelines, unadjudicated.
+  Revisit with a full name-mapped diff.
+- **Paid-plan unlock for the existing spine leagues:** CPL widened to 2020–2026 (founding era),
+  K League 1 to 2018–2026. Measured on the way: K League's 2017 is a data hole (15 fixtures — the
+  catalogue coverage flags overstate depth, exactly as Stage 1 cautioned); the cross-tier
+  relegation playoff round is named "Final" in 2019/2025 (added to `ROUND_EXCLUDE`); and the
+  Sangju→Gimcheon relocation is now unified forward to one club identity across 2018–2026.
+  `DATA_STATUS` stays "historical" until the first CI rebuild ships current-season payloads —
+  flipping earlier would fail `validate_payloads` against the stale payloads.
+- **CI wired:** `API_FOOTBALL_KEY` repo secret set; `refresh-daily.yml` and `refresh-leagues.yml`
+  carry the key, `API_FOOTBALL_PLAN=mega` (the lapse guard's expectation — update on every plan
+  change), and `API_FOOTBALL_OPS_BUDGET=2000`.
+
+**Batch 1's observation week runs on CI from here.** Gate for batch 2: a week of `source_health`
+showing the spine answering for both leagues, plus the CPL/K-League payload rebuild landing, then
+the `DATA_STATUS` flip.
+
 ### Stage 4 — statistics, and only statistics
 One request per played match against `/fixtures/statistics`, for the 63 xG-less leagues,
 recent-first per league and extending backward until the API's depth, the data's real xG coverage,

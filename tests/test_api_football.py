@@ -68,6 +68,40 @@ def test_results_and_upcoming_split(monkeypatch):
     assert (~up["is_result"]).all() and len(up) == 1
 
 
+# ── per-league canonical name map (Stage 3: spine names → our ESPN names) ────
+def test_results_frame_applies_configured_team_names(monkeypatch, tmp_path):
+    """Spine frames must carry OUR canonical (ESPN) spellings so crests,
+    metadata, and downstream name-keyed logic survive the source flip."""
+    import json
+    from data_pipeline import api_football
+    cfg = tmp_path / "names.json"
+    cfg.write_text(json.dumps(
+        {"canadian-pl": {"Forge FC": "Forge", "Pacific FC": "Pacific"}}))
+    monkeypatch.setattr(api_football, "_NAMES_PATH", cfg)
+    api_football._team_names.cache_clear()
+    monkeypatch.setattr(api_football, "_fetch_league",
+                        lambda af_id, seasons: api_football._parse_fixtures(_sample_payload()))
+    monkeypatch.setitem(api_football.LEAGUE, "canadian-pl", (468, [2025, 2026]))
+    df = api_football.results_frame("canadian-pl")
+    names = set(df["home_team"]) | set(df["away_team"])
+    assert "Forge" in names and "Pacific" in names
+    assert "Forge FC" not in names
+    assert "Cavalry FC" in names            # unmapped names pass through
+    api_football._team_names.cache_clear()
+
+
+def test_results_frame_without_config_is_unchanged(monkeypatch, tmp_path):
+    from data_pipeline import api_football
+    monkeypatch.setattr(api_football, "_NAMES_PATH", tmp_path / "absent.json")
+    api_football._team_names.cache_clear()
+    monkeypatch.setattr(api_football, "_fetch_league",
+                        lambda af_id, seasons: api_football._parse_fixtures(_sample_payload()))
+    monkeypatch.setitem(api_football.LEAGUE, "canadian-pl", (468, [2025, 2026]))
+    df = api_football.results_frame("canadian-pl")
+    assert "Forge FC" in set(df["home_team"])
+    api_football._team_names.cache_clear()
+
+
 # ── pagination (spec Stage 0: built blind, tested against fixtures) ──────────
 def _page_fixture(fid: int) -> dict:
     return {"fixture": {"id": fid, "date": "2025-04-05T23:00:00+00:00",

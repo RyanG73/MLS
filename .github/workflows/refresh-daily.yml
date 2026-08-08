@@ -17,6 +17,14 @@ permissions:
 # job failed for 8+ days with ModuleNotFoundError: No module named 'data_pipeline').
 env:
   PYTHONPATH: ${{ github.workspace }}
+  # API-Football spine (Stage 3, 2026-08-08). The plan expectation feeds the
+  # governor's silent-lapse guard: if the subscription lapses to Free, the
+  # rate-limit headers stop matching and the build fails LOUD instead of
+  # quietly regressing to 2024-capped data. Update the plan value when the
+  # subscription changes (mega month 1 → pro after).
+  API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+  API_FOOTBALL_PLAN: mega
+  API_FOOTBALL_OPS_BUDGET: "2000"
 
 jobs:
   detect:

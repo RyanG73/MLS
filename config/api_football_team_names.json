@@ -1,0 +1,21 @@
+{
+  "northern-super-league": {
+    "AFC Toronto W": "AFC Toronto",
+    "Calgary Wild W": "Calgary Wild FC",
+    "Halifax Tides W": "Halifax Tides FC",
+    "Montreal Roses W": "Montreal Roses FC",
+    "Ottawa Rapid W": "Ottawa Rapid FC",
+    "Vancouver Rise W": "Vancouver Rise FC"
+  },
+  "usl-super-league": {
+    "Brooklyn W": "Brooklyn FC",
+    "Carolina Ascent W": "Carolina Ascent FC",
+    "DC Power W": "DC Power FC",
+    "Dallas Trinity W": "Dallas Trinity FC",
+    "Fort Lauderdale United W": "Fort Lauderdale United FC",
+    "Lexington W": "Lexington SC",
+    "Spokane Zephyr W": "Spokane Zephyr FC",
+    "Sporting JAX W": "Sporting Jax",
+    "Tampa Bay Sun W": "Tampa Bay Sun FC"
+  }
+}

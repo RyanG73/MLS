@@ -56,8 +56,14 @@ def test_phase3_finland_results_only():
 
 
 def test_finland_poland_not_in_api_football():
-    # results-only leagues must not hit API-Football (free plan lacks their seasons)
+    # Results-only leagues must not hit API-Football: their results+odds come
+    # from football-data, and no registry route points them at the spine.
     from data_pipeline.api_football import LEAGUE
     assert "finland-veikkausliiga" not in LEAGUE
     assert "poland-ekstraklasa" not in LEAGUE
-    assert LEAGUE["canadian-pl"][1] == [2022, 2023, 2024]
+    # Paid plan (2026-08-08): CPL's seasons run its full catalogue depth (2020,
+    # the club's founding era per the approved map) through the current season.
+    # The old free-tier pin ([2022, 2023, 2024]) is retired with the free plan.
+    seasons = LEAGUE["canadian-pl"][1]
+    assert seasons[0] == 2020 and seasons[-1] >= 2026
+    assert seasons == sorted(seasons)
