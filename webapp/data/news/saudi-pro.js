@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"saudi-pro","generated":"2026-08-08 22:57 UTC","items":[]};
+window.NEWS_DATA = {"league":"saudi-pro","generated":"2026-08-08 23:18 UTC","items":[]};
