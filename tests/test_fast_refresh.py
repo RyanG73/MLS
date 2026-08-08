@@ -4,6 +4,9 @@ import copy
 import datetime as dt
 import json
 
+import requests
+
+from scripts import fast_refresh
 from scripts.fast_refresh import apply_feed, in_match_window, select_leagues
 from scripts.intelligence.simulation import run_simulation
 from scripts.payload_utils import write_js_payload
@@ -122,6 +125,73 @@ def test_completed_result_advances_table_without_changing_probability_matrix():
     }], now=NOW + dt.timedelta(minutes=15), sims=200)
     assert again["results_applied"] == 0
     assert json.dumps(payload["standings"], sort_keys=True) == before
+
+
+def _stub_refresh(monkeypatch, selected, dead):
+    """Point --refresh-selected at `selected`, failing the feed for `dead`."""
+    refreshed = []
+
+    def fake_refresh(league_id, sims=None):
+        if league_id in dead:
+            raise requests.HTTPError(
+                f"403 Client Error: Forbidden for url: .../{league_id}/scoreboard")
+        refreshed.append(league_id)
+        return {"league_id": league_id, "results_applied": 0,
+                "kickoff_updates": 0, "feed_rows": 0, "generated": None}
+
+    monkeypatch.setattr(fast_refresh, "select_leagues", lambda: list(selected))
+    monkeypatch.setattr(fast_refresh, "refresh_league", fake_refresh)
+    monkeypatch.setattr("sys.argv", ["fast_refresh.py", "--refresh-selected"])
+    return refreshed
+
+
+def test_one_dead_league_feed_does_not_stop_the_others(monkeypatch, capsys):
+    refreshed = _stub_refresh(
+        monkeypatch, ["arg.1", "bol.1", "bra.1", "usa.1"], dead={"bol.1"})
+
+    assert fast_refresh.main() == 0
+    assert refreshed == ["arg.1", "bra.1", "usa.1"]
+
+    report = json.loads(capsys.readouterr().out)
+    assert [row["league_id"] for row in report["refreshed"]] == [
+        "arg.1", "bra.1", "usa.1"]
+    assert [row["league_id"] for row in report["failed"]] == ["bol.1"]
+
+
+def test_refresh_exits_non_zero_when_most_league_feeds_fail(monkeypatch, capsys):
+    """An IP-wide ESPN block must stay loud — it is not one dead league."""
+    refreshed = _stub_refresh(
+        monkeypatch, ["arg.1", "bol.1", "bra.1", "usa.1"],
+        dead={"arg.1", "bol.1", "bra.1"})
+
+    assert fast_refresh.main() != 0
+    assert refreshed == ["usa.1"]
+    assert len(json.loads(capsys.readouterr().out)["failed"]) == 3
+
+
+def test_refresh_with_nothing_selected_succeeds(monkeypatch, capsys):
+    """Guards the threshold's zero denominator — no leagues is not a failure."""
+    _stub_refresh(monkeypatch, [], dead=set())
+
+    assert fast_refresh.main() == 0
+    assert json.loads(capsys.readouterr().out) == {"refreshed": [], "failed": []}
+
+
+def test_refresh_isolation_does_not_swallow_payload_bugs(monkeypatch):
+    """Only feed errors are per-league. A broken payload is still a hard stop."""
+    monkeypatch.setattr(fast_refresh, "select_leagues", lambda: ["arg.1"])
+    monkeypatch.setattr("sys.argv", ["fast_refresh.py", "--refresh-selected"])
+
+    def fake_refresh(league_id, sims=None):
+        raise AssertionError("fast refresh mutated the fitted probability matrix")
+
+    monkeypatch.setattr(fast_refresh, "refresh_league", fake_refresh)
+    try:
+        fast_refresh.main()
+    except AssertionError as exc:
+        assert "probability matrix" in str(exc)
+    else:
+        raise AssertionError("payload integrity failure was swallowed")
 
 
 def test_mls_fast_simulation_updates_conference_and_cup_targets():

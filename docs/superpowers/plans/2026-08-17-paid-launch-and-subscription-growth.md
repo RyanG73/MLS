@@ -16,6 +16,30 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-08 — The fast refresh no longer lets one dead league feed strand every other league,
+  and it can now report its own failures.** The 403 retry shipped the day before fixed the
+  *transient* case; this fixes the *exhausted* one. `main()` refreshed leagues in a bare list
+  comprehension, so the first league to spend its four attempts aborted the run — measured on
+  `bol.1` in runs `31221990714` and `31218282187`, where Bolivia being unreachable froze
+  projections site-wide. Isolation is scoped to `requests.RequestException` on purpose: a payload
+  bug still stops the run, and a test asserts the pmatrix `AssertionError` is not swallowed.
+  Because ESPN blocks per IP across every endpoint, blanket tolerance would publish a snapshot in
+  which nothing advanced, so the run still exits non-zero above half the selected leagues failing;
+  verified across the boundary (1/60 publishes, 1/1 and 31/60 fail, 0 selected exits 0). Two
+  incidental findings worth keeping. **`refresh-fast.yml` carried no failure alert whatsoever** —
+  that, not the 403, is why seven red runs went unnoticed from 16:03 to 21:56 UTC; it now has the
+  same idempotent `refresh-failure` issue step as its two siblings. And the isolation had to use a
+  **lazy `import requests`**, because the workflow runs `--select` on the runner's bare Python
+  before `pip install`, which is the same reason `espn_get` and `run_simulation` are already
+  deferred into their callers; a module-scope import would have broken the selector step instead.
+  Two STATUS corrections fell out of measuring the streak: it was **seven** consecutive failures,
+  not six, and the retry fix landed at 23:23 UTC — 36 minutes *after* the 22:47 UTC unaided
+  recovery — so no scheduled run has yet exercised the retry ladder against a live 403. **1,920
+  tests pass** (1,916 + the 4 added here); `check_docs.py` PASS. Three `test_static_pages` /
+  `test_surface_contract` failures are pre-existing and were confirmed identical on a stashed
+  tree — they are the known bare-worktree `ArtifactNotFound`, not this change. Proof in
+  `STATUS.md`, row "One dead league feed could abort the whole fast refresh".
+
 - **2026-08-07 — Owner UI feedback, seven of eight items shipped to the working tree; the eighth
   (UEFA competition forecasting) is scoped, not started.** The headline finding is that **item 6 was
   a regression of a fix the owner had already been given**: `webapp/index.html:5192` quotes their

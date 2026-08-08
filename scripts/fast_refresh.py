@@ -312,6 +312,41 @@ def refresh_league(league_id: str, payload_dir: Path = PAYLOAD_DIR,
     return {"league_id": league_id, **result}
 
 
+# One league losing its feed must not strand every other league. On 2026-08-07 a
+# 403 on bol.1 propagated out of the refresh loop and aborted the whole run (see
+# runs 31221990714 / 31218282187); projections went stale site-wide behind a
+# single unavailable competition, and the job had failed for hours unnoticed.
+#
+# Blanket tolerance is the opposite mistake. ESPN rate-limits by IP and then
+# refuses EVERY endpoint (data_pipeline.http), so a real block fails most leagues
+# at once — publishing that snapshot would advertise fresh data for a run where
+# almost nothing advanced. Above this share of failures the run stays loud and
+# the workflow's alert fires; the next quarter-hourly tick retries anyway.
+_FAILURE_TOLERANCE = 0.5
+
+
+def refresh_selected(league_ids: list[str], sims: int | None = None) -> dict:
+    """Refresh each league independently, reporting rather than raising on feed loss."""
+    # Imported here, not at module scope: the workflow runs --select on the
+    # runner's bare Python before `pip install -r requirements.txt`, so this
+    # file must stay importable without requests — same reason espn_get and
+    # run_simulation are deferred into their callers.
+    import requests
+
+    refreshed: list[dict] = []
+    failed: list[dict] = []
+    for league_id in league_ids:
+        try:
+            refreshed.append(refresh_league(league_id, sims=sims))
+        except requests.RequestException as exc:
+            # Feed loss only. A ValueError or the pmatrix AssertionError is a
+            # payload bug, not a dead upstream, and must still stop the run.
+            print(f"fast refresh: {league_id} feed unavailable, skipped — {exc}",
+                  file=sys.stderr)
+            failed.append({"league_id": league_id, "error": str(exc)})
+    return {"refreshed": refreshed, "failed": failed}
+
+
 def write_live_manifest(payload_dir: Path = PAYLOAD_DIR,
                         now: dt.datetime | None = None) -> dict:
     generated = _utc_now(now).strftime("%Y-%m-%d %H:%M UTC")
@@ -344,12 +379,10 @@ def main() -> int:
         print(json.dumps(select_leagues(), separators=(",", ":")))
         return 0
     if args.refresh_selected:
-        results = [
-            refresh_league(league_id, sims=args.sims)
-            for league_id in select_leagues()
-        ]
-        print(json.dumps(results, separators=(",", ":")))
-        return 0
+        report = refresh_selected(select_leagues(), sims=args.sims)
+        print(json.dumps(report, separators=(",", ":")))
+        attempted = len(report["refreshed"]) + len(report["failed"])
+        return int(len(report["failed"]) > attempted * _FAILURE_TOLERANCE)
     if args.manifest:
         print(json.dumps(write_live_manifest(), separators=(",", ":")))
         return 0
