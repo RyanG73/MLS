@@ -152,8 +152,11 @@ def test_sustained_failures_abort_as_systemic(env, monkeypatch):
     calls = []
     real = _fake_api(calls)
 
+    attempts = []
+
     def broken(path, params, budget="ops"):
         if path == "fixtures/statistics":
+            attempts.append(params["fixture"])
             raise RuntimeError("provider down")
         return real(path, params, budget)
 
@@ -162,8 +165,7 @@ def test_sustained_failures_abort_as_systemic(env, monkeypatch):
     units = [("brazil-serie-a", 71, s) for s in (2022, 2023, 2024)]
     with pytest.raises(RuntimeError, match="consecutive"):
         bf.run_units(units)
-    stats_attempts = [p for p, _ in calls if p == "fixtures/statistics"]
-    assert len(stats_attempts) == 2                    # stopped at the cap
+    assert len(attempts) == 2                          # stopped at the cap
 
 
 def test_plan_mismatch_propagates_loudly(env, monkeypatch):
