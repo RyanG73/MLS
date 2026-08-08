@@ -156,6 +156,11 @@ phase 3 rots the first time an adapter changes.
 
 ## Open question — the only one that blocks anything
 
+> **Answered 2026-08-08:** yes — Mega ($39) for month 1 to run the statistics backfill, then Pro
+> ($19) month-to-month. Terms, tiers, and the purchase checkpoint live in
+> [`2026-08-08-api-football-migration-execution-spec.md`](2026-08-08-api-football-migration-execution-spec.md),
+> which supersedes this document's phase 3.
+
 **Is a paid API-Football tier approved, and at what monthly ceiling?** Phase 3 is designed around it
 because the integration already exists, but the phase is source-agnostic: any second provider that
 emits the canonical frame would do. Phases 1, 2 and 4 need no decision and no spend, and I would

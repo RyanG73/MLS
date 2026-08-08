@@ -1,7 +1,9 @@
 # API-Football as the data foundation — execution spec
 
 **As of:** 2026-08-08 · **Owner:** Ryan · **Author:** Claude
-**Status:** for execution in a fresh session. Stage 0 needs no approval and makes no requests.
+**Status:** for execution in a fresh session. All owner decisions are recorded (§9); nothing below
+blocks on an owner answer. Stages 0–2 run on zero requests and the free key; **the paid plan is not
+yet purchased** — it is bought at the §7 checkpoint, after the infrastructure is proven.
 **Supersedes the phase-3 section of** [`2026-08-08-match-data-source-resilience-design.md`](2026-08-08-match-data-source-resilience-design.md);
 phases 1, 2 and 4 of that document are shipped or still stand.
 
@@ -48,8 +50,8 @@ is gained.
 |---|---|---|
 | Results + fixtures, 70 leagues / 78 competitions | ESPN 30, football-data 17, intl 14, understat 5, ASA 2, API-F 2 | **API-Football spine**, specialists retained where required |
 | **xG (model input: 18 of 31 feature columns)** | understat (5), ASA (2) | **understat/ASA retained** unless `/statistics` xG matches them match-for-match |
-| **Pinnacle closing 1X2 (value layer, paper ledger)** | football-data + intl (31) | **retained** unless `/odds` proves comparable |
-| Goalkeeper z-score (3 cols, **MLS only**) | ASA | retained, and **extended to all leagues** if lineups support it |
+| **Pinnacle closing 1X2 (value layer, paper ledger)** | football-data + intl (31) | **retained** — the `/odds` comparison is deferred (§3.1) |
+| Goalkeeper z-score (3 cols, **MLS only**) | ASA | retained; all-league extension via lineups is **deferred** (§3.1) |
 | Squad values | Transfermarkt | unchanged |
 | ELO, projections, bridges, Global ELO | derived in-repo | unchanged |
 | Continental competitions (8) | ESPN | API-Football spine |
@@ -70,31 +72,88 @@ is gained.
 
 From the plan's own feature list. We call exactly one of these.
 
-| Capability | Used today | What it would unlock |
-|---|---|---|
-| Fixtures | ✅ (2 leagues) | the spine |
-| **Statistics** | ❌ | xG for the **63 leagues that have none**, shots, possession |
-| **Pre-match odds** | ❌ | market benchmark for the **39 leagues with no odds at all** |
-| **Lineups** | ❌ | goalkeeper quality for **all** leagues, not just MLS; confirmed XI |
-| **Injuries / players** | ❌ | availability — a feature family the model defines but only MLS can fill |
-| **Events** | ❌ | goal times, cards, subs — match narrative for Club Watch |
-| **Livescore** | ❌ | live match state without the ~50-minute ESPN fast-refresh loop |
-| **Head-to-head** | ❌ | a modelling input the repo has never had |
-| **Standings** | ❌ | independent cross-check against our computed tables |
-| **Leagues / countries catalogue** | ❌ | expansion without bespoke research per league |
-| Transfers | ❌ | squad churn beside Transfermarkt values |
+| Capability | Used today | Status | What it would unlock |
+|---|---|---|---|
+| Fixtures | ✅ (2 leagues) | **the spine** | — |
+| **Statistics** | ❌ | **this migration** | xG for the **63 leagues that have none**, shots, possession |
+| **Pre-match odds** | ❌ | deferred (§3.1) | market benchmark for the **39 leagues with no odds at all** |
+| **Lineups** | ❌ | deferred (§3.1) | goalkeeper quality for **all** leagues, not just MLS; confirmed XI |
+| **Injuries / players** | ❌ | deferred (§3.1) | availability — a feature family the model defines but only MLS can fill |
+| **Events** | ❌ | deferred (§3.1) | goal times, cards, subs — match narrative for Club Watch |
+| **Livescore** | ❌ | roadmap (§3.1) | live match state |
+| **Head-to-head** | ❌ | free with fixtures | a modelling input the repo has never had |
+| **Standings** | ❌ | cheap, optional | independent cross-check against our computed tables |
+| **Leagues / countries catalogue** | ❌ | **Tier D** | expansion without bespoke research per league |
+| Transfers | ❌ | not planned | squad churn beside Transfermarkt values |
 
 **The largest single prize is xG coverage.** 18 of 31 model feature columns are xG rolling windows,
 and only 7 of 70 leagues have a real xG source. The other 63 run the same model with its most
-numerous feature family empty.
+numerous feature family empty. That prize — statistics — is the one per-fixture capability this
+migration takes. The rest are deliberately parked:
+
+### 3.1 Deferred — future modeling and product options (owner decision, 2026-08-08)
+
+Not rejected; parked, each with the condition that would revive it:
+
+- **Live scores** — the owner's call: they change the product's *character*, not its accuracy.
+  Roadmap idea for later: watching live match state move season-long odds in the table.
+- **Lineups** — would extend the MLS-only goalkeeper z-score to every league and open the
+  availability feature family. Revive as a gated model experiment with a Brier comparison, never as
+  a plumbing side effect (invariant 4).
+- **Odds (`/odds`)** — unusable until proven to be the same measurement as Pinnacle closing; that
+  comparison is itself the deferred work. Until then, football-data keeps the odds column
+  everywhere it holds it today.
+- **Events** — goal times, cards, subs. Club Watch narrative, not model input.
+
+One nuance the live-scores decision exposes: **declining live scores does not mean keeping the ESPN
+fast-refresh loop.** Same-day result updates come from the ordinary `/fixtures` endpoint at ~1
+request per league per poll (~70 per cycle), so the spine still replaces fast-refresh's ESPN
+dependency as part of Tier A. Only true in-match live state is deferred.
 
 ---
 
-## 4. Request budget — the actual constraint
+## 4. Request budget and plan economics
 
-Pro is **7,500/day**. Two very different cost shapes sit underneath it.
+### 4.1 Plans and terms — verified 2026-08-08
 
-### Per-league endpoints — negligible
+Source: owner screenshot of the 1-month pricing page plus the pasted "How it works" terms — the
+measured facts the earlier draft could not confirm (the pricing page 403s automated fetches).
+
+| Plan | $/month | Requests/day | Rate limit | Seats |
+|---|---|---|---|---|
+| Free | 0 | 100 | 10 r/m | — |
+| Pro | 19 | 7,500 | 300 r/m | 1 |
+| Ultra | 29 | 75,000 | 450 r/m | 2 |
+| **Mega** | **39** | **150,000** | **900 r/m** | 3 |
+
+All paid plans include all competitions and all endpoints. There is **no overage billing** — the
+daily cap is hard. The quota resets at 00:00 UTC and unused requests are lost, so a backfill
+scheduler should straddle the reset to use whole days. 3/6/12-month terms exist (presumably
+discounted; unverified).
+
+**Purchase strategy (owner decision, 2026-08-08): Mega for month 1, then Pro month-to-month.** The
+backfill runs inside the Mega month; steady state (~50–150/day) never approaches even Pro's cap.
+Month-to-month holds until site traffic justifies a longer term. **There is no automatic renewal**,
+which makes plan-hopping legitimate by design — and creates the lapse risk below. Nothing is
+purchased yet: the buy happens at the §7 checkpoint.
+
+**Lapse risk.** An expired subscription silently reverts to Free — 100 requests/day and, decisively,
+**seasons capped at 2024**: every league's current season would quietly stop updating. Two guards:
+the budget governor asserts the active plan from the rate-limit response headers on every call and
+**fails loud** the moment they show Free-tier quotas (§6.4), and a renewal reminder lands before
+each expiry.
+
+**Firewall clause → throttle policy.** The terms reserve the right to block accounts, temporarily or
+permanently and without notice, for "significantly exceeding rate limits or abnormal traffic
+spikes". All bulk jobs therefore run at **≤~50% of the plan's per-minute limit, smoothed, never
+bursting**. On Mega that is ~450 r/m — the full 150k/day is spendable in ~5.5 hours — so pacing the
+backfill across the day costs nothing and never looks like a spike.
+
+### 4.2 The two cost shapes
+
+Two very different cost shapes sit underneath the daily cap.
+
+#### Per-league endpoints — negligible
 `_fetch_league` already caches per `(league, season)` and refetches only the latest season, so a
 league costs **1 request per refresh**. A cached 232-fixture season returned `paging {current: 1,
 total: 1}` — unpaged at that size.
@@ -105,49 +164,93 @@ total: 1}` — unpaged at that size.
 | Standings for all 70, daily | 70 | 0.9% |
 | One-time fixtures backfill, 70 × 9 seasons | 630 | 8.4% of one day |
 
-### Per-fixture endpoints — this is what the budget is for
-Statistics, lineups, events and (probably) odds are keyed per fixture. Measured: **17,851 fixtures
-in one season** across built competitions.
+#### Per-fixture endpoints — this is what the budget is for
+Statistics — `/fixtures/statistics`, **one request per played match**, returning that match's stat
+sheet (xG, shots, shots on target, possession, cards) — are keyed per fixture, as are lineups,
+events and (probably) odds. Measured: **17,851 fixtures in one season** across built competitions.
 
-| Workload | Requests | At 7,500/day |
-|---|---|---|
-| Statistics, one season, all competitions | 17,851 | **2.4 days** |
-| Statistics, nine seasons (full training history) | 160,659 | **21 days** |
-| Statistics + lineups + odds, one season | ~53,000 | ~7 days |
-| **Steady state — only newly played matches** | **~50–150/day** | **~2%** |
+**The backfill this spec commits to is statistics only** (owner decision, §9). Its scope, precisely:
 
-**The shape of the answer:** ongoing operation never approaches the cap. Backfill does, and is a
-metered background job measured in weeks, run once. That is affordable — it is 21 days of *idle
-overnight capacity*, not 21 days of blocked work — but it must be a deliberate, resumable,
-budget-governed job rather than something a refresh triggers.
+- **Current 78 competitions only.** Expansion leagues (Tier D) are opted into separately and carry
+  their own costs.
+- **Not scores or fixtures** — those are already held; re-pulling nine seasons of fixtures for every
+  league is only ~630 requests.
+- **The 7 leagues with real xG (understat 5, ASA 2) are excluded.** Tier C keeps them as the xG
+  source. They get only a **~400-request validation sample** (one league-season, compared
+  match-for-match) — not a nine-season backfill. That removes ~2,400 fixtures/season.
+- **The target is the 63 xG-less leagues** — where 18 of 31 model feature columns sit empty today —
+  at ~15,400 fixtures/season.
 
-Practical consequence: **backfill oldest-first and newest-first simultaneously.** Recent seasons
-carry the most model weight (`XGB weight ½-life: 6 seasons`), so value arrives long before the job
-finishes.
+| Workload | Requests | Pro (7.5k/day) | **Mega (150k/day)** |
+|---|---|---|---|
+| Statistics, one season, 63 target leagues | ~15,400 | 2.1 days | ~2.5 h of quota |
+| Statistics, nine-season **ceiling** | ~139,000 | ~19 days | **inside 1 day's quota** |
+| **Steady state — only newly played matches** | **~50–150/day** | ~2% | <0.1% |
+
+The nine-season figure is a **ceiling, not a commitment**. Stage 1 measures which leagues and
+seasons actually carry real xG; the job spends a request only where the stat sheet exists and feeds
+a model feature, and stops at whatever depth the data runs out. The deferred families (lineups,
+odds, events — §3.1) would add roughly another 300k *if* ever revived; they are no part of this
+budget.
+
+**The shape of the answer changed with the plan decision:** on Mega the entire ceiling fits inside
+one to two days' quota, and the pace-setter is not the daily cap but the firewall-safe throttle
+(§4.1). The job still runs **recent-first per league** (`XGB weight ½-life: 6 seasons` — value
+arrives immediately), extending backward, and stays resumable (§6.5): a job that can finish in a day
+must still survive being interrupted in the middle of it.
 
 ---
 
 ## 5. Migration tiers
 
 **Tier A — move now, unconditional (30 leagues).** Currently ESPN. Measured: **0 of 30 carry xG, 0
-carry odds.** They lose nothing and stand to gain xG, lineups and availability. This alone takes the
-site's most fragile source out of the hot path.
+carry odds.** They lose nothing and stand to gain xG now — plus lineups and availability if those
+deferred families are ever revived (§3.1). This alone takes the site's most fragile source out of
+the hot path.
 
-**Tier B — move on evidence (31 leagues).** football-data + intl. They hold Pinnacle closing odds.
-Move only if `/odds` is demonstrably the same measurement; otherwise take API-Football for
-fixtures/statistics and **keep football-data for odds alone**. A league may legitimately have two
-sources for two different columns — that is what the canonical frame is for.
+**Tier B — fixtures/statistics from the spine; odds stay where they are (31 leagues).**
+football-data + intl hold Pinnacle closing odds — the paper ledger's benchmark. Decision: take
+API-Football for fixtures and statistics, and **football-data keeps the odds column, full stop**.
+The `/odds`-vs-Pinnacle comparison is deferred (§3.1); until it is done and passes, no odds column
+moves. A league may legitimately have two sources for two different columns — that is what the
+canonical frame is for.
 
 **Tier C — hold (7 leagues).** understat + ASA. They hold the only real xG in the platform and, for
 MLS, the only goalkeeper data. These move last, if ever, and only against a match-for-match
 comparison over a full season.
 
-**Tier D — new coverage.** The catalogue endpoint lists competitions we do not carry. Expansion
-becomes a mapping row plus a build, at ~1 request/day each. Candidates worth evaluating: additional
-CONMEBOL and Liga MX tiers, more of the Nordic and Central European pyramids, and women's
-competitions beyond the five currently modelled. **Coverage growth is cheap; the limit is our
-bridge evidence, not requests** — an unbridged league can publish a league page but cannot join
-Global ELO.
+**Tier D — new coverage (owner: yes, from a menu).** The catalogue endpoint lists competitions we
+do not carry. Expansion becomes a mapping row plus a build, at ~1 request/day each. **Coverage
+growth is cheap; the limit is our bridge evidence, not requests** — an unbridged league can publish
+a league page but cannot join Global ELO.
+
+*Admission criteria* (owner decision, 2026-08-08 — every candidate must clear all of these):
+
+1. **API-Football carries fixtures + results with enough history to seed a model** — ELO/DC needs
+   several seasons; the projections-only precedent (Poland, Finland `results_only`) is the floor.
+2. **An active, continuous schedule.** No long-dormant, ad-hoc, or sporadically contested
+   competitions — the predictions layout has to have something to predict, year over year.
+3. **A format the existing machinery can model** — the plain-table + honest `rules` caveat
+   approximation (Denmark/Poland/Argentina precedent), not bespoke split-round modelling.
+4. **Bridge evidence is optional but scoping:** without it a league publishes a page but stays out
+   of Global ELO.
+
+*Candidate menu* — grounded in `docs/league-expansion-report.md`, whose round-6 finding was that
+**ESPN's catalog is exhausted**; the spine reopens that frontier. To be validated against the
+`/leagues` catalogue in Stage 1 — this list is candidates, not measurements:
+
+| Family | Candidates | Why now |
+|---|---|---|
+| Previously rejected on sourcing | 3. Liga (GER), Serie C (ITA), Championnat National (FRA), Primera Federación (ESP) | rejected as "not feasible with the current source stack" — exactly what the spine changes |
+| European pyramids not carried | Czech First League, Croatia HNL, Serbia SuperLiga, Hungary NB I, Ukraine Premier | top flights with continuous schedules |
+| Second tiers under carried leagues | Portugal Liga 2, Turkey 1. Lig, Belgium Challenger Pro, Norwegian/Swedish/Danish second divisions | tier-bridge ELO seeding from the parent league (Scottish precedent) |
+| AFC | J2 League, K League 2, Qatar Stars League, UAE Pro League | active calendars; J2/K2 bridge to carried top flights |
+| CAF | Egypt Premier League, Morocco Botola | South Africa PSL is CAF's only current entry |
+| CONMEBOL / Concacaf tiers | CONMEBOL and Liga MX second tiers | as previously scoped |
+| Women's | Frauen-Bundesliga, Serie A Femminile, Damallsvenskan, Liga MX Femenil | five women's competitions carried today |
+| Continental cups | AFC Champions League, CAF Champions League | slugs already exist in `espn_continental.py`; blocker is confederation offset calibration, **not plumbing** — the spine does not change that |
+
+The owner picks per the Stage-6 gate; the menu is the options, not the order.
 
 ---
 
@@ -158,10 +261,10 @@ Today each league has `"source": "espn"` — one string, all-or-nothing. Replace
 map, defaulting to the spine:
 
 ```
-"epl": {"sources": {"fixtures":   ["api_football", "espn"],
-                    "xg":         ["understat", "api_football"],
-                    "odds":       ["football_data"],
-                    "lineups":    ["api_football"]}}
+"epl": {"sources": {"fixtures":    ["api_football", "espn"],
+                    "xg":          ["understat", "api_football"],
+                    "odds":        ["football_data"],
+                    "statistics":  ["api_football"]}}
 ```
 
 This is the change that makes the API foundational rather than a band-aid: a league draws each
@@ -186,9 +289,18 @@ frame additively; nothing that exists changes shape.
   how you find out from an invoice.
 - Applies to exploratory and development calls too. Not exempting myself: I spent 4 requests on
   2026-08-08 looking up the Leagues Cup, and that should have been counted.
+- **Asserts the plan from response headers.** Every API response carries the rate-limit headers; the
+  governor checks them against the expected plan and **fails loud** when they show Free-tier quotas
+  — the silent-lapse guard from §4.1. A lapse must look like an outage, never like a quiet
+  regression to 2024 data.
+- **Enforces the throttle**: bulk jobs at ≤~50% of the plan's per-minute limit, smoothed (§4.1's
+  firewall clause).
+- **Schedules around the 00:00 UTC reset** — quota is use-it-or-lose-it, so multi-day jobs straddle
+  the reset to spend whole days.
 
 ### 6.5 Backfill is resumable and idempotent
-A 21-day job cannot assume it runs to completion. Per-fixture results cached to disk keyed by
+No backfill assumes it runs to completion — even one that fits inside a Mega day (interruption,
+throttling, a firewall block mid-flight). Per-fixture results cached to disk keyed by
 fixture id; restart re-reads rather than re-requests; progress and spend both queryable mid-flight.
 
 ---
@@ -200,15 +312,18 @@ fixture id; restart re-reads rather than re-requests; progress and spend both qu
 | **0 — Build blind** | **0** | none | registry, provenance, budget governor, pagination handling, all against fixtures |
 | **1 — Map and probe** | ~10 | owner reviews mapping | committed league map; the five unknowns answered as measured facts |
 | **2 — Validate on free key** | ~20 | none | one league builds end-to-end from the spine; payload compared column by column |
-| **3 — Tier A migration** | ~30/day | paid plan | 30 leagues on the spine, ESPN as fallback |
-| **4 — Capability backfill** | metered, weeks | stage-1 quality proof | xG/lineups for leagues that have none |
-| **5 — Tier B/C review** | metered | measured comparison | odds and xG move only if proven equal or better |
-| **6 — Tier D expansion** | ~1/day each | owner picks | new competitions |
+| **☑ Purchase checkpoint** | 0 | **owner buys Mega** | "infrastructure complete, ready to buy" — nothing beyond the free tier before this |
+| **3 — Tier A migration** | ~30/day | Mega active | 30 leagues on the spine, ESPN as fallback |
+| **4 — Statistics backfill** | metered, ~1–2 days on Mega | stage-1 quality proof | xG for the 63 leagues that have none — **statistics only** |
+| **5 — Tier C validation sample** | ~400 | measured comparison | API-Football xG vs understat, match-for-match, one league-season |
+| **6 — Tier D expansion** | ~1/day each | owner picks from the §5 menu | new competitions |
 
 ### Stage 1 — the five questions everything else depends on
-1. Are statistics/odds/lineups keyed **per fixture or per league+season**? Decides 2.4 days vs 21.
+1. Are statistics/odds/lineups keyed **per fixture or per league+season**? Decides whether the
+   backfill ceiling is ~139k requests or a few hundred.
 2. Does `/statistics` carry **real xG**, for which leagues, how far back?
-3. Are `/odds` **Pinnacle closing**, or a different book or timing?
+3. Are `/odds` **Pinnacle closing**, or a different book or timing? (Feeds the deferred §3.1 odds
+   work — cheap to answer while probing, no part of this migration's spend.)
 4. How far back does the paid plan serve — **does it reach 2017**?
 5. Does a **552-fixture** season page? (232 did not.)
 
@@ -220,10 +335,27 @@ Build one league end-to-end from the spine and diff it against the ESPN-built pa
 same fixture count, same canonical columns, same standings. **Free-tier honesty: this validates the
 mechanism, not current-season coverage**, since the free plan stops at 2024.
 
+### The purchase checkpoint — between Stages 2 and 3
+**Nothing is purchased yet.** Stages 0–2 run entirely on zero requests and the free key (~30
+requests total). When they pass — registry, provenance, budget governor and the backfill job all
+built and validated end-to-end on a free-tier league — the executing session **stops and tells the
+owner explicitly: "infrastructure complete, ready to buy."** The owner then buys Mega, and only
+after the purchase is confirmed does any paid-tier request happen.
+
+This sequencing also settles how the Stage-1 unknowns interact with the spend: all five are answered
+on the free key *before* money moves, so the owner buys against measured facts, not estimates.
+
 ### Stage 3 — Tier A, in batches
 Smallest and least-watched leagues first. Each batch runs a full week with `source_health` showing
 the spine answering, spend published, and payloads byte-comparable apart from `generated`. Any league
 whose data disagrees materially is rolled back to ESPN-first and recorded.
+
+### Stage 4 — statistics, and only statistics
+One request per played match against `/fixtures/statistics`, for the 63 xG-less leagues,
+recent-first per league and extending backward until the API's depth, the data's real xG coverage,
+or 2017 — whichever comes first (§4.2). Lineups, odds and events are deferred families (§3.1) and no
+part of this stage. Resumable and idempotent per §6.5: a job that can finish inside a Mega day must
+still survive being interrupted in the middle of one.
 
 ---
 
@@ -242,18 +374,31 @@ whose data disagrees materially is rolled back to ESPN-first and recorded.
 
 ---
 
-## 9. Open questions for the owner
+## 9. Owner decisions — 2026-08-08
 
-1. **Overage terms** — the pricing page shows a flat $19 and a daily cap, which normally means
-   requests are rejected rather than billed. Worth confirming before purchase; I could not verify it
-   (their pricing page returns 403 to automated fetches).
-2. **Backfill ambition** — full nine-season statistics history (~21 days of background capacity), or
-   recent seasons only, which carry most of the model weight? Recommendation: **recent-first,
-   open-ended**, so value arrives early and the job can stop whenever it stops paying.
-3. **Expansion appetite** — new competitions are nearly free in requests but each one adds a surface
-   to keep correct. How many, and chosen by what: audience, betting liquidity, or bridge evidence?
-4. **Do we want live scores?** It is the one capability that changes the product's *character*
-   rather than its accuracy, and it would retire the fast-refresh ESPN loop entirely.
+The four questions this section used to hold are answered. They are recorded here so no future
+session re-litigates them; the five Stage-1 questions remain open, but they are *measured-fact*
+gates, not owner calls.
+
+1. **Terms verified; plan chosen: Mega ($39) for month 1, then Pro ($19) month-to-month.** Pricing
+   and terms are in §4.1 — no overage billing, no automatic renewal, hard daily cap, quota reset at
+   00:00 UTC. Month-to-month holds until site traffic justifies a longer term (revisit the 3/6/12-
+   month discounts then). The lapse-to-Free risk is guarded by the governor's header assertion plus
+   a renewal reminder.
+2. **Backfill: as deep as the data goes, statistics only.** Every season the paid API serves down to
+   the 2017 training floor — but only the stat families the models use or could plausibly use, which
+   today means `/fixtures/statistics` for the 63 xG-less leagues (~139k-request ceiling, §4.2).
+   Lineups, odds and events are explicitly **deferred, not rejected** (§3.1).
+3. **Expansion: yes, from a menu.** Admission requires an active, continuous schedule and enough
+   history for at least a basic model behind the predictions layout. The criteria and candidate menu
+   are in Tier D (§5); the owner picks per the Stage-6 gate.
+4. **Live scores: no — roadmap.** They change the product's character, not its accuracy; someday it
+   may be worth watching live state move season-long odds in the table. Note §3.1's nuance:
+   declining live scores does *not* keep the ESPN fast-refresh loop alive — `/fixtures` polling
+   replaces it without the livescore endpoint.
+5. **Purchase timing: nothing is bought yet.** The buy happens at the §7 checkpoint, after Stages
+   0–2 prove the infrastructure on the free key and the executing session explicitly reports
+   "infrastructure complete, ready to buy."
 
 ---
 
