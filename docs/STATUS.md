@@ -361,6 +361,20 @@ These require account access or business decisions and cannot be completed from 
   all previously football-data sourced with no xG at all) — not the "90% of competitions" §10 of
   the spec claims, which is corrected there. The data is INERT — per invariant 4 it reaches the
   model only through a gated Brier-compared experiment.
+- **xG join built** (2026-08-08, commit `9d2f5e48`, `data_pipeline/xg_store.py`). Joins the
+  statistics store onto canonical frames via the backfill's own fixture inventories, since
+  football-data frames carry no API-Football fixture id. **6,787 matches gain xG** at 99–100% of
+  stored rows: championship 1,654 · brazil-serie-a 1,343 · super-lig 1,026 · belgian-pro 932 ·
+  primeira 918 · eredivisie 914. Assigns by team id (never sheet order), requires both sides
+  non-null, and never overwrites an existing value (Tier C owns its xG). **Not wired into any
+  build** — the feature campaign is the next step and must be a gated Brier comparison.
+  **League-map defect found and fixed:** `segunda` mapped to af_id 140 **La Liga**, not Segunda —
+  fuzzy matching scored "LaLiga 2" closer to "La Liga" than to "Segunda División", it was marked
+  high confidence, and only the join exposed it by putting Real Madrid into a second-division
+  frame. Corrected to 141; `tests/test_league_map_ids.py` pins every id confirmed against the
+  clubs in its own fixtures. **Consequence: segunda's 1,140 stored sheets are La Liga's** and must
+  be re-fetched under id 141 (~1,800 requests) before segunda can join the campaign — so the
+  usable count today is **6 competitions, not 7**.
 - **Three Stage-3 defects found and fixed by exercising the migration against production**
   (2026-08-08, commit `3a871e6`, suite 1999 passed): (1) **payload provenance was never actually
   published** — `"provenance"` was assigned twice in one dict literal in `build_league_data`, so
