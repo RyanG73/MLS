@@ -371,6 +371,22 @@ These require account access or business decisions and cannot be completed from 
   prevent; spend is now counted per kind. **Note: ESPN's circuit breaker is open site-wide as of
   22:05 UTC**, so every unmigrated league's fast refresh is failing — which is the argument for
   continuing Tier A migration, not a new problem.
+- **Canadian PL and K League 1 are un-staled — the paid plan's first visible win** (2026-08-08,
+  commit `bbf8010`). Both had been pinned to 2024 by the free plan's season cap; both now publish
+  the live 2026 season and validate clean: CPL `2026-04-04 → 2026-10-25` (112 games), K League 1
+  `2026-02-28 → 2026-10-24` (198 games, 12 teams — the `ROUND_EXCLUDE` fix holding the cross-tier
+  playoff out of the table). Both carry `provenance.sources`, confirming invariant 5 live. A third
+  copy of the stale limitation lived in `tests/test_season_rollover.py`'s `SOURCE_BLOCKED` and was
+  caught by that file's own accuracy test. **Operational rule learned:** league rebuilds must be
+  **serialized** — two concurrent `refresh-leagues` runs race on the shared `power.js`,
+  `team-catalog.js` and `news/*.js` artifacts; the second failed its rebase and the workflow
+  correctly refused to force a data commit rather than clobbering the first.
+- ⚠️ **Unrelated, unresolved: 26 of 79 payloads fail `validate_payloads` on Global ELO
+  consistency** (`global_elo != elo + league offset`, e.g. `bundesliga-2` Hannover 96:
+  1384 vs 1597 + −186.964). Pre-existing, live, and NOT caused by the migration. Note the local
+  test suite is green at 1999 passed while this fails — the suite does not invoke
+  `validate_payloads`, so "tests pass" and "artifacts are valid" are different claims here.
+  Needs its own investigation; Global ELO is a published figure on a paywall-adjacent surface.
   Spec: `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
 - Club Watch season history: the existing History view now consumes the reconstructed early-season
   dataset, preserves exact-archive precedence and point provenance, selects a useful historical
