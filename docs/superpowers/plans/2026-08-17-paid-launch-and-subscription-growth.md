@@ -16,6 +16,31 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-08 — 920 Argentine cup matches were inside the league table, and the odds join was
+  duplicating rows in 9 of 14 international leagues.** `football_data_intl.match_results` filtered
+  on season alone and never read the `League` column its own CSVs carry — `new/<CCC>.csv` is a
+  country file, not a competition file. Same defect class as the 301 below ("the file tells you
+  what it is, and the adapter never asks"), but unlike that one it was already in the shipped data.
+  **Scope measured across all 14 cached files:** ARG mixes `Liga Profesional` 5,360 with
+  `Copa De La Liga Profesional` 920; SWZ carries 2 `Challenge League` rows (the Thun–Sion barrage,
+  27/30 May 2021); five files carry a **trailing-space variant of their own name** — an era split,
+  and `'Liga Profesional '` alone is 2,114 rows, so an exact-match filter would have silently
+  deleted a third of Argentina. Comparison is normalised for that reason, and the filter raises
+  rather than hand back an empty league. **Argentina is a deliberate KEEP:** the Copa de la Liga is
+  one of two top-flight championships, not an open cup — dropping it would delete all of 2020 and
+  split the history, since football-data folds both tournaments under one label from 2025. It stays
+  in ELO/Dixon-Coles and leaves the table via `is_playoff=1`. **Blast radius:** only
+  `swiss-super-league` changes frame size (2,687 → 2,685); its ELO history shifts but the published
+  rating does not (Thun +0.009, Sion −0.0002 — below integer rounding). Argentina's table drops
+  6,280 → 5,360 counted matches. Twelve leagues unchanged. **Found while fixing it:**
+  `attach_market` merged on a non-unique `(season, home, away)` key and was fanning out **~15,500
+  duplicate rows across 9 leagues** with the wrong fixture's odds; it now merges on date, coverage
+  100%. **Also found:** this module's tests had overwritten the real `BRA.csv`/`JPN.csv` raw caches
+  with their synthetic fixtures — `_fetch_csv` persists as a side effect and only some tests
+  isolated it; an autouse fixture now does. 15 new tests, 34 passed / 1 skipped in the module;
+  **2041 passed, 39 skipped** overall (3 pre-existing failures, unrelated, confirmed by stash).
+  Source-side only — **not yet in production**, lands on the next league rebuild.
+
 - **2026-08-08 — Segunda's Scottish fixtures are an upstream 301, and would have reached a public
   league page on the next refresh.** football-data.co.uk redirects the not-yet-published Spanish
   2026-27 files onto the Scottish ones — `mmz4281/2627/SP2.csv` → `SC2.csv` and `SP1.csv` →

@@ -95,6 +95,119 @@ def _season_int(season_str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+# ── competition filter ───────────────────────────────────────────────────────
+# `new/<CCC>.csv` is a COUNTRY file, not a competition file, and until 2026-08-08
+# this adapter filtered on season alone — it never read the `League` column its
+# own CSVs carry. Two of the fourteen mix competitions:
+#
+#   ARG  Liga Profesional 5,360 + Copa De La Liga Profesional 920
+#   SWZ  Super League 2,685 + Challenge League 2
+#
+# and five (ARG, DNK, FIN, IRL, SWE) carry a TRAILING-SPACE variant of their own
+# name, which is an era split rather than a second competition — football-data
+# renamed the column value mid-history. `'Liga Profesional '` alone is 2,114
+# rows, a third of the Argentine file, so an exact-match filter would silently
+# delete a third of the league. Compare normalised, never raw.
+_WS_RE = re.compile(r"\s+")
+
+
+def _norm_competition(value) -> str:
+    """Competition label → comparison key: whitespace-collapsed, casefolded."""
+    return _WS_RE.sub(" ", str(value)).strip().casefold()
+
+
+# Competitions whose results ARE this league — they count toward the table.
+LEAGUE_COMPETITIONS: dict[str, frozenset[str]] = {
+    "brazil-serie-a":        frozenset({"serie a"}),
+    "japan-j1":              frozenset({"j1 league"}),
+    "sweden-allsvenskan":    frozenset({"allsvenskan"}),
+    "norway-eliteserien":    frozenset({"eliteserien"}),
+    "denmark-superliga":     frozenset({"superliga"}),
+    "poland-ekstraklasa":    frozenset({"ekstraklasa"}),
+    "argentina-primera":     frozenset({"liga profesional"}),
+    "austria-bundesliga":    frozenset({"bundesliga"}),
+    "swiss-super-league":    frozenset({"super league"}),
+    "romania-liga1":         frozenset({"superliga"}),
+    "ireland-premier":       frozenset({"premier division"}),
+    "china-super":           frozenset({"super league"}),
+    "russia-premier":        frozenset({"premier league"}),
+    "finland-veikkausliiga": frozenset({"veikkausliiga"}),
+}
+
+# Competitions contested by the SAME top-flight clubs that are not league-table
+# fixtures. Kept in the frame (ELO and Dixon-Coles read every played row) and
+# marked `is_playoff=1`, which is the flag build_league_data already filters on
+# for the points table and the table simulation.
+#
+# Argentina's Copa de la Liga Profesional is the only entry, and it is a
+# deliberate KEEP rather than a drop. It is not an open cup on the Copa
+# Argentina model: since 2020 it is one of the two top-flight championships,
+# entered only by Primera clubs. Dropping it would delete the whole of 2020
+# (134 Copa rows, and no Liga rows at all that year) and would split the
+# history, because from 2025 football-data stopped distinguishing the two and
+# files everything as `Liga Profesional` — 510 rows in 2025 with pairs meeting
+# up to three times. Keeping it out of the table but inside the rating history
+# is the only treatment that stays consistent across both eras.
+NON_LEAGUE_COMPETITIONS: dict[str, frozenset[str]] = {
+    "argentina-primera": frozenset({"copa de la liga profesional"}),
+}
+
+# Competitions present in a country file that are NOT this league's data at all.
+# Listed rather than merely unlisted so the drop is a recorded decision and so
+# the guard below can tell a known stray from a competition football-data has
+# renamed under us — the latter is the failure worth shouting about.
+#
+# Switzerland's two 'Challenge League' rows are the Thun-Sion promotion/
+# relegation barrage of 27 and 30 May 2021, filed by football-data under the
+# second tier. Super League 2020/21 already carries its full 180 rows without
+# them, so they are a two-legged tie between divisions, not missing league data.
+FOREIGN_COMPETITIONS: dict[str, frozenset[str]] = {
+    "swiss-super-league": frozenset({"challenge league"}),
+}
+
+
+def _select_competitions(df: pd.DataFrame, league_id: str) -> pd.DataFrame:
+    """Restrict a country CSV to the competitions `league_id` declares.
+
+    Returns the frame with foreign-competition rows removed and a `_non_league`
+    boolean marking same-tier rows that must stay out of the league table.
+
+    Rows are never dropped silently: an unclassified competition is logged with
+    its own before/after counts, and a filter that matches NOTHING raises rather
+    than handing back an empty league — the failure mode this guard exists to
+    prevent is a mis-specified filter quietly halving a country's history.
+    A file that declares no `League` column at all is passed through untouched;
+    absence of evidence must not delete data.
+    """
+    league = LEAGUE_COMPETITIONS[league_id]
+    non_league = NON_LEAGUE_COMPETITIONS.get(league_id, frozenset())
+    out = df.copy()
+    if out.empty or "League" not in out.columns:
+        out["_non_league"] = False
+        return out
+
+    foreign = FOREIGN_COMPETITIONS.get(league_id, frozenset())
+    key = out["League"].map(_norm_competition)
+    is_league, is_non_league = key.isin(league), key.isin(non_league)
+    unknown = ~(is_league | is_non_league | key.isin(foreign))
+    if not is_league.any():
+        raise ValueError(
+            f"football-data-intl {league_id}: no rows match the declared "
+            f"competition(s) {sorted(league)} — file declares "
+            f"{sorted(key.unique())}. Refusing to return an empty league.")
+    if unknown.any():
+        logger.warning(
+            "football-data-intl %s: %d of %d rows are from UNDECLARED "
+            "competition(s) %s — dropped. If football-data renamed a "
+            "competition, classify it in this module.", league_id,
+            int(unknown.sum()), len(out),
+            {k: int(v) for k, v in key[unknown].value_counts().items()})
+    drop = unknown | key.isin(foreign)
+    out = out[~drop].copy()
+    out["_non_league"] = is_non_league[~drop].to_numpy()
+    return out
+
+
 def _fetch_csv(country: str, use_cache: bool = True) -> pd.DataFrame | None:
     """Fetch the single all-seasons CSV for a country, disk-cached.
 
@@ -134,12 +247,14 @@ def _fetch_csv(country: str, use_cache: bool = True) -> pd.DataFrame | None:
     return df
 
 
-def _parse_results(df: pd.DataFrame) -> pd.DataFrame:
+def _parse_results(df: pd.DataFrame, league_id: str) -> pd.DataFrame:
     """Full multi-season CSV → canonical rows (goals, xG=NaN).
 
     Drops rows missing team names, a result (HG/AG NaN — e.g. Brazil's single
-    suspended Chapecoense-SC fixture, Nov 2016), or an unparseable season.
+    suspended Chapecoense-SC fixture, Nov 2016), or an unparseable season, and
+    rows belonging to a competition `league_id` does not declare.
     """
+    df = _select_competitions(df, league_id)
     out = []
     for _, r in df.iterrows():
         ht, at, hg, ag = r.get("Home"), r.get("Away"), r.get("HG"), r.get("AG")
@@ -155,7 +270,7 @@ def _parse_results(df: pd.DataFrame) -> pd.DataFrame:
             "date": date, "season": season, "home_team": ht, "away_team": at,
             "home_goals": hg, "away_goals": ag, "home_xg": np.nan, "away_xg": np.nan,
             "label_result": 0 if hg > ag else (1 if hg == ag else 2),
-            "is_result": True, "is_playoff": 0,
+            "is_result": True, "is_playoff": int(bool(r["_non_league"])),
         })
     return pd.DataFrame(out, columns=_COLS)
 
@@ -178,7 +293,7 @@ def match_results(league_id: str, seasons: list[int] | None = None,
             df["date"] = pd.to_datetime(df["date"])
             return df if seasons is None else df[df["season"].isin(seasons)]
         return pd.DataFrame(columns=_COLS)
-    df = _coerce(_parse_results(csv))
+    df = _coerce(_parse_results(csv, league_id))
     df = df.sort_values("date").reset_index(drop=True)
     cache_path = _RESULTS_CACHE_DIR / f"{league_id}.parquet"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -199,15 +314,21 @@ def _devig_row(row) -> tuple[float, float, float] | None:
 def market_probs(league_id: str, seasons: list[int] | None = None) -> pd.DataFrame:
     """De-vigged Pinnacle-closing [home,draw,away] probs per match.
 
-    Returns columns: season, home_team, away_team, mkt_home, mkt_draw, mkt_away.
-    Rows without usable odds are dropped.
+    Returns columns: season, date, home_team, away_team, mkt_home, mkt_draw,
+    mkt_away. Rows without usable odds are dropped, as are rows from a
+    competition `league_id` does not declare.
+
+    `date` is carried because (season, home, away) is NOT a unique key in 9 of
+    the 14 countries. Split-year leagues play a pair two to four times a season
+    at the same venue, and Argentina adds meetings across the Liga/Copa boundary
+    and, since the 2025 Apertura-Clausura format, inside the Liga itself.
     """
     csv = _fetch_csv(COUNTRY[league_id])
     if csv is None:
-        return pd.DataFrame(columns=["season", "home_team", "away_team",
+        return pd.DataFrame(columns=["season", "date", "home_team", "away_team",
                                      "mkt_home", "mkt_draw", "mkt_away"])
     out = []
-    for _, r in csv.iterrows():
+    for _, r in _select_competitions(csv, league_id).iterrows():
         season = _season_int(r.get("Season"))
         ht, at = r.get("Home"), r.get("Away")
         if season is None or pd.isna(ht) or pd.isna(at):
@@ -217,20 +338,40 @@ def market_probs(league_id: str, seasons: list[int] | None = None) -> pd.DataFra
         mp = _devig_row(r)
         if mp is None:
             continue
-        out.append({"season": season, "home_team": ht, "away_team": at,
+        out.append({"season": season,
+                    "date": pd.to_datetime(r.get("Date"), dayfirst=True,
+                                           errors="coerce"),
+                    "home_team": ht, "away_team": at,
                     "mkt_home": mp[0], "mkt_draw": mp[1], "mkt_away": mp[2]})
-    return pd.DataFrame(out)
+    return pd.DataFrame(out, columns=["season", "date", "home_team", "away_team",
+                                      "mkt_home", "mkt_draw", "mkt_away"])
 
 
 def attach_market(frame: pd.DataFrame, league_id: str,
                   seasons: list[int] | None = None) -> pd.DataFrame:
-    """Left-merge market probs onto a canonical frame by (season, home, away)."""
+    """Left-merge market probs onto a canonical frame, never changing its size.
+
+    Merges on (season, date, home, away) when the caller's frame carries a
+    date. Without one the key is not unique — build_league_data slices to
+    `[season, home_team, away_team]` for its per-game lookup — so the market
+    side is collapsed to one row per key first. Either way the left-merge
+    cannot multiply the caller's rows, which it silently did until 2026-08-08
+    for 9 of the 14 leagues — ~15,500 duplicate rows carrying another fixture's
+    closing odds (swiss 2,685 -> 5,253, austria 2,644 -> 4,732, ireland
+    2,692 -> 4,802, and six more).
+    """
     mk = market_probs(league_id, seasons)
     out = frame.copy()
     if mk.empty:
         out[["mkt_home", "mkt_draw", "mkt_away"]] = np.nan
         return out
-    return out.merge(mk, on=["season", "home_team", "away_team"], how="left")
+    keys = ["season", "home_team", "away_team"]
+    if "date" in out.columns and pd.api.types.is_datetime64_any_dtype(out["date"]):
+        keys.append("date")
+    else:
+        mk = mk.drop_duplicates(subset=keys)
+    return out.merge(mk[keys + ["mkt_home", "mkt_draw", "mkt_away"]],
+                     on=keys, how="left")
 
 
 if __name__ == "__main__":

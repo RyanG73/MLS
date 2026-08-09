@@ -419,6 +419,49 @@ These require account access or business decisions and cannot be completed from 
   **Left open:** `_fetch_csv` persists `r.text`, and requests decodes a charset-less `text/csv`
   as ISO-8859-1, so every cached file's header carries a mangled BOM (`ï»¿Div`). Harmless today
   because `_parse_results` never reads `Div`; the guard reads the column positionally to cope.
+- ✅ **Resolved 2026-08-08 — the same defect class one adapter over, and this one was already in
+  the shipped data.** `data_pipeline/football_data_intl.py` filtered on season alone and never
+  read the `League` column its own CSVs carry. `new/<CCC>.csv` is a **country** file, not a
+  competition file, and two of the fourteen mix competitions.
+  **Scope, measured not assumed** (all 14 cached files, `League` and `Country` value counts):
+  ARG carries `Liga Profesional` 5,360 + `Copa De La Liga Profesional` **920**; SWZ carries
+  `Super League` 2,685 + `Challenge League` **2**. The other twelve are single-competition.
+  Five files (ARG, DNK, FIN, IRL, SWE) additionally carry a **trailing-space variant of their own
+  name** — an era split, not a second competition: `'Liga Profesional '` alone is 2,114 rows,
+  a third of the Argentine file, so an exact-match filter would have deleted a third of the
+  league. Comparison is normalised (whitespace-collapsed + casefolded) for exactly that reason.
+  **Fix:** `LEAGUE_COMPETITIONS` / `NON_LEAGUE_COMPETITIONS` / `FOREIGN_COMPETITIONS` declare, per
+  league id, what each file may contribute; `_select_competitions` drops foreign rows, marks
+  same-tier non-league rows `is_playoff=1`, raises rather than return an empty league if the
+  filter matches nothing, and logs any **undeclared** value loudly so a football-data rename is
+  visible rather than silent.
+  **Argentina is a deliberate KEEP, not a drop.** The Copa de la Liga is not an open cup: since
+  2020 it is one of two top-flight championships, entered only by Primera clubs. Dropping it would
+  delete the whole of 2020 (134 Copa rows, no Liga rows that year) and split the history, because
+  from 2025 football-data stopped distinguishing the two and files everything as `Liga Profesional`
+  (510 rows in 2025, pairs meeting up to 3×). It stays in the rating history and leaves the table.
+  **Blast radius:** frames change size for **swiss-super-league only** (2,687 → 2,685; the two rows
+  are the Thun–Sion relegation barrage of 27/30 May 2021, and Super League 2020/21 already carries
+  its full 180 rows without them). Its ELO history therefore shifts, but the **published rating does
+  not**: five seasons and `regress=0.40` leave Thun **+0.009** and Sion **−0.0002**, below the
+  integer rounding the payloads use. Argentina's frame is unchanged in size; **920 rows move to
+  `is_playoff=1`, so its league table drops 6,280 → 5,360 counted matches.** Twelve leagues are
+  byte-identical.
+  **Found while fixing it, and larger:** `attach_market` merged on `(season, home_team, away_team)`,
+  which is **not a unique key** — split-year leagues meet a pair 2–4× a season. The left-merge was
+  fanning out **~15,500 duplicate rows across 9 of 14 leagues** (swiss 2,685 → 5,253, austria
+  2,644 → 4,732, ireland 2,692 → 4,802, denmark +1,804, romania +1,740, finland +1,364, argentina
+  +1,046, poland +784, china +24), attaching another fixture's closing odds. `market_probs` now
+  carries `date` and `attach_market` merges on it, falling back to a de-duplicated market side when
+  the caller has no date column (`build_league_data:2149` slices to three columns). Odds coverage
+  after the fix is 100% for twelve leagues, 99.8–99.9% for China/Russia — nothing lost.
+  **Also found:** this module's own tests had overwritten the real `BRA.csv` and `JPN.csv` raw
+  caches with their 2- and 1-row synthetic fixtures, because `_fetch_csv` persists to
+  `_RAW_CACHE_DIR` as a side effect and only some tests monkeypatched it. Latent rather than live
+  (every build refetches first), but it disarmed the offline fallback for those two leagues. An
+  autouse fixture now isolates both cache dirs; a full run leaves the raw dir empty.
+  15 new tests; `tests/test_football_data_intl.py` 34 passed, 1 skipped. **Not yet in production**
+  — source-side only, lands on the next league rebuild.
 - **Three Stage-3 defects found and fixed by exercising the migration against production**
   (2026-08-08, commit `3a871e6`, suite 1999 passed): (1) **payload provenance was never actually
   published** — `"provenance"` was assigned twice in one dict literal in `build_league_data`, so
