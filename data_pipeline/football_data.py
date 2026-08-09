@@ -109,6 +109,28 @@ def _season_code(start_year: int) -> str:
     return f"{start_year % 100:02d}{(start_year + 1) % 100:02d}"
 
 
+def _division_of(df: pd.DataFrame) -> set[str]:
+    """Division codes a football-data CSV declares in its own `Div` column.
+
+    Read positionally, because the cached header can carry a mangled BOM
+    (`ï»¿Div` rather than `Div`): `_fetch_csv` persists `r.text`, and requests
+    decodes a charset-less `text/csv` as ISO-8859-1, so the file's UTF-8 BOM
+    survives as three literal characters. Returns an empty set when the frame
+    has no Div column at all — absence of evidence must never block a fetch.
+    """
+    if df.empty or not len(df.columns):
+        return set()
+    if not str(df.columns[0]).endswith("Div"):
+        return set()
+    return {str(v).strip() for v in df[df.columns[0]].dropna().unique()}
+
+
+def _wrong_division(df: pd.DataFrame, div: str) -> bool:
+    """True when a CSV positively identifies itself as a DIFFERENT division."""
+    found = _division_of(df)
+    return bool(found) and found != {div}
+
+
 def _fetch_csv(div: str, start_year: int) -> pd.DataFrame | None:
     """Fetch one season's football-data CSV, disk-cached as raw text.
 
@@ -116,20 +138,35 @@ def _fetch_csv(div: str, start_year: int) -> pd.DataFrame | None:
     (match_results AND market_probs) read from disk instead of re-downloading.
     On a network failure the cached copy is used as a fallback, so a stalled
     football-data.co.uk never blocks a build whose data already exists locally.
+
+    Every response and every cache hit is checked against the `Div` column the
+    file declares for itself, and nothing is written to disk until it passes.
+    On 2026-08-08 football-data 301-redirected the not-yet-published Spanish
+    2026-27 files onto the Scottish ones (`2627/SP2.csv` -> `SC2.csv`, and
+    `SP1.csv` -> `SC1.csv`). requests follows redirects, `raise_for_status`
+    saw the final 200, and five Scottish League One results were cached as
+    `SP2-2627.csv` and parsed into LaLiga 2's frame — enough to push its
+    max played season to 2026 and put Scottish clubs in Segunda's table. The
+    redirect is invisible at the HTTP layer; the division the file names is not.
     """
     raw_path = _RAW_CACHE_DIR / f"{div}-{_season_code(start_year)}.csv"
     if raw_path.exists():
         try:
-            return pd.read_csv(raw_path)
+            cached = pd.read_csv(raw_path)
         except Exception:
             pass  # corrupt cache → re-fetch below
+        else:
+            if not _wrong_division(cached, div):
+                return cached
+            # Poisoned by an earlier run. Left in place rather than deleted —
+            # it is never served again, and the next good fetch overwrites it.
+            logger.warning("football-data cache %s holds %s content — re-fetching",
+                           raw_path.name, sorted(_division_of(cached)))
 
     url = f"{_BASE}/{_season_code(start_year)}/{div}.csv"
     try:
         r = requests.get(url, headers=_HDR, timeout=(10, 30))
         r.raise_for_status()
-        raw_path.parent.mkdir(parents=True, exist_ok=True)
-        raw_path.write_text(r.text)
         df = pd.read_csv(io.StringIO(r.text))
     except Exception as e:
         logger.warning("football-data %s %s fetch failed (%s)", div, start_year, e)
@@ -140,6 +177,18 @@ def _fetch_csv(div: str, start_year: int) -> pd.DataFrame | None:
         # without reading a build log. (2026-08-08)
         _health(div, start_year, ok=False, raw=0, error=str(e))
         return None
+
+    if _wrong_division(df, div):
+        got = ",".join(sorted(_division_of(df)))
+        via = f" (redirected to {r.url})" if getattr(r, "history", None) else ""
+        logger.warning("football-data %s %s served %s content%s — discarded",
+                       div, start_year, got, via)
+        _health(div, start_year, ok=False, raw=len(df),
+                error=f"served {got} content, expected {div}{via}")
+        return None
+
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_path.write_text(r.text)
     _health(div, start_year, ok=True, raw=len(df))
     return df
 

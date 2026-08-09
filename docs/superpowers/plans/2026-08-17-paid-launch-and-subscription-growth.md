@@ -16,6 +16,27 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-08 — Segunda's Scottish fixtures are an upstream 301, and would have reached a public
+  league page on the next refresh.** football-data.co.uk redirects the not-yet-published Spanish
+  2026-27 files onto the Scottish ones — `mmz4281/2627/SP2.csv` → `SC2.csv` and `SP1.csv` →
+  `SC1.csv`, confirmed by `Location` header, with every other division returning a clean 404 or
+  200. **The failure is invisible at the HTTP layer**: requests follows redirects,
+  `raise_for_status()` sees the final 200, and the wrong division's content is cached under the
+  right filename. Five Scottish League One results entered LaLiga 2's frame, pushing
+  `max_played_season` to 2026 and suppressing the pre-season flip to ESPN's real fixtures.
+  **Scope measured, not assumed:** 19 divisions swept live (2 redirect); all 270 cached raw CSVs
+  checked against their own `Div` column (2 mismatch, both live-season, none historical); a
+  cross-league club-set check across all 17 footballdata leagues (`segunda` alone — the Scottish
+  leagues it flags are genuine promotion/relegation). **Fix:** `_fetch_csv` validates every
+  response and every cache hit against the file's own `Div` column and persists nothing until it
+  passes — chosen over the roster filter first proposed, because `Div` is exact and
+  self-maintaining while a roster needs per-season upkeep and would drop promoted clubs. Verified
+  on live data: segunda 5,549 → 5,544 rows, 0 Scottish, `max_played_season` back to 2025; La Liga
+  2026 market rows 5 → 0. New `tests/test_football_data.py` (7 tests); **2032 passed, 35 skipped**.
+  Source-side only — **not yet in production**, lands on the next league rebuild; the shipped
+  `segunda.js` was built 2026-08-03, before the redirect appeared, and is clean. Also corrected the
+  `STATUS.md` row that had attributed these ten Scottish clubs to the 404-driven roster regression.
+
 - **2026-08-08 — The 26-of-79 Global ELO validation failures were the checker, not the data, and
   they had been killing the nightly Intelligence build for a day.** Investigated on the assumption
   the published figures were wrong; they are not. Measured across all 79 payloads, **zero rows**
