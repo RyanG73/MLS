@@ -132,3 +132,49 @@ def test_coverage_reports_usable_share(store):
 def test_unmapped_league_returns_nothing_rather_than_raising(store):
     from data_pipeline import xg_store
     assert xg_store.xg_rows("no-such-league") == []
+
+
+# ── §4.1 campaign verdicts: staged, not wired ───────────────────────────────
+# Spec 2026-08-09 §4.1/§9.1/§10.3. Porting the KEEP leagues is a production
+# model change and is the owner's decision. These tests exist so the decision
+# stays the owner's and the rejection stays legible.
+def test_the_brasileirao_rejection_is_recorded_with_its_reason():
+    """Its 100% coverage and its 1,140/1,140 Stage-2 diff rule out a data
+    explanation. Without the reason in code, someone later 'fixes' the
+    inconsistency of one league being excluded."""
+    from data_pipeline.xg_store import XG_CAMPAIGN_VERDICT
+    entry = XG_CAMPAIGN_VERDICT["brazil-serie-a"]
+    assert entry["verdict"] == "reject"
+    assert entry["mean_delta_brier"] > 0          # sum-form: positive = worse
+    assert "both seeds" in entry["note"]
+    assert "brazil-serie-a" not in __import__(
+        "data_pipeline.xg_store", fromlist=["x"]).XG_KEEP_LEAGUES
+
+
+def test_the_keep_list_is_exactly_the_leagues_that_improved():
+    from data_pipeline.xg_store import XG_CAMPAIGN_VERDICT, XG_KEEP_LEAGUES
+    assert set(XG_KEEP_LEAGUES) == {"primeira", "belgian-pro",
+                                    "championship", "eredivisie"}
+    for lid in XG_KEEP_LEAGUES:
+        assert XG_CAMPAIGN_VERDICT[lid]["mean_delta_brier"] < 0
+
+
+def test_super_lig_is_marginal_and_not_silently_promoted():
+    """One seed produced a confidently wrong shortlist here — seed 42 read
+    super-lig KEEP and championship noise; seed 7 swapped them exactly."""
+    from data_pipeline.xg_store import XG_CAMPAIGN_VERDICT
+    assert XG_CAMPAIGN_VERDICT["super-lig"]["verdict"] == "marginal"
+
+
+def test_no_build_path_attaches_xg_yet():
+    """The invariant: a feature enters through a gated Brier comparison, never
+    as a plumbing consequence. The only caller is the campaign harness that
+    measures it."""
+    import subprocess
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    out = subprocess.run(
+        ["rg", "-l", "attach_xg", "scripts", "models", "data_pipeline"],
+        cwd=root, capture_output=True, text=True).stdout.split()
+    assert sorted(out) == ["data_pipeline/xg_store.py",
+                           "scripts/xg_feature_campaign.py"], out
