@@ -190,11 +190,28 @@ jobs:
           path: output/intelligence-shadow-report.json
           if-no-files-found: warn
 
+      # §3.4: source_health.parquet is gitignored and discarded at the end of
+      # every run, so the division-mismatch guard, every router fallback and the
+      # plan-lapse assertion all log into nothing. This folds the run into a
+      # committed summary (the only way the consecutive-dark counter can
+      # survive a fresh runner) and annotates the run UI. It never fails: a run
+      # that built good payloads must still commit them.
+      - name: Publish the source-health surface
+        if: always()
+        run: python scripts/build_source_health.py --write
+      - name: Upload the source-health surface
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-health-weekly
+          path: data/source_health_summary.json
+          if-no-files-found: warn
+
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet data/weekly-archive/ data/race_deltas_history.parquet data/intelligence_events.parquet data/intelligence_events_latest.json
+          git add webapp/data/ data/odds_history.parquet data/match_prob_history.parquet data/weekly-archive/ data/race_deltas_history.parquet data/intelligence_events.parquet data/intelligence_events_latest.json data/source_health_summary.json
           git add data/bet_ledger.parquet 2>/dev/null || true
           # Share cards are built above; without this they are generated and
           # discarded, since this step stages explicit paths rather than -A.
@@ -227,6 +244,14 @@ jobs:
               }
             done
           )
+
+      # Runs AFTER the commit on purpose. A dark feed must fail the run so a
+      # human looks, but it must not discard payloads the run built correctly —
+      # that is the 2026-07-19 mistake (five nights of good data thrown away
+      # because a delivery step exited non-zero before the commit).
+      - name: Fail on a persistently dark feed
+        if: always()
+        run: python scripts/build_source_health.py --check
 
       # A failed refresh was previously discovered by accident. Under a paid
       # tier, stale data is a refund request, so failure must reach a human.
