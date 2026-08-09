@@ -27,6 +27,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from data_pipeline.names import clean_display_name
 from scripts.payload_utils import read_js_payload, write_js_payload
 
 PAYLOAD_DIR = Path("webapp/data")
@@ -128,8 +129,8 @@ def fetch_scoreboard(espn_code: str,
                      if row.get("homeAway") == "away"), None)
         if not home or not away:
             continue
-        home_name = (home.get("team") or {}).get("displayName")
-        away_name = (away.get("team") or {}).get("displayName")
+        home_name = clean_display_name((home.get("team") or {}).get("displayName"))
+        away_name = clean_display_name((away.get("team") or {}).get("displayName"))
         kickoff = event.get("date")
         kickoff_dt = _iso(kickoff)
         if not home_name or not away_name or kickoff_dt is None:

@@ -252,3 +252,39 @@ def test_espn_to_understat_no_identity_entries():
                 f"{league}: identity entry '{espn}' → '{us}' is redundant "
                 f"and should be removed from ESPN_TO_UNDERSTAT."
             )
+
+
+# ── display-name whitespace at the source boundary ────────────────────────────
+# ESPN's aus.w.1 feed returns 6 of 11 A-League Women clubs with a TRAILING
+# SPACE in displayName ('Western Sydney ', 'Sydney FC ', …), and every one of
+# them reached the published payload untouched — table and fixtures alike.
+# Harmless today only by luck: canonical_team_id already strips and casefolds,
+# so club and fixture ids are whitespace-invariant. The exposure is any future
+# join or filter that matches the DISPLAY name, which is the shape that came
+# 2,114 rows from deleting a third of a league (spec 2026-08-09 §8.3).
+# Normalised at the boundary rather than at each consumer, so a name is clean
+# everywhere downstream instead of at whichever call site remembered.
+
+def test_parse_events_strips_trailing_space_from_display_name():
+    """A club whose ESPN displayName carries a trailing space is stored trimmed."""
+    events = [_make_event("Western Sydney ", "Perth Glory", completed=False)]
+    rows = _parse_events(events, "australia-aleague-women", 2025)
+    assert rows[0]["home_team"] == "Western Sydney"
+    assert rows[0]["away_team"] == "Perth Glory"
+
+
+def test_parse_events_collapses_interior_whitespace():
+    """Doubled interior spaces collapse, so two spellings cannot split a club."""
+    events = [_make_event("Melbourne  City", "Sydney FC ", completed=False)]
+    rows = _parse_events(events, "australia-aleague-women", 2025)
+    assert rows[0]["home_team"] == "Melbourne City"
+    assert rows[0]["away_team"] == "Sydney FC"
+
+
+def test_parse_events_match_id_has_no_doubled_separator():
+    """match_id substitutes ' '→'_', so an untrimmed name yielded a trailing
+    and doubled underscore. Trimming first keeps the id readable and stable."""
+    events = [_make_event("Western Sydney ", "Sydney FC ", completed=False)]
+    rows = _parse_events(events, "australia-aleague-women", 2025)
+    assert "__" not in rows[0]["match_id"]
+    assert not rows[0]["match_id"].endswith("_")

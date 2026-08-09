@@ -325,6 +325,24 @@ These require account access or business decisions and cannot be completed from 
 
 ## Recently completed
 
+- Club display names normalised at the ESPN source boundary (2026-08-09, code only — payloads
+  change on the next CI rebuild, not before). ESPN's `aus.w.1` feed returns 6 of 11 A-League
+  Women clubs with a **trailing space** in `displayName` (`'Western Sydney '`, `'Sydney FC '`,
+  `'Adelaide United '`, `'Canberra United '`, `'Melbourne Victory '`, `'Newcastle Jets '`), and
+  every one reached the published payload untouched, in the standings table and the fixtures
+  alike. **Adjudicated as display-only, no migration:** `canonical_team_id` already strips and
+  casefolds before hashing, so club ids — and the fixture ids derived from them — are
+  whitespace-invariant, and no archived record is keyed on the untrimmed form; verified by
+  recomputing `australia-aleague-women` fixture ids trimmed and untrimmed to the same
+  `v1:e67993e5a7ac50ec`. The exposure was forward: any join or filter matching the display name
+  rather than the id drops those clubs, the shape that came 2,114 rows from deleting a third of
+  a league. Fixed once in `data_pipeline/names.py` (stdlib-only, so `fast_refresh --select`
+  still imports on the runner's bare Python — R6 asserted) and applied at all four ESPN read
+  sites: `espn_fixtures`, `espn_continental`, `espn_soccer`, `fast_refresh`. Fixing one and not
+  its siblings would have left the fast path matching untrimmed names against a trimmed build.
+  6 new tests; suite 2052 passed / 0 failed / 35 skipped (Playwright modules excluded — not
+  installed locally).
+
 - API-Football migration Stage 0 (2026-08-08, build blind, zero requests): budget governor
   (`data_pipeline/api_budget.py` — fail-closed ops/backfill allowances counted from
   `source_health.parquet`, plan assertion from rate-limit headers as the silent-lapse guard,

@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from data_pipeline.http import espn_get
+from data_pipeline.names import clean_display_name
 
 logger = logging.getLogger("espn_continental")
 
@@ -123,8 +124,8 @@ def _parse(events: list[dict], season: int, completed_only: bool) -> list[dict]:
         away = next((c for c in cs if c.get("homeAway") == "away"), None)
         if not home or not away:
             continue
-        ht = home.get("team", {}).get("displayName", "")
-        at = away.get("team", {}).get("displayName", "")
+        ht = clean_display_name(home.get("team", {}).get("displayName", ""))
+        at = clean_display_name(away.get("team", {}).get("displayName", ""))
         if not ht or not at:
             continue
         dt = pd.to_datetime(e.get("date"), utc=True, errors="coerce")

@@ -27,6 +27,7 @@ import pandas as pd
 from data_pipeline.http import espn_get
 from data_pipeline.source_health import record_fetch
 from data_pipeline.match_time import competition_date
+from data_pipeline.names import clean_display_name
 from data_pipeline.understat import _COLS, _coerce
 
 logger = logging.getLogger("espn_fixtures")
@@ -283,8 +284,8 @@ def _parse_events(events: list[dict], league_id: str, season: int) -> list[dict]
         away = next((c for c in cs if c.get("homeAway") == "away"), None)
         if not home or not away:
             continue
-        espn_ht = home.get("team", {}).get("displayName", "")
-        espn_at = away.get("team", {}).get("displayName", "")
+        espn_ht = clean_display_name(home.get("team", {}).get("displayName", ""))
+        espn_at = clean_display_name(away.get("team", {}).get("displayName", ""))
         if not espn_ht or not espn_at:
             continue
 
