@@ -24,9 +24,18 @@ not by flipping the default.
 """
 from __future__ import annotations
 
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
-import pandas as pd
+# pandas is NOT imported at module scope. fast_refresh's `--select` step runs
+# on the runner's bare Python before `pip install -r requirements.txt` (see
+# refresh-fast.yml and the deferred-import comments in scripts/fast_refresh.py),
+# and select_leagues reaches this module through uses_spine. A module-scope
+# pandas import here therefore breaks league selection in CI with
+# ModuleNotFoundError — which it did, every 15 minutes, on 2026-08-08. Nothing
+# below needs pandas at runtime: the annotations are deferred by
+# `from __future__ import annotations`, and `frame.empty` is duck-typed.
+if TYPE_CHECKING:                                   # pragma: no cover
+    import pandas as pd
 
 # league_id → {family: [source, ...]} in priority order. Empty at Stage 0;
 # Tier A migration (Stage 3) adds entries batch by batch, each backed by a

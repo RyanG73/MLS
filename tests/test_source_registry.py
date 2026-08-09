@@ -113,3 +113,31 @@ def test_resolve_records_the_failed_source_in_health(monkeypatch, isolated_healt
     assert len(failed) == 1
     assert failed.iloc[0]["source_name"] == "api_football"
     assert "epl" in failed.iloc[0]["endpoint"]
+
+
+def test_module_imports_without_pandas(monkeypatch):
+    """fast_refresh's --select step runs on the runner's BARE Python, before
+    pip install (see refresh-fast.yml and the import comments in
+    scripts/fast_refresh.py). select_leagues calls uses_spine, which reaches
+    this module — so a module-scope pandas import here breaks league selection
+    in CI with ModuleNotFoundError. It did, every 15 minutes, on 2026-08-08."""
+    import subprocess, sys, textwrap
+    code = textwrap.dedent("""
+        import sys
+        for m in list(sys.modules):
+            if m == "pandas" or m.startswith("pandas."):
+                del sys.modules[m]
+        import builtins
+        real = builtins.__import__
+        def guard(name, *a, **k):
+            if name == "pandas" or name.startswith("pandas."):
+                raise ModuleNotFoundError("No module named 'pandas'")
+            return real(name, *a, **k)
+        builtins.__import__ = guard
+        from data_pipeline.source_registry import sources_for
+        assert sources_for("epl", "fixtures", default="espn") == ["espn"]
+        print("ok")
+    """)
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert r.returncode == 0 and "ok" in r.stdout, (
+        f"source_registry must import without pandas.\n{r.stderr}")
