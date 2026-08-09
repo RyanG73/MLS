@@ -216,6 +216,23 @@ jobs:
           name: intelligence-shadow-daily
           path: output/intelligence-shadow-report.json
           if-no-files-found: warn
+      # §5.1: an independent witness to our computed tables. ~78 requests, 0.05%
+      # of the daily allowance, against the four defect classes we currently
+      # find by accident — a missing fixture, a wrong scoreline, a
+      # competition-mixing bug, or an unmodelled points deduction. Reports
+      # rather than fails: a deduction is a real disagreement and not a defect,
+      # and a check that cries wolf on it stops being read.
+      - name: Standings cross-check (non-fatal)
+        if: always()
+        run: python scripts/check_standings.py || echo "standings cross-check failed (non-fatal)"
+      - name: Upload the standings cross-check
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: standings-crosscheck-daily
+          path: output/standings-crosscheck.json
+          if-no-files-found: warn
+
       # §3.4: source_health.parquet is gitignored and discarded at the end of
       # every run, so the division-mismatch guard, every router fallback and the
       # plan-lapse assertion all log into nothing. This folds the run into a

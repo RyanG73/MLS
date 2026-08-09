@@ -431,6 +431,50 @@ def schedule_rows(league_id: str, season: int) -> list[dict]:
     return rows
 
 
+def standings_rows(af_id: int, season: int,
+                   names: dict[str, str] | None = None) -> list[dict]:
+    """API-Football's own league table → [{rank, team, played, points, gd, ...}].
+
+    An INDEPENDENT witness, not a model input (spec §5.1): every disagreement
+    with our computed table is a missing fixture, a wrong scoreline, a
+    competition-mixing bug, or a points deduction we do not model — all four of
+    which we currently discover by accident.
+
+    Takes the raw af_id rather than a league slug so it can cover the whole
+    approved map, not just the handful of leagues routed through LEAGUE.
+    """
+    payload = _get("standings", {"league": int(af_id), "season": int(season)})
+    names = names or {}
+    rows: list[dict] = []
+    for entry in payload.get("response") or []:
+        league = entry.get("league") or {}
+        # /standings carries the league identity once, on the wrapper.
+        if int(league.get("id") or -1) != int(af_id) or \
+                int(league.get("season") or -1) != int(season):
+            raise IdentityMismatch(
+                f"API-Football /standings identity mismatch: got league "
+                f"{league.get('id')}/{league.get('season')}, "
+                f"requested {af_id}/{season}")
+        for group in league.get("standings") or []:
+            for row in group:
+                team = ((row.get("team") or {}).get("name") or "").strip()
+                if not team:
+                    continue
+                allg = (row.get("all") or {})
+                goals = allg.get("goals") or {}
+                rows.append({
+                    "rank": row.get("rank"),
+                    "team": names.get(team, team),
+                    "played": allg.get("played"),
+                    "points": row.get("points"),
+                    "gf": goals.get("for"),
+                    "ga": goals.get("against"),
+                    "gd": row.get("goalsDiff"),
+                    "group": row.get("group"),
+                })
+    return rows
+
+
 def team_logos(league_id: str) -> dict[str, dict]:
     """{team_name: {logo, color}} from API-Football's /teams endpoint (crests for
     leagues with no ESPN stub, e.g. Canadian PL). One request for the latest season."""
