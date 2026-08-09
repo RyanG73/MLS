@@ -3508,7 +3508,7 @@ function renderHealth(){
     <div class="hnote">${bt.note}</div></div>` : '';
   // freshness strip
   const fresh=`<div class="h-fresh"><span>Feature frame <b>${h.frame_file.split('/').pop()}</b> · ${h.frame_mtime||''}</span>
-    <span>${h.espn_ok!=null?`ESPN schedule <b style="color:${h.espn_ok?'var(--qualify)':'#e25f4f'}">${h.espn_ok?'OK':'FAILED'}</b> · ${h.espn_events??'—'} events`:`Source <b>${h.frame_file.split(':')[0]}</b>`}</span>
+    <span>${h.espn_ok!=null?`Schedule <b style="color:${h.espn_events?'var(--qualify)':'#e25f4f'}">${h.schedule_source||(h.espn_ok?'espn':'FAILED')}</b> · ${h.espn_events??'—'} events`:`Source <b>${h.frame_file.split(':')[0]}</b>`}</span>
     <span>${h.season_rows} season rows (${h.played_rows} played)</span><span>Built ${D.generated}</span></div>`;
   // B4: "Model Trust" — A1's conditional reliability slices + A3's promoted-team
   // advisory. `D.trust` is null for leagues without a per-family champion report

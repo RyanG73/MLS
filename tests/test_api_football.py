@@ -198,3 +198,77 @@ def test_get_paces_at_plan_throttle_delay(monkeypatch, isolated_health):
         lambda *a, **k: _FakeResponse({"x-ratelimit-requests-limit": "100"}))
     api_football._get("fixtures", {"league": 1})
     assert sleeps == [pytest.approx(12.0)]
+
+
+# ── R1: identity validation — a source that answers with the wrong thing ─────
+# Spec 2026-08-09 §2 R1. Defect #4 mapped `segunda` to La Liga's league id and
+# shipped 1,140 sheets of the wrong division at 100% reported coverage; defect
+# #5 was a 301 serving a Scottish division under a Spanish filename. Neither
+# produced an error. The response declares its own identity — ask it.
+def _identity_payload(league_id: int, season: int) -> dict:
+    return {"response": [
+        {"fixture": {"id": 1, "date": "2026-04-05T23:00:00+00:00",
+                     "status": {"short": "FT"}, "venue": {"name": "V", "city": "C"}},
+         "league": {"id": league_id, "season": season, "round": "Regular Season - 1"},
+         "teams": {"home": {"name": "H"}, "away": {"name": "A"}},
+         "goals": {"home": 1, "away": 0}}]}
+
+
+def test_identity_accepts_the_requested_league_and_season():
+    from data_pipeline import api_football
+    api_football.assert_fixture_identity(_identity_payload(253, 2026), 253, 2026)
+
+
+def test_identity_rejects_a_different_league_id():
+    from data_pipeline import api_football
+    with pytest.raises(api_football.IdentityMismatch) as exc:
+        api_football.assert_fixture_identity(_identity_payload(140, 2026), 141, 2026)
+    assert "league id" in str(exc.value)
+
+
+def test_identity_rejects_a_different_season():
+    from data_pipeline import api_football
+    with pytest.raises(api_football.IdentityMismatch) as exc:
+        api_football.assert_fixture_identity(_identity_payload(253, 2024), 253, 2026)
+    assert "season" in str(exc.value)
+
+
+def test_identity_is_validated_on_a_cache_hit_not_only_on_write(monkeypatch, tmp_path):
+    """The poisoned artifact was already on disk when it was found. A cache
+    read that skips validation keeps serving it forever."""
+    import json
+    from data_pipeline import api_football
+    monkeypatch.setattr(api_football, "_CACHE", tmp_path)
+    (tmp_path / "253_2025.json").write_text(json.dumps(_identity_payload(140, 2025)))
+
+    def no_network(*a, **k):
+        raise AssertionError("fetched despite a cache hit")
+
+    monkeypatch.setattr(api_football, "_get_paged", no_network)
+    with pytest.raises(api_football.IdentityMismatch):
+        # 2025 is not the latest season here, so it is served from cache.
+        api_football._fetch_league(253, [2025, 2026])
+
+
+def test_schedule_rows_carry_kickoff_and_venue(monkeypatch, isolated_health):
+    """The canonical `_COLS` frame drops venue and kickoff; an MLS schedule
+    needs both (venue-local dates and the weather window are built from them)."""
+    from data_pipeline import api_football
+    monkeypatch.setattr(api_football, "_get_paged",
+                        lambda path, params, budget="ops": _identity_payload(253, 2026))
+    monkeypatch.setitem(api_football.LEAGUE, "mls", (253, [2026]))
+    rows = api_football.schedule_rows("mls", 2026)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r["ko_utc"] == "2026-04-05T23:00:00+00:00"
+    assert (r["venue"], r["venue_city"]) == ("V", "C")
+    assert r["state"] == "post" and (r["home_goals"], r["away_goals"]) == (1, 0)
+
+
+def test_schedule_rows_reject_a_wrong_league_response(monkeypatch, isolated_health):
+    from data_pipeline import api_football
+    monkeypatch.setattr(api_football, "_get_paged",
+                        lambda path, params, budget="ops": _identity_payload(140, 2026))
+    monkeypatch.setitem(api_football.LEAGUE, "mls", (253, [2026]))
+    with pytest.raises(api_football.IdentityMismatch):
+        api_football.schedule_rows("mls", 2026)

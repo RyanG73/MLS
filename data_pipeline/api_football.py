@@ -69,6 +69,20 @@ LEAGUE: dict[str, tuple[int, list[int]]] = {
     # the statistics backfill and a future adjudicated migration.
     "costa-rica-primera":     (162, [2016, 2017, 2018, 2019, 2020, 2021,
                                      2022, 2023, 2024, 2025, 2026]),
+    # MLS is NOT built by build_league_data (it is not in OUTLOOK) — it comes
+    # out of build_dashboard_data off the ASA adapter, with ESPN supplying the
+    # schedule. This entry exists so that schedule can fall back to the spine
+    # when ESPN is dark (spec §3.1); ASA stays primary for results, ESPN stays
+    # primary for the schedule. Id 253 from the owner-approved map
+    # (config/api_football_league_map.json), whose catalogue depth for MLS is
+    # 2012+; only the current season is ever requested here.
+    #
+    # The season list is NOT read by the routed schedule path — `schedule_rows`
+    # takes the season its caller was invoked with (build_dashboard_data's
+    # --season), so a stale entry here cannot make the dashboard fetch the
+    # wrong year. It is present for the `fetch_spine_scoreboard` shape and for
+    # `results_frame`, neither of which MLS uses today.
+    "mls":                    (253, [2026]),
 }
 
 # Some leagues' /fixtures response mixes in a promotion/relegation playoff vs a
@@ -205,6 +219,53 @@ def find_league_id(search: str) -> list[dict]:
             for r in resp]
 
 
+# ── identity validation (spec §2 R1) ─────────────────────────────────────────
+class IdentityMismatch(RuntimeError):
+    """A response (or a cache hit) declares a different league/season than the
+    one requested. Raised rather than filtered: a provider that answers with
+    the wrong competition is not a source we can silently repair, and defect #4
+    (`segunda` → La Liga's id) shipped 1,140 sheets of the wrong division while
+    reporting 100% coverage."""
+
+
+def assert_fixture_identity(payload: dict, af_id: int,
+                            season: int | None = None) -> None:
+    """Assert every fixture in a /fixtures payload declares the requested
+    league id (and season, when one was requested).
+
+    Validated on cache READ as well as on fetch: the poisoned football-data
+    `SP2` file was already on disk when it was found, so write-time validation
+    alone leaves a wrong artifact serving forever.
+    """
+    bad_league: set[int | None] = set()
+    bad_season: set[int | None] = set()
+    for f in payload.get("response") or []:
+        league = f.get("league") or {}
+        got_id = league.get("id")
+        try:
+            got_id = int(got_id) if got_id is not None else None
+        except (TypeError, ValueError):
+            got_id = None
+        if got_id != int(af_id):
+            bad_league.add(got_id)
+        if season is not None:
+            got_season = league.get("season")
+            try:
+                got_season = int(got_season) if got_season is not None else None
+            except (TypeError, ValueError):
+                got_season = None
+            if got_season != int(season):
+                bad_season.add(got_season)
+    problems = []
+    if bad_league:
+        problems.append(f"league id {sorted(map(str, bad_league))} != {af_id}")
+    if bad_season:
+        problems.append(f"season {sorted(map(str, bad_season))} != {season}")
+    if problems:
+        raise IdentityMismatch(
+            "API-Football /fixtures identity mismatch: " + "; ".join(problems))
+
+
 # ── parsing ──────────────────────────────────────────────────────────────────
 def _parse_fixtures(payload: dict, exclude_rounds: set[str] | None = None,
                      af_id: int | None = None) -> pd.DataFrame:
@@ -261,9 +322,11 @@ def _fetch_league(af_id: int, seasons: list[int]) -> pd.DataFrame:
         cache = _CACHE / f"{af_id}_{s}.json"
         if cache.exists() and s != latest:
             payload = json.loads(cache.read_text())
+            assert_fixture_identity(payload, af_id, s)      # R1: validate on read
         else:
             # _get paces every request at the plan throttle, so no extra sleep.
             payload = _get_paged("fixtures", {"league": af_id, "season": s})
+            assert_fixture_identity(payload, af_id, s)      # before it is cached
             cache.write_text(json.dumps(payload))
         frames.append(_parse_fixtures(payload, exclude, af_id))
     frames = [f for f in frames if not f.empty]
@@ -305,6 +368,67 @@ def upcoming_fixtures(league_id: str) -> pd.DataFrame:
     df = _fetch_league(af_id, [max(seasons)]) if seasons else pd.DataFrame(columns=_COLS)
     df = _apply_names(df, league_id)
     return df[~df["is_result"]].copy() if not df.empty else df
+
+
+# Provider status → the three-state ESPN `status.type.state` the dashboard
+# builder branches on. Anything not finished and not in play is "pre", which is
+# the state that makes a fixture count as remaining.
+_STATE_POST = _FINISHED
+_STATE_IN = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT"}
+
+
+def schedule_rows(league_id: str, season: int) -> list[dict]:
+    """One season's fixtures with the fields a *schedule* needs — kickoff,
+    venue and venue city — which the canonical `_COLS` frame does not carry.
+
+    Exists for MLS (spec §3.1): `build_dashboard_data` takes its schedule from
+    ESPN, and when ESPN 403s the flagship league stops rebuilding entirely.
+    The row shape mirrors `build_dashboard_data.espn_schedule` so either source
+    can answer, and team names are mapped through the same per-league canonical
+    map the rest of the spine uses.
+
+    Not cached: a schedule is only ever wanted for the live season, where
+    `_fetch_league`'s cache would be bypassed anyway.
+    """
+    af_id, _ = LEAGUE[league_id]
+    payload = _get_paged("fixtures", {"league": af_id, "season": int(season)})
+    assert_fixture_identity(payload, af_id, int(season))
+    names = _team_names().get(league_id, {})
+    exclude = ROUND_EXCLUDE.get(af_id) or set()
+    rows = []
+    for f in payload.get("response") or []:
+        league, fx = f.get("league") or {}, f.get("fixture") or {}
+        if league.get("round") in exclude:
+            continue
+        teams = f.get("teams") or {}
+        home = (teams.get("home") or {}).get("name")
+        away = (teams.get("away") or {}).get("name")
+        if not home or not away:
+            continue
+        short = (fx.get("status") or {}).get("short") or ""
+        state = ("post" if short in _STATE_POST
+                 else "in" if short in _STATE_IN else "pre")
+        goals = f.get("goals") or {}
+        hg = ag = None
+        if state == "post":
+            try:
+                hg, ag = int(goals.get("home")), int(goals.get("away"))
+            except (TypeError, ValueError):
+                hg = ag = None
+        venue = fx.get("venue") or {}
+        ko = fx.get("date")
+        rows.append({
+            "date": str(ko)[:10] if ko else None,
+            "home": names.get(home, home),
+            "away": names.get(away, away),
+            "state": state,
+            "home_goals": hg,
+            "away_goals": ag,
+            "ko_utc": ko or None,
+            "venue": venue.get("name") or None,
+            "venue_city": venue.get("city") or None,
+        })
+    return rows
 
 
 def team_logos(league_id: str) -> dict[str, dict]:

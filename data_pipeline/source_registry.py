@@ -51,6 +51,18 @@ REGISTRY: dict[str, dict[str, list[str]]] = {
     # ESPN never had — a history GAIN.
     "northern-super-league": {"fixtures": ["api_football", "espn"]},
     "usl-super-league":      {"fixtures": ["api_football", "espn"]},
+    # ── MLS (2026-08-09, spec §3.1) ──────────────────────────────────────────
+    # ESPN stays FIRST here, deliberately, and this is the one entry that is
+    # not a migration. MLS results come from ASA and its schedule from ESPN;
+    # `build (mls)` has been red since ~2026-08-06 because a 403 on
+    # usa.1/scoreboard is fatal with no second source. This entry adds the
+    # fallback without moving the primary, so a healthy build is byte-identical
+    # to today's payload while a dark ESPN degrades instead of failing.
+    # It is NOT a Stage-3 migration: making api_football primary requires the
+    # 100%-agreement diff and the generated name map that §3.2 mandates, and
+    # config/api_football_team_names.json has no "mls" entry yet — until it
+    # does, the fallback's own name-coverage guard fails it closed.
+    "mls":                   {"fixtures": ["espn", "api_football"]},
     # costa-rica-primera: HELD on ESPN-first (2026-08-08) — spine history
     # starts 2016 vs ESPN's 2015 (invariant 3: no history loss), and 4 of 110
     # matched fixtures disagreed on scorelines, unadjudicated. Revisit with a
