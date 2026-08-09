@@ -170,11 +170,17 @@ def test_no_build_path_attaches_xg_yet():
     """The invariant: a feature enters through a gated Brier comparison, never
     as a plumbing consequence. The only caller is the campaign harness that
     measures it."""
-    import subprocess
+    # Pure stdlib rather than shelling out to `rg`: ripgrep is not guaranteed
+    # on a contributor's machine (it is not in requirements, and the call
+    # raised FileNotFoundError on macOS here), and a portability failure in an
+    # invariant test reads as the invariant being broken.
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent
-    out = subprocess.run(
-        ["rg", "-l", "attach_xg", "scripts", "models", "data_pipeline"],
-        cwd=root, capture_output=True, text=True).stdout.split()
-    assert sorted(out) == ["data_pipeline/xg_store.py",
-                           "scripts/xg_feature_campaign.py"], out
+    out = sorted(
+        str(f.relative_to(root))
+        for d in ("scripts", "models", "data_pipeline")
+        for f in (root / d).rglob("*.py")
+        if "attach_xg" in f.read_text(encoding="utf-8", errors="ignore")
+    )
+    assert out == ["data_pipeline/xg_store.py",
+                   "scripts/xg_feature_campaign.py"], out

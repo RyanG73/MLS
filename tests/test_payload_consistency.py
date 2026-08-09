@@ -8,6 +8,7 @@ ELO validator came to assert arithmetic the producer had stopped doing.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -140,13 +141,31 @@ def test_strict_fails_on_a_deviation_outside_the_baseline(tmp_path, monkeypatch)
                      "--payload-dir", str(tmp_path)]) == 1
 
 
-def test_the_committed_baseline_records_what_the_payloads_actually_show():
+def test_the_committed_baseline_records_what_the_payloads_actually_show(tmp_path):
     """The baseline is a MEASUREMENT of an unadjudicated state, not a list of
     leagues that are fine. It must match the committed payloads, or it is
-    quietly excusing something that changed."""
+    quietly excusing something that changed.
+
+    Reads the payloads out of `git show HEAD:`, NOT the working tree. The
+    baseline is committed, so the only honest comparison is against committed
+    payloads. A working-tree read fails on any machine where a local refresh
+    has run — which is every developer machine here, daily — and the failure
+    message points at `--write-baseline`, so the natural response is to bake
+    locally-built payload artifacts into the committed baseline. Local builds
+    rebuild the PREVIOUS season and exit 0; CI owns payload writes.
+    """
+    export = tmp_path / "head"
+    export.mkdir()
+    archive = subprocess.run(["git", "archive", "HEAD", "webapp/data"],
+                             cwd=ROOT, capture_output=True)
+    if archive.returncode != 0:
+        pytest.skip("not a git checkout: cannot read committed payloads")
+    subprocess.run(["tar", "-x", "-C", str(export)],
+                   input=archive.stdout, check=True)
+
     baseline = json.loads((ROOT / cpc.BASELINE_PATH).read_text())["deviations"]
     results = [cpc.check_payload(lid, p)
-               for lid, p in cpc.league_payloads(ROOT / "webapp/data")]
+               for lid, p in cpc.league_payloads(export / "webapp/data")]
     assert results, "no league payloads found"
     for check in cpc.STRICT_CHECKS:
         measured = sorted(r["league"] for r in results if not r["checks"][check]["ok"])

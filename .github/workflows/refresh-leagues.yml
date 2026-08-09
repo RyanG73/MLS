@@ -245,6 +245,42 @@ jobs:
             done
           )
 
+      # The counter is only worth keeping if it SURVIVES the run that failed.
+      # `--write` above runs on always(), but the commit step deliberately does
+      # not — a build failure must never ship half-built payloads. That left the
+      # summary written to the runner and never persisted, so
+      # consecutive_dark_runs reset from git on the next run, and the run that
+      # fails is exactly the run a dark feed tends to cause: the escalation
+      # could never reach its threshold.
+      #
+      # This commits the health surface ALONE, so it carries no payload with it
+      # and the half-built-payload rule is untouched. On a healthy run the file
+      # is already in the commit above and this finds nothing staged.
+      # It WARNS rather than fails: the run may already be failing for a real
+      # reason, and masking that with a push error helps nobody.
+      - name: Persist the source-health surface even when the build failed
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/source_health_summary.json 2>/dev/null || true
+          git diff --staged --quiet && echo "health surface already committed or unchanged." || (
+            git commit -m "chore(health): source-health surface [$(date -u +%Y-%m-%dT%H:%MZ)]"
+            for attempt in 1 2 3; do
+              if git push; then echo "pushed on attempt $attempt"; break; fi
+              if [ "$attempt" = 3 ]; then
+                echo "::warning::could not push the health surface after 3 attempts; the dark-feed counter will not advance this run"
+                break
+              fi
+              echo "push rejected — rebasing onto origin/main and retrying"
+              git pull --rebase --autostash origin main || {
+                echo "::warning::rebase failed; leaving the health surface uncommitted"
+                git rebase --abort 2>/dev/null || true
+                break
+              }
+            done
+          )
+
       # Runs AFTER the commit on purpose. A dark feed must fail the run so a
       # human looks, but it must not discard payloads the run built correctly —
       # that is the 2026-07-19 mistake (five nights of good data thrown away

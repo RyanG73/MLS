@@ -120,3 +120,48 @@ def test_the_guard_itself_can_fail():
         import pandas
     """)
     assert r.returncode != 0 and "No module named 'pandas'" in r.stderr
+
+
+# ── the dark-feed counter must survive the run that failed ───────────────────
+# consecutive_dark_runs lives in a COMMITTED json summary, because a runner is
+# fresh every time. `--write` runs on always(), but the payload commit step
+# deliberately does not — a build failure must not ship half-built payloads.
+# Without a separate always() commit the summary is written and discarded, and
+# the counter resets on exactly the runs a dark feed causes, so the
+# three-consecutive escalation can never reach its threshold.
+
+@pytest.mark.parametrize("workflow", ["refresh-leagues.yml", "refresh-daily.yml"])
+def test_health_surface_is_persisted_even_when_the_build_fails(workflow):
+    spec = yaml.safe_load((ROOT / ".github/workflows" / workflow).read_text())
+    steps = [s for j in spec["jobs"].values() for s in j.get("steps", [])]
+    persist = [s for s in steps
+               if "source-health surface" in (s.get("name") or "")
+               and "git commit" in (s.get("run") or "")]
+    assert persist, f"{workflow}: no always() step commits the health surface"
+    step = persist[0]
+    assert str(step.get("if", "")).strip() == "always()", (
+        f"{workflow}: the persistence step must run on always(), got "
+        f"{step.get('if')!r} — otherwise it is skipped by the very failure it "
+        "exists to record")
+    run = step["run"]
+    assert "data/source_health_summary.json" in run
+    for payload_path in ("webapp/data/", "data/odds_history.parquet",
+                         "data/match_prob_history.parquet"):
+        assert payload_path not in run, (
+            f"{workflow}: the persistence step stages {payload_path} — it must "
+            "commit the health surface ALONE, or a failed build ships a "
+            "half-built payload through the back door")
+
+
+@pytest.mark.parametrize("workflow", ["refresh-leagues.yml", "refresh-daily.yml"])
+def test_health_persistence_warns_rather_than_fails(workflow):
+    """The run may already be failing for a real reason. A push error here must
+    not become the error a human sees first."""
+    spec = yaml.safe_load((ROOT / ".github/workflows" / workflow).read_text())
+    steps = [s for j in spec["jobs"].values() for s in j.get("steps", [])]
+    run = next(s["run"] for s in steps
+               if "source-health surface" in (s.get("name") or "")
+               and "git commit" in (s.get("run") or ""))
+    assert "::warning::" in run
+    assert "::error::" not in run
+    assert "exit 1" not in run
