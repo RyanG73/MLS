@@ -2191,6 +2191,21 @@ def main():
                       "pH": round(pH, 3), "pD": round(pD, 3), "pA": round(pA, 3),
                       "lam": round(_lam, 2), "mu": round(_mu, 2),
                       "hg": int(r["home_goals"]), "ag": int(r["away_goals"]), "result": res,
+                      # Knockout fixtures are published but must not be counted
+                      # against the league table: the standings loop filters
+                      # is_playoff, this list did not, and nothing marked the
+                      # difference. NWSL 2026 has exactly one such fixture
+                      # (2026-06-26 Gotham 2-0 Kansas City Current), which made
+                      # both clubs read one game short of their own fixtures
+                      # and looked like a table defect. The table was right.
+                      # Emitted only when true, so every other league's payload
+                      # is byte-identical.
+                      # NOT "ko" — that key is already the kickoff TIMESTAMP
+                      # on upcoming cards (line ~1827) and 32 leagues publish
+                      # it. Reusing it would have read every scheduled fixture
+                      # as a knockout and silently emptied both checks.
+                      **({"knockout": True}
+                         if int(r.get("is_playoff") or 0) == 1 else {}),
                       "hlogo": tmeta(h).get("logo"), "alogo": tmeta(a).get("logo"),
                       "hcolor": tmeta(h).get("color"), "acolor": tmeta(a).get("color"),
                       "mkt_home": round(_mg["mkt_home"], 3) if "mkt_home" in _mg else None,

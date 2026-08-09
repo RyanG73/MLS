@@ -93,11 +93,21 @@ def check_payload(league_id: str, payload: dict) -> dict:
     listed = {r["team"] for r in table}
     in_fixtures = {g.get(side) for g in games for side in ("home", "away")} - {None}
 
+    # Knockout fixtures are published in `games` but are NOT league fixtures:
+    # the standings loop filters `is_playoff`, so counting them here reports a
+    # table defect where none exists. NWSL 2026 has exactly one — 2026-06-26
+    # Gotham 2-0 Kansas City Current — which made both clubs read one game
+    # short of their own fixtures and cost Gotham a phantom three points in
+    # the arithmetic. Excluded from games-played AND from pair multiplicity,
+    # since both checks describe the league table's own shape. Payloads built
+    # before the `knockout` flag existed carry no such key and are
+    # unaffected. The key is NOT `ko`: that is the kickoff timestamp, which 32
+    # leagues publish on upcoming cards, and reusing it emptied both checks.
     played = Counter()
     pair_counts: Counter = Counter()
     for g in games:
         home, away = g.get("home"), g.get("away")
-        if not home or not away:
+        if not home or not away or g.get("knockout"):
             continue
         pair_counts[tuple(sorted((home, away)))] += 1
         if g.get("result"):

@@ -167,12 +167,22 @@ def test_the_committed_baseline_records_what_the_payloads_actually_show(tmp_path
     results = [cpc.check_payload(lid, p)
                for lid, p in cpc.league_payloads(export / "webapp/data")]
     assert results, "no league payloads found"
+    # Subset, not equality — the same semantics `--strict` already enforces in
+    # CI, so the test now describes the behaviour it is meant to guard rather
+    # than a stricter one nobody runs. A league that RESOLVES its deviation is
+    # an improvement and must not fail the build; only a NEW one is a
+    # regression. Exact equality also makes the baseline a second place the
+    # truth lives, which has to be re-committed for a change that is good news.
+    #
+    # As of 2026-08-09 the measured set matches the baseline exactly, so this
+    # is a choice about which failures are worth a red build, not a workaround
+    # for a drift that exists today.
     for check in cpc.STRICT_CHECKS:
-        measured = sorted(r["league"] for r in results if not r["checks"][check]["ok"])
-        assert measured == sorted(baseline.get(check) or []), (
-            f"{check}: payloads show {measured}, baseline says "
-            f"{sorted(baseline.get(check) or [])} — regenerate deliberately "
-            f"with --write-baseline, and only after adjudicating the change")
+        measured = {r["league"] for r in results if not r["checks"][check]["ok"]}
+        new = sorted(measured - set(baseline.get(check) or []))
+        assert not new, (
+            f"{check}: {new} deviate and are NOT in the baseline — adjudicate "
+            f"the change, then regenerate deliberately with --write-baseline")
 
 
 def _failing(check: str) -> dict:
@@ -197,3 +207,41 @@ def test_the_daily_refresh_runs_the_check_after_the_commit():
     text = (ROOT / ".github/workflows/refresh-daily.yml").read_text()
     assert "check_payload_consistency.py --strict" in text
     assert text.index("git add") < text.index("check_payload_consistency.py --strict")
+
+
+# ── knockout fixtures are published but are not league fixtures ──────────────
+
+def _payload_with_knockout(ko: bool):
+    """Three clubs in a clean double round-robin, plus one extra A-B meeting.
+
+    Three clubs, not two: with a single pair there is only one multiplicity and
+    the pairs check cannot vary, so a two-club fixture would prove nothing.
+    """
+    teams = ["A", "B", "C"]
+    games = [{"home": h, "away": a, "result": "H", "hg": 1, "ag": 0}
+             for h in teams for a in teams if h != a]
+    extra = {"home": "A", "away": "B", "result": "H", "hg": 2, "ag": 0}
+    if ko:
+        extra["knockout"] = True
+    games.append(extra)
+    return {"season": 2026,
+            "standings": [{"team": t, "gp": 4} for t in teams],
+            "games": games}
+
+
+def test_knockout_fixtures_do_not_count_toward_games_played():
+    """The standings loop filters is_playoff; this check must filter the same
+    fixtures or it reports a table defect that is not there. NWSL 2026's single
+    knockout game made Gotham and Kansas City each read one game short."""
+    r = cpc.check_payload("x", _payload_with_knockout(ko=True))
+    assert r["checks"]["played"]["ok"], r["checks"]["played"]["mismatches"]
+    assert r["checks"]["pairs"]["ok"], r["checks"]["pairs"]["multiplicities"]
+
+
+def test_an_unflagged_extra_meeting_is_still_caught():
+    """The exclusion is narrow: only fixtures the builder MARKED knockout are
+    skipped. An unexplained third meeting must still fail, or the flag becomes
+    a way to launder a real defect."""
+    r = cpc.check_payload("x", _payload_with_knockout(ko=False))
+    assert not r["checks"]["played"]["ok"]
+    assert not r["checks"]["pairs"]["ok"]
