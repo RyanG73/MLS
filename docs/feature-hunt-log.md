@@ -1010,3 +1010,51 @@ values). A9 Phase 2's weekly snapshot cron started 2026-07-06; revisit the
 European A/B once ≥1 season of dated snapshots exists (or a paid historical
 feed is bought). A8's β=0.75 club-ELO prior remains the shipped European
 seeding lever in the meantime.
+
+---
+
+## API-Football xG for the six backfilled leagues (2026-08-08) — 4 KEEP, 1 marginal, 1 REJECT
+
+The Stage-4 backfill gave six competitions real xG for the first time
+(spec `2026-08-08-api-football-migration-execution-spec.md`). Invariant 4
+forbids new features reaching the model as a consequence of a plumbing
+change, so this is the gate. Harness: `scripts/xg_feature_campaign.py` —
+same walk-forward, same `LEAGUE_FEAT_BASE`, same config; the ONLY variable is
+whether `home_xg`/`away_xg` carry values (control = production today, where
+those 18 columns exist but are entirely empty).
+
+| League | seed 42 | seed 7 | mean Δ | verdict |
+|---|---|---|---|---|
+| `primeira` | −0.0055 | −0.0056 | **−0.0055** | **KEEP** — strong, near-identical across seeds |
+| `belgian-pro` | −0.0020 | −0.0021 | **−0.0020** | **KEEP** — strong, stable |
+| `championship` | −0.0009 | −0.0015 | **−0.0012** | **KEEP** — consistent, modest |
+| `eredivisie` | −0.0012 | −0.0010 | **−0.0011** | **KEEP** — consistent, modest |
+| `super-lig` | −0.0015 | −0.0003 | −0.0009 | marginal — both negative, under bar |
+| `brazil-serie-a` | +0.0028 | +0.0023 | **+0.0026** | **REJECT** — regresses on both seeds |
+
+Sum-form Brier, 4 folds (2022–2025), n_bags=5.
+
+**Three things worth carrying forward.**
+
+1. **The two-seed protocol earned its keep here.** On seed 42 alone,
+   `super-lig` read KEEP and `championship` read noise; on seed 7 they swap.
+   Either single run would have produced a confidently wrong shortlist. Only
+   `primeira` and `belgian-pro` are stable enough that one seed would have
+   sufficed, and there is no way to know which those are in advance.
+
+2. **`brazil-serie-a` regresses, and it is not a data problem.** That league's
+   spine data matched football-data 1,140/1,140 on scorelines in Stage 2, and
+   its xG coverage is 100% of the store. Real xG makes the model *worse*
+   there, consistently, on both seeds. More features are not free: this is the
+   whole reason the gate exists rather than an "attach xG everywhere" switch.
+
+3. **Every delta is diluted ~25% by construction.** xG begins in the 2023
+   season and the folds run 2022–2025, so the first fold is identical in both
+   arms. The true per-fold effects are roughly a third larger than the numbers
+   above. A 2023–2025-only re-run would size them honestly — worth doing before
+   judging `super-lig`, whose marginal reading may simply be dilution.
+
+**Not promoted.** These are research-harness results; the production port
+(wiring `xg_store.attach_xg` into the frame load for the KEEP leagues) is a
+separate, owner-gated step per CLAUDE.md. Result JSONs:
+`experiments/xg_campaign/seed{42,7}_*.json`.

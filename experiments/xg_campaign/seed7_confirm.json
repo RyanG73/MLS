@@ -1,0 +1,158 @@
+[
+ {
+  "league": "championship",
+  "seed": 7,
+  "n_bags": 5,
+  "matches": 6624,
+  "xg_rows": 1654,
+  "xg_in_test_seasons": 1654,
+  "test_matches": 2208,
+  "xg_test_share": 0.749,
+  "control_brier": 0.6369,
+  "treatment_brier": 0.6354,
+  "delta": -0.0015,
+  "control_per_season": {
+   "2022": 0.6488,
+   "2023": 0.633,
+   "2024": 0.6233,
+   "2025": 0.6423
+  },
+  "treatment_per_season": {
+   "2022": 0.6488,
+   "2023": 0.6337,
+   "2024": 0.6186,
+   "2025": 0.6405
+  },
+  "secs": 42.7
+ },
+ {
+  "league": "brazil-serie-a",
+  "seed": 7,
+  "n_bags": 5,
+  "matches": 5524,
+  "xg_rows": 1343,
+  "xg_in_test_seasons": 1139,
+  "test_matches": 1520,
+  "xg_test_share": 0.749,
+  "control_brier": 0.6151,
+  "treatment_brier": 0.6173,
+  "delta": 0.0023,
+  "control_per_season": {
+   "2022": 0.6248,
+   "2023": 0.6191,
+   "2024": 0.6176,
+   "2025": 0.5988
+  },
+  "treatment_per_season": {
+   "2022": 0.6248,
+   "2023": 0.6256,
+   "2024": 0.6152,
+   "2025": 0.6037
+  },
+  "secs": 39.9
+ },
+ {
+  "league": "super-lig",
+  "seed": 7,
+  "n_bags": 5,
+  "matches": 4006,
+  "xg_rows": 1026,
+  "xg_in_test_seasons": 1026,
+  "test_matches": 1370,
+  "xg_test_share": 0.749,
+  "control_brier": 0.5955,
+  "treatment_brier": 0.5952,
+  "delta": -0.0003,
+  "control_per_season": {
+   "2022": 0.5822,
+   "2023": 0.6194,
+   "2024": 0.5784,
+   "2025": 0.6019
+  },
+  "treatment_per_season": {
+   "2022": 0.5822,
+   "2023": 0.618,
+   "2024": 0.5779,
+   "2025": 0.6028
+  },
+  "secs": 34.9
+ },
+ {
+  "league": "belgian-pro",
+  "seed": 7,
+  "n_bags": 5,
+  "matches": 3285,
+  "xg_rows": 932,
+  "xg_in_test_seasons": 932,
+  "test_matches": 1241,
+  "xg_test_share": 0.751,
+  "control_brier": 0.6071,
+  "treatment_brier": 0.6051,
+  "delta": -0.0021,
+  "control_per_season": {
+   "2022": 0.5981,
+   "2023": 0.5959,
+   "2024": 0.6073,
+   "2025": 0.6272
+  },
+  "treatment_per_season": {
+   "2022": 0.5981,
+   "2023": 0.595,
+   "2024": 0.6069,
+   "2025": 0.6203
+  },
+  "secs": 33.6
+ },
+ {
+  "league": "primeira",
+  "seed": 7,
+  "n_bags": 5,
+  "matches": 3672,
+  "xg_rows": 918,
+  "xg_in_test_seasons": 918,
+  "test_matches": 1224,
+  "xg_test_share": 0.75,
+  "control_brier": 0.5512,
+  "treatment_brier": 0.5456,
+  "delta": -0.0056,
+  "control_per_season": {
+   "2022": 0.526,
+   "2023": 0.5567,
+   "2024": 0.5709,
+   "2025": 0.5514
+  },
+  "treatment_per_season": {
+   "2022": 0.526,
+   "2023": 0.5455,
+   "2024": 0.564,
+   "2025": 0.547
+  },
+  "secs": 35.9
+ },
+ {
+  "league": "eredivisie",
+  "seed": 7,
+  "n_bags": 5,
+  "matches": 3598,
+  "xg_rows": 914,
+  "xg_in_test_seasons": 914,
+  "test_matches": 1224,
+  "xg_test_share": 0.747,
+  "control_brier": 0.5727,
+  "treatment_brier": 0.5717,
+  "delta": -0.001,
+  "control_per_season": {
+   "2022": 0.5592,
+   "2023": 0.5599,
+   "2024": 0.5841,
+   "2025": 0.5875
+  },
+  "treatment_per_season": {
+   "2022": 0.5592,
+   "2023": 0.553,
+   "2024": 0.5799,
+   "2025": 0.5948
+  },
+  "secs": 34.5
+ }
+]
