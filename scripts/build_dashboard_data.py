@@ -229,7 +229,16 @@ def espn_schedule(season):
 # name map would quietly ship a truncated fixture list rather than fail. The
 # floor is a fail-closed guard, not a fitted threshold: below it the source is
 # treated as a failure and the router moves on (or the build stops loudly).
-_SPINE_NAME_FLOOR = 0.95
+#
+# EVERY club, not most of them. Measured 2026-08-09 while generating the name
+# map: 29 of API-Football's 30 MLS clubs resolved on token matching alone, and
+# 29/30 is 96.7% — it CLEARS a 95% floor while dropping every LA Galaxy fixture
+# on the season. A share threshold is the wrong shape for a closed league with
+# a known club set; one unmapped club is one club's entire season missing, and
+# the payload would have looked healthy. MLS gains or loses a club roughly once
+# a year and the error names exactly what to add, so the cost of 1.0 is a loud
+# failure on a day someone already had to update a map.
+_SPINE_NAME_FLOOR = 1.0
 
 _SCHED_COLS = ["date", "home", "away", "state", "home_goals", "away_goals",
                "ko_utc", "venue", "venue_city"]

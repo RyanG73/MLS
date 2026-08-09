@@ -102,9 +102,10 @@ def test_spine_answers_when_espn_is_blackholed(monkeypatch, isolated_health, esp
 
 def test_unmapped_spine_names_fail_closed_rather_than_truncate(
         monkeypatch, isolated_health, espn_dark):
-    """Without config/api_football_team_names.json['mls'], the spine's club
-    spellings do not resolve — and every unresolved fixture is dropped by the
-    caller. That must be an error, not a half season."""
+    """When a spine club spelling does not resolve to an ASA id, the caller
+    drops that fixture as "not an MLS club". That must be an error, not a half
+    season. The map is committed now, so this stubs the resolver to prove the
+    guard still holds for a club the map has yet to learn."""
     from data_pipeline import api_football
     monkeypatch.setattr(api_football, "schedule_rows",
                         lambda league_id, season: SPINE_ROWS)
@@ -133,3 +134,48 @@ def test_schedule_provenance_is_published_not_assumed():
     assert '"schedule_source": sched_source' in src
     assert '"espn_ok": sched_source == "espn"' in src
     assert '"espn_ok": True' not in src
+
+
+# ── the name floor is EVERY club, not most of them ───────────────────────────
+
+def test_the_name_floor_admits_no_unmapped_club():
+    """Measured 2026-08-09 while generating the map: 29 of API-Football's 30
+    MLS clubs resolved on token matching alone. 29/30 is 96.7% — it CLEARS a
+    95% floor while dropping every LA Galaxy fixture on the season, and the
+    payload looks healthy. A share threshold is the wrong shape for a closed
+    league with a known club set."""
+    assert bdd._SPINE_NAME_FLOOR == 1.0
+
+
+def test_one_unmapped_club_in_thirty_is_refused(monkeypatch, isolated_health,
+                                                espn_dark):
+    """The exact 29/30 case that motivated the floor: a single unknown club
+    must fail the source closed rather than silently truncate the season."""
+    from data_pipeline import api_football
+    clubs = [f"Club {i}" for i in range(29)] + ["Unmapped United"]
+    rows = [{"date": "2026-03-01", "home": clubs[i], "away": clubs[(i + 1) % 30],
+             "state": "pre", "home_goals": None, "away_goals": None,
+             "ko_utc": None, "venue": None, "venue_city": None}
+            for i in range(30)]
+    monkeypatch.setattr(api_football, "schedule_rows",
+                        lambda league_id, season: rows)
+
+    def resolver(norm_name):
+        return None if "unmapped" in norm_name else "asa-id"
+
+    with pytest.raises(RuntimeError) as exc:
+        bdd.routed_schedule(2026, resolver)
+    assert "29/30" in str(exc.value), str(exc.value)
+
+
+def test_the_committed_map_records_the_one_club_token_matching_misses():
+    """LA Galaxy is the single MLS club whose API-Football spelling ('Los
+    Angeles Galaxy') shares no token set with the ASA name. Proven by fixture
+    diff, not by name similarity: all 19 played 2026 meetings matched on date
+    and opponent with ZERO scoreline disagreements (one at a 23:30 UTC kickoff
+    matched a calendar day later, same 2-1 scoreline)."""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    names = json.loads((root / "config/api_football_team_names.json").read_text())
+    assert names["mls"] == {"Los Angeles Galaxy": "LA Galaxy"}
