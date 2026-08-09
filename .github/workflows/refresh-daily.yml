@@ -283,6 +283,27 @@ jobs:
             done
           )
 
+      # §5.2/§5.3: self-consistency over every payload we just published —
+      # club-set agreement, each club's games-played against its own fixtures,
+      # pair multiplicity, and names differing only by whitespace. Read the way
+      # a client reads, never by calling the builder. --strict fails only on a
+      # deviation outside the committed baseline, so the leagues whose
+      # deviation is already recorded and unadjudicated do not turn every run
+      # red while a NEW one does.
+      #
+      # Placed AFTER the commit for the same reason as the dark-feed check:
+      # a failing verdict must never discard payloads the run built correctly.
+      - name: Payload self-consistency
+        if: always()
+        run: python scripts/check_payload_consistency.py --strict
+      - name: Upload the payload-consistency report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: payload-consistency-daily
+          path: output/payload-consistency.json
+          if-no-files-found: warn
+
       # Runs AFTER the commit on purpose. A dark feed must fail the run so a
       # human looks, but it must not discard payloads the run built correctly —
       # that is the 2026-07-19 mistake (five nights of good data thrown away
