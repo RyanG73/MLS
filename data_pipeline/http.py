@@ -11,6 +11,7 @@ placed here rather than in any one caller.
 from __future__ import annotations
 
 import logging
+import os
 import random
 import threading
 import time
@@ -138,6 +139,27 @@ def _retry_after(response: requests.Response, fallback: float) -> float:
         return fallback
 
 
+# ── fault injection (spec 2026-08-09 §3.6) ───────────────────────────────────
+# The router's whole value is that a dark ESPN degrades instead of failing, and
+# nothing exercises that path when ESPN is answering — so it rots quietly the
+# first time an adapter changes. `ENTENSER_BLOCK_ESPN=1` blackholes every ESPN
+# request at this layer, which is the one chokepoint every adapter goes through.
+#
+# Deliberately an explicit env var rather than a config default: this must be
+# impossible to enable by accident, and a run with it set must be a run someone
+# asked for. The raised error is a RequestException subclass, so every caller
+# takes the transport-failure branch it already has for a 403 storm.
+_BLOCK_ENV = "ENTENSER_BLOCK_ESPN"
+
+
+class Blackholed(requests.RequestException):
+    """Raised for every ESPN request while the fault-injection drill is on."""
+
+
+def espn_is_blocked() -> bool:
+    return os.environ.get(_BLOCK_ENV, "").strip() not in ("", "0", "false", "False")
+
+
 def espn_get(url: str, params: dict | None = None, timeout: int = 30,
              attempts: int | None = None) -> dict:
     """GET an ESPN API endpoint and return parsed JSON.
@@ -154,6 +176,11 @@ def espn_get(url: str, params: dict | None = None, timeout: int = 30,
     to 9m41s before this was made overridable.
     """
     attempts = attempts if attempts is not None else _MAX_ATTEMPTS
+    if espn_is_blocked():
+        # Checked before the breaker and before any sleep: the drill wants the
+        # failure the caller would see, not four backoffs on the way to it.
+        raise Blackholed(
+            f"ESPN blackholed by {_BLOCK_ENV} (fault-injection drill): {url}")
     if _breaker_is_open():
         raise RateLimited(
             f"ESPN circuit breaker open — skipping {url} without a request. "

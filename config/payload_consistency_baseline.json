@@ -1,0 +1,64 @@
+{
+ "_README": [
+  "Known payload-consistency deviations, measured, not typed.",
+  "A league is here because its deviation has NOT been adjudicated,",
+  "not because it is correct. Anything outside this list is a",
+  "regression. Shrink it by fixing or explaining a league; never",
+  "grow it to make a red run green."
+ ],
+ "deviations": {
+  "clubs": [
+   "concacaf-champions",
+   "libertadores",
+   "sudamericana"
+  ],
+  "names": [
+   "australia-aleague-women"
+  ],
+  "pairs": [
+   "argentina-nacional",
+   "argentina-primera",
+   "australia-aleague",
+   "australia-aleague-women",
+   "brazil-serie-a",
+   "china-super",
+   "colombia-primera-a",
+   "concacaf-champions",
+   "conference",
+   "costa-rica-primera",
+   "ecuador-ligapro",
+   "elsalvador-primera",
+   "europa",
+   "finland-veikkausliiga",
+   "guatemala-liga",
+   "honduras-liga",
+   "ireland-premier",
+   "libertadores",
+   "liga-expansion-mx",
+   "mls",
+   "northern-super-league",
+   "norway-eliteserien",
+   "nwsl",
+   "peru-liga1",
+   "sudamericana",
+   "ucl",
+   "uruguay-primera",
+   "usl-championship",
+   "usl-league-one",
+   "venezuela-primera"
+  ],
+  "played": [
+   "argentina-nacional",
+   "australia-aleague-women",
+   "costa-rica-primera",
+   "elsalvador-primera",
+   "guatemala-liga",
+   "honduras-liga",
+   "liga-expansion-mx",
+   "northern-super-league",
+   "nwsl",
+   "usl-league-one",
+   "venezuela-primera"
+  ]
+ }
+}

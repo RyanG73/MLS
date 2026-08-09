@@ -224,6 +224,68 @@ def espn_schedule(season):
     return out
 
 
+# A spine schedule is only usable if its club names resolve to ASA team ids —
+# an unresolved name is DROPPED downstream as "not an MLS club", so a missing
+# name map would quietly ship a truncated fixture list rather than fail. The
+# floor is a fail-closed guard, not a fitted threshold: below it the source is
+# treated as a failure and the router moves on (or the build stops loudly).
+_SPINE_NAME_FLOOR = 0.95
+
+_SCHED_COLS = ["date", "home", "away", "state", "home_goals", "away_goals",
+               "ko_utc", "venue", "venue_city"]
+
+
+def _espn_schedule_frame(season):
+    # dtype=object throughout: the router is a pass-through, and a default
+    # dtype would coerce an unplayed fixture's None score to NaN, which is a
+    # different value by the time it reaches the payload.
+    return pd.DataFrame(espn_schedule(season), columns=_SCHED_COLS, dtype=object)
+
+
+def _spine_schedule_frame(season, map_team):
+    """MLS schedule from API-Football, in `espn_schedule`'s row shape.
+
+    Guarded, because the failure mode here is silence: `map_team` returns None
+    for a club it does not know and the caller skips that fixture as non-MLS,
+    so an unmapped spine answer looks like a short season rather than an error.
+    """
+    from data_pipeline.api_football import schedule_rows
+    rows = schedule_rows("mls", season)
+    frame = pd.DataFrame([(r["date"], _norm(r["home"]), _norm(r["away"]),
+                           r["state"], r["home_goals"], r["away_goals"],
+                           r["ko_utc"], r["venue"], r["venue_city"])
+                          for r in rows], columns=_SCHED_COLS, dtype=object)
+    if frame.empty:
+        return frame
+    clubs = set(frame["home"]) | set(frame["away"])
+    known = {c for c in clubs if map_team(c)}
+    share = len(known) / len(clubs)
+    if share < _SPINE_NAME_FLOOR:
+        raise RuntimeError(
+            f"api_football MLS schedule: only {len(known)}/{len(clubs)} club "
+            f"names map to an ASA team id ({share:.0%} < {_SPINE_NAME_FLOOR:.0%}). "
+            "Generate config/api_football_team_names.json['mls'] from a live "
+            "diff before this source can answer.")
+    return frame
+
+
+def routed_schedule(season, map_team):
+    """(schedule rows, source that answered) for MLS fixtures.
+
+    ESPN stays FIRST: it is the source the current payload is built from, so a
+    healthy build is byte-identical to today's. API-Football is the ordered
+    fallback that keeps the flagship league rebuilding when ESPN 403s — the
+    failure that has had `build (mls)` red since 2026-08-06.
+    """
+    from data_pipeline.source_registry import resolve
+    frame, src = resolve(
+        "mls", "fixtures",
+        {"espn": lambda: _espn_schedule_frame(season),
+         "api_football": lambda: _spine_schedule_frame(season, map_team)},
+        default="espn")
+    return [tuple(r) for r in frame[_SCHED_COLS].itertuples(index=False)], src
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--frame", default="data/parity_frame.parquet")
@@ -397,8 +459,9 @@ def main():
         elif hg < ag: pts[a] = pts.get(a, 0) + 3
         else: pts[h] = pts.get(h, 0) + 1; pts[a] = pts.get(a, 0) + 1
 
-    # ── ESPN schedule: played (for game cards) + remaining (for sim/cards) ────
-    sched = espn_schedule(ts)
+    # ── Schedule: played (for game cards) + remaining (for sim/cards) ────────
+    # Routed (spec §3.1): ESPN first, API-Football as ordered fallback.
+    sched, sched_source = routed_schedule(ts, map_team)
     from data_pipeline.weather import kickoff_weather
     _wx_horizon = (pd.Timestamp.now() + pd.Timedelta(days=7)).strftime("%Y-%m-%d")
     remaining = []   # (htid, atid) for unplayed MLS fixtures
@@ -750,7 +813,10 @@ def main():
     health = {
         "frame_file": str(_frame),
         "frame_mtime": pd.Timestamp(_frame.stat().st_mtime, unit="s").strftime("%Y-%m-%d %H:%M"),
-        "espn_ok": True, "espn_events": len(sched),
+        # Provenance, published rather than assumed (spec §10.4). `espn_ok` is
+        # now a measurement — which source answered — not a constant True.
+        "schedule_source": sched_source,
+        "espn_ok": sched_source == "espn", "espn_events": len(sched),
         "season_rows": int(len(_rows)), "played_rows": int(len(played)),
         # complete = non-null share; nondefault = non-zero share (0 is the
         # fillna default at predict time). Both are per-column means averaged

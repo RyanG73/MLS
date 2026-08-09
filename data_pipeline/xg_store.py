@@ -136,6 +136,44 @@ def coverage(league_id: str) -> dict:
             "share": (usable / total) if total else 0.0}
 
 
+# ── campaign verdicts (spec 2026-08-09 §4.1) — STAGED, NOT WIRED ─────────────
+# Measured by scripts/xg_feature_campaign.py on 2026-08-08: two seeds, n_bags=5,
+# 4 folds (2022-2025), the only variable being whether xG carries values. Brier
+# is sum-form, so a NEGATIVE delta is an improvement.
+#
+# Recorded here rather than in a document because the spec asks for exactly one
+# thing to be impossible to lose: the Brasileirão REJECTION. Its 100% coverage
+# and its Stage-2 diff matching football-data 1,140/1,140 rule out a data
+# explanation — real xG simply makes that model worse — so without the reason
+# beside the code someone will later "fix" the inconsistency.
+#
+# NOTHING READS THIS YET, deliberately. Porting the KEEPs is a production model
+# change and is the owner's call (spec §9.1, §10.3); a test asserts no build
+# path calls attach_xg, so the port cannot happen as a plumbing side effect.
+# Every delta below is DILUTED ~25%: xG begins in 2023 while the folds run
+# 2022-2025, so the first fold is identical in both arms. §4.2's undiluted
+# re-run is `--seasons 2023,2024,2025`, and it is what decides `super-lig`.
+XG_CAMPAIGN_VERDICT: dict[str, dict] = {
+    "primeira":       {"mean_delta_brier": -0.0055, "verdict": "keep"},
+    "belgian-pro":    {"mean_delta_brier": -0.0020, "verdict": "keep"},
+    "championship":   {"mean_delta_brier": -0.0012, "verdict": "keep"},
+    "eredivisie":     {"mean_delta_brier": -0.0011, "verdict": "keep"},
+    "super-lig":      {"mean_delta_brier": -0.0009, "verdict": "marginal",
+                       "note": "seed 42 read this KEEP and championship noise; "
+                               "seed 7 swapped them exactly. Decided by the "
+                               "undiluted 2023-2025 re-run, not by one seed."},
+    "brazil-serie-a": {"mean_delta_brier": +0.0026, "verdict": "reject",
+                       "note": "REGRESSES on both seeds. Coverage is 100% and "
+                               "the Stage-2 diff matched football-data "
+                               "1,140/1,140, so this is not a data defect — "
+                               "real xG makes this league's model worse. Do "
+                               "not 'fix' the inconsistency."},
+}
+
+XG_KEEP_LEAGUES = tuple(lid for lid, v in XG_CAMPAIGN_VERDICT.items()
+                        if v["verdict"] == "keep")
+
+
 def attach_xg(frame: pd.DataFrame, league_id: str) -> pd.DataFrame:
     """Fill empty home_xg/away_xg from the backfill store. Row count is
     unchanged, existing values are preserved, and unmatched rows stay NaN."""
