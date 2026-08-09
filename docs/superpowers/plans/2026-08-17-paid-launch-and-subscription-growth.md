@@ -16,6 +16,43 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-08 — The 26-of-79 Global ELO validation failures were the checker, not the data, and
+  they had been killing the nightly Intelligence build for a day.** Investigated on the assumption
+  the published figures were wrong; they are not. Measured across all 79 payloads, **zero rows**
+  disagree with the payload's own `elo_scale` — `bundesliga-2` Hannover 96 reconciles exactly at
+  `1503 + 0.723·(1597−1503) − 186.964 = 1383.998 → 1384`. `validate_payloads.py` was still
+  asserting the pure-shift `global_elo == elo + offset` that `f4994158` (2026-08-07 15:14)
+  retired when it added tier dispersion and `global_elo_adj`; that commit updated every consumer
+  and six test files and missed the checker, which had **no test coverage of this check at all**.
+  The two failure classes map 1:1 onto the two new terms — seven second tiers fail on dispersion,
+  and in the 19 top flights the failing rows are exactly the 75 clubs carrying a continental
+  adjustment, sets identical in all 19. **The staleness hypothesis is ruled out**: the offset is
+  published *inside* each payload, so a refitted offset cannot desync a payload from itself, and
+  the 2026-08-06 UEFA refit is a different commit. **No rebuild was required.**
+  **Production impact, which the original report understated:** the checker exits 1 and
+  `refresh-daily.yml` runs it bare in a `run:` block (`bash -e`), so nightly `31254825570`
+  (2026-08-08) died at that line — `##[error]Process completed with exit code 1` — and
+  `validate_history_growth`, `archive_intelligence_state`, `build_intelligence_events`,
+  `build_intel_events_payload`, `build_team_intelligence`, `build_team_catalog` and
+  `validate_intelligence_launch` never ran. The 08-07 nightly passed only because it ran at
+  11:40, before the 15:14 commit. **Fix:** the checker derives its expectation the way a client
+  does, from the payload's own `dispersion`/`pivot`/`global_elo_adj`, mirroring
+  `scaledElo`/`publishedElo` — deliberately *not* by calling `apply_global_elo_scale`, which
+  would pass tautologically. Tolerance 0.51 → 0.6, documented as an error budget (metadata
+  rounded to 4dp/1dp costs ~0.57 worst case; measured headroom had been 0.01). Proof:
+  `python -m scripts.validate_payloads` → **All 79 payload(s) valid**, rc=0 (was rc=1);
+  **2,019 tests pass**, exactly the 2,012 baseline plus the 7 added, including a producer↔checker
+  drift test that runs the real `apply_global_elo_scale` across `epl`/`bundesliga-2`/
+  `championship` and asserts the checker accepts it — reverting the checker to the old formula
+  fails 5 tests. Mutation-tested against real `championship.js`: off-by-1 on one club, a silently
+  reset dispersion, a drifted offset and a full pure-shift revert are all still caught, control
+  clean. `check_docs.py` PASS. Three `test_static_pages` / `test_surface_contract` failures are
+  the known bare-worktree `ArtifactNotFound`, confirmed identical on a stashed tree at the same
+  commit. **Two adjacent defects logged in
+  `STATUS.md`, not fixed here:** the club ELO chart omits `global_elo_adj`, so Liverpool reads
+  1706 in the table and 1643 on its own chart (needs a product decision on whether the shrunk
+  continental adjustment applies retroactively); and `Fast Result and Projection Refresh` fails
+  every run at `Select hourly or in-window leagues`, before the validator is reached.
 - **2026-08-08 — The fast refresh no longer lets one dead league feed strand every other league,
   and it can now report its own failures.** The 403 retry shipped the day before fixed the
   *transient* case; this fixes the *exhausted* one. `main()` refreshed leagues in a bare list

@@ -406,13 +406,50 @@ These require account access or business decisions and cannot be completed from 
   **serialized** — two concurrent `refresh-leagues` runs race on the shared `power.js`,
   `team-catalog.js` and `news/*.js` artifacts; the second failed its rebase and the workflow
   correctly refused to force a data commit rather than clobbering the first.
-- ⚠️ **Unrelated, unresolved: 26 of 79 payloads fail `validate_payloads` on Global ELO
-  consistency** (`global_elo != elo + league offset`, e.g. `bundesliga-2` Hannover 96:
-  1384 vs 1597 + −186.964). Pre-existing, live, and NOT caused by the migration. Note the local
-  test suite is green at 1999 passed while this fails — the suite does not invoke
-  `validate_payloads`, so "tests pass" and "artifacts are valid" are different claims here.
-  Needs its own investigation; Global ELO is a published figure on a paywall-adjacent surface.
-  Spec: `superpowers/specs/2026-08-08-api-football-migration-execution-spec.md`.
+- ✅ **Resolved: the 26-of-79 `validate_payloads` Global ELO failures were the CHECKER, not the
+  data.** Every published `global_elo` was already correct — measured across all 79 payloads,
+  **zero rows** disagree with the payload's own `elo_scale` metadata, and `bundesliga-2` Hannover
+  96 reconciles exactly: `1503 + 0.723·(1597−1503) − 186.964 = 1383.998 → 1384`. The checker was
+  still asserting `global_elo == elo + offset`, the pure-shift formula that `f4994158`
+  (2026-08-07 15:14) retired when it added tier dispersion and `global_elo_adj`. That commit
+  taught every consumer — `build_power_rankings.py`, `build_static_pages.py`, `webapp/index.html`
+  — and six test files, and missed `scripts/validate_payloads.py`, which had no test coverage of
+  this check at all. The two failure classes map 1:1 onto the two new terms: seven second tiers
+  fail broadly on dispersion, and in the 19 top flights the failing rows are **exactly** the 75
+  clubs carrying a continental adjustment (sets identical in all 19).
+  **This was not cosmetic — it was breaking production.** `validate_payloads.py` exits 1, and
+  `refresh-daily.yml` runs it bare inside a `run:` block, which is `bash -e`. The first nightly
+  after `f4994158` (run `31254825570`, 2026-08-08) died at that line with
+  `##[error]Process completed with exit code 1`, taking the rest of the step with it:
+  `validate_history_growth`, `archive_intelligence_state`, `build_intelligence_events`,
+  `build_intel_events_payload`, `build_team_intelligence`, `build_team_catalog` and
+  `validate_intelligence_launch` never ran. The 08-07 nightly passed because it ran at 11:40,
+  before the 15:14 commit.
+  **Fix:** the checker now derives its expectation the way a *client* does — from the payload's
+  own `dispersion`/`pivot`/`global_elo_adj`, mirroring `scaledElo`/`publishedElo` in
+  `webapp/index.html` — rather than by calling `apply_global_elo_scale`, which would pass
+  tautologically. Tolerance 0.51 → 0.6, documented as an error budget: reconstructing from
+  metadata rounded to 4dp/1dp costs ~0.57 worst case where the old budget covered only the 0.5
+  int-rounding, and the measured headroom was 0.01. **No rebuild required** — the payloads were
+  never wrong. `python -m scripts.validate_payloads` → **All 79 payload(s) valid**, rc=0.
+  Guarded by 7 new tests including a producer↔checker drift test that runs the real
+  `apply_global_elo_scale` and asserts the checker accepts its output; reverting the checker to
+  the old formula fails 5 of them.
+- ⚠️ **Two adjacent defects found while investigating the above, both still open:**
+  (a) **The club ELO chart contradicts the league table.** `currentElo` in `webapp/index.html`
+  takes the last point of `teamEloSeries`, which applies `scaledElo` — dispersion and offset but
+  **not** `global_elo_adj` — so Liverpool's Global ELO reads **1706** in the EPL table and
+  **1643** on its own team chart, a 63-point disagreement on a published figure; Chelsea is 64
+  out. 75 clubs carry an adj (up to ±86.3: Liverpool +86.3, Sporting CP −79.4, Real Madrid +65.5)
+  and all 75 have a history series. Fixing it needs a product decision first — whether a club's
+  shrunk continental adjustment should be carried back across its whole history — so it is not
+  bundled here.
+  (b) **`Fast Result and Projection Refresh` fails on every run**, and has nothing to do with the
+  above: it dies at `Select hourly or in-window leagues`, several steps before
+  `validate_payloads` is reached (runs `31284262348`, `31282536199`, `31280813242`, all
+  2026-08-08, validator step `skipped`). Separately, `build (mls)` in the nightly has failed
+  since at least 2026-08-06 on `403 Forbidden` from
+  `site.api.espn.com/.../usa.1/scoreboard`.
 - Club Watch season history: the existing History view now consumes the reconstructed early-season
   dataset, preserves exact-archive precedence and point provenance, selects a useful historical
   target when the current target lacks prior coverage, and includes the frozen path in the free

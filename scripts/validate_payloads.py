@@ -168,8 +168,21 @@ def validate_file(path: Path, registry_ds: dict[str, str] | None = None) -> list
                                    "(docs/intelligence-hub-implementation-instructions.md §4.3)")
 
     # Every domestic table publishes an EPL-anchored rating alongside the raw
-    # simulation ELO. The rounded row value must reconcile with the exact
-    # top-level offset so every page is reading the same scale.
+    # simulation ELO. The rounded row value must reconcile with the metadata
+    # the payload itself carries, so every page is reading the same scale.
+    #
+    # This deliberately recomputes the translation from `elo_scale` rather than
+    # calling apply_global_elo_scale: reusing the producer would pass
+    # tautologically even if the build wrote nonsense. The expectation below is
+    # the one a CLIENT derives — it mirrors scaledElo/publishedElo in
+    # webapp/index.html — so what gets checked is the contract that ships.
+    #
+    # The translation stopped being a pure shift on 2026-08-07 (f4994158):
+    # lower divisions also compress their spread about the league mean
+    # (dispersion/pivot), and a club with continental history carries a
+    # per-row global_elo_adj. That commit taught every consumer the new
+    # formula and missed this checker, which then failed 26 of 79 payloads
+    # against arithmetic no surface had used for a day.
     standings = data.get("standings") or []
     domestic_mode = (data.get("outlook") or {}).get("mode") in {"table", "mls"}
     if data.get("status") != "placeholder" and domestic_mode and standings:
@@ -180,16 +193,36 @@ def validate_file(path: Path, registry_ds: dict[str, str] | None = None) -> list
             offset = scale.get("offset")
             if not isinstance(offset, (int, float)):
                 errors.append("elo_scale.offset must be numeric")
+            # Absent on payloads built before 2026-08-07. The browser defaults
+            # them to the inert values rather than breaking; so do we.
+            disp = scale.get("dispersion")
+            disp = float(disp) if isinstance(disp, (int, float)) else 1.0
+            pivot = scale.get("pivot")
+            pivot = float(pivot) if isinstance(pivot, (int, float)) else 0.0
             for i, row in enumerate(standings):
                 raw, global_elo = row.get("elo"), row.get("global_elo")
                 if not isinstance(raw, (int, float)):
                     continue
                 if not isinstance(global_elo, (int, float)):
                     errors.append(f"standings[{i}] ({row.get('team')!r}): missing global_elo")
-                elif isinstance(offset, (int, float)) and abs(global_elo - (raw + offset)) > 0.51:
+                    continue
+                if not isinstance(offset, (int, float)):
+                    continue
+                adj = row.get("global_elo_adj")
+                adj = float(adj) if isinstance(adj, (int, float)) else 0.0
+                expected = pivot + disp * (float(raw) - pivot) + offset + adj
+                # Error budget for reconstructing from ROUNDED metadata:
+                # 0.5 (global_elo is int-rounded) + 0.05 (adj at 1dp)
+                # + 0.02 (dispersion at 4dp over a ~400-point deviation)
+                # + 0.001 (offset at 3dp, pivot at 2dp) ≈ 0.571. The old 0.51
+                # budgeted only for the int rounding. A real desync is two
+                # orders of magnitude larger — the bug this guards against put
+                # a club 45 points out — so the headroom costs no detection.
+                if abs(global_elo - expected) > 0.6:
                     errors.append(
                         f"standings[{i}] ({row.get('team')!r}): global_elo "
-                        f"{global_elo} != elo {raw} + offset {offset}")
+                        f"{global_elo} != {expected:.3f} (elo {raw}, offset "
+                        f"{offset}, dispersion {disp}, pivot {pivot}, adj {adj})")
 
     if "teams" in data and "groups" in data and "league" not in data:
         ranks = [row.get("global_rank") for row in data.get("teams") or []]
