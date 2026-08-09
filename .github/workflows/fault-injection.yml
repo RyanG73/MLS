@@ -57,15 +57,17 @@ jobs:
           python -m pytest -q tests/test_payload_utils.py tests/test_mls_schedule_routing.py \
             tests/test_source_registry.py tests/test_source_health_surface.py
 
-      # check_docs is §10.7's guard and it is RED on main as of 2026-08-09 (14
-      # figure problems: two genuinely stale live surfaces, two false positives
-      # where a word-boundary grep matched "0.748" and "1,750", and historical
-      # prose naming superseded values). Non-fatal here so the drill's verdict
-      # is about the router, not about a docs failure it did not cause. Make it
-      # fatal again once check_docs is green.
-      - name: Docs check (non-fatal until check_docs is green again)
+      # §10.7's guard, fatal. An earlier revision of this file made it non-fatal
+      # on the claim that check_docs was already red on main with 14 figure
+      # problems. That claim did not survive checking: check_docs PASSES at
+      # 7caa9278 (this branch's own base), on this branch, and on current main,
+      # verified in three clean worktrees. The values it named are real, but the
+      # stale-value grep skips lines containing "stale", "previous" or "was "
+      # (check_docs.py:219), which excludes every one of them. A guard must not
+      # be downgraded on a verification that was never run.
+      - name: Docs check
         if: always()
-        run: python scripts/check_docs.py || echo "::warning::check_docs is failing (pre-existing, see docs/STATUS.md)"
+        run: python scripts/check_docs.py
 
       - name: Upload the drill report
         if: always()
