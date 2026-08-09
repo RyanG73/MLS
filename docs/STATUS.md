@@ -367,7 +367,7 @@ These require account access or business decisions and cannot be completed from 
   stored rows: championship 1,654 · brazil-serie-a 1,343 · super-lig 1,026 · belgian-pro 932 ·
   primeira 918 · eredivisie 914. Assigns by team id (never sheet order), requires both sides
   non-null, and never overwrites an existing value (Tier C owns its xG). **Not wired into any
-  build** — the feature campaign is the next step and must be a gated Brier comparison.
+  build** — see the campaign verdict below.
   **League-map defect found and fixed:** `segunda` mapped to af_id 140 **La Liga**, not Segunda —
   fuzzy matching scored "LaLiga 2" closer to "La Liga" than to "Segunda División", it was marked
   high confidence, and only the join exposed it by putting Real Madrid into a second-division
@@ -377,6 +377,17 @@ These require account access or business decisions and cannot be completed from 
   sheets, af 141 confirmed to hold 22 real Segunda clubs): segunda's true usable xG is 163/1,404 —
   12%**, far below the bar. It is OUT of the campaign; the usable set is **6 competitions**, and
   the platform's xG coverage goes 7 → 13, not 7 → 14.
+- **xG feature campaign run and judged** (2026-08-08, `scripts/xg_feature_campaign.py`, two seeds,
+  n_bags=5, 4 folds; full record in `docs/feature-hunt-log.md`). Per-league A/B where the only
+  variable is whether xG carries values. **4 KEEP** — `primeira` −0.0055, `belgian-pro` −0.0020,
+  `championship` −0.0012, `eredivisie` −0.0011 (mean Δ Brier, lower is better). **1 marginal** —
+  `super-lig` −0.0009. **1 REJECT** — `brazil-serie-a` **+0.0026, regresses on both seeds**
+  despite 100% xG coverage and a Stage-2 diff matching football-data 1,140/1,140; more features
+  are not free, which is why the gate exists. The two-seed protocol was load-bearing: on seed 42
+  alone `super-lig` read KEEP and `championship` read noise, and on seed 7 they swap. All deltas
+  are diluted ~25% because xG starts in 2023 while the folds run 2022–2025, so the first fold is
+  identical in both arms. **NOT promoted** — wiring `xg_store.attach_xg` into the frame load for
+  the KEEP leagues is a separate, owner-gated production port.
 - ✅ **Resolved 2026-08-08 — the Segunda contamination was an upstream 301, not a fallback.**
   football-data.co.uk redirects the not-yet-published Spanish 2026-27 files onto the Scottish
   ones: `mmz4281/2627/SP2.csv` → `SC2.csv` and `SP1.csv` → `SC1.csv`, confirmed by `Location`
