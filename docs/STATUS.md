@@ -373,8 +373,14 @@ These require account access or business decisions and cannot be completed from 
   high confidence, and only the join exposed it by putting Real Madrid into a second-division
   frame. Corrected to 141; `tests/test_league_map_ids.py` pins every id confirmed against the
   clubs in its own fixtures. **Consequence: segunda's 1,140 stored sheets are La Liga's** and must
-  be re-fetched under id 141 (~1,800 requests) before segunda can join the campaign — so the
-  usable count today is **6 competitions, not 7**.
+  be re-fetched under id 141 before segunda can join the campaign. **Re-fetched 2026-08-08 (1,404
+  sheets, af 141 confirmed to hold 22 real Segunda clubs): segunda's true usable xG is 163/1,404 —
+  12%**, far below the bar. It is OUT of the campaign; the usable set is **6 competitions**, and
+  the platform's xG coverage goes 7 → 13, not 7 → 14.
+- ⚠️ **Unrelated, found while joining: 5 Scottish fixtures contaminate the Segunda frame** (East
+  Kilbride, Montrose, Alloa…) — 5 rows of 5,549, all in the **live 2026 season**, so they can
+  reach published standings. Source-side (football-data SP2) or a wrong-file fallback; flagged for
+  its own investigation, and the same check should run across every footballdata-sourced league.
 - **Three Stage-3 defects found and fixed by exercising the migration against production**
   (2026-08-08, commit `3a871e6`, suite 1999 passed): (1) **payload provenance was never actually
   published** — `"provenance"` was assigned twice in one dict literal in `build_league_data`, so

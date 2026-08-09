@@ -343,7 +343,7 @@ buy.** Nothing beyond the free tier is spent until the owner confirms the Mega p
 | **2 — Validate on free key** | ~20 | none | one league builds end-to-end from the spine; payload compared column by column |
 | **☑ Purchase checkpoint** | 0 | **owner buys Mega** | "infrastructure complete, ready to buy" — nothing beyond the free tier before this |
 | **3 — Tier A migration** | ~30/day | Mega active | 30 leagues on the spine, ESPN as fallback |
-| **4 — Statistics backfill** | ✅ done: 46,485 (~4.5 h) | stage-1 quality proof | 46,205 sheets; **43.9% usable xG**, 7 competitions ≥90% |
+| **4 — Statistics backfill** | ✅ done: 47,889 (~4.5 h) | stage-1 quality proof | 47,609 sheets; **43.9% usable xG**, **6** competitions ≥90% |
 | **5 — Tier C validation sample** | ~400 | measured comparison | API-Football xG vs understat, match-for-match, one league-season |
 | **6 — Tier D expansion** | ~1/day each | owner picks from the §5 menu | new competitions |
 
@@ -491,17 +491,24 @@ Per competition, at the ≥90% bar a rolling window actually needs:
 
 | Tier | Count | Competitions |
 |---|---|---|
-| **Usable (≥90%)** | **7** | `championship` (1,664 matches), `brazil-serie-a` (1,343), `segunda` (1,140, 100%), `super-lig` (1,026), `eredivisie` (920), `primeira` (919), `belgian-pro` (937) |
+| **Usable (≥90%)** | **6** | `championship` (1,664 matches), `brazil-serie-a` (1,343), `super-lig` (1,026), `belgian-pro` (937), `eredivisie` (920), `primeira` (919) |
 | Partial (50–90%) | 11 | norway-eliteserien, swiss-super-league, poland-ekstraklasa, japan-j1, romania-liga1, denmark-superliga, china-super, libertadores, europa, sweden-allsvenskan, ucl |
 | Poor (<50%) | **34** | incl. liga-mx, bundesliga-2, serie-b, ligue-2, the Scottish and English lower tiers, most of CONMEBOL, wsl, liga-f |
 
 **What this does to the migration's headline claim.** §10 argues the spine "makes the *same model*
 better on 90% of the competitions it serves". That is now measurably false as stated. The honest
-claim is narrower and still worth having: **the platform's xG coverage roughly doubles, from 7
-competitions to 14** — the existing understat 5 and ASA 2, plus these 7 — and the 7 are substantial
+claim is narrower and still worth having: **the platform's xG coverage nearly doubles, from 7
+competitions to 13** — the existing understat 5 and ASA 2, plus these 6 — and the 6 are substantial
 leagues (all currently football-data sourced, none of which had any xG). The other 45 gain shots,
 possession and cards, which are *candidate* features requiring their own experiments, not the
 champion's xG windows.
+
+**`segunda` was in this list and is not any more (2026-08-08).** It appeared at 1,140 sheets and
+100% coverage — but that was **La Liga's data**, fetched under a map entry that pointed at af_id
+140 instead of 141 (see Stage 3's map-defect note). Re-fetched under the correct id: **163 of
+1,404 fixtures carry usable xG — 12%**, nowhere near the bar. The lesson is not about Spain: a
+coverage figure is only as trustworthy as the identity of the thing it measures, and a wrong id
+produces a *confident, healthy-looking* number rather than an obviously broken one.
 
 By season: 2023 **95.6%**, 2024 93.1%, 2025 90.4%, 2026 81.5% (in-progress seasons lag — sheets
 are published after the match, so the newest fixtures are thinnest). The 2023 figure settles the
