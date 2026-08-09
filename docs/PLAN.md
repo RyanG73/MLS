@@ -45,7 +45,7 @@ before publishing.** **Retire:** on publication.
 **Built but unwired — documentation for real code that has not shipped.**
 `postgame-win-expectancy.md` (`scripts/postgame_win_expectancy.py` exists, calibration-validated) · `projection-drift-tracking.md`. **Retire:** on ship; deleting one orphans working code.
 
-**Open specs — `docs/superpowers/specs/`; designed, owner has not approved, nothing built.** `2026-08-07-uefa-competition-forecasting-design.md` · `2026-08-07-leagues-cup-forecasting-design.md` · `2026-08-08-match-data-source-resilience-design.md` · `2026-08-08-api-football-migration-execution-spec.md`. **Retire:** deleted on ship like a plan, with 2–3 sentences into `PROJECT_HISTORY.md`.
+**Open specs — `docs/superpowers/specs/`; designed, owner has not approved, nothing built.** `2026-08-07-uefa-competition-forecasting-design.md` · `2026-08-07-leagues-cup-forecasting-design.md` · `2026-08-08-match-data-source-resilience-design.md` · `2026-08-08-api-football-migration-execution-spec.md` · `2026-08-09-platform-reliability-and-api-opportunity-spec.md` (restore multi-daily updates → mine the API for model gains → new surfaces; supersedes the migration spec's remaining stages). **Retire:** deleted on ship like a plan, with 2–3 sentences into `PROJECT_HISTORY.md`.
 
 **Dated evidence — superseded by `STATUS.md`, kept for its reasoning.** Each opens with an as-of
 stamp; figures inside are frozen at that date. `competitive-intelligence-2026-07-combined.md` ·
