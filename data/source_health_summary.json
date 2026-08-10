@@ -1,0 +1,251 @@
+{
+ "feeds": {
+  "api_football": {
+   "attempts": 21,
+   "consecutive_dark_runs": 0,
+   "endpoints_failed": [],
+   "errors": [],
+   "failure_rate_24h": 0.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/21)",
+   "failures": 0,
+   "last_failure": null,
+   "last_success": "2026-08-10T06:40:43.812069+00:00",
+   "recent": [
+    {
+     "at": "2026-08-10T06:57:45.000752+00:00",
+     "attempts": 21,
+     "failures": 0,
+     "rows": 3160
+    }
+   ],
+   "rows": 3160
+  },
+  "asa": {
+   "attempts": 6,
+   "consecutive_dark_runs": 0,
+   "endpoints_failed": [],
+   "errors": [],
+   "failure_rate_24h": 0.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/6)",
+   "failures": 0,
+   "last_failure": null,
+   "last_success": "2026-08-10T05:44:09.866110+00:00",
+   "recent": [
+    {
+     "at": "2026-08-10T06:57:45.000752+00:00",
+     "attempts": 6,
+     "failures": 0,
+     "rows": 11941
+    }
+   ],
+   "rows": 11941
+  },
+  "espn": {
+   "attempts": 29,
+   "consecutive_dark_runs": 0,
+   "endpoints_failed": [
+    "router:argentina-nacional:fixtures",
+    "router:australia-aleague-women:fixtures",
+    "router:australia-aleague:fixtures",
+    "router:bolivia-profesional:fixtures",
+    "router:brazil-serie-b:fixtures",
+    "router:chile-primera:fixtures",
+    "router:colombia-primera-a:fixtures",
+    "router:costa-rica-primera:fixtures",
+    "router:ecuador-ligapro:fixtures",
+    "router:eerste-divisie:fixtures"
+   ],
+   "errors": [
+    "empty frame"
+   ],
+   "failure_rate_24h": 0.9655,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (28/29)",
+   "failures": 28,
+   "last_failure": "2026-08-10T06:40:37.118236+00:00",
+   "last_success": "2026-08-10T05:43:16.323332+00:00",
+   "recent": [
+    {
+     "at": "2026-08-10T06:57:45.000752+00:00",
+     "attempts": 29,
+     "failures": 28,
+     "rows": 0
+    }
+   ],
+   "rows": 0
+  },
+  "espn_continental": {
+   "attempts": 83,
+   "consecutive_dark_runs": 1,
+   "endpoints_failed": [
+    "concacaf.champions/scoreboard?season=2018",
+    "concacaf.champions/scoreboard?season=2019",
+    "concacaf.champions/scoreboard?season=2020",
+    "concacaf.champions/scoreboard?season=2021",
+    "concacaf.champions/scoreboard?season=2022",
+    "concacaf.champions/scoreboard?season=2023",
+    "concacaf.champions/scoreboard?season=2024",
+    "concacaf.champions/scoreboard?season=2025",
+    "concacaf.champions/scoreboard?season=2026",
+    "concacaf.champions/scoreboard?season=2027"
+   ],
+   "errors": [
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20250701-20260630&limit=500",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20260701-20270630&limit=500",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20180701-20190630&limit=500",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20190701-20200630&limit=500",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20200701-20210630&limit=500",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20210701-20220630&limit=500",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20220701-20230630&limit=500",
+    "ESPN circuit breaker open \u2014 skipping https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard without a request. 5+ consecutive rate-limit failures; retrying now would extend the block rather than shorten it.",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=20250701-20260630&limit=500",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=20260701-20270630&limit=500"
+   ],
+   "failure_rate_24h": 1.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (83/83)",
+   "failures": 83,
+   "last_failure": "2026-08-10T06:53:36.651633+00:00",
+   "last_success": null,
+   "recent": [
+    {
+     "at": "2026-08-10T06:57:45.000752+00:00",
+     "attempts": 83,
+     "failures": 83,
+     "rows": 0
+    }
+   ],
+   "rows": 0
+  },
+  "espn_fixtures": {
+   "attempts": 384,
+   "consecutive_dark_runs": 1,
+   "endpoints_failed": [
+    "arg.1/scoreboard?season=2026",
+    "arg.1/scoreboard?season=2027",
+    "arg.2/scoreboard?season=2015",
+    "arg.2/scoreboard?season=2016",
+    "arg.2/scoreboard?season=2017",
+    "arg.2/scoreboard?season=2018",
+    "arg.2/scoreboard?season=2019",
+    "arg.2/scoreboard?season=2020",
+    "arg.2/scoreboard?season=2021",
+    "arg.2/scoreboard?season=2022"
+   ],
+   "errors": [
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=20260701-20270630&limit=1000",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard?dates=20260701-20270630&limit=1000",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard?dates=20260701-20270630&limit=1000",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard?dates=20260701-20270630&limit=1000",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/scoreboard?dates=20260701-20270630&limit=1000",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/eng.2/scoreboard?dates=20260701-20270630&limit=1000",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/eng.3/scoreboard?dates=20260701-20270630&limit=1000",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/eng.4/scoreboard?dates=20260701-20270630&limit=1000",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/ger.2/scoreboard?dates=20260701-20270630&limit=1000",
+    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/ita.2/scoreboard?dates=20260701-20270630&limit=1000"
+   ],
+   "failure_rate_24h": 1.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (384/384)",
+   "failures": 384,
+   "last_failure": "2026-08-10T06:40:37.108737+00:00",
+   "last_success": null,
+   "recent": [
+    {
+     "at": "2026-08-10T06:57:45.000752+00:00",
+     "attempts": 384,
+     "failures": 384,
+     "rows": 0
+    }
+   ],
+   "rows": 0
+  },
+  "football_data": {
+   "attempts": 41,
+   "consecutive_dark_runs": 1,
+   "endpoints_failed": [
+    "2627/B1.csv",
+    "2627/D1.csv",
+    "2627/D2.csv",
+    "2627/E0.csv",
+    "2627/E1.csv",
+    "2627/E2.csv",
+    "2627/E3.csv",
+    "2627/EC.csv",
+    "2627/F1.csv",
+    "2627/F2.csv"
+   ],
+   "errors": [
+    "404 Client Error: Not Found for url: https://www.football-data.co.uk/mmz4281/2627/E1.csv",
+    "404 Client Error: Not Found for url: https://www.football-data.co.uk/mmz4281/2627/E2.csv",
+    "404 Client Error: Not Found for url: https://www.football-data.co.uk/mmz4281/2627/E3.csv",
+    "404 Client Error: Not Found for url: https://www.football-data.co.uk/mmz4281/2627/EC.csv",
+    "served SC2 content, expected SP2 (redirected to https://www.football-data.co.uk/mmz4281/2627/SC2.csv)",
+    "404 Client Error: Not Found for url: https://www.football-data.co.uk/mmz4281/2627/I2.csv",
+    "404 Client Error: Not Found for url: https://www.football-data.co.uk/mmz4281/2627/D2.csv",
+    "404 Client Error: Not Found for url: https://www.football-data.co.uk/mmz4281/2627/F2.csv",
+    "404 Client Error: Not Found for url: https://www.football-data.co.uk/mmz4281/2627/E0.csv",
+    "404 Client Error: Not Found for url: https://www.football-data.co.uk/mmz4281/2627/D1.csv"
+   ],
+   "failure_rate_24h": 1.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (41/41)",
+   "failures": 41,
+   "last_failure": "2026-08-10T05:41:13.217659+00:00",
+   "last_success": null,
+   "recent": [
+    {
+     "at": "2026-08-10T06:57:45.000752+00:00",
+     "attempts": 41,
+     "failures": 41,
+     "rows": 0
+    }
+   ],
+   "rows": 0
+  },
+  "football_data_intl": {
+   "attempts": 42,
+   "consecutive_dark_runs": 0,
+   "endpoints_failed": [],
+   "errors": [],
+   "failure_rate_24h": 0.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/42)",
+   "failures": 0,
+   "last_failure": null,
+   "last_success": "2026-08-10T06:10:33.602311+00:00",
+   "recent": [
+    {
+     "at": "2026-08-10T06:57:45.000752+00:00",
+     "attempts": 42,
+     "failures": 0,
+     "rows": 155001
+    }
+   ],
+   "rows": 155001
+  },
+  "understat": {
+   "attempts": 5,
+   "consecutive_dark_runs": 0,
+   "endpoints_failed": [],
+   "errors": [],
+   "failure_rate_24h": 0.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/5)",
+   "failures": 0,
+   "last_failure": null,
+   "last_success": "2026-08-10T05:22:20.628404+00:00",
+   "recent": [
+    {
+     "at": "2026-08-10T06:57:45.000752+00:00",
+     "attempts": 5,
+     "failures": 0,
+     "rows": 21690
+    }
+   ],
+   "rows": 21690
+  }
+ },
+ "generated": "2026-08-10T06:57:45.000752+00:00",
+ "notable": [
+  {
+   "error": "served SC2 content, expected SP2 (redirected to https://www.football-data.co.uk/mmz4281/2627/SC2.csv)",
+   "feed": "football_data",
+   "kind": "division_mismatch"
+  }
+ ]
+}
