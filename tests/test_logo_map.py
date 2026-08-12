@@ -18,12 +18,38 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 LOGOS = ROOT / "webapp" / "data" / "logos.js"
+
+
+def _committed_webapp() -> Path:
+    """Export `webapp/` at HEAD and return the export root.
+
+    Read COMMITTED payloads, not the working tree. KNOWN_NAME_CLASHES below is
+    committed, so the only honest comparison is against the payloads it was
+    measured from. A working-tree read fails on any machine where a local
+    refresh has rebuilt the logo map — which is every developer machine here,
+    daily — and the failure names a "stale" allowlist entry that is not stale
+    at all in the data anyone else sees. Measured 2026-08-11: `3472.png`
+    stopped colliding in a local rebuild while still colliding in HEAD.
+
+    Falls back to the working tree outside a git checkout, so the test still
+    runs from a source tarball.
+    """
+    try:
+        blob = subprocess.run(["git", "archive", "HEAD", "webapp"],
+                              cwd=ROOT, capture_output=True, check=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ROOT
+    out = Path(tempfile.mkdtemp(prefix="logo-map-head-"))
+    subprocess.run(["tar", "-x", "-C", str(out)], input=blob, check=True)
+    return out
 
 # Registry `country` values that name a competition region rather than a nation.
 REGIONS = {"Europe", "North America", "South America"}
@@ -68,9 +94,14 @@ def _load(path: Path):
 
 @pytest.fixture(scope="module")
 def logos() -> dict[str, str]:
-    if not LOGOS.exists():
+    """The COMMITTED crest map, matching the committed payloads it is checked
+    against. Reading a locally rebuilt logos.js against HEAD's payloads would
+    compare two different builds and call the difference a defect."""
+    committed = _committed_webapp() / "webapp" / "data" / "logos.js"
+    path = committed if committed.exists() else LOGOS
+    if not path.exists():
         pytest.skip("webapp/data/logos.js not built")
-    return _load(LOGOS)
+    return _load(path)
 
 
 # Each pair is (club, club-whose-crest-it-must-not-wear). Every one of these
@@ -144,8 +175,9 @@ def test_countries_do_not_share_a_crest(logos):
     ALIAS are deliberate same-club mappings and are checked by name, not
     country, so the test reads the registry to locate each name's league.
     """
+    root = _committed_webapp()
     payloads = {}
-    for p in sorted((ROOT / "webapp" / "data").glob("*.js")):
+    for p in sorted((root / "webapp" / "data").glob("*.js")):
         if p.name in ("logos.js",):
             continue
         try:
@@ -155,7 +187,7 @@ def test_countries_do_not_share_a_crest(logos):
         if isinstance(d, dict):
             payloads[p.stem] = d
 
-    registry = {r["id"]: r for r in _load(ROOT / "webapp" / "leagues.js")}
+    registry = {r["id"]: r for r in _load(root / "webapp" / "leagues.js")}
     # name -> countries it plays in, taking each continental row's domestic
     # league tag when present (that is what separates Barcelona SC from Barça).
     where: dict[str, set[str]] = {}

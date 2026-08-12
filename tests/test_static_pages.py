@@ -114,12 +114,18 @@ def test_club_pages_are_useful_and_structured(built):
         REPO / "data" / "team_intelligence" / "mls"
         / f"{row['team_id'].replace(':', '_')}.json"
     )
+    # data/team_intelligence/ is GITIGNORED — CI builds it, a fresh clone has
+    # none. Skip rather than raise FileNotFoundError, which reads as the
+    # contract being broken when the artifact simply was not built here.
+    if not artifact_path.exists():
+        pytest.skip("data/team_intelligence/ not built (gitignored; CI builds it)")
+
     contract = club_surface_contract(json.loads(artifact_path.read_text()))
+    # Identity is build-independent: the same club is the same club in any
+    # build, so these hold whatever state the tree is in.
     assert contract["team_id"] == row["team_id"]
     assert contract["team"] == row["team"]
-    assert contract["generated"] == payload["generated"]
-    assert contract["current_probability_pct"] == row[
-        contract["target_metric"]]
+
     assert "Expected finish" in inter_miami
     assert "Upcoming matches" in inter_miami
     assert "Recent results" in inter_miami
@@ -137,6 +143,33 @@ def test_club_pages_are_useful_and_structured(built):
     assert {"BreadcrumbList", "SportsTeam", "Dataset"} <= {
         node["@type"] for node in graph
     }
+
+    # Co-generation. The artifact must come from the SAME build as the payload,
+    # or the club page shows a probability from one build beside a table from
+    # another — the actual defect worth catching.
+    #
+    # It holds in CI, where one run produces both. It cannot hold on a
+    # developer machine, and the asymmetry is the reason: the payload is
+    # COMMITTED and CI refreshes it several times a day, while the artifact is
+    # GITIGNORED and only whatever the last local build left behind. So the
+    # artifact drifts BEHIND the payload with no local action at all — measured
+    # 2026-08-11 with a pristine mls.js: artifact generated 08-04 12:58 UTC at
+    # 28.6, committed payload 08-11 11:44 UTC at 28.8.
+    #
+    # Skipped only when the artifact is demonstrably OLDER than the payload,
+    # which is exactly the local-staleness case. An artifact that is newer, or
+    # equal-but-disagreeing, still fails — so the defect this exists to catch
+    # is still caught, in CI and here. Timestamps are "YYYY-MM-DD HH:MM UTC",
+    # zero-padded and fixed-width, so string order is chronological order.
+    if contract["generated"] < payload["generated"]:
+        pytest.skip(
+            f"local team_intelligence artifact is stale: generated "
+            f"{contract['generated']} vs payload {payload['generated']} — "
+            "gitignored artifacts lag the committed payloads CI refreshes; "
+            "rebuild them locally or let CI assert co-generation")
+    assert contract["generated"] == payload["generated"]
+    assert contract["current_probability_pct"] == row[
+        contract["target_metric"]]
 
 
 def test_league_tables_link_to_club_canonicals(built):

@@ -327,6 +327,20 @@ These require account access or business decisions and cannot be completed from 
 
 ## Recently completed
 
+- Two contract tests made honest about the working tree (2026-08-11, tests only). Both failed on
+  every developer machine here and passed in CI, which is the failure mode that teaches people to
+  ignore a red suite. `test_logo_map` compared the COMMITTED `KNOWN_NAME_CLASHES` allowlist
+  against WORKING-TREE payloads, so a local logo rebuild reported `3472.png` as a stale entry
+  while it still collides (Portugal vs Uruguay) in everything anyone else sees; it now reads
+  `git archive HEAD`, matching the precedent set by the payload-consistency test, and still fails
+  when a real collision appears. `test_static_pages` compared a GITIGNORED intelligence artifact
+  against a COMMITTED payload — an asymmetry that guarantees drift, since CI refreshes the payload
+  several times a day and the artifact is whatever the last local build left (measured: artifact
+  08-04 12:58 UTC at 28.6, payload 08-11 11:44 UTC at 28.8, with a pristine `mls.js`). It now
+  skips only when the artifact is strictly OLDER, so a newer or equal-but-disagreeing artifact
+  still fails, and the co-generation check is evaluated after the page contract so a stale
+  artifact costs no other coverage. Suite 2149 passed / 0 failed / 36 skipped.
+
 - **Backfilled xG ported to four leagues** (2026-08-09, spec §4.1/§4.2; owner-authorised). The
   §4.2 undiluted re-run settled it: the 2022–2025 folds dilute every delta ~25% because xG begins
   in 2023, so the first fold is identical in both arms. Re-measured on 2023–2025 at two seeds,
