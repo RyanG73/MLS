@@ -10,10 +10,10 @@
     "API-Football error for standings {'league': 262, 'season': 20}: {'season': 'The Season field must be at least 4 characters in length.'}"
    ],
    "failure_rate_24h": 0.0141,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (2/142)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (1/71)",
    "failures": 1,
-   "last_failure": "2026-08-11T12:00:41.073226+00:00",
-   "last_success": "2026-08-11T12:00:52.208881+00:00",
+   "last_failure": "2026-08-12T12:04:35.316442+00:00",
+   "last_success": "2026-08-12T12:04:45.350920+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -29,6 +29,12 @@
     },
     {
      "at": "2026-08-11T12:00:53.540943+00:00",
+     "attempts": 71,
+     "failures": 1,
+     "rows": 68
+    },
+    {
+     "at": "2026-08-12T12:04:46.664600+00:00",
      "attempts": 71,
      "failures": 1,
      "rows": 68
@@ -91,7 +97,7 @@
   },
   "espn_continental": {
    "attempts": 83,
-   "consecutive_dark_runs": 3,
+   "consecutive_dark_runs": 4,
    "endpoints_failed": [
     "concacaf.champions/scoreboard?season=2018",
     "concacaf.champions/scoreboard?season=2019",
@@ -117,9 +123,9 @@
     "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=20260701-20270630&limit=500"
    ],
    "failure_rate_24h": 1.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (166/166)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (83/83)",
    "failures": 83,
-   "last_failure": "2026-08-11T11:57:43.721694+00:00",
+   "last_failure": "2026-08-12T12:00:53.951604+00:00",
    "last_success": null,
    "recent": [
     {
@@ -136,6 +142,12 @@
     },
     {
      "at": "2026-08-11T12:00:53.540943+00:00",
+     "attempts": 83,
+     "failures": 83,
+     "rows": 0
+    },
+    {
+     "at": "2026-08-12T12:04:46.664600+00:00",
      "attempts": 83,
      "failures": 83,
      "rows": 0
@@ -268,6 +280,6 @@
    "rows": 21690
   }
  },
- "generated": "2026-08-11T12:00:53.540943+00:00",
+ "generated": "2026-08-12T12:04:46.664600+00:00",
  "notable": []
 }
