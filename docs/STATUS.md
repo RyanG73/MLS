@@ -327,6 +327,23 @@ These require account access or business decisions and cannot be completed from 
 
 ## Recently completed
 
+- **Backfilled xG ported to four leagues** (2026-08-09, spec §4.1/§4.2; owner-authorised). The
+  §4.2 undiluted re-run settled it: the 2022–2025 folds dilute every delta ~25% because xG begins
+  in 2023, so the first fold is identical in both arms. Re-measured on 2023–2025 at two seeds,
+  `n_bags=5`, sum-form Brier (negative = better): `primeira` **−0.0075**, `belgian-pro`
+  **−0.0027**, `eredivisie` **−0.0018**, `championship` **−0.0015**, each clearing the −0.0010
+  bar on *both* seeds independently. Wired in `_routed_frame`, the single production frame load
+  and the same point the campaign's treatment arm used, so what ships is what was measured;
+  `attach_xg` fills only empty values and cannot change row count, so every unwired league is
+  byte-identical. Verified end to end: `championship` 1,654 of 6,624 rows filled,
+  `brazil-serie-a` 0. **`super-lig` was NOT promoted** — its mean (−0.0012) clears the bar but
+  its seeds span −0.0020/−0.0004, a 0.0016 spread against a stated single-run σ≈0.0002, and the
+  protocol asks a second seed to *confirm* a gate-bound claim. **`brazil-serie-a` stays
+  REJECTED** at +0.0037 on both seeds, worse than the diluted +0.0026. Champion config
+  unchanged. Payload effects appear on the next CI rebuild, not before. 5 new tests; suite 2148
+  passed, 2 pre-existing failures unrelated to this change (`test_logo_map`, `test_static_pages`,
+  both reproduced with the change stashed and both artefacts of a dirty local-refresh tree).
+
 - Club display names normalised at the ESPN source boundary (2026-08-09, code only — payloads
   change on the next CI rebuild, not before). ESPN's `aus.w.1` feed returns 6 of 11 A-League
   Women clubs with a **trailing space** in `displayName` (`'Western Sydney '`, `'Sydney FC '`,

@@ -115,7 +115,15 @@ def main() -> None:
               f"delta {r['delta']:+.4f}  {verdict}  [{r['secs']}s]")
 
     tag = "confirm" if args.confirm else "run"
-    path = OUT / f"seed{args.seed}_{tag}.json"
+    # The test window goes in the FILENAME when it is not the default. A run on
+    # 2023-2025 and a run on 2022-2025 answer different questions — every delta
+    # in the second is diluted ~25%, because xG begins in 2023 and the first
+    # fold is then identical in both arms — and writing both to
+    # `seed42_run.json` silently replaces one measurement with the other. On
+    # 2026-08-09 the undiluted re-run did exactly that to the diluted run it was
+    # meant to be compared against, and only git had the original.
+    window = "" if args.seasons is None else f"_{seasons[0]}-{seasons[-1]}"
+    path = OUT / f"seed{args.seed}{window}_{tag}.json"
     path.write_text(json.dumps(results, indent=1))
     print(f"\nwrote {path}")
 

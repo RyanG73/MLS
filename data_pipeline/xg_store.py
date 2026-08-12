@@ -136,38 +136,56 @@ def coverage(league_id: str) -> dict:
             "share": (usable / total) if total else 0.0}
 
 
-# ── campaign verdicts (spec 2026-08-09 §4.1) — STAGED, NOT WIRED ─────────────
-# Measured by scripts/xg_feature_campaign.py on 2026-08-08: two seeds, n_bags=5,
-# 4 folds (2022-2025), the only variable being whether xG carries values. Brier
-# is sum-form, so a NEGATIVE delta is an improvement.
+# ── campaign verdicts (spec 2026-08-09 §4.1/§4.2) — WIRED for the KEEPs ──────
+# Measured by scripts/xg_feature_campaign.py, two seeds at n_bags=5, the only
+# variable being whether xG carries values. Brier is sum-form, so a NEGATIVE
+# delta is an improvement.
 #
-# Recorded here rather than in a document because the spec asks for exactly one
-# thing to be impossible to lose: the Brasileirão REJECTION. Its 100% coverage
-# and its Stage-2 diff matching football-data 1,140/1,140 rule out a data
-# explanation — real xG simply makes that model worse — so without the reason
-# beside the code someone will later "fix" the inconsistency.
+# Two windows, both kept, because they answer different questions. The
+# 2022-2025 folds DILUTE every delta ~25%: xG begins in 2023, so the first fold
+# is identical in both arms. The 2023-2025 re-run (§4.2) sizes the effect
+# honestly, and it is the one these verdicts are drawn from. Owner authorised
+# the port on 2026-08-09 (spec §9.1).
 #
-# NOTHING READS THIS YET, deliberately. Porting the KEEPs is a production model
-# change and is the owner's call (spec §9.1, §10.3); a test asserts no build
-# path calls attach_xg, so the port cannot happen as a plumbing side effect.
-# Every delta below is DILUTED ~25%: xG begins in 2023 while the folds run
-# 2022-2025, so the first fold is identical in both arms. §4.2's undiluted
-# re-run is `--seasons 2023,2024,2025`, and it is what decides `super-lig`.
+# `super-lig` is the one league the re-run was meant to decide, and it decided
+# AGAINST promotion. Its mean (-0.0012) clears the -0.0010 bar, but its seeds
+# span -0.0020 to -0.0004 — the second seed is indistinguishable from zero, and
+# every league that IS wired clears the bar on both seeds independently. The
+# verification protocol asks a second seed to CONFIRM a gate-bound claim, and
+# seed 7 does not confirm this one. Left marginal, with the numbers here so
+# promoting it later is a decision rather than a rediscovery.
+#
+# The Brasileirão REJECTION is the one thing that must be impossible to lose:
+# its 100% coverage and its Stage-2 diff matching football-data 1,140/1,140
+# rule out a data explanation, and the undiluted window made it WORSE
+# (+0.0026 -> +0.0037, both seeds). Do not "fix" the inconsistency.
 XG_CAMPAIGN_VERDICT: dict[str, dict] = {
-    "primeira":       {"mean_delta_brier": -0.0055, "verdict": "keep"},
-    "belgian-pro":    {"mean_delta_brier": -0.0020, "verdict": "keep"},
-    "championship":   {"mean_delta_brier": -0.0012, "verdict": "keep"},
-    "eredivisie":     {"mean_delta_brier": -0.0011, "verdict": "keep"},
-    "super-lig":      {"mean_delta_brier": -0.0009, "verdict": "marginal",
-                       "note": "seed 42 read this KEEP and championship noise; "
-                               "seed 7 swapped them exactly. Decided by the "
-                               "undiluted 2023-2025 re-run, not by one seed."},
-    "brazil-serie-a": {"mean_delta_brier": +0.0026, "verdict": "reject",
-                       "note": "REGRESSES on both seeds. Coverage is 100% and "
-                               "the Stage-2 diff matched football-data "
-                               "1,140/1,140, so this is not a data defect — "
-                               "real xG makes this league's model worse. Do "
-                               "not 'fix' the inconsistency."},
+    "primeira":       {"mean_delta_brier": -0.0075, "seeds": (-0.0074, -0.0075),
+                       "diluted_mean": -0.0055, "verdict": "keep"},
+    "belgian-pro":    {"mean_delta_brier": -0.0027, "seeds": (-0.0027, -0.0026),
+                       "diluted_mean": -0.0020, "verdict": "keep"},
+    "eredivisie":     {"mean_delta_brier": -0.0018, "seeds": (-0.0016, -0.0020),
+                       "diluted_mean": -0.0011, "verdict": "keep"},
+    "championship":   {"mean_delta_brier": -0.0015, "seeds": (-0.0012, -0.0019),
+                       "diluted_mean": -0.0012, "verdict": "keep"},
+    "super-lig":      {"mean_delta_brier": -0.0012, "seeds": (-0.0020, -0.0004),
+                       "diluted_mean": -0.0009, "verdict": "marginal",
+                       "note": "The mean clears the bar; the SEEDS do not "
+                               "agree. -0.0020 vs -0.0004 is a 0.0016 spread "
+                               "against a stated single-run sigma of ~0.0002, "
+                               "and seed 7 alone would not promote it. The "
+                               "diluted campaign already saw this league and "
+                               "championship swap places between seeds. Not "
+                               "wired; promote only on evidence that holds at "
+                               "both seeds."},
+    "brazil-serie-a": {"mean_delta_brier": +0.0037, "seeds": (+0.0037, +0.0038),
+                       "diluted_mean": +0.0026, "verdict": "reject",
+                       "note": "REGRESSES on both seeds, and the undiluted "
+                               "window made it worse. Coverage is 100% and the "
+                               "Stage-2 diff matched football-data 1,140/1,140, "
+                               "so this is not a data defect — real xG makes "
+                               "this league's model worse. Do not 'fix' the "
+                               "inconsistency."},
 }
 
 XG_KEEP_LEAGUES = tuple(lid for lid, v in XG_CAMPAIGN_VERDICT.items()

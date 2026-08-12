@@ -44,6 +44,7 @@ from data_pipeline.football_data_intl import (
 from data_pipeline.espn_soccer import liga_mx_frame, season_label as liga_mx_label
 from data_pipeline.espn_fixtures import european_fixtures
 from data_pipeline.asa_frame import asa_canonical_frame
+from data_pipeline import xg_store
 from models.research_model import (
     bag_proba, blend, calibrate_temperature, dc_predict_batch, fit_capped_blend,
     fit_dc, fit_temperature_scalar, fit_xgb,
@@ -1226,6 +1227,22 @@ def _routed_frame(league_id: str, cfg: dict) -> tuple[pd.DataFrame, dict]:
     loaders = {s: (lambda s=s: _load_frame(league_id, s, cfg.get("asa_key")))
                for s in _ROUTABLE_SOURCES}
     frame, src = resolve(league_id, "fixtures", loaders, default=cfg["source"])
+
+    # Backfilled xG for the four leagues where it MEASURABLY improves Brier on
+    # both seeds (spec §4.1, owner-authorised 2026-08-09). Applied here, right
+    # after the frame load, because that is exactly where the campaign's
+    # treatment arm applied it — `attach_xg(_load_frame(...))` — so what ships
+    # is what was measured, not an approximation of it.
+    #
+    # `attach_xg` fills only EMPTY home_xg/away_xg, preserves existing values
+    # and leaves unmatched rows NaN, so a league already carrying xG is
+    # untouched and the row count cannot change. Every league outside
+    # XG_KEEP_LEAGUES is byte-identical, the Brasileirão emphatically included.
+    if league_id in xg_store.XG_KEEP_LEAGUES:
+        before = len(frame)
+        frame = xg_store.attach_xg(frame, league_id)
+        assert len(frame) == before, (
+            f"attach_xg changed {league_id} row count {before} -> {len(frame)}")
     return frame, {"fixtures": src}
 
 

@@ -267,6 +267,21 @@ routes every ASA endpoint call (MLS smoke-verified behavior-preserving).
 | xG-rich Europe (big-5) | `experiments/champion_eur_big5.json` | 0.5934 vs 0.6487 (+8.5%) | pooled per-league walk-forwards (`scripts/build_family_report.py`, equal-weight league-seasons) |
 | Goals-only tiers + C1 | `experiments/champion_eur_tiers.json` | 0.6152 vs 0.6498 (+5.3%, 13 leagues) | same pooling |
 
+**Backfilled xG is wired for four leagues (2026-08-09, spec §4.1/§4.2).** `primeira`,
+`belgian-pro`, `eredivisie` and `championship` have `xg_store.attach_xg` applied in
+`build_league_data._routed_frame` — the single production frame load, and the same point the
+campaign's treatment arm used, so what ships is what was measured. It fills only empty
+`home_xg`/`away_xg` and cannot change row count; every other league is byte-identical.
+Judged on the **undiluted 2023–2025 window** (the 2022–2025 folds dilute every delta ~25%
+because xG begins in 2023), two seeds at `n_bags=5`, sum-form Brier so negative is better:
+`primeira` −0.0075, `belgian-pro` −0.0027, `eredivisie` −0.0018, `championship` −0.0015 —
+each clearing the −0.0010 bar on **both** seeds. **`super-lig` is NOT wired**: mean −0.0012
+clears the bar but its seeds span −0.0020/−0.0004, so the second seed does not confirm it.
+**`brazil-serie-a` is REJECTED** at +0.0037 (both seeds, worse than the diluted +0.0026);
+its 100% coverage and 1,140/1,140 Stage-2 diff rule out a data explanation. Verdicts and
+per-seed numbers live in `data_pipeline.xg_store.XG_CAMPAIGN_VERDICT`. The champion config
+is unchanged — this is per-league frame content, not a hyperparameter change.
+
 NWSL and USL Championship are LIVE league pages (2026-07-06): played games from ASA
 (`data_pipeline/asa_frame.py`, goals + ASA xG), scheduled season remainder from ESPN
 (calendar-year fixture window), playoff rows excluded from regular-season tables via

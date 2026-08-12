@@ -134,10 +134,11 @@ def test_unmapped_league_returns_nothing_rather_than_raising(store):
     assert xg_store.xg_rows("no-such-league") == []
 
 
-# ── §4.1 campaign verdicts: staged, not wired ───────────────────────────────
-# Spec 2026-08-09 §4.1/§9.1/§10.3. Porting the KEEP leagues is a production
-# model change and is the owner's decision. These tests exist so the decision
-# stays the owner's and the rejection stays legible.
+# ── §4.1/§4.2 campaign verdicts: WIRED for the four KEEPs ───────────────────
+# Spec 2026-08-09 §4.1/§9.1/§10.3. Owner authorised the port on 2026-08-09
+# after the undiluted 2023-2025 re-run. These tests exist so the SCOPE of that
+# decision cannot drift: which leagues are wired, on what evidence, and how
+# many places apply it.
 def test_the_brasileirao_rejection_is_recorded_with_its_reason():
     """Its 100% coverage and its 1,140/1,140 Stage-2 diff rule out a data
     explanation. Without the reason in code, someone later 'fixes' the
@@ -166,14 +167,15 @@ def test_super_lig_is_marginal_and_not_silently_promoted():
     assert XG_CAMPAIGN_VERDICT["super-lig"]["verdict"] == "marginal"
 
 
-def test_no_build_path_attaches_xg_yet():
-    """The invariant: a feature enters through a gated Brier comparison, never
-    as a plumbing consequence. The only caller is the campaign harness that
-    measures it."""
-    # Pure stdlib rather than shelling out to `rg`: ripgrep is not guaranteed
-    # on a contributor's machine (it is not in requirements, and the call
-    # raised FileNotFoundError on macOS here), and a portability failure in an
-    # invariant test reads as the invariant being broken.
+def test_xg_reaches_production_through_exactly_one_call_site():
+    """The invariant did not go away when the port landed; it got narrower.
+
+    A feature enters through a gated Brier comparison, never as a plumbing
+    consequence. Before 2026-08-09 that meant NO build path called attach_xg.
+    Now exactly one does — `_routed_frame`, the single production frame load —
+    and this pins the list so a second call site cannot appear quietly and
+    double-apply it, or apply it on a path nobody measured.
+    """
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent
     out = sorted(
@@ -183,4 +185,25 @@ def test_no_build_path_attaches_xg_yet():
         if "attach_xg" in f.read_text(encoding="utf-8", errors="ignore")
     )
     assert out == ["data_pipeline/xg_store.py",
+                   "scripts/build_league_data.py",
                    "scripts/xg_feature_campaign.py"], out
+
+
+def test_every_verdict_records_both_seeds_not_just_their_mean():
+    """A mean hides a disagreement, and a disagreement is the whole reason
+    super-lig is not wired. Each entry carries the per-seed pair it came
+    from, and the mean must actually be their mean."""
+    from data_pipeline.xg_store import XG_CAMPAIGN_VERDICT
+    for lid, v in XG_CAMPAIGN_VERDICT.items():
+        seeds = v["seeds"]
+        assert len(seeds) == 2, lid
+        assert abs(sum(seeds) / 2 - v["mean_delta_brier"]) < 1e-4, lid
+
+
+def test_a_wired_league_clears_the_bar_on_both_seeds_independently():
+    """The rule that separates the four from super-lig, asserted rather than
+    described: every wired league improves by at least 0.0010 on EACH seed."""
+    from data_pipeline.xg_store import XG_CAMPAIGN_VERDICT, XG_KEEP_LEAGUES
+    for lid in XG_KEEP_LEAGUES:
+        for s in XG_CAMPAIGN_VERDICT[lid]["seeds"]:
+            assert s <= -0.0010, f"{lid} seed delta {s:+.4f} does not clear the bar"
