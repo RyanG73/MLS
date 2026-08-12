@@ -39,8 +39,12 @@ jobs:
         with:
           python-version: '3.13'
           cache: pip
+      # pytest is NOT in requirements.txt, and this job runs a pytest step
+      # below. Without it that step died on "No module named pytest" — the
+      # 2026-08-12 run reported the payload-regression guard as FAILED when it
+      # had never executed, which is worse than not running it at all.
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pytest
 
       # --live makes the real spine requests. Without a key the drill reports
       # its checks as `skipped`, not `pass` — a drill that could not reach the

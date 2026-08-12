@@ -184,6 +184,29 @@ def _toks(nn):
     return tuple(t for t in nn.split() if t not in _SUFFIX)
 
 
+def asa_team_resolver(teams):
+    """(normalised display name) -> ASA team_id. The ONE resolver.
+
+    Extracted from `main()` because it was a closure there, so anything else
+    that needed it had to reimplement it — and the fault-injection drill did,
+    with plain exact-name matching. That silently tested a resolver production
+    does not have: 20 of 30 MLS clubs resolved instead of 30, because ASA
+    carries suffixes ('Austin FC', 'Inter Miami CF', 'St. Louis City SC') that
+    `_toks` strips and exact matching does not. The drill then failed the
+    2026-08-12 run and reported the spine fallback broken when it works.
+
+    A guard that reimplements the thing it guards is testing its own copy
+    (§8.13). Both callers now import this one.
+    """
+    tok2id = {_toks(_norm(r.team_name)): r.team_id for r in teams.itertuples()}
+
+    def map_team(norm_name):
+        nn = _ALIAS.get(norm_name, norm_name)
+        return tok2id.get(_toks(nn))
+
+    return map_team
+
+
 def mls_local_date(ko_utc: str | None, team_abbr: str | None,
                    fallback: str | None = None) -> str | None:
     """Venue-local fixture date for MLS cards; preserves ko_utc separately."""
@@ -326,11 +349,7 @@ def main():
     id2name = {r.team_id: r.team_name for r in teams.itertuples()}
     id2abbr = {r.team_id: r.team_abbreviation for r in teams.itertuples()}
     # ESPN-normalized-name -> ASA team_id (suffix-tolerant + alias)
-    tok2id = {_toks(_norm(r.team_name)): r.team_id for r in teams.itertuples()}
-
-    def map_team(norm_name):
-        nn = _ALIAS.get(norm_name, norm_name)
-        return tok2id.get(_toks(nn))
+    map_team = asa_team_resolver(teams)
 
     # ESPN team crest URL + brand colors, keyed by ASA team_id (public CDN; <img> ref)
     tmeta = {}

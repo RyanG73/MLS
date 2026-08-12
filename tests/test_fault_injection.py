@@ -151,3 +151,39 @@ def test_the_plan_value_matches_the_refresh_workflows():
         wf = yaml.safe_load((ROOT / ".github/workflows" / name).read_text())
         plans.add(wf["env"]["API_FOOTBALL_PLAN"])
     assert len(plans) == 1, f"workflows disagree on the plan: {plans}"
+
+
+# ── the drill must exercise PRODUCTION's resolver, not a copy of it ──────────
+
+def test_the_mls_check_imports_the_production_resolver():
+    """It once built `{_norm(name): id}` and matched exactly. Production strips
+    the club-type suffixes {fc, sc, cf} and applies _ALIAS, so exact matching
+    resolved 20 of 30 MLS clubs against ASA's 'Austin FC' / 'Inter Miami CF' /
+    'St. Louis City SC'. The 2026-08-12 drill failed at 67% and reported the
+    spine fallback broken while production resolved 30/30."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent
+           / "scripts" / "fault_injection_drill.py").read_text()
+    assert "asa_team_resolver" in src, (
+        "the drill must import build_dashboard_data.asa_team_resolver")
+    assert "ids.get(n)" not in src, (
+        "exact-name matching is back in the drill — that is not what "
+        "production does, and it under-resolves by 10 clubs")
+
+
+def test_the_production_resolver_strips_suffixes_and_applies_aliases():
+    """The behaviour the drill's copy lacked, pinned directly."""
+    import pandas as pd
+    from scripts.build_dashboard_data import asa_team_resolver
+    teams = pd.DataFrame([
+        {"team_name": "Austin FC", "team_id": "t-atx"},
+        {"team_name": "Inter Miami CF", "team_id": "t-mia"},
+        {"team_name": "St. Louis City SC", "team_id": "t-stl"},
+        {"team_name": "Los Angeles FC", "team_id": "t-lafc"},
+    ])
+    m = asa_team_resolver(teams)
+    assert m("austin") == "t-atx"          # suffix on OUR side only
+    assert m("inter miami") == "t-mia"
+    assert m("st louis city") == "t-stl"
+    assert m("lafc") == "t-lafc"           # _ALIAS
+    assert m("no such club") is None

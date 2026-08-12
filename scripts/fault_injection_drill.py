@@ -118,19 +118,20 @@ def check_mls_schedule_falls_back(live: bool) -> dict:
     if not live:
         return _check("mls_schedule_fallback", None,
                       f"structural only: registry order {order}")
-    from scripts.build_dashboard_data import routed_schedule
+    # PRODUCTION's resolver, imported — never a local re-implementation. This
+    # check previously built `{_norm(name): id}` and matched exactly, which is
+    # NOT what build_dashboard_data does: it strips the club-type suffixes
+    # {fc, sc, cf} and applies _ALIAS. Exact matching resolved 20 of 30 MLS
+    # clubs against ASA's 'Austin FC' / 'Inter Miami CF' / 'St. Louis City SC',
+    # so on 2026-08-12 the drill failed at 67% and reported the spine fallback
+    # broken while production resolved 30/30. A guard that reimplements the
+    # thing it guards is testing its own copy (§8.13).
+    from scripts.build_dashboard_data import routed_schedule, asa_team_resolver
     from data_pipeline.asa_cache import get_teams
-    import unicodedata
-
-    def _norm(n):
-        n = unicodedata.normalize("NFKD", str(n)).encode("ascii", "ignore").decode()
-        return "".join(c for c in n.lower() if c.isalnum() or c == " ").strip()
 
     try:
-        teams = get_teams("mls")
-        ids = {_norm(r.team_name): r.team_id for r in teams.itertuples()}
         rows, src = routed_schedule(int(os.environ.get("DRILL_SEASON", 2026)),
-                                    lambda n: ids.get(n))
+                                    asa_team_resolver(get_teams("mls")))
     except Exception as exc:                          # noqa: BLE001
         return _check("mls_schedule_fallback", False, f"{type(exc).__name__}: {exc}")
     if src == "espn":
