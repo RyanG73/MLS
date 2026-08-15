@@ -1,0 +1,78 @@
+name: Spine Name Maps
+
+# Derives the API-Football -> canonical club-name maps that gate getting off
+# ESPN. It lives in CI because that is where API_FOOTBALL_KEY is; it cannot be
+# run from a developer checkout.
+#
+# Default is report-only. Writing the map is an explicit choice, because the
+# map decides which club a result is attributed to.
+
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        description: 'Single league id (blank = every mapped league)'
+        required: false
+        default: ''
+      write:
+        description: 'Commit the derived map (otherwise report only)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: spine-name-maps
+  cancel-in-progress: false
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+  API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+  API_FOOTBALL_PLAN: mega
+  API_FOOTBALL_OPS_BUDGET: "2000"
+
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Derive name maps
+        run: |
+          ARGS="--all"
+          if [ -n "${{ inputs.league }}" ]; then ARGS="--league ${{ inputs.league }}"; fi
+          if [ "${{ inputs.write }}" != "true" ]; then ARGS="$ARGS --check"; fi
+          python scripts/generate_spine_name_maps.py $ARGS | tee output/name-map-report.txt
+        continue-on-error: true          # a league on HOLD is a finding, not a broken job
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spine-name-map-report
+          path: output/name-map-report.txt
+          if-no-files-found: warn
+
+      # Only the map file is staged. `git add -A` would sweep whatever else the
+      # run touched into a commit whose message describes only the map.
+      - name: Commit the map
+        if: inputs.write == true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- config/api_football_team_names.json; then
+            echo "no change to the name map"; exit 0
+          fi
+          git add config/api_football_team_names.json
+          git commit -m "chore(spine): derive club-name maps by fixture diff [$(date -u +%F)]"
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((attempt * 5))
+          done
+          echo "could not push the derived map"; exit 1
