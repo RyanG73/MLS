@@ -16,6 +16,38 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-15 — the paywall is off for the initial launch, and preserved by construction; the two
+  remaining fresh-clone test failures are fixed.** Owner decision. Implemented as one committed
+  constant, `LAUNCH_FREE` in `server/open_access.py`; a test asserts that flipping it back restores
+  the paywall, so the comment saying so cannot quietly become false. **Deliberately not the existing
+  KV promo**: that lives in a store and is set by an admin call against production, so a KV outage
+  or a fresh environment would silently re-lock the site, and it caps at `MAX_PROMO_SECONDS` (90
+  days). That cap is correct for a promo and was left untouched — free launch is a different,
+  deliberate state, so it got its own switch rather than being implemented by weakening the guard
+  protecting the other case. **Nothing was deleted**: plan ranks, `require_entitlement`, the Stripe
+  webhook, the client lock chrome and the checkout gate are all still present, still tested, still
+  in the path. **Two properties tested end to end.** Signing in is still required for anything
+  per-user — open access has always meant "no payment required", never "no account required" — and
+  the public site was already free to *view* with no account, so "the whole site is free" was
+  already true of everything except the per-user continuity layer. And checkout stays shut while
+  the product is free, *including against an explicit `owner_enabled` override*, because selling a
+  subscription to something being given away yields a refund and a broken promise at once; live
+  config reads `reason: free_launch`. A canceled account is still refused. **Client bug found and
+  fixed in passing**: `OpenAccess.state()` demanded an `until` timestamp unconditionally, so an
+  indefinite record read as inactive and the UI would have kept painting lock chrome the server no
+  longer enforced. **Two tests changed rather than deleted, both honestly**: the canceled-account
+  test asserted one exact error sentence and now asserts the property, since two different guards
+  can correctly refuse it; and the four-immutable-prices test now pins the paywall on, because the
+  free launch shuts checkout ahead of the production-config gate and would otherwise mask it.
+  **Defects closed**: `tests/test_surface_contract.py` skips rather than fails when the gitignored
+  `data/team_intelligence/` tree is absent — the identical fix applied to `test_static_pages.py` on
+  08-11 and missed here — so the suite is green on a fresh clone for the first time this session.
+  **2,173 passed / 0 failed / 42 skipped**; `check_docs` PASS. **`STATUS.md`'s current objective was
+  rewritten**, because it read "complete one production transaction" and there is no transaction to
+  complete while the product is free; the transaction milestone is deferred intact, not cancelled,
+  and the owner-blocked queue is re-scoped — none of it blocks launching now, it blocks charging.
+  ⚠️ Reaches production on the next API deploy: this is server plus client code, not a runtime flag.
+
 - **2026-08-15 — fast-refresh queue items 1 and 2 shipped together; the ordered fallback the
   registry had been promising since 08-08 is now honoured on this path.** Landed as one change
   because they are one incident: the missing secret was the cause on 08-14, and the other two

@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import time
 
+from server import open_access
 from server.kv_store import KVStore
 
 KEY = "config:checkout"
@@ -48,8 +49,15 @@ def get_state(kv: KVStore) -> dict:
     requested, source = _requested(kv)
     production = os.environ.get("ENTENSER_ENV") == "production"
     missing = _production_missing(kv) if production else []
-    enabled = requested and not missing
+    # Selling a subscription to something currently being given away is the one
+    # combination that produces a refund and a broken promise at the same time.
+    # While the paywall is off, checkout stays shut whatever else is configured
+    # — including a fully-wired Stripe and an explicit owner_enabled override,
+    # because the override predates the free launch and cannot have meant this.
+    free_launch = open_access.launch_state() is not None
+    enabled = requested and not missing and not free_launch
     reason = "ready" if enabled else (
+        "free_launch" if free_launch else
         "configuration_incomplete" if requested and missing else "owner_disabled")
     changed_at = kv.get(f"{KEY}:changed_at")
     return {

@@ -59,12 +59,22 @@ def test_trial_can_read_team_endpoint(monkeypatch):
 
 
 def test_canceled_plan_cannot_read_team_endpoint(monkeypatch):
+    """A cancellation is a decision, so it outranks any reason access is open.
+
+    Two different guards can refuse this, and both are correct: with the
+    paywall on it is the plan-rank check ("does not meet"), and while access is
+    open it is the explicit canceled-account check in bearer_user ("account is
+    canceled"). Asserting one exact sentence made this test a hostage to which
+    lever happened to be pulled, so it asserts the property instead — refused,
+    and refused *for being canceled*.
+    """
     monkeypatch.setattr(team_api._service, "get_team", lambda *_args, **_kwargs: {})
     status, _, body = team_api.handle(
         "GET", _authorization(plan="canceled"),
         {"league_id": "epl", "team_id": "v1:club"})
     assert status == 401
-    assert "does not meet" in json.loads(body)["error"]
+    error = json.loads(body)["error"]
+    assert "does not meet" in error or "canceled" in error, error
 
 
 def test_since_last_visit_cursor_is_league_qualified(monkeypatch):

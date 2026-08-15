@@ -84,6 +84,15 @@ is merged and retained for history.
   Watch sells is that someone watched it — what changed while you were away, the evidence behind it,
   saved scenarios, per-club history. A lock must sit on the continuity layer, never on a figure the
   public site already publishes, or the "free forever" promise printed on the site becomes false.
+- **The paywall is OFF for the initial launch, and preserved** (owner decision 2026-08-15). Every
+  Club Watch feature is free to anyone with a free account. The switch is `LAUNCH_FREE` in
+  `server/open_access.py`; setting it back to `False` and deploying restores the paywall, and that
+  must stay the whole operation. **Do not delete, collapse, or route around any paid mechanism**
+  while it is off — the plan ranks, `require_entitlement`, the Stripe webhook, the client lock
+  chrome and the checkout gate all stay in the path and stay tested. Two rules hold while it is
+  off: signing in is still required for anything per-user (open access means "no payment", never
+  "no account"), and checkout stays shut whatever Stripe is configured to do. The line above still
+  describes where the paywall goes when it returns.
 - **Global ELO** is the public name of the shared cross-league strength scale (owner decision
   2026-08-06, replacing "Crossbar", which held the name from 2026-08-01). The internal field was
   always `global_elo`; the public label now matches it, so there is one name to learn instead of

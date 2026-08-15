@@ -74,6 +74,11 @@ def _production_checkout_env(monkeypatch):
 
 
 def test_production_checkout_requires_all_four_immutable_prices(monkeypatch):
+    # This asserts the PRODUCTION CONFIG gate. Since 2026-08-15 the free launch
+    # shuts checkout ahead of that gate, which would mask it here — pin the
+    # paywall on so the four-price requirement is still genuinely exercised.
+    from server import open_access
+    monkeypatch.setattr(open_access, "LAUNCH_FREE", False)
     _production_checkout_env(monkeypatch)
     monkeypatch.delenv("STRIPE_PRICE_INTEL_ANNUAL_STANDARD")
     state = checkout_control.get_state(InMemoryKVStore())
