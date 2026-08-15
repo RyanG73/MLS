@@ -233,18 +233,67 @@ def _name(value: str) -> str:
     return " ".join(words)
 
 
+def _tokens(value: str) -> tuple[str, ...]:
+    """Token set after normalisation and club-word stripping.
+
+    Same shape as build_dashboard_data._toks and the spine name-map deriver, so
+    "Arsenal FC" and "Arsenal" are one club everywhere in this repository.
+    """
+    return tuple(sorted(_name(value).split()))
+
+
+def _sides(game: dict, feed: dict) -> tuple[float, float]:
+    """Per-side similarity. Deliberately NOT averaged — see _match_game."""
+    return (
+        difflib.SequenceMatcher(
+            None, _name(game.get("home", "")), _name(feed.get("home", ""))).ratio(),
+        difflib.SequenceMatcher(
+            None, _name(game.get("away", "")), _name(feed.get("away", ""))).ratio(),
+    )
+
+
 def _fixture_score(game: dict, feed: dict) -> float:
-    home = difflib.SequenceMatcher(
-        None, _name(game.get("home", "")), _name(feed.get("home", ""))).ratio()
-    away = difflib.SequenceMatcher(
-        None, _name(game.get("away", "")), _name(feed.get("away", ""))).ratio()
-    return (home + away) / 2
+    """Confidence in a whole fixture: its WEAKER side.
+
+    Averaging the two sides was the defect. It let a perfect home match carry a
+    hopeless away one, and a fixture is identified by both of its clubs or by
+    neither. A pair is only as good as the side you are least sure of.
+    """
+    return min(_sides(game, feed))
+
+
+# A fixture matched by name alone must clear this on BOTH sides, and beat the
+# runner-up by MATCH_MARGIN. Measured against real confusables at the old
+# average-of-two-sides ≥ 0.58 rule: Bristol City/Stoke City scored 0.727,
+# Sheffield United/Sheffield Wednesday 0.686, Manchester United/Manchester City
+# 0.812 — 13 of 15 genuinely different clubs cleared it. Fuzzy matching was
+# banned outright in check_standings for exactly the Bristol City case; this
+# path kept it while writing scorelines into the table every fifteen minutes.
+MATCH_FLOOR = 0.90
+MATCH_MARGIN = 0.10
 
 
 def _match_game(games: list[dict], feed: dict,
                 used: set[int]) -> tuple[int, dict] | None:
+    """The payload fixture this feed row refers to, or None if unsure.
+
+    Two tiers, and both refuse rather than guess:
+
+    1. **Token-exact on both clubs.** Handles the real spelling variation
+       ("Arsenal FC" vs "Arsenal") with no room for a near miss. Two exact
+       candidates on the same day is a genuine ambiguity, so it refuses.
+    2. **Similarity, but only when decisive.** Both sides must clear
+       MATCH_FLOOR and the best must beat the runner-up by MATCH_MARGIN.
+
+    Refusing costs one refresh cycle — `apply_feed` skips an unmatched row and
+    the next tick retries. Guessing costs a result attributed to the wrong club,
+    which propagates into the table, the simulation and the published forecast,
+    and nothing downstream can tell.
+    """
     feed_date = dt.date.fromisoformat(feed["date"])
-    candidates = []
+    feed_home, feed_away = _tokens(feed.get("home", "")), _tokens(feed.get("away", ""))
+
+    exact, scored = [], []
     for index, game in enumerate(games):
         if index in used:
             continue
@@ -254,12 +303,25 @@ def _match_game(games: list[dict], feed: dict,
             continue
         if abs((game_date - feed_date).days) > 1:
             continue
-        score = _fixture_score(game, feed)
-        if score >= 0.58:
-            candidates.append((score, index, game))
-    if not candidates:
+        if (_tokens(game.get("home", "")) == feed_home
+                and _tokens(game.get("away", "")) == feed_away):
+            exact.append((index, game))
+        home, away = _sides(game, feed)
+        scored.append((min(home, away), index, game))
+
+    if len(exact) == 1:
+        return exact[0]
+    if len(exact) > 1:
+        return None                       # same clubs, same day, twice — ambiguous
+
+    if not scored:
         return None
-    _, index, game = max(candidates, key=lambda row: row[0])
+    scored.sort(key=lambda row: -row[0])
+    best, index, game = scored[0]
+    if best < MATCH_FLOOR:
+        return None
+    if len(scored) > 1 and best - scored[1][0] < MATCH_MARGIN:
+        return None                       # two plausible fixtures; pick neither
     return index, game
 
 
@@ -295,9 +357,19 @@ def apply_feed(payload: dict, feed_rows: list[dict],
     old_matrix = json.dumps((payload.get("sim") or {}).get("pmatrix"))
     used: set[int] = set()
     results_applied = kickoff_updates = 0
+    # A COMPLETED feed row that matches nothing is the failure this tightening
+    # could introduce: results quietly stop being applied and the payload still
+    # looks healthy, which is the same shape as an unmapped club. Refusing is
+    # right, refusing silently is not — so unmatched completed rows are counted
+    # and reported. A club that needs an alias shows up here instead of as a
+    # league that mysteriously stopped updating.
+    unmatched: list[str] = []
     for feed in feed_rows:
         matched = _match_game(games, feed, used)
         if matched is None:
+            if feed.get("completed"):
+                unmatched.append(
+                    f"{feed.get('date')} {feed.get('home')} v {feed.get('away')}")
             continue
         index, game = matched
         used.add(index)
@@ -357,6 +429,9 @@ def apply_feed(payload: dict, feed_rows: list[dict],
         "results_applied": results_applied,
         "kickoff_updates": kickoff_updates,
         "feed_rows": len(feed_rows),
+        # Operational only — deliberately NOT written into payload["fast_refresh"],
+        # which ships to the client. This belongs in the run report a human reads.
+        "unmatched": unmatched,
         "generated": payload.get("generated"),
     }
 

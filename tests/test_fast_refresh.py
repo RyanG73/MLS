@@ -488,3 +488,99 @@ def test_the_fast_refresh_workflow_carries_the_spine_credentials():
         assert "API_FOOTBALL_KEY" in env, f"{name} can reach the spine without a key"
         assert env.get("API_FOOTBALL_PLAN") == "mega", (
             f"{name} plan value drifted — the governor's lapse guard reads it")
+
+
+# ── fixture matching: refuse rather than guess (2026-08-15) ─────────────────
+#
+# The fast refresh matched a feed row to a payload fixture on the AVERAGE of
+# two SequenceMatcher ratios with a 0.58 floor, then took the max candidate
+# with no ambiguity guard — and this path writes scorelines into the table
+# every fifteen minutes. Measured against real confusables at that rule:
+# Bristol City/Stoke City 0.727, Sheffield United/Sheffield Wednesday 0.686,
+# Manchester United/Manchester City 0.812. Thirteen of fifteen genuinely
+# different clubs cleared it. Fuzzy matching had already been banned outright
+# in check_standings for the Bristol City case; it survived here.
+
+
+def _one(home, away, date="2026-03-01"):
+    return [{"date": date, "home": home, "away": away, "result": None}]
+
+
+def _feed(home, away, date="2026-03-01", **kw):
+    return {"date": date, "home": home, "away": away, **kw}
+
+
+@pytest.mark.parametrize("ours, theirs", [
+    ("Bristol City", "Stoke City"),                  # the pairing that banned fuzzy
+    ("Manchester United", "Manchester City"),
+    ("Sheffield United", "Sheffield Wednesday"),
+    ("Deportivo Cali", "Deportivo Pasto"),
+    ("Atletico Nacional", "Atletico Junior"),
+    ("Queens Park", "Queens Park Rangers"),
+    ("San Antonio FC", "San Antonio Bulo Bulo"),
+    ("Newcastle United", "Newcastle Jets"),
+])
+def test_two_different_clubs_are_never_matched(ours, theirs):
+    """Each of these cleared the old floor. A wrong match here attributes a
+    result to the wrong club, and it propagates into the table, the simulation
+    and the published forecast with nothing downstream able to tell."""
+    assert fast_refresh._match_game(
+        _one(ours, "Common Opponent"), _feed(theirs, "Common Opponent"), set()) is None
+
+
+@pytest.mark.parametrize("ours, theirs", [
+    ("Arsenal", "Arsenal FC"),
+    ("Inter Miami CF", "Inter Miami"),
+    ("St. Louis City SC", "St Louis City"),
+    ("Bayern Munich", "FC Bayern Munich"),
+    ("Peñarol", "Penarol"),
+])
+def test_real_spelling_variation_still_matches(ours, theirs):
+    """Tightening must not stop results applying — that is the failure this
+    change could introduce, and it looks like a healthy but frozen league."""
+    assert fast_refresh._match_game(
+        _one(ours, "Rival"), _feed(theirs, "Rival"), set()) is not None
+
+
+def test_a_fixture_is_only_as_good_as_its_weaker_side():
+    """Averaging let a perfect home match carry a hopeless away one. A fixture
+    is identified by both of its clubs or by neither."""
+    games = [{"date": "2026-03-01", "home": "Arsenal", "away": "Liverpool",
+              "result": None}]
+    assert fast_refresh._match_game(
+        games, _feed("Arsenal", "Everton"), set()) is None
+
+
+def test_two_plausible_fixtures_on_one_day_are_both_refused():
+    """No ambiguity guard existed: max() silently picked a winner. On a derby
+    round both clubs of a confusable pair play on the same day."""
+    games = [{"date": "2026-03-01", "home": "Manchester United", "away": "Rival",
+              "result": None},
+             {"date": "2026-03-01", "home": "Manchester City", "away": "Rival",
+              "result": None}]
+    assert fast_refresh._match_game(
+        games, _feed("Manchester Utd", "Rival"), set()) is None
+
+
+def test_the_same_two_clubs_twice_on_one_day_is_ambiguous():
+    games = [{"date": "2026-03-01", "home": "Arsenal", "away": "Liverpool",
+              "result": None},
+             {"date": "2026-03-01", "home": "Arsenal", "away": "Liverpool",
+              "result": None}]
+    assert fast_refresh._match_game(
+        games, _feed("Arsenal", "Liverpool"), set()) is None
+
+
+def test_an_unmatched_completed_result_is_reported_not_swallowed():
+    """Refusing is right; refusing silently is not. A league whose feed names
+    drifted would otherwise just stop updating and still look healthy."""
+    payload = _payload()
+    report = apply_feed(payload, [{
+        "date": "2026-07-26", "ko": "2026-07-26T19:30:00Z",
+        "home": "Completely Different FC", "away": "Also Unrelated United",
+        "completed": True, "hg": 3, "ag": 0,
+    }], now=NOW, sims=200)
+
+    assert report["results_applied"] == 0
+    assert report["unmatched"] == ["2026-07-26 Completely Different FC v Also Unrelated United"]
+    assert payload["standings"][0]["pts"] == 0, "no table movement from a refused row"
