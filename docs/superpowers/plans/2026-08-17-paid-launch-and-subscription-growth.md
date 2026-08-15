@@ -16,6 +16,23 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-15 — the owner queue was two lists saying the same thing in different orders; now
+  it is one, tiered by what each item actually unblocks.** `STATUS.md` carried both a ranked
+  owner-blocked table and a separate "Owner actions" list — the duplication this repository
+  polices for figures, applied to asks. Consolidated into
+  [What I need from you](../../STATUS.md#what-i-need-from-you--the-owner-queue-re-tiered-2026-08-15).
+  **Tier A blocks Claude today**: delete two merged branches (the agent proxy returns HTTP 403 on
+  a delete refspec and the GitHub tools here have no branch-delete, so this genuinely cannot be
+  done from a session), approve dispatching `Spine Name Maps` (it spends real API-Football budget
+  and the map it writes decides which club a result is attributed to), and confirm or reject the
+  rewritten current objective. **Tier B** is GA4/GSC and `D2` — the free launch produces evidence
+  only if someone is measuring. **Tier C** is Stripe, LLC, legal, vendors and the 7,000 date,
+  which now block *charging* rather than launching. This plan's own immediate queue is re-pointed
+  rather than rewritten: it remains the correct paid sequence for when the paywall returns, and
+  says so at the top. `PLAN.md` gained a first navigation row — "What does Ryan need to do?" —
+  and its Now section was re-scoped from the paid framing to the free launch. Still 100 lines.
+  `check_docs` PASS, 2,201 tests pass.
+
 - **2026-08-15 — merged to `main` and deployed; the paywall is off in production.** Merge `99d045a`
   (Pages run `31891557318`, API run `31891557361`). Proof rather than inference: the live service
   worker is stamped `entenser-shell-99d045aad59e`, which is the merge commit, so production serves
@@ -633,6 +650,19 @@ matter less. 4 should precede any transaction rehearsal, because a rehearsal jud
 suite that is already red proves nothing.
 
 ### Immediate queue — execute in this order
+
+> **Re-pointed 2026-08-15.** The table below is still the correct *paid-launch* sequence and is
+> kept intact for when the paywall returns — but it is no longer what is urgent. Its priority 1
+> is the 7,000-subscriber date, and with the product free that gates nothing this week.
+>
+> **The live owner queue is [`STATUS.md` → "What I need from you"](../../STATUS.md#what-i-need-from-you--the-owner-queue-re-tiered-2026-08-15)**, tiered by what each item
+> actually unblocks now: tier A blocks Claude today (two branch deletions, a go-ahead on the
+> name-map run, a yes/no on the rewritten objective), tier B is what makes the free launch
+> produce evidence at all (GA4/GSC, `D2` recruiting), tier C is the paywall's return.
+>
+> Rows 1–3 and 5 below map to tier C and tier B; rows 4, 6 and 8–10 stay gated exactly as
+> written. Nothing here is cancelled — it is sequenced behind a launch that does not charge.
+
 
 | Priority | Owner | Action | Tasks and required evidence |
 |---:|---|---|---|

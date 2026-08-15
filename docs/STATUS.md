@@ -357,44 +357,49 @@ each defect in turn, not yet by CI meeting a live spine league.
 | 6 | **Re-check the authenticated Club Watch render in production** | Directly on the milestone path — it is the surface the transaction delivers. The Club Watch history row below still says in its own words that "the live authenticated render was not re-checked post-deploy", and that gap has now survived two deploys | Everything needed is live: the artifacts are published, the public API is healthy, and the relay correctly returns 401 without its publisher credential |
 | ~~7~~ | ✅ **PARTLY DONE 2026-08-15** — ~~Close issue #10~~ (closed; the fault drill was fixed in `7a8681a` and has passed twice since, once on schedule). The three `refresh-failure` issues stay open on purpose: #8 closes on a green fast-refresh run that actually selects a routed league, and #6/#7 close when the feeds come back. | Pure noise reduction, near-zero effort. #10 says the fault-injection drill proves the ESPN fallback is broken; it does not — the drill was testing its own copy of the resolver, was fixed in `7a8681a`, and has passed twice since, including a scheduled run | Runs `31557258012` and `31574725142` (the latter `event: schedule`) both succeeded. Four `refresh-failure` issues are open and #8 alone has 74 comments, which is how a real alert gets missed |
 
-## Next actions — owner-blocked (ranked 2026-08-15)
+## What I need from you — the owner queue (re-tiered 2026-08-15)
 
-Each needs one decision or one account. Nothing here is work Claude could do instead.
+This replaces the two overlapping lists that used to sit here: a ranked table and a separate
+"Owner actions" list saying much the same thing in a different order. One source, like any other
+fact in this repository.
 
-**Re-scoped 2026-08-15.** With the paywall off, **none of this blocks launching any more** — it blocks *charging*, which is now a later milestone. The list is unchanged and still accurate; what changed is its urgency. Ranks 1–3 are the paywall's return, not the launch. The two that still matter for the free launch are **GA4/GSC access** and **`D2` recruiting**, because a free launch whose behaviour nobody measures produces no evidence, which is the entire reason for running one.
+**The tiers are the point.** With the paywall off, most of what used to block *launching* now
+blocks *charging*, which is a later milestone. Tier A is small and fast and is what actually
+holds work up today. Nothing in tier C is on the critical path any more.
 
-| # | Blocked on | Single thing needed | What it unblocks |
+### Tier A — blocks Claude today, minutes each
+
+| # | What I need | Why it is blocked on you | What it unblocks |
 |---:|---|---|---|
-| 1 | **Stripe activation** | Activate the account; create the four immutable Prices; register the webhook; configure Customer Portal, receipts, refunds, failed-payment behaviour | The entire current objective. `/v1/public/config` returns `"pricing": {}` and `checkout.enabled: false, reason: owner_disabled` — verified 2026-08-15. No transaction, rehearsal, or `C1` gate can run without this |
-| 2 | **LLC, EIN, bank account** | Complete the Ohio single-member LLC and its private mailing setup, then EIN, then bank | Gates Stripe (#1) and the legal name every policy document needs. Formation type is chosen; the legal name is still open |
-| 3 | **Legal approval** | Decide the draft's open terms using the final legal name, then approve Terms, Privacy, refund, cancellation, renewal, and affiliation language | Publication. `/terms/`, `/privacy/` and `/refunds/` all return 404 as of 2026-08-15. Also the retirement trigger for `legal-copy-draft-2026-07-25.md` |
-| 4 | **GA4 and Search Console access** | Create or confirm access; submit the sitemap | The `M1` funnel and Stripe reconciliation. The measurement foundation is deployed and blind without production inputs |
-| 5 | **`D2` recruiting** | Recruit ≥15 primary supporters plus ~3 quantitative users and ~3 creators | The recurring-job gate, and every downstream concierge and pricing decision |
-| 6 | **Vendor confirmations** | Confirm Vercel Pro, Resend capacity, `support@entenser.com`, and the support/refund schedule | Delivery capacity and the refund promise the paid-launch record already committed to |
-| 7 | **The 7,000-subscriber target date** | One calendar date | Closes `G0.2`, the last open item in an otherwise approved decision record. 24 months remains provisional planning, not a commitment |
+| A1 | **Delete two merged branches** — `auto/spec-exec-2026-08-09` and `claude/entenser-paid-launch-fkoshj` | The agent proxy returns **HTTP 403** on a delete refspec, and the GitHub tools here have no branch-delete. I can push commits, not remove refs | Repository hygiene only. Both are 0 commits ahead of `main`, so it is safe. `git push origin --delete <branch>`, or the GitHub Branches page |
+| A2 | **Say go on dispatching `Spine Name Maps`** | It spends real API-Football requests against the paid plan, and the map it derives decides which club a result is attributed to. I will not spend your budget or touch that file unannounced | The whole ESPN exit. One report-only run tells us how many of the 78 leagues can move today. Currently **3 of 78** are routed |
+| A3 | **Confirm or reject the rewritten objective** | I changed the current objective from "complete one production transaction" to getting a supporter through the Club Watch job free, because there is no transaction to complete while the product is free. That is a judgement about *your* launch, not an implementation detail | Everything downstream reads the objective. If you want the transaction milestone back as the headline, say so and I will revert it — the work is deferred, not deleted |
 
-**Removed from this list on 2026-08-15:** the API-Football Mega purchase. It is bought — CI runs
-`API_FOOTBALL_PLAN: mega` with a 2,000/day ops budget — so the migration spec's purchase
-checkpoint has passed and no owner action remains behind it.
+### Tier B — the free launch produces evidence only if you do these
 
-## Owner actions
+| # | What I need | Why it is blocked on you | What it unblocks |
+|---:|---|---|---|
+| B1 | **GA4 and Search Console access** | Account access. Create or confirm it, and submit the sitemap | **The most urgent thing on this page.** A free launch is an evidence-gathering exercise; unmeasured, it produces nothing and the whole reason for running it is lost. The measurement foundation is deployed and blind without production inputs |
+| B2 | **`D2` recruiting — ≥15 primary supporters, ~3 quantitative users, ~3 creators** | People, not code. Use [`customer-discovery-kit.md`](customer-discovery-kit.md); do not pitch features during recruitment | The recurring-job gate, and every downstream concierge and pricing decision. The free launch makes this *easier* — behaviour can now be observed rather than only asked about |
 
-These require account access or business decisions and cannot be completed from the repository:
+### Tier C — blocks charging, not launching. The paywall's return
 
-1. Supply the explicit target date for reaching 7,000 active paid subscribers. All other
-   `G0.1–G0.10` decisions are approved and recorded.
-2. Form the single-member LLC, establish its private mailing setup, obtain its EIN, and open its bank
-   account.
-3. Activate Stripe; create the four immutable Prices; register the webhook; configure the Customer
-   Portal, receipts, refunds, and failed-payment behavior.
-4. Decide the legal draft's remaining open terms using the LLC's final legal name and jurisdiction,
-   then approve the Terms, Privacy, refund, cancellation, renewal, and affiliation language.
-5. Confirm Vercel Pro, Resend capacity, `support@entenser.com`, and the support/refund schedule.
-6. Create or confirm GA4 and Google Search Console access; submit the sitemap; export all available
-   analytics, search, waitlist, support, and customer evidence or explicitly mark it missing.
-7. Recruit the `D2` discovery sample using `docs/customer-discovery-kit.md`: at least 15 primary
-   supporters plus approximately 3 quantitative users and 3 creators.
-8. Approve any broadcast email. No broadcast is sent without explicit approval.
+| # | What I need | Single thing needed | What it unblocks |
+|---:|---|---|---|
+| C1 | **LLC, EIN, bank account** | Complete the Ohio single-member LLC and its private mailing setup, then EIN, then bank | Gates C2 and the legal name every policy document needs. Formation type is chosen; the legal name is still open |
+| C2 | **Stripe activation** | Activate; create the four immutable Prices; register the webhook; configure Customer Portal, receipts, refunds, failed-payment behaviour | The deferred transaction milestone. Live config returns `"pricing": {}` and `checkout {enabled: false, reason: "free_launch"}` — the reason is now the free launch rather than the missing config, and **checkout stays shut while the product is free even once Stripe is wired** |
+| C3 | **Legal approval** | Decide the draft's open terms using the final legal name, then approve Terms, Privacy, refund, cancellation, renewal and affiliation language | Publication. `/terms/`, `/privacy/` and `/refunds/` all return 404 as of 2026-08-15. Also the retirement trigger for [`legal-copy-draft-2026-07-25.md`](legal-copy-draft-2026-07-25.md) |
+| C4 | **Vendor confirmations** | Confirm Vercel Pro, Resend capacity, `support@entenser.com`, and the support/refund schedule | Delivery capacity and the refund promise the [paid-launch decision record](paid-launch-decision-record.md) already committed to |
+| C5 | **The 7,000-subscriber target date** | One calendar date | Closes `G0.2`, the last open item in an otherwise approved decision record. 24 months remains provisional planning, not a commitment |
+| C6 | **Approve any broadcast email** | Explicit approval, per send | No broadcast goes out without it. Standing rule, not a one-off |
+
+**Off this list on 2026-08-15:** the API-Football Mega purchase — bought, CI runs
+`API_FOOTBALL_PLAN: mega` with a 2,000/day ops budget, so the migration spec's purchase
+checkpoint has passed.
+
+**Where the matching work lives:** what Claude does without you is the
+[Claude-executable queue](#next-actions--claude-executable-now-ranked-2026-08-15) above; what
+Claude does the moment each of these lands is the section immediately below.
 
 ## Agent work immediately after owner decisions and access
 

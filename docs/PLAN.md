@@ -4,6 +4,7 @@
 
 | Question | Canonical document |
 |---|---|
+| **What does Ryan need to do?** | [`STATUS.md` → What I need from you](STATUS.md#what-i-need-from-you--the-owner-queue-re-tiered-2026-08-15) — tier A blocks Claude today |
 | What is true and what happens next? | [`STATUS.md`](STATUS.md) |
 | What exact work is active, and who owns it? | [`superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.md`](superpowers/plans/2026-08-17-paid-launch-and-subscription-growth.md) |
 | What model and pipeline configuration is current? | [`CURRENT_STATE.md`](CURRENT_STATE.md) |
@@ -37,11 +38,9 @@ Terms, refund, and privacy publish.
 
 **Launch content drafts — `docs/content/`.** `README.md` · `model-explainer.md` ·
 `epl-2026-27-priors.md` · `promoted-teams.md` · `relegation-risk.md` · `market-blind-edge.md`.
-Owner-gated drafts. **Figures predate the current payloads — re-measure against `figures.json`
-before publishing.** **Retire:** on publication.
+Owner-gated. **Figures predate the current payloads — re-measure against `figures.json` first.** **Retire:** on publication.
 
-**Built but unwired — documentation for real code that has not shipped.**
-`postgame-win-expectancy.md` (`scripts/postgame_win_expectancy.py` exists, calibration-validated) · `projection-drift-tracking.md`. **Retire:** on ship; deleting one orphans working code.
+**Built but unwired — documentation for real code that has not shipped.** `postgame-win-expectancy.md` (`scripts/postgame_win_expectancy.py` exists, calibration-validated) · `projection-drift-tracking.md`. **Retire:** on ship; deleting one orphans working code.
 
 **Specs — `docs/superpowers/specs/`.** Designed; mostly unbuilt. `2026-08-07-uefa-competition-forecasting-design.md` · `2026-08-07-leagues-cup-forecasting-design.md` · `2026-08-08-match-data-source-resilience-design.md` · `2026-08-09-platform-reliability-and-api-opportunity-spec.md` — the live one; Phase 1 is merged and partly proven. `2026-08-08-api-football-migration-execution-spec.md` is **the record of a finished migration, not a plan**: stages 0–2 and 4 are complete and the owner has bought the Mega plan, so its purchase checkpoint has passed; stages 3, 5 and 6 are **dead**, superseded by the reliability spec §3.2 (adjudicated 2026-08-15 — two live specs proposing the same Tier-A migration is the contradiction the group existed to prevent). **Retire:** deleted on ship like a plan, with 2–3 sentences into `PROJECT_HISTORY.md`.
 
@@ -57,15 +56,16 @@ retirable artefact. Re-tested 2026-08-15: all eight hold, six cited by a live pr
 command. `codebase-unification-2026-08-02.md` was the ninth and the only one to clear every
 question; retired, in `PROJECT_HISTORY.md`.
 
-## Now — strategy, transaction, measurement, and trust
+## Now — launch free, measure it, and make the data trustworthy
 
-Four parallel foundations. Success means Entenser can charge safely, the offer matches reality,
-and the recurring customer job is demonstrated — not merely that checkout code exists.
-(1) Ryan approves the primary customer, Club Watch outcome, free/paid boundary, ordinary price,
-and whether August 17 is a controlled beta or broad launch. (2) Ryan completes the business,
-Stripe, legal, vendor, analytics, and support setup. (3) Claude reconciles paid claims, repairs
-trust defects, instruments the funnel, and proves monthly and annual sign-in → payment → access →
-cancellation → refund. (4) Ryan interviews committed fans while Claude preps the concierge test.
+**Re-scoped 2026-08-15: the paywall is off for the initial launch** (`LAUNCH_FREE` in
+`server/open_access.py`), so the transaction is deferred and the job becomes evidence.
+(1) Ryan supplies GA4/GSC access and recruits `D2` — a free launch nobody measures produces
+nothing, which is the whole reason for running one. (2) Claude makes the forecasts trustworthy:
+get the data pipeline off a dark ESPN, publish per-league freshness, keep the matchers refusing
+rather than guessing. (3) Ryan completes the business, Stripe, legal and vendor setup on its own
+clock — it now gates *charging*, not launching. (4) The transaction path stays built and tested,
+untouched, for the day the paywall returns. Live owner queue: [`STATUS.md`](STATUS.md#what-i-need-from-you--the-owner-queue-re-tiered-2026-08-15).
 
 ## Next — prove and productize Club Watch
 
