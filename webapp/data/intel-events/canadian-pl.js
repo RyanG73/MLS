@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-08-14 11:59 UTC","teams":{"Forge":[],"Cavalry FC":[],"Vancouver FC":[],"Atl\u00e9tico Ottawa":[],"Supra du Quebec":[],"HFX Wanderers FC":[],"York United":[],"Pacific FC":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-08-15 11:37 UTC","teams":{"Forge":[],"Cavalry FC":[],"Vancouver FC":[],"Atl\u00e9tico Ottawa":[],"Supra du Quebec":[],"HFX Wanderers FC":[],"York United":[],"Pacific FC":[]}};
