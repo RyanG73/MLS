@@ -16,6 +16,29 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-15 — fast-refresh queue items 1 and 2 shipped together; the ordered fallback the
+  registry had been promising since 08-08 is now honoured on this path.** Landed as one change
+  because they are one incident: the missing secret was the cause on 08-14, and the other two
+  defects are what turned that cause into a site-wide outage. **(1)** `refresh-fast.yml` now
+  carries `API_FOOTBALL_KEY` / `API_FOOTBALL_PLAN` / `API_FOOTBALL_OPS_BUDGET`, verbatim from its
+  three siblings, and a test now asserts all three spine-using workflows carry them — the defect
+  was in CI config, so the guard belongs on CI config. **(2)** `_routed_feed` walks
+  `sources_for(league, "fixtures")` and takes the first source that answers, recording failures in
+  `source_health` so no fallback is silent. `source_registry.resolve()` is deliberately not reused:
+  it counts an empty result as a failed source, correct for a standings frame and wrong for
+  fixtures, where a league with no matches in the ±2-day window legitimately returns zero rows —
+  reusing it would have called ESPN on a good answer and raised when ESPN agreed, inventing an
+  outage out of a quiet Tuesday. **(3)** `FeedUnavailable` joins `requests.RequestException` in the
+  isolation handler, as a distinct type rather than a broadened `RuntimeError`, because catching
+  bare `RuntimeError` would isolate the missing key **and** bury every payload bug that raises one
+  — the opposite mistake, and precisely what the original narrow handler existed to prevent.
+  **Sharpness proven by reverting each defect in turn:** the narrow handler alone fails 1 test,
+  removing the fallback fails 3. **2,163 passed / 40 skipped**, 7 new, browser suites excluded as
+  before; `check_docs` PASS; `promotion_gate self-test` 8/8. ⚠️ **Not yet observed on a scheduled
+  run.** The fix is proven by test, not by CI meeting a live spine league — issue #8 should close
+  only after a green tick that actually selects `northern-super-league` or `usl-super-league`.
+  Queue item #3, moving the stale Tier-A leagues onto the spine, is now the top of the list.
+
 - **2026-08-15 — the production table had thirteen days of unearned green, and the data pipeline is
   running on one source.** Re-verified every row from outside the repository — live HTTP, the live
   payloads, and the Actions API. Production serves exactly HEAD (`entenser-shell-8f71fc6239e4`), so

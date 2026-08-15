@@ -15,6 +15,17 @@ concurrency:
 
 env:
   PYTHONPATH: ${{ github.workspace }}
+  # API-Football spine — see refresh-daily.yml for the plan/lapse-guard
+  # contract. Keep the plan value in sync across workflows.
+  #
+  # Every other refresh workflow has carried this since the spine landed; this
+  # one did not, because it was last edited 2026-08-08 and the spine path
+  # arrived 2026-08-09. A spine-routed league therefore raised "API_FOOTBALL_KEY
+  # not set" and took the whole run with it — 12 of 15 runs on 2026-08-14, and
+  # issue #8 collected one comment per failure for a week.
+  API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+  API_FOOTBALL_PLAN: mega
+  API_FOOTBALL_OPS_BUDGET: "2000"
 
 jobs:
   refresh:

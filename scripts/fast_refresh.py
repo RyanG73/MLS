@@ -361,25 +361,74 @@ def apply_feed(payload: dict, feed_rows: list[dict],
     }
 
 
+class FeedUnavailable(RuntimeError):
+    """Every source for one league's fixtures failed.
+
+    A distinct type because `refresh_selected` must isolate exactly this and
+    nothing else: a league whose upstreams are all down is a skippable league,
+    while a ValueError or the pmatrix AssertionError is a payload bug that has
+    to stop the run. Catching a bare RuntimeError there would swallow both.
+    """
+
+
+def _routed_feed(league_id: str, espn_code: str | None,
+                 now: dt.datetime | None = None) -> tuple[list[dict], str]:
+    """Fixture rows from the first source that answers, in registry order.
+
+    `source_registry` has declared an ORDER for fixtures since 2026-08-08 —
+    `["api_football", "espn"]` for a routed league — and `build_league_data`
+    honours it through `resolve()`. This path did not: it picked one source
+    from `uses_spine()` and called it, so on 2026-08-14 a missing
+    API_FOOTBALL_KEY took down the whole run 12 times rather than falling
+    through to an ESPN that was answering.
+
+    Not reusing `source_registry.resolve()` deliberately. That helper treats an
+    empty result as a failure, which is right for a standings frame and wrong
+    here: a league with no fixtures in the +/-2-day window legitimately returns
+    zero rows, and demoting that to "source failed" would fall through to ESPN
+    on a perfectly good answer and then raise when ESPN agreed there were none.
+    Failures are still recorded in source_health, so a fallback stays visible.
+    """
+    from data_pipeline.source_health import record_fetch
+    from data_pipeline.source_registry import sources_for
+
+    fetchers = {
+        "api_football": lambda: fetch_spine_scoreboard(league_id, now=now),
+        "espn": (lambda: fetch_scoreboard(espn_code, now=now)) if espn_code else None,
+    }
+    errors: list[str] = []
+    for source in sources_for(league_id, "fixtures", default="espn"):
+        fetch = fetchers.get(source)
+        if fetch is None:
+            errors.append(f"{source}: no fetcher for this league")
+            continue
+        try:
+            return fetch(), source
+        except Exception as exc:  # noqa: BLE001 — recorded, then the next source
+            errors.append(f"{source}: {exc}")
+            record_fetch(source, f"fast_refresh:{league_id}", ok=False,
+                         error=str(exc))
+    raise FeedUnavailable(
+        f"every fixture source failed for {league_id}: " + "; ".join(errors))
+
+
 def refresh_league(league_id: str, payload_dir: Path = PAYLOAD_DIR,
                    registry_path: Path = REGISTRY,
                    now: dt.datetime | None = None,
                    sims: int | None = None) -> dict:
     registry = load_registry(registry_path)
     row = registry.get(league_id) or {}
-    spine = uses_spine(league_id)
     espn_code = row.get("espn_code")
-    if not spine and not espn_code:
+    if not uses_spine(league_id) and not espn_code:
         raise ValueError(f"{league_id} has no ESPN scoreboard code")
     path = payload_dir / f"{league_id}.js"
     payload = read_js_payload(path)
     if not isinstance(payload, dict):
         raise ValueError(f"no readable payload for {league_id}")
-    feed = (fetch_spine_scoreboard(league_id, now=now) if spine
-            else fetch_scoreboard(espn_code, now=now))
+    feed, source = _routed_feed(league_id, espn_code, now=now)
     result = apply_feed(payload, feed, now=now, sims=sims)
     write_js_payload(path, "LEAGUE_DATA", payload)
-    return {"league_id": league_id, **result}
+    return {"league_id": league_id, "source": source, **result}
 
 
 # One league losing its feed must not strand every other league. On 2026-08-07 a
@@ -408,9 +457,18 @@ def refresh_selected(league_ids: list[str], sims: int | None = None) -> dict:
     for league_id in league_ids:
         try:
             refreshed.append(refresh_league(league_id, sims=sims))
-        except requests.RequestException as exc:
+        except (requests.RequestException, FeedUnavailable) as exc:
             # Feed loss only. A ValueError or the pmatrix AssertionError is a
             # payload bug, not a dead upstream, and must still stop the run.
+            #
+            # FeedUnavailable joined this tuple on 2026-08-15. RequestException
+            # alone described a one-source world: once a league could try two
+            # sources, "this league has no feed" stopped being any single
+            # transport error, and the failure that actually hit production was
+            # not a transport error at all — a missing API_FOOTBALL_KEY raises
+            # RuntimeError, which sailed straight through this handler and
+            # aborted every remaining league, which is precisely the blast
+            # radius this isolation exists to prevent.
             print(f"fast refresh: {league_id} feed unavailable, skipped — {exc}",
                   file=sys.stderr)
             failed.append({"league_id": league_id, "error": str(exc)})

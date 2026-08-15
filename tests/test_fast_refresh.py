@@ -3,7 +3,9 @@ from __future__ import annotations
 import copy
 import datetime as dt
 import json
+import pathlib
 
+import pytest
 import requests
 
 from scripts import fast_refresh
@@ -335,3 +337,154 @@ def test_select_leagues_includes_spine_league_without_espn_code(monkeypatch, tmp
         payload_dir=tmp_path, registry_path=reg,
         now=dt.datetime(2026, 8, 9, 10, 5, tzinfo=dt.timezone.utc))
     assert out == ["canadian-pl"]
+
+
+# ── Ordered fallback and blast radius (2026-08-15) ──────────────────────────
+#
+# The fast refresh failed 12 of 15 runs on 2026-08-14 with "API_FOOTBALL_KEY not
+# set". Three defects compounded: the workflow never carried the secret, the
+# per-league isolation caught only requests.RequestException so a RuntimeError
+# still aborted every remaining league, and refresh_league honoured no fallback
+# though source_registry declares ["api_football", "espn"] in that order.
+
+
+def _spine_league(monkeypatch, tmp_path, *, espn_code="can.w.nsl"):
+    """A spine-routed league with both sources declared, payload and registry on disk."""
+    from data_pipeline import source_registry
+    monkeypatch.setitem(source_registry.REGISTRY, "northern-super-league",
+                        {"fixtures": ["api_football", "espn"]})
+    monkeypatch.setattr(fast_refresh, "apply_feed",
+                        lambda payload, rows, **kw: {"updated": 0, "rows_seen": len(rows)})
+    write_js_payload(tmp_path / "northern-super-league.js", "LEAGUE_DATA",
+                     {"league": {"id": "northern-super-league"}})
+    reg = tmp_path / "leagues.js"
+    write_js_payload(reg, "LEAGUES", [{"id": "northern-super-league",
+                                       "espn_code": espn_code, "status": "live"}])
+    return reg
+
+
+def test_a_dead_spine_falls_through_to_espn(monkeypatch, tmp_path):
+    """The registry has declared this order since 2026-08-08; only this path ignored it."""
+    reg = _spine_league(monkeypatch, tmp_path)
+    monkeypatch.setattr(fast_refresh, "fetch_spine_scoreboard",
+                        lambda lid, now=None: (_ for _ in ()).throw(
+                            RuntimeError("API_FOOTBALL_KEY not set")))
+    monkeypatch.setattr(fast_refresh, "fetch_scoreboard",
+                        lambda code, now=None: [{"home": "Calgary Wild FC"}])
+
+    out = fast_refresh.refresh_league("northern-super-league",
+                                      payload_dir=tmp_path, registry_path=reg)
+    assert out["source"] == "espn", "a dead primary must fall through, not fail"
+    assert out["rows_seen"] == 1
+
+
+def test_an_empty_spine_answer_is_an_answer_and_does_not_fall_through(monkeypatch, tmp_path):
+    """Why source_registry.resolve() is deliberately NOT reused here.
+
+    resolve() treats an empty frame as a failed source — correct for a standings
+    frame, wrong for fixtures: a league with no matches in the ±2-day window
+    legitimately returns zero rows. Demoting that to "source failed" would call
+    ESPN on a perfectly good answer, and then raise when ESPN agreed there were
+    none — inventing an outage out of a quiet Tuesday.
+    """
+    reg = _spine_league(monkeypatch, tmp_path)
+    monkeypatch.setattr(fast_refresh, "fetch_spine_scoreboard", lambda lid, now=None: [])
+    monkeypatch.setattr(fast_refresh, "fetch_scoreboard",
+                        lambda code, now=None: (_ for _ in ()).throw(
+                            AssertionError("ESPN called after a valid empty spine answer")))
+
+    out = fast_refresh.refresh_league("northern-super-league",
+                                      payload_dir=tmp_path, registry_path=reg)
+    assert out["source"] == "api_football" and out["rows_seen"] == 0
+
+
+def test_every_source_failing_names_all_of_them(monkeypatch, tmp_path):
+    reg = _spine_league(monkeypatch, tmp_path)
+    monkeypatch.setattr(fast_refresh, "fetch_spine_scoreboard",
+                        lambda lid, now=None: (_ for _ in ()).throw(
+                            RuntimeError("API_FOOTBALL_KEY not set")))
+    monkeypatch.setattr(fast_refresh, "fetch_scoreboard",
+                        lambda code, now=None: (_ for _ in ()).throw(
+                            RuntimeError("403 Forbidden")))
+
+    with pytest.raises(fast_refresh.FeedUnavailable) as caught:
+        fast_refresh.refresh_league("northern-super-league",
+                                    payload_dir=tmp_path, registry_path=reg)
+    message = str(caught.value)
+    assert "api_football" in message and "espn" in message, (
+        "one error must explain the whole chain, not just the last link")
+    assert "API_FOOTBALL_KEY" in message and "403" in message
+
+
+def test_a_league_with_no_feed_left_does_not_abort_the_others(monkeypatch, capsys):
+    """The blast radius the 2026-08-07 isolation was written to remove.
+
+    A missing API key raises RuntimeError, which sailed straight through a
+    handler that caught only requests.RequestException.
+    """
+    monkeypatch.setattr(fast_refresh, "select_leagues",
+                        lambda: ["arg.1", "northern-super-league", "bra.1"])
+    monkeypatch.setattr("sys.argv", ["fast_refresh.py", "--refresh-selected"])
+
+    def refresh(league_id, sims=None):
+        if league_id == "northern-super-league":
+            raise fast_refresh.FeedUnavailable(
+                "every fixture source failed for northern-super-league: "
+                "api_football: API_FOOTBALL_KEY not set; espn: 403 Forbidden")
+        return {"league_id": league_id, "updated": 0}
+
+    monkeypatch.setattr(fast_refresh, "refresh_league", refresh)
+    assert fast_refresh.main() == 0
+    report = json.loads(capsys.readouterr().out)
+    assert [r["league_id"] for r in report["refreshed"]] == ["arg.1", "bra.1"]
+    assert [r["league_id"] for r in report["failed"]] == ["northern-super-league"]
+
+
+def test_widening_the_handler_did_not_start_swallowing_payload_bugs(monkeypatch):
+    """FeedUnavailable is a distinct type precisely so this stays true.
+
+    Catching a bare RuntimeError in refresh_selected would have isolated the
+    missing key AND buried every RuntimeError a payload can raise.
+    """
+    monkeypatch.setattr(fast_refresh, "select_leagues", lambda: ["arg.1"])
+    monkeypatch.setattr("sys.argv", ["fast_refresh.py", "--refresh-selected"])
+    monkeypatch.setattr(fast_refresh, "refresh_league",
+                        lambda league_id, sims=None: (_ for _ in ()).throw(
+                            RuntimeError("standings row count changed under us")))
+
+    with pytest.raises(RuntimeError, match="standings row count"):
+        fast_refresh.main()
+
+
+def test_a_fallback_is_recorded_in_source_health(monkeypatch, tmp_path):
+    """No silent fallback — the registry's second stated property."""
+    reg = _spine_league(monkeypatch, tmp_path)
+    recorded = []
+    monkeypatch.setattr("data_pipeline.source_health.record_fetch",
+                        lambda source, endpoint, ok, **kw: recorded.append(
+                            (source, endpoint, ok, kw.get("error"))))
+    monkeypatch.setattr(fast_refresh, "fetch_spine_scoreboard",
+                        lambda lid, now=None: (_ for _ in ()).throw(
+                            RuntimeError("API_FOOTBALL_KEY not set")))
+    monkeypatch.setattr(fast_refresh, "fetch_scoreboard", lambda code, now=None: [])
+
+    fast_refresh.refresh_league("northern-super-league",
+                                payload_dir=tmp_path, registry_path=reg)
+    assert recorded == [("api_football", "fast_refresh:northern-super-league",
+                         False, "API_FOOTBALL_KEY not set")]
+
+
+def test_the_fast_refresh_workflow_carries_the_spine_credentials():
+    """The defect was in CI config, so the guard belongs on CI config.
+
+    refresh-fast.yml was the only refresh workflow without the key; it was last
+    edited the day before the spine path landed and nobody re-read it.
+    """
+    import yaml
+    workflows = pathlib.Path(__file__).resolve().parent.parent / ".github" / "workflows"
+    spine_users = ["refresh-fast.yml", "refresh-daily.yml", "refresh-leagues.yml"]
+    for name in spine_users:
+        env = yaml.safe_load((workflows / name).read_text()).get("env") or {}
+        assert "API_FOOTBALL_KEY" in env, f"{name} can reach the spine without a key"
+        assert env.get("API_FOOTBALL_PLAN") == "mega", (
+            f"{name} plan value drifted — the governor's lapse guard reads it")
