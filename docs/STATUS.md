@@ -12,6 +12,19 @@ this repository's HEAD, so no row below is stale for want of a deploy. Rows that
 verified from this environment say so in words rather than inferring from source. The re-check
 found the two ⛔ rows immediately below, which the 2026-08-02 stamp did not cover.
 
+**What that stamp does and does not cover.** It covers everything checkable without a browser:
+HTTP status and response bodies, the CORS contract, the live `power.js` and `/global-elo/`
+figures, sitemap and club-page counts, copy assertions against the served HTML and JS, workflow
+run conclusions, and the deployed commit. Because production serves HEAD, a row whose proof is an
+older Pages or API run is deployed by construction — that run ID is a historical record of when
+the change shipped, not a claim needing re-running. **Two classes could NOT be verified from this
+environment and are not asserted fresh:** (a) every rendered-UI measurement — the 375px/320px
+layout numbers, the swipe-drift and sticky-header behaviour, the pixel widths in the Mobile UI
+rows — because `pytest-playwright` will not install here and those claims need a real browser;
+(b) the authenticated Club Watch render, which needs a signed-in session. Both are stated as
+of their original verification date and are ranked for re-checking below (Claude queue #6).
+Treat them as unverified as of 2026-08-15 rather than as re-proven.
+
 This is the canonical answer to four questions:
 
 1. What is live?
