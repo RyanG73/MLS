@@ -303,6 +303,42 @@ On a real device and cold browser session, run both monthly and annual:
 Record Stripe event IDs and API responses in the active launch plan. Any failure on this path
 blocks launch.
 
+## Next actions — Claude-executable now (ranked 2026-08-15)
+
+Needs no owner account, decision, or payment. Ranked by (milestone impact × confidence) ÷ effort,
+against the current objective: **one complete production transaction through the real Club Watch
+path**. None of these need Stripe to be live, and every one of them is work the transaction
+depends on — a supporter will not pay for a forecast built on twelve-day-old data, and a rehearsal
+cannot be trusted against a red suite.
+
+| # | Action | Why it ranks here | Proof it is ready to do |
+|---:|---|---|---|
+| 1 | **Add `API_FOOTBALL_KEY` to `refresh-fast.yml`** | One line, certain diagnosis, and it stops the site's freshness engine failing most of the day. `refresh-daily.yml`, `refresh-leagues.yml` and `fault-injection.yml` already carry it; this workflow was last edited 2026-08-08 and the spine path landed 2026-08-09, so it was simply never wired | The exact failing line is `data_pipeline/api_football.py:152`, reached from `fast_refresh.py:187`; the fix is `API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}` in the existing `env:` block at line 16 |
+| 2 | **Make the fast refresh degrade instead of aborting** | Two defects behind #1, and #1 alone leaves both live for the next cause. `refresh_selected` catches `requests.RequestException` only, so any other exception still takes every league down — the blast radius the 2026-08-07 isolation was written to remove. Separately `refresh_league` calls one source and stops, although `source_registry` declares `["api_football", "espn"]` in that order; `build_league_data` honours the fallback and the fast path does not | Both are in `scripts/fast_refresh.py` (`refresh_league` ~line 378, `refresh_selected` ~line 410). Keep the narrowness that was deliberate — a `ValueError` or the pmatrix `AssertionError` is a payload bug and must still stop the run |
+| 3 | **Move the stale Tier-A leagues onto the spine** | The largest correctness risk before launch: 49 of 91 payloads have not been rebuilt since 2026-08-03/05, including every European top flight, with the 2026-27 season opening. ESPN is dark (`espn_fixtures` 384/384 failed); `api_football` answers 70 of 71. This is the reliability spec §3.2, and the plan is bought and paid for — CI already runs `API_FOOTBALL_PLAN: mega` | Ranked third only because it is per-league validated work, not because it matters least. Precedent exists: three leagues are already routed, and the MLS name map was proven by fixture diff rather than name similarity |
+| 4 | **Stop `tests/test_surface_contract.py` failing on a fresh clone** | Cheapest trust repair available. Two tests fail for anyone who has not built the gitignored `data/team_intelligence/` tree — the identical defect fixed for `test_static_pages` on 2026-08-11, missed on this file. A suite that is red for a reason unrelated to your change is a suite people stop reading, and the transaction rehearsal is exactly when that costs most | Reproduced here: `2 failed, 2145 passed, 40 skipped`, both `ArtifactNotFound` for `epl/v1_1c90591709108353`. `test_static_pages.py:117-121` already has the skip to copy |
+| 5 | **Tell readers how fresh each league is** | Trust, and it needs no owner. The site currently presents a 12-day-old Premier League table with the same confidence as a table rebuilt this morning. Publishing per-league freshness — or degrading the claim when a payload is stale — is the honest version of the product-invariants truth rule, and it is the difference between a data outage and a credibility one | `source_health_summary.json` and every payload's `generated` stamp already carry the data; nothing new needs measuring |
+| 6 | **Re-check the authenticated Club Watch render in production** | Directly on the milestone path — it is the surface the transaction delivers. The Club Watch history row below still says in its own words that "the live authenticated render was not re-checked post-deploy", and that gap has now survived two deploys | Everything needed is live: the artifacts are published, the public API is healthy, and the relay correctly returns 401 without its publisher credential |
+| 7 | **Close issue #10 and drain the alert backlog** | Pure noise reduction, near-zero effort. #10 says the fault-injection drill proves the ESPN fallback is broken; it does not — the drill was testing its own copy of the resolver, was fixed in `7a8681a`, and has passed twice since, including a scheduled run | Runs `31557258012` and `31574725142` (the latter `event: schedule`) both succeeded. Four `refresh-failure` issues are open and #8 alone has 74 comments, which is how a real alert gets missed |
+
+## Next actions — owner-blocked (ranked 2026-08-15)
+
+Each needs one decision or one account. Nothing here is work Claude could do instead.
+
+| # | Blocked on | Single thing needed | What it unblocks |
+|---:|---|---|---|
+| 1 | **Stripe activation** | Activate the account; create the four immutable Prices; register the webhook; configure Customer Portal, receipts, refunds, failed-payment behaviour | The entire current objective. `/v1/public/config` returns `"pricing": {}` and `checkout.enabled: false, reason: owner_disabled` — verified 2026-08-15. No transaction, rehearsal, or `C1` gate can run without this |
+| 2 | **LLC, EIN, bank account** | Complete the Ohio single-member LLC and its private mailing setup, then EIN, then bank | Gates Stripe (#1) and the legal name every policy document needs. Formation type is chosen; the legal name is still open |
+| 3 | **Legal approval** | Decide the draft's open terms using the final legal name, then approve Terms, Privacy, refund, cancellation, renewal, and affiliation language | Publication. `/terms/`, `/privacy/` and `/refunds/` all return 404 as of 2026-08-15. Also the retirement trigger for `legal-copy-draft-2026-07-25.md` |
+| 4 | **GA4 and Search Console access** | Create or confirm access; submit the sitemap | The `M1` funnel and Stripe reconciliation. The measurement foundation is deployed and blind without production inputs |
+| 5 | **`D2` recruiting** | Recruit ≥15 primary supporters plus ~3 quantitative users and ~3 creators | The recurring-job gate, and every downstream concierge and pricing decision |
+| 6 | **Vendor confirmations** | Confirm Vercel Pro, Resend capacity, `support@entenser.com`, and the support/refund schedule | Delivery capacity and the refund promise the paid-launch record already committed to |
+| 7 | **The 7,000-subscriber target date** | One calendar date | Closes `G0.2`, the last open item in an otherwise approved decision record. 24 months remains provisional planning, not a commitment |
+
+**Removed from this list on 2026-08-15:** the API-Football Mega purchase. It is bought — CI runs
+`API_FOOTBALL_PLAN: mega` with a 2,000/day ops budget — so the migration spec's purchase
+checkpoint has passed and no owner action remains behind it.
+
 ## Owner actions
 
 These require account access or business decisions and cannot be completed from the repository:
