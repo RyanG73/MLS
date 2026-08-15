@@ -800,3 +800,25 @@ two evidence reports with zero inbound references were retired: an inbound refer
 be evidence a document is still load-bearing, since several dated reports are cited as inputs by
 the reusable prompts. Those prompts became slash commands wrapping — not duplicating — the
 canonical text, and the editing procedure itself became the `doc-hygiene` skill.
+
+## Codebase unification review (2026-08-02 → 2026-08-04, report retired 2026-08-15)
+
+A subtractive review of the whole repository that mostly found nothing to subtract, which was the
+result rather than a failure of it. Of 97 scripts, 96 were reachable from a workflow, Make target,
+shell script, test or doc; the four payload builders shared shape but exactly one byte-identical
+function between any pair; and every hardcoded `K=25, home_adv=80, regress=0.40` across nine call
+sites already agreed. The reduction that did exist was not in the active build surface: `legacy/`
+was deleted (56 files, 9,042 lines), `config/settings.yaml` went 137 → 53 lines once it emerged
+that 17 of 18 model sections were the archived stack's config with no production reader, and a
+duplicate ELO branch was removed. One live defect surfaced and was fixed — `austria-bundesliga`
+served duplicated standings rows, now collapsed by `team_id` with a guard parametrised across every
+domestic payload.
+
+Its two escalations both closed afterwards. The stale 2024 smoke-test reference that had `make
+validate` red on untouched `main` was re-pinned 0.6346 → 0.6360 on 2026-08-04, and the gate passes
+today (measured 2026-08-15: `ens_stacked_brier=0.6355`, inside the 0.001 tolerance). The unmerged
+cross-tier ELO branch left for an owner call no longer exists on the remote. The report was retired
+once all four retirement questions permitted it, after extracting its one remaining live trigger —
+whether `scripts/season_state_report.py` survives the 2026-08-21 European rollover — into
+`STATUS.md`, since the report was that script's only inbound reference and deleting it would have
+orphaned a working diagnostic.

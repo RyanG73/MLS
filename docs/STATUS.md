@@ -656,6 +656,13 @@ These are preserved from the retired UX plans and should not interrupt the trans
 - Add domestic championship-playoff simulation where the published competition format requires it.
 - Re-check the Matches to Watch rail once European seasons start 2026-08-21. The "biggest leagues first" ordering was repaired 2026-08-02 by sorting on Global ELO league strength; nine leagues still sit on estimated priors, so the ordering will shift as those firm up.
 - Revisit the inter-confederation ELO shifts after the next Club World Cup adds evidence.
+- Decide whether `scripts/season_state_report.py` survives the 2026-08-21 European rollover.
+  Extracted from the codebase-unification review before that document was retired, because it was
+  the script's only inbound reference — deleting the report would have orphaned a live dated
+  trigger. It is the sole orphan of 97 scripts, writes only to gitignored `output/`, and is in no
+  build path, so it was kept deliberately: it diagnoses exactly the question the rollover raises —
+  which leagues still show last season's final table rather than a projection for the new one.
+  Keep it if the rollover uses it, delete it if it goes untouched.
 
 ## Launch calendar
 
