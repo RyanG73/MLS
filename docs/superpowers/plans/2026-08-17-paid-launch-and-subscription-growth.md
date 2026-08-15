@@ -16,6 +16,20 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-15 — merged to `main` and deployed; the paywall is off in production.** Merge `99d045a`
+  (Pages run `31891557318`, API run `31891557361`). Proof rather than inference: the live service
+  worker is stamped `entenser-shell-99d045aad59e`, which is the merge commit, so production serves
+  exactly this tree; `api.entenser.com/v1/public/config` returns `open_access {active: true,
+  indefinite: true}` with `checkout {enabled: false, reason: "free_launch"}`; and the live
+  `index.html` carries the `indefinite` branch. Six public surfaces return 200 and the CORS
+  preflight still returns 204. **Only one of the four branches was merged, deliberately.**
+  `auto/spec-exec-2026-08-09` was already fully in `main` (0 ahead). `live-data` is the fast-refresh
+  data snapshot: its tree holds ONE top-level entry and 329 files against main's 1,064, so merging
+  it would have deleted roughly 735 files — it is built by `git commit-tree` and force-pushed, and
+  is not a source branch. `claude/mls-prediction-dashboard-C2mQM` is the retired research branch
+  `CLAUDE.md` keeps for history; its 147 unmerged commits all predate 2026-06-09 and their outcome
+  is already in `main`, so merging would have resurrected two-month-old files across the repo.
+
 - **2026-08-15 — the paywall is off for the initial launch, and preserved by construction; the two
   remaining fresh-clone test failures are fixed.** Owner decision. Implemented as one committed
   constant, `LAUNCH_FREE` in `server/open_access.py`; a test asserts that flipping it back restores
