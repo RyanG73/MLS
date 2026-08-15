@@ -1736,8 +1736,15 @@ const OpenAccess={
   // being true the moment the tier is lifted, and one stale price on one
   // surface is a refund request. Cached in localStorage so an API blip shows
   // the last known-good figure rather than blanking the pricing UI.
+  // An open-access record is valid either because it carries a future expiry
+  // (the time-boxed promo) or because it is marked `indefinite` (the free
+  // launch, which has no countdown to check). Before 2026-08-15 this demanded
+  // `until` unconditionally, so an indefinite record read as inactive and the
+  // client kept painting lock chrome the server was no longer enforcing.
   state(){try{const r=JSON.parse(localStorage.getItem(this.KEY)||'null');
-    return (r&&r.active&&r.until*1000>Date.now())?r:null;}catch(e){return null;}},
+    if(!r||!r.active) return null;
+    if(r.indefinite) return r;
+    return (r.until*1000>Date.now())?r:null;}catch(e){return null;}},
   active(){return !!this.state();},
   refresh(){
     const base=new URLSearchParams(location.search).get('api')||window.ENTENSER_API_BASE||this.API;
@@ -1805,10 +1812,15 @@ function syncPricingSurfaces(){
 // to show up, and two copies of this markup would drift.
 function oaBannerHTML(){
   const s=OpenAccess.state(); if(!s) return '';
-  const days=Math.max(1,Math.ceil((s.until*1000-Date.now())/86400000));
   const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // A countdown is only honest for a promo that actually ends. The free launch
+  // has no end date, so it says so instead of quoting a number it would have
+  // had to invent — and it does not imply a deadline nobody has set.
+  const why=s.indefinite
+    ? 'Every feature is free, no subscription. You just need a free account so Club Watch has somewhere to remember your club.'
+    : `Every paid feature, free for the next ${(d=>d===1?'1 day':d+' days')(Math.max(1,Math.ceil((s.until*1000-Date.now())/86400000)))}.`;
   return `<div class="oa-banner"><b>Club Watch is open to everyone${s.note?` — ${esc(s.note)}`:''}.</b>`
-    +`<span class="why">Every paid feature, free for the next ${days} ${days===1?'day':'days'}.</span>`
+    +`<span class="why">${esc(why)}</span>`
     +`<a href="?league=intel">Open Club Watch →</a></div>`;
 }
 // Reconcile the banner with current state after an async refresh.

@@ -8,8 +8,10 @@
 > competitions, measured from the payloads.
 >
 > Note the two populations, which are easy to confuse: `/global-elo/` reports every club carrying a
-> rating (1,172 / 71); `power.js` is the narrower **bridged ladder** (965 / 55, measured bridge
-> evidence required). Quote the one that matches the claim.
+> rating; `power.js` is the narrower **bridged ladder**, which additionally requires measured bridge
+> evidence. Quote the one that matches the claim, and take both counts from `docs/figures.json` —
+> the pair that used to be typed on this line had gone stale again by 2026-08-15, which is the
+> second time this document has done exactly that.
 
 **Executed:** 2026-08-01 · **Prompt:** `docs/prompts/competitor-deep-dive.md` ·
 **Scope:** FanGraphs, FotMob, Rotowire, American Soccer Analysis, Sports Reference/FBref/Stathead,

@@ -41,6 +41,19 @@ Any change that breaks one of these is a product decision for Ryan, not an imple
    exists today stays visible and free. What Club Watch sells is that someone watched it — what
    changed while you were away, the evidence behind it, saved scenarios, per-club history. A lock on
    a figure the public site already publishes makes the "free forever" promise false.
+10. **The paywall is OFF for the initial launch** (owner decision, 2026-08-15). Every Club Watch
+    feature is free to anyone with a free account. This does not repeal 7–9; it sits on top of them,
+    and they are what the paywall must return to. The switch is `LAUNCH_FREE` in
+    `server/open_access.py` — one constant, flipped back and deployed. **Nothing may be built that
+    assumes the paywall is gone**: no locked path deleted, no plan check removed, no entitlement
+    branch collapsed. If a change would make restoring the paywall harder than flipping that
+    constant, it breaks this invariant.
+11. **Free never means anonymous, and open never means for sale.** Two consequences that must hold
+    together while 10 is in force. Signing in stays required for anything per-user, because Club
+    Watch state needs somewhere to live — the public site was already free to *view* with no
+    account, and that is a different surface. And checkout stays shut while the product is free,
+    whatever Stripe is configured to do, because selling a subscription to something being given
+    away produces a refund and a broken promise at the same time.
 
 ## Security
 

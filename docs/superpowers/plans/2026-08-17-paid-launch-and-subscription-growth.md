@@ -16,6 +16,91 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-15 — the paywall is off for the initial launch, and preserved by construction; the two
+  remaining fresh-clone test failures are fixed.** Owner decision. Implemented as one committed
+  constant, `LAUNCH_FREE` in `server/open_access.py`; a test asserts that flipping it back restores
+  the paywall, so the comment saying so cannot quietly become false. **Deliberately not the existing
+  KV promo**: that lives in a store and is set by an admin call against production, so a KV outage
+  or a fresh environment would silently re-lock the site, and it caps at `MAX_PROMO_SECONDS` (90
+  days). That cap is correct for a promo and was left untouched — free launch is a different,
+  deliberate state, so it got its own switch rather than being implemented by weakening the guard
+  protecting the other case. **Nothing was deleted**: plan ranks, `require_entitlement`, the Stripe
+  webhook, the client lock chrome and the checkout gate are all still present, still tested, still
+  in the path. **Two properties tested end to end.** Signing in is still required for anything
+  per-user — open access has always meant "no payment required", never "no account required" — and
+  the public site was already free to *view* with no account, so "the whole site is free" was
+  already true of everything except the per-user continuity layer. And checkout stays shut while
+  the product is free, *including against an explicit `owner_enabled` override*, because selling a
+  subscription to something being given away yields a refund and a broken promise at once; live
+  config reads `reason: free_launch`. A canceled account is still refused. **Client bug found and
+  fixed in passing**: `OpenAccess.state()` demanded an `until` timestamp unconditionally, so an
+  indefinite record read as inactive and the UI would have kept painting lock chrome the server no
+  longer enforced. **Two tests changed rather than deleted, both honestly**: the canceled-account
+  test asserted one exact error sentence and now asserts the property, since two different guards
+  can correctly refuse it; and the four-immutable-prices test now pins the paywall on, because the
+  free launch shuts checkout ahead of the production-config gate and would otherwise mask it.
+  **Defects closed**: `tests/test_surface_contract.py` skips rather than fails when the gitignored
+  `data/team_intelligence/` tree is absent — the identical fix applied to `test_static_pages.py` on
+  08-11 and missed here — so the suite is green on a fresh clone for the first time this session.
+  **2,173 passed / 0 failed / 42 skipped**; `check_docs` PASS. **`STATUS.md`'s current objective was
+  rewritten**, because it read "complete one production transaction" and there is no transaction to
+  complete while the product is free; the transaction milestone is deferred intact, not cancelled,
+  and the owner-blocked queue is re-scoped — none of it blocks launching now, it blocks charging.
+  ⚠️ Reaches production on the next API deploy: this is server plus client code, not a runtime flag.
+
+- **2026-08-15 — fast-refresh queue items 1 and 2 shipped together; the ordered fallback the
+  registry had been promising since 08-08 is now honoured on this path.** Landed as one change
+  because they are one incident: the missing secret was the cause on 08-14, and the other two
+  defects are what turned that cause into a site-wide outage. **(1)** `refresh-fast.yml` now
+  carries `API_FOOTBALL_KEY` / `API_FOOTBALL_PLAN` / `API_FOOTBALL_OPS_BUDGET`, verbatim from its
+  three siblings, and a test now asserts all three spine-using workflows carry them — the defect
+  was in CI config, so the guard belongs on CI config. **(2)** `_routed_feed` walks
+  `sources_for(league, "fixtures")` and takes the first source that answers, recording failures in
+  `source_health` so no fallback is silent. `source_registry.resolve()` is deliberately not reused:
+  it counts an empty result as a failed source, correct for a standings frame and wrong for
+  fixtures, where a league with no matches in the ±2-day window legitimately returns zero rows —
+  reusing it would have called ESPN on a good answer and raised when ESPN agreed, inventing an
+  outage out of a quiet Tuesday. **(3)** `FeedUnavailable` joins `requests.RequestException` in the
+  isolation handler, as a distinct type rather than a broadened `RuntimeError`, because catching
+  bare `RuntimeError` would isolate the missing key **and** bury every payload bug that raises one
+  — the opposite mistake, and precisely what the original narrow handler existed to prevent.
+  **Sharpness proven by reverting each defect in turn:** the narrow handler alone fails 1 test,
+  removing the fallback fails 3. **2,163 passed / 40 skipped**, 7 new, browser suites excluded as
+  before; `check_docs` PASS; `promotion_gate self-test` 8/8. ⚠️ **Not yet observed on a scheduled
+  run.** The fix is proven by test, not by CI meeting a live spine league — issue #8 should close
+  only after a green tick that actually selects `northern-super-league` or `usl-super-league`.
+  Queue item #3, moving the stale Tier-A leagues onto the spine, is now the top of the list.
+
+- **2026-08-15 — the production table had thirteen days of unearned green, and the data pipeline is
+  running on one source.** Re-verified every row from outside the repository — live HTTP, the live
+  payloads, and the Actions API. Production serves exactly HEAD (`entenser-shell-8f71fc6239e4`), so
+  nothing was stale for want of a deploy; the claims were simply not re-checked. **Two rows were
+  false.** (1) *Fast refresh, "✅ Live", proof = a run from 2026-07-26*: measured, 12 of 15 runs on
+  08-14 failed, every one on `RuntimeError: API_FOOTBALL_KEY not set`. Three defects compound —
+  `refresh-fast.yml` is the only refresh workflow never given the secret (edited 08-08, spine path
+  landed 08-09); the per-league isolation catches `requests.RequestException` only, so a
+  `RuntimeError` still aborts every league, which is the exact blast radius that fix removed; and
+  `refresh_league` honours no fallback though `source_registry` declares `["api_football", "espn"]`.
+  Issue #8 has 74 comments, one per failed run. (2) *Nothing said ESPN was dark*: daily run
+  `31797104344` records `espn_fixtures` 384/384 failed, `espn` 28/29, `espn_continental` 83/83 and
+  dark 6 consecutive runs, `football_data` 41/41; only `api_football` answered, 70 of 71.
+  **Consequence: 49 of 91 committed payloads are stamped 08-03/04/05** — `epl`, `la-liga`,
+  `bundesliga`, `championship` among them — against 33 stamped 08-14. The daily refresh's own
+  source-health gate fails the run correctly and *after* the commit, so good payloads still land.
+  **`check_docs` had been RED since `eda2987` (08-08)** — 14 problems, two of them unfixable by
+  editing any document — a bare word-boundary match reached inside the `0.748` calibration bin in
+  `postgame-win-expectancy.md` and inside the "~1,750 tests" line in this file, neither of which is
+  a Global ELO minimum — so the guard was fixed and given its first tests. Four rows of the production table
+  carried a byte-identical ladder census, so one rebuild made four wrong at once: the 08-07 copy
+  was 958 clubs with Celtic 99th, against a live 959 and 113th. Now named, not typed. **`make test` cannot run clean from this
+  container** — the two Playwright suites will not install here — so it was run without them:
+  `2 failed, 2145 passed, 40 skipped`, both failures `ArtifactNotFound` on the gitignored
+  `data/team_intelligence/` tree, pre-existing and environment-caused. `promotion_gate self-test`
+  and `check_docs` both PASS; the smoke test passes at `0.6355` against the 0.6360 pin, which
+  closes the unification review's E1. Consolidation: one report retired, the API-Football migration
+  spec declared a record with stages 3/5/6 dead, and its purchase checkpoint marked passed — CI
+  runs `API_FOOTBALL_PLAN: mega`. Ranked queues recorded above and in `STATUS.md`.
+
 - **2026-08-08 — 920 Argentine cup matches were inside the league table, and the odds join was
   duplicating rows in 9 of 14 international leagues.** `football_data_intl.match_results` filtered
   on season alone and never read the `League` column its own CSVs carry — `new/<CCC>.csv` is a
@@ -198,8 +283,9 @@ HTTP response, experiment sample, cohort date, or decision memo.
   and API run `31116599746`, both success. Verified against `https://entenser.com` rather than
   localhost: the live Matches slate renders 118 fixtures at a uniform 62px with zero truncated
   names, the ribbon holds `top:0` deep in the page, the Eredivisie table keeps its club column
-  through a 380px horizontal scroll, `/global-elo/` reads 697–1,797, and the live ladder returns PSV
-  27th and Club Brugge 54th.
+  through a 380px horizontal scroll, `/global-elo/` rendered the rating range it measured that day,
+  and the live ladder returned PSV 27th and Club Brugge 54th. (The range that was recorded here has
+  since been superseded by later recalibrations; the current one is in `docs/figures.json`.)
   **One hazard worth repeating:** the daily refresh landed mid-session and touched eight of the
   payloads this change also rewrites. The payloads are build artifacts, so the fix was to discard
   the locally generated ones, fast-forward, and re-run `apply_global_elo_payloads` /
@@ -508,6 +594,29 @@ not permission to open checkout.
 | `E3` concierge | Operating templates and delivery measurement are ready | `D2` and the commercial gate pass; then obtain at least 10 real full-price buyers |
 | `P4/B4` product | Sample-first Club Watch, durable account state, outcome-triggered conversion, stakes, timeline, safe notification controls, delivery outcomes, and shadow-review tooling exist in the repository | Concierge evidence defines the committed loop; delivery then passes two shadow matchweeks, 50 reviews, and one quiet cycle |
 | `R5` and later | Not started and deliberately gated | A trustworthy transaction, validated job, paid concierge evidence, and reliable delivery all pass first |
+
+### Claude-executable queue — ranked 2026-08-15, runs in parallel with the owner queue below
+
+Re-derived from a full production re-verification on 2026-08-15, not from this plan's prior state.
+Ranked by (milestone impact × confidence) ÷ effort. **None of these wait on Stripe, the LLC, or any
+owner decision**, which is the point: every named launch blocker below is an owner action, so the
+only way to advance the milestone this week is to maximise this list. Full reasoning and proof per
+row are in `../../STATUS.md`.
+
+| # | Action | One-line case |
+|---:|---|---|
+| 1 | Add `API_FOOTBALL_KEY` to `refresh-fast.yml` | One line; stops 12-of-15 daily runs failing on a proven root cause |
+| 2 | Make the fast refresh degrade rather than abort | `RuntimeError` bypasses the isolation guard, and the declared ESPN fallback is not honoured in this path |
+| 3 | Move the stale Tier-A leagues onto the spine | 49 of 91 payloads unrebuilt since 08-03/05, every European top flight among them, as the season opens |
+| 4 | Fix `tests/test_surface_contract.py` on a fresh clone | 2 failures unrelated to any change; identical defect was fixed elsewhere on 08-11 and missed here |
+| 5 | Publish per-league data freshness | The site presents a 12-day-old table with the confidence of a fresh one |
+| 6 | Re-check the authenticated Club Watch render in production | The surface the transaction actually delivers; unverified across two deploys |
+| 7 | Close issue #10; drain the refresh-failure backlog | The drill it reports was fixed in `7a8681a` and has passed twice since, once on schedule |
+
+**Sequencing note.** 1 and 2 are the same incident and should land together — 1 alone fixes today's
+cause and leaves the blast radius intact for the next one. 3 is the durable fix that makes both
+matter less. 4 should precede any transaction rehearsal, because a rehearsal judged against a
+suite that is already red proves nothing.
 
 ### Immediate queue — execute in this order
 

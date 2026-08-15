@@ -27,8 +27,61 @@ KEY = "config:open_access"
 MAX_PROMO_SECONDS = 90 * 24 * 3600   # a promo longer than a quarter is a typo
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FREE LAUNCH — the paywall is off. Owner decision, 2026-08-15.
+#
+#   To bring the paywall back:  set LAUNCH_FREE = False, and deploy.
+#
+# That is the whole operation. Nothing else needs undoing — no code was removed
+# to get here. Every paid mechanism is still present, still tested, and still
+# in the path: the plan ranks, `require_entitlement`, the Stripe webhook that
+# writes an entitlement, the client's lock chrome, the checkout gate. This flag
+# only makes `is_open()` answer True, which is the single question all of them
+# already ask.
+#
+# Deliberately a committed constant rather than the KV promo below:
+#
+# - **It ships with the deploy.** The promo lives in KV and is set by an admin
+#   call against production, so a KV outage, a restore, or a fresh environment
+#   would silently re-lock the site. A launch that costs nothing must not
+#   depend on a network write staying put.
+# - **It has no expiry, and the promo must keep its own.** MAX_PROMO_SECONDS
+#   exists because "a store whose TTL support is weak still can't leave the
+#   site free forever, which is the failure mode that actually costs money."
+#   That guard is right, and is left exactly as it was. Free launch is not a
+#   promo that forgot to end — it is a different, deliberate state, so it gets
+#   its own switch instead of weakening the one protecting the other case.
+# - **It is greppable.** One constant, one name, one comment. The state of the
+#   paywall should never require reading three modules to determine.
+#
+# What this does NOT change: authentication. Open access has always meant "no
+# payment required", never "no account required" — Club Watch state is per-user
+# (saved clubs, scenarios, journal, alert state) and needs somewhere to live.
+# The public site — tables, forecasts, Next 5 Sim, club and league pages,
+# Global ELO — was already free to view with no account at all, and still is.
+# ─────────────────────────────────────────────────────────────────────────────
+LAUNCH_FREE = True
+LAUNCH_FREE_NOTE = "free during launch"
+
+
+def launch_state() -> dict | None:
+    """The free-launch state, or None when the paywall is on.
+
+    Checked before KV on purpose: while the paywall is off, the site must not
+    be able to re-lock itself because a key/value store was unreachable.
+    """
+    if not LAUNCH_FREE:
+        return None
+    # No `until`. Clients must treat `indefinite` as "open, with no countdown"
+    # rather than inventing an expiry — see OpenAccess.state() in the web app.
+    return {"active": True, "indefinite": True, "note": LAUNCH_FREE_NOTE}
+
+
 def get_state(kv: KVStore) -> dict:
-    """Current promo state as a JSON-safe dict. Always has an `active` key."""
+    """Current open-access state as a JSON-safe dict. Always has an `active` key."""
+    launch = launch_state()
+    if launch is not None:
+        return launch
     raw = kv.get(KEY)
     if raw is None:
         return {"active": False}

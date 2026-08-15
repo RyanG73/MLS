@@ -1,11 +1,29 @@
 # API-Football as the data foundation — execution spec
 
 **As of:** 2026-08-08 · **Owner:** Ryan · **Author:** Claude
-**Status:** for execution in a fresh session. All owner decisions are recorded (§9); nothing below
-blocks on an owner answer. Stages 0–2 run on zero requests and the free key; **the paid plan is not
-yet purchased** — it is bought at the §7 checkpoint, after the infrastructure is proven.
 **Supersedes the phase-3 section of** [`2026-08-08-match-data-source-resilience-design.md`](2026-08-08-match-data-source-resilience-design.md);
 phases 1, 2 and 4 of that document are shipped or still stand.
+
+> ## ⚠ Status, adjudicated 2026-08-15: this is a RECORD, not a plan. Do not execute it.
+>
+> **Stages 0, 1, 2 and 4 are complete** and their measured results below stand — they are the
+> reason to keep this file. **The §7 purchase checkpoint has passed:** CI runs with
+> `API_FOOTBALL_PLAN: mega` and `API_FOOTBALL_OPS_BUDGET: 2000`, so the header's old warning that
+> "the paid plan is not yet purchased" is out of date and has been removed rather than left to
+> mislead a fresh session into re-running the free-key stages.
+>
+> **Stages 3, 5 and 6 are dead.** They are superseded by
+> [`2026-08-09-platform-reliability-and-api-opportunity-spec.md`](2026-08-09-platform-reliability-and-api-opportunity-spec.md)
+> §3.2, which owns Tier-A migration now and sequences it behind the reliability work. Two live
+> specs proposing the same migration is exactly the contradiction that makes an unapproved spec
+> worse than no spec, and `PLAN.md` had flagged the overlap without anyone pulling the trigger.
+>
+> **What is still true and still useful here:** the Stage-1 measured facts (xG begins with the
+> 2023 season; historical closing odds do not exist on this API), the §4 request budget and plan
+> economics, the §5 tier menu, the Stage-2 name-map evidence, and the §8 invariants. Read those.
+> Ignore the stage table's forward-looking rows.
+>
+> **Retire this file** when the reliability spec ships and absorbs the §8 invariants.
 
 Owner brief, 2026-08-08: *"consider how we would do this if we were building the site from scratch.
 I don't want to use this api as just a band aid… we should be using it as foundational information
@@ -341,11 +359,11 @@ buy.** Nothing beyond the free tier is spent until the owner confirms the Mega p
 | **0 — Build blind** | **0** | none | registry, provenance, budget governor, pagination handling, all against fixtures |
 | **1 — Map and probe** | ~10 | owner reviews mapping | committed league map; the five unknowns answered as measured facts |
 | **2 — Validate on free key** | ~20 | none | one league builds end-to-end from the spine; payload compared column by column |
-| **☑ Purchase checkpoint** | 0 | **owner buys Mega** | "infrastructure complete, ready to buy" — nothing beyond the free tier before this |
-| **3 — Tier A migration** | ~30/day | Mega active | 30 leagues on the spine, ESPN as fallback |
+| **☑ Purchase checkpoint** | 0 | **owner buys Mega** | ✅ **PASSED** — CI runs `API_FOOTBALL_PLAN: mega`, ops budget 2,000/day |
+| ~~**3 — Tier A migration**~~ | — | — | ☠ **DEAD 2026-08-15** — owned by the reliability spec §3.2. Only 3 leagues ever landed here (`northern-super-league`, `usl-super-league`, and MLS as *fallback* with ESPN still primary); the remaining ~27 are that spec's Phase 1 work, sequenced behind it |
 | **4 — Statistics backfill** | ✅ done: 47,889 (~4.5 h) | stage-1 quality proof | 47,609 sheets; **43.9% usable xG**, **6** competitions ≥90% |
-| **5 — Tier C validation sample** | ~400 | measured comparison | API-Football xG vs understat, match-for-match, one league-season |
-| **6 — Tier D expansion** | ~1/day each | owner picks from the §5 menu | new competitions |
+| ~~**5 — Tier C validation sample**~~ | — | — | ☠ **DEAD 2026-08-15** — superseded; revisit only from the reliability spec |
+| ~~**6 — Tier D expansion**~~ | — | — | ☠ **DEAD 2026-08-15** — superseded; the §5 candidate menu survives as input, the stage does not |
 
 ### Stage 1 — the five questions, ANSWERED 2026-08-08 (13 free-key requests)
 

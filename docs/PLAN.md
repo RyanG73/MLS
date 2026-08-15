@@ -21,8 +21,7 @@ included — appears in exactly one group below; a file in no group is a bug, an
 (truth, paid boundary, security — breaking one is Ryan's call) · `pipeline-invariants.md` (the
 model/data equivalent) · `figures.json` (cross-surface figures, measured not typed) ·
 `paid-claim-matrix.md` · `growth-measurement-contract.md` · `paid-launch-decision-record.md` ·
-`data-sources.md` · `drift-playbook.md` · `experiment-schema.json`. **Retire:** never, unless
-superseded.
+`data-sources.md` · `drift-playbook.md` · `experiment-schema.json`. **Retire:** never, unless superseded.
 
 **Operating kits — opened when the situation arises, not read end to end.**
 `customer-discovery-kit.md` · `club-watch-concierge-kit.md` · `intelligence-hub-launch-runbook.md`
@@ -34,8 +33,7 @@ Terms, refund, and privacy publish.
 **Reusable prompts — `docs/prompts/`.** Tools, not documents: `competitor-deep-dive.md` ·
 `site-ux-audit.md` · `league-qa-audit.md` · `launch-readiness-audit.md` ·
 `codebase-unification-review.md`. Each is a slash command of the same name; the wrapper in
-`.claude/commands/` frames it and loads the prompt from here, keeping one source. **Retire:**
-when the surface they audit no longer exists.
+`.claude/commands/` frames it and loads the prompt from here, keeping one source. **Retire:** when the surface they audit no longer exists.
 
 **Launch content drafts — `docs/content/`.** `README.md` · `model-explainer.md` ·
 `epl-2026-27-priors.md` · `promoted-teams.md` · `relegation-risk.md` · `market-blind-edge.md`.
@@ -45,17 +43,19 @@ before publishing.** **Retire:** on publication.
 **Built but unwired — documentation for real code that has not shipped.**
 `postgame-win-expectancy.md` (`scripts/postgame_win_expectancy.py` exists, calibration-validated) · `projection-drift-tracking.md`. **Retire:** on ship; deleting one orphans working code.
 
-**Open specs — `docs/superpowers/specs/`; designed, owner has not approved, nothing built.** `2026-08-07-uefa-competition-forecasting-design.md` · `2026-08-07-leagues-cup-forecasting-design.md` · `2026-08-08-match-data-source-resilience-design.md` · `2026-08-08-api-football-migration-execution-spec.md` · `2026-08-09-platform-reliability-and-api-opportunity-spec.md` (restore multi-daily updates → mine the API for model gains → new surfaces; supersedes the migration spec's remaining stages). **Retire:** deleted on ship like a plan, with 2–3 sentences into `PROJECT_HISTORY.md`.
+**Specs — `docs/superpowers/specs/`.** Designed; mostly unbuilt. `2026-08-07-uefa-competition-forecasting-design.md` · `2026-08-07-leagues-cup-forecasting-design.md` · `2026-08-08-match-data-source-resilience-design.md` · `2026-08-09-platform-reliability-and-api-opportunity-spec.md` — the live one; Phase 1 is merged and partly proven. `2026-08-08-api-football-migration-execution-spec.md` is **the record of a finished migration, not a plan**: stages 0–2 and 4 are complete and the owner has bought the Mega plan, so its purchase checkpoint has passed; stages 3, 5 and 6 are **dead**, superseded by the reliability spec §3.2 (adjudicated 2026-08-15 — two live specs proposing the same Tier-A migration is the contradiction the group existed to prevent). **Retire:** deleted on ship like a plan, with 2–3 sentences into `PROJECT_HISTORY.md`.
 
 **Dated evidence — superseded by `STATUS.md`, kept for its reasoning.** Each opens with an as-of
 stamp; figures inside are frozen at that date. `competitive-intelligence-2026-07-combined.md` ·
-`competitor-deep-dive-2026-08-01.md` · `codebase-unification-2026-08-02.md` ·
-`product-strategy-2026-07-26.md` · `product-roadmap-2026-07.md` · `league-expansion-report.md` ·
+`competitor-deep-dive-2026-08-01.md` · `product-strategy-2026-07-26.md` ·
+`product-roadmap-2026-07.md` · `league-expansion-report.md` ·
 `offseason-model-improvement-audit-2026-07-30.md` · `league-qa-audit-findings.md` ·
-`remaining-external-dependencies-2026-07-11.md`. **Retire:** once its decisions are in
-`STATUS.md` and its reasoning in `PROJECT_HISTORY.md`. Un-acted findings are one reason to keep
-one; **an inbound reference is another** — several are cited by the prompts, making them active
-inputs, not retirable reports.
+`remaining-external-dependencies-2026-07-11.md`. **Retire:** once its decisions are in `STATUS.md`
+and its reasoning in `PROJECT_HISTORY.md`, and only if it holds no un-acted finding and **nothing
+cites it** — an inbound reference is evidence a report is still a load-bearing input, not a
+retirable artefact. Re-tested 2026-08-15: all eight hold, six cited by a live prompt or slash
+command. `codebase-unification-2026-08-02.md` was the ninth and the only one to clear every
+question; retired, in `PROJECT_HISTORY.md`.
 
 ## Now — strategy, transaction, measurement, and trust
 
