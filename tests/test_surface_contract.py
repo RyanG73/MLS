@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 
 import pytest
 
@@ -10,11 +11,31 @@ from server.surface_contract import club_surface_contract
 
 
 ARSENAL_ID = "v1:1c90591709108353"
+REPO = pathlib.Path(__file__).resolve().parent.parent
 
 
-def test_personalized_and_share_surfaces_use_the_canonical_club_contract():
+@pytest.fixture
+def arsenal_record():
+    """The committed contract, or a skip.
+
+    Both tests below read a real artifact out of `data/team_intelligence/`,
+    which is GITIGNORED — CI builds it, a fresh clone has none. Without this
+    they fail with ArtifactNotFound on every developer machine and pass in CI,
+    which is the failure mode that teaches people to ignore a red suite; the
+    same asymmetry was fixed in test_static_pages.py on 2026-08-11 and missed
+    here. Skipping keeps the contract enforced wherever the artifact exists
+    and silent where it cannot.
+    """
+    path = (REPO / "data" / "team_intelligence" / "epl"
+            / f"{ARSENAL_ID.replace(':', '_')}.json")
+    if not path.exists():
+        pytest.skip("data/team_intelligence/ not built (gitignored; CI builds it)")
+    return IntelligenceService().get_team("epl", ARSENAL_ID)
+
+
+def test_personalized_and_share_surfaces_use_the_canonical_club_contract(arsenal_record):
     service = IntelligenceService()
-    record = service.get_team("epl", ARSENAL_ID)
+    record = arsenal_record
     contract = club_surface_contract(record)
     assert contract == {
         "league_id": "epl",
@@ -57,10 +78,10 @@ def test_personalized_and_share_surfaces_use_the_canonical_club_contract():
         assert value in text_body
 
 
-def test_artifact_identity_mismatch_fails_closed(tmp_path):
+def test_artifact_identity_mismatch_fails_closed(tmp_path, arsenal_record):
     root = tmp_path / "artifacts" / "epl"
     root.mkdir(parents=True)
-    source = IntelligenceService().get_team("epl", ARSENAL_ID)
+    source = dict(arsenal_record)
     source["team_id"] = "v1:wrong"
     path = root / f"{ARSENAL_ID.replace(':', '_')}.json"
     path.write_text(json.dumps(source))
