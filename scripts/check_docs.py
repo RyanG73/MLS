@@ -203,6 +203,14 @@ def check_figures() -> list[str]:
     return problems
 
 
+# The append-only record of past measurements. A superseded value appearing here is the file
+# working as designed — each entry is stamped and describes the transition that retired it — so
+# grepping it for stale figures reports the log's whole purpose as drift. Deliberately narrow:
+# STATUS.md is current truth and stays in scope, and so does dated evidence, whose headers say
+# figures are frozen but whose *present-tense* population notes have gone stale before.
+STALE_EXEMPT = {"docs/research-log.md"}
+
+
 def _grep_stale(value: str) -> list[str]:
     """Find a stale figure value, ignoring lines that explicitly call it stale."""
     try:
@@ -213,12 +221,26 @@ def _grep_stale(value: str) -> list[str]:
         ).stdout
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return []
+    # `\b` alone matches a stale figure inside a LARGER number: `\b748\b` hits the `0.748`
+    # calibration bin in postgame-win-expectancy.md, and `\b750\b` hits "~1,750 tests" in the
+    # active plan. Neither is a Global ELO minimum, and neither can be fixed by editing the
+    # document — the digits are correct where they stand. Require the value to be a whole
+    # number in its own right: no digit, decimal point, or thousands comma on either side.
+    embedded = re.compile(rf"(?<![\d.,]){re.escape(value)}(?![\d.,])")
     hits = []
     for line in out.splitlines():
+        parts = line.split(":", 2)
+        if len(parts) < 3:
+            continue
+        path, lineno, text = parts
+        if path.replace("\\", "/") in STALE_EXEMPT:
+            continue
+        if not embedded.search(text):
+            continue  # the digits belong to a larger number, not to this figure
         low = line.lower()
         if "stale" in low or "previous" in low or "was " in low:
             continue  # a line documenting the correction is allowed to name the old value
-        hits.append(line.split(":", 2)[0] + ":" + line.split(":", 2)[1])
+        hits.append(f"{path}:{lineno}")
     return hits
 
 

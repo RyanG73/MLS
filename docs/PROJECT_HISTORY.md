@@ -786,9 +786,11 @@ payloads measure. It found a real drift on its first run: the Global ELO club co
 1,172 to 1,167 with the 2026-08-05 refresh, three days after being corrected by hand.
 
 Two figure populations were separated for good, having twice been confused: the Global ELO scale
-(every club carrying a `global_elo` — 1,167 across 71) and the bridged Global Power ladder
-(`power.js`, which also requires measured bridge evidence — 965 across 55). Both are correct for
-their own question, and replacing one with the other *introduces* an error. Nineteen standing
+(every club carrying a `global_elo`) and the bridged Global Power ladder (`power.js`, which also
+requires measured bridge evidence and is strictly smaller). Both are correct for their own
+question, and replacing one with the other *introduces* an error. The counts are deliberately not
+repeated here — they move with every rebuild, and the pair typed into this sentence had themselves
+gone stale by 2026-08-15; `docs/figures.json` holds both, re-measured by `scripts/check_docs.py`. Nineteen standing
 pipeline rules were extracted from `CURRENT_STATE.md`, where they sat inside dated expansion
 narrative and would have been retired along with it, into `docs/pipeline-invariants.md` — the
 technical sibling of `product-invariants.md`, following the same precedent. The eight shipped specs

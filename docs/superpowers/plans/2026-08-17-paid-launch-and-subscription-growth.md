@@ -198,8 +198,9 @@ HTTP response, experiment sample, cohort date, or decision memo.
   and API run `31116599746`, both success. Verified against `https://entenser.com` rather than
   localhost: the live Matches slate renders 118 fixtures at a uniform 62px with zero truncated
   names, the ribbon holds `top:0` deep in the page, the Eredivisie table keeps its club column
-  through a 380px horizontal scroll, `/global-elo/` reads 697–1,797, and the live ladder returns PSV
-  27th and Club Brugge 54th.
+  through a 380px horizontal scroll, `/global-elo/` rendered the rating range it measured that day,
+  and the live ladder returned PSV 27th and Club Brugge 54th. (The range that was recorded here has
+  since been superseded by later recalibrations; the current one is in `docs/figures.json`.)
   **One hazard worth repeating:** the daily refresh landed mid-session and touched eight of the
   payloads this change also rewrites. The payloads are build artifacts, so the fix was to discard
   the locally generated ones, fast-forward, and re-run `apply_global_elo_payloads` /
