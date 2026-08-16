@@ -16,6 +16,30 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-15 — Tier A cleared, and the ESPN exit now has a number: 18 of 78 leagues can be
+  routed today, against 3 routed.** `A1` done by the owner — both merged branches are gone from
+  `origin`, confirmed by `git ls-remote --heads` returning nothing for either. `A2` approved and
+  dispatched report-only as run
+  [`31918862701`](https://github.com/RyanG73/MLS/actions/runs/31918862701); `Commit the map`
+  shows `skipped`, so `config/api_football_team_names.json` is untouched and the budget spend was
+  one pass. The script's own summary reads `18/78 leagues cleared the all-clubs floor`. **The 60
+  holds are mostly a calendar problem, not a data one:** 28 produced no candidate pairs at all and
+  are the winter-calendar leagues (`epl`, `la-liga`, `bundesliga`, `ligue-1`, `championship`,
+  `eredivisie`…) sitting one or two matchdays into 2026-27 with nothing played to prove a pair
+  against; the other 32 found real pairs but fell under `MIN_CORROBORATING_FIXTURES = 3`. That
+  those convert as matchdays accumulate is an inference from the corroboration histogram, not a
+  verified claim. **Two workflow defects surfaced only because the log was read rather than the
+  status badge:** `tee` died on line one for want of `output/`, so the artifact was empty and the
+  result survived only in the log; and `continue-on-error: true` was overloaded to mean both "a
+  league is on HOLD" and "the step is broken", which both exited 1. Fixed by `mkdir -p output`,
+  `set -o pipefail`, a dedicated `EXIT_HELD = 3` that let `continue-on-error` be removed outright,
+  and `if-no-files-found: error`. 3 tests added (14 in the file), full suite `2210 passed, 36
+  skipped`, `check_docs` PASS. **Open and unresolved:** `usl-super-league` is one of the three
+  live routes and the check now HOLDs it at 0/8 clubs — likely off-season, unverified. The
+  workflow fixes are committed but **not yet exercised in CI**; the next dispatch proves them.
+  A writing run is deliberately not dispatched — it needs its own owner go, since it commits the
+  file that decides which club a result is attributed to.
+
 - **2026-08-15 — the owner queue was two lists saying the same thing in different orders; now
   it is one, tiered by what each item actually unblocks.** `STATUS.md` carried both a ranked
   owner-blocked table and a separate "Owner actions" list — the duplication this repository

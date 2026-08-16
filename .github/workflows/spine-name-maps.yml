@@ -45,19 +45,32 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
 
+      # `tee` cannot create its own directory, and a fresh checkout has no
+      # output/. Without this the report is never written and the artifact
+      # comes back empty — the run still reads as a success.
       - name: Derive name maps
         run: |
+          mkdir -p output
+          set -o pipefail
           ARGS="--all"
           if [ -n "${{ inputs.league }}" ]; then ARGS="--league ${{ inputs.league }}"; fi
           if [ "${{ inputs.write }}" != "true" ]; then ARGS="$ARGS --check"; fi
-          python scripts/generate_spine_name_maps.py $ARGS | tee output/name-map-report.txt
-        continue-on-error: true          # a league on HOLD is a finding, not a broken job
+          python scripts/generate_spine_name_maps.py $ARGS | tee output/name-map-report.txt || {
+            code=$?
+            # 3 is "leagues are on HOLD" — the run worked, the answer is "not
+            # yet". Every other code is a real failure and must fail the job.
+            # `continue-on-error` used to swallow both alike.
+            [ "$code" -eq 3 ] || exit "$code"
+            echo "::warning::leagues on HOLD — see the spine-name-map-report artifact"
+          }
 
+      # `error`, not `warn`: a missing report is how the empty artifact went
+      # unnoticed, and no path now leaves the file legitimately absent.
       - uses: actions/upload-artifact@v4
         with:
           name: spine-name-map-report
           path: output/name-map-report.txt
-          if-no-files-found: warn
+          if-no-files-found: error
 
       # Only the map file is staged. `git add -A` would sweep whatever else the
       # run touched into a commit whose message describes only the map.

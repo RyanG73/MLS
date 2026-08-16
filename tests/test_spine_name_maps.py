@@ -12,7 +12,9 @@ would have attributed one club's results to another and looked plausible.
 from __future__ import annotations
 
 import datetime as dt
+import sys
 
+from scripts import generate_spine_name_maps as spine
 from scripts.generate_spine_name_maps import (
     MIN_CORROBORATING_FIXTURES, audit, derive_pairs, overrides_only, token_match,
 )
@@ -183,3 +185,39 @@ def test_an_empty_spine_answer_holds_the_league_rather_than_wiping_its_map():
     report = audit("epl", _round_robin(OURS_NAMES, SCORES), [], set(OURS_NAMES))
     assert report["ok"] is False
     assert sorted(report["missing"]) == sorted(OURS_NAMES)
+
+
+def _run_check(monkeypatch, reports):
+    """Drive main() --all --check over canned per-league reports."""
+    monkeypatch.setattr(spine, "mapped_leagues",
+                        lambda: {r["league_id"]: {"af_id": 1} for r in reports})
+    by_id = {r["league_id"]: r for r in reports}
+    monkeypatch.setattr(spine, "run_league", lambda lid, entry: by_id[lid])
+    monkeypatch.setattr(sys, "argv", ["prog", "--all", "--check"])
+    return spine.main()
+
+
+def _report(league_id, ok):
+    return {"league_id": league_id, "ok": ok, "problems": [], "missing": [],
+            "overrides": {}, "resolved": 1, "clubs": 1}
+
+
+def test_a_held_league_exits_distinctly_from_a_real_failure(monkeypatch):
+    """The whole point of the separate code. CI cannot act on "exit 1" when
+    that means both "nothing to route yet" and "the step is broken" — the
+    2026-08-15 run reported green while `tee` had failed on line one."""
+    code = _run_check(monkeypatch, [_report("epl", False), _report("mls", True)])
+    assert code == spine.EXIT_HELD
+    assert code != 1
+
+
+def test_every_league_clear_still_exits_zero(monkeypatch):
+    assert _run_check(monkeypatch, [_report("mls", True)]) == 0
+
+
+def test_check_never_writes_the_map(monkeypatch, tmp_path):
+    """--check is the safe mode A2 was authorised on; it must stay inert."""
+    target = tmp_path / "api_football_team_names.json"
+    monkeypatch.setattr(spine, "NAMES_PATH", target)
+    _run_check(monkeypatch, [_report("mls", True)])
+    assert not target.exists()

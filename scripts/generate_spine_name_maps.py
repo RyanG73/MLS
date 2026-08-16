@@ -31,6 +31,12 @@ Usage:
     python scripts/generate_spine_name_maps.py --league epl          # one
     python scripts/generate_spine_name_maps.py --all                 # every mapped league
     python scripts/generate_spine_name_maps.py --all --check         # verify, write nothing
+
+Exit codes:
+    0  every league asked for cleared the all-clubs floor
+    2  usage error, or a league id that is not in the league map
+    3  ran fine; one or more leagues are on HOLD (see EXIT_HELD)
+    1  anything else — a real failure, and CI should treat it as one
 """
 from __future__ import annotations
 
@@ -59,6 +65,13 @@ DATE_SLACK = dt.timedelta(days=1)
 MIN_CORROBORATING_FIXTURES = 3
 
 _SUFFIX = {"fc", "sc", "cf", "afc", "ac", "cd", "sv", "if", "fk", "bk"}
+
+# A league on HOLD is a finding, not a breakage: the run did exactly what was
+# asked and the answer is "not proven yet". CI has to tell that apart from a
+# crash. When both were exit 1 the workflow needed `continue-on-error` to stay
+# usable, and that flag then hid a real failure — on 2026-08-15 `tee` died on
+# its first line, wrote no report, and the step still showed green.
+EXIT_HELD = 3
 
 
 def _norm(name) -> str:
@@ -353,7 +366,7 @@ def main() -> int:
     print(f"\n{len(ok)}/{len(reports)} leagues cleared the all-clubs floor")
     if args.check:
         print("--check: nothing written")
-        return 0 if len(ok) == len(reports) else 1
+        return 0 if len(ok) == len(reports) else EXIT_HELD
     NAMES_PATH.write_text(json.dumps(writable, indent=2, sort_keys=True) + "\n")
     print(f"wrote {NAMES_PATH.relative_to(ROOT)} "
           f"({len(writable)} leagues; leagues on HOLD keep their previous entry)")
