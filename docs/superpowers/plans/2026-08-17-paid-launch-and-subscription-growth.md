@@ -16,6 +16,25 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-15 — `A3` confirmed by the owner; the free-first objective is settled, and the
+  catalogue was widened without routing anything.** Owner: *"confirming that we are good to focus
+  on free."* Tier A is now clear in full. The objective was contradicting itself inside
+  `STATUS.md` — the section at the top carried the free-launch job while the next-actions preamble
+  still ranked work against "one complete production transaction"; both now say the same thing,
+  and the decision is recorded in `PROJECT_HISTORY.md` and `CLAUDE.md` so it is not re-opened.
+  `api_football.LEAGUE` no longer hardcodes six leagues: `league_spec()` falls back to the
+  approved 78-league catalogue, hand entries still win outright (K League 1 must keep excluding
+  its 2017 data hole), and derived history is floored at `HISTORY_FLOOR = 2017`. **This routes
+  nothing and a test asserts it** — `epl` is reachable and still resolves to `["espn"]`. Suite
+  `2215 passed, 36 skipped`; `check_docs` PASS. **The honest blocker on actually leaving ESPN is
+  now recorded rather than glossed:** a passing name map is step 3 of §3.2's four-step gate, not
+  the gate. `derive_pairs` proves name pairs; it computes no scoreline-agreement rate and compares
+  no standings, both of which §3.2 requires at 100% before a league moves — and the gate's
+  comparison arm is ESPN, which is dark. Next action is to measure agreement and standings off the
+  payload frame the derivation already loads, then flip smallest-first with an observation week.
+  **Owner hand still needed:** the `write: true` dispatch that lands the 18 maps; this session's
+  tooling blocked a budget-spending, file-committing dispatch, so the command is in `STATUS.md`.
+
 - **2026-08-15 — Tier A cleared, and the ESPN exit now has a number: 18 of 78 leagues can be
   routed today, against 3 routed.** `A1` done by the owner — both merged branches are gone from
   `origin`, confirmed by `git ls-remote --heads` returning nothing for either. `A2` approved and

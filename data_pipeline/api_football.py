@@ -85,6 +85,52 @@ LEAGUE: dict[str, tuple[int, list[int]]] = {
     "mls":                    (253, [2026]),
 }
 
+# The approved 78-league catalogue (config/api_football_league_map.json) is the
+# other half of LEAGUE. LEAGUE above holds the leagues whose seasons carry a
+# *measured* decision — a data hole skipped, a rename window, a catalogue depth
+# checked by hand — and those always win. Everything else is derived, so a
+# league that has been approved and name-mapped no longer needs a hand-written
+# tuple before it can be reached.
+#
+# This widens what is REACHABLE. It routes nothing: a league is only built from
+# the spine when source_registry.REGISTRY names it, and an entry there still
+# requires §3.2's full-history diff at 100% scoreline agreement with identical
+# standings. Reachable and routed are deliberately different things.
+_LEAGUE_MAP_PATH = Path("config/api_football_league_map.json")
+
+# Derived history stops here. The catalogue reaches back to 2011 for some
+# leagues, and every extra season is real requests against the paid plan for
+# data no model may train on — training is 2017+ (CLAUDE.md). A hand-written
+# LEAGUE entry may still go deeper on purpose; this floor binds only the
+# derived ones.
+HISTORY_FLOOR = 2017
+
+
+@functools.lru_cache(maxsize=1)
+def league_map() -> dict[str, dict]:
+    """The approved API-Football league catalogue, read once."""
+    return json.loads(_LEAGUE_MAP_PATH.read_text())
+
+
+def league_spec(league_id: str) -> tuple[int, list[int]]:
+    """(API-Football league id, seasons) for one league.
+
+    A hand-written LEAGUE entry wins outright. Otherwise the catalogue supplies
+    the id and a season range floored at HISTORY_FLOOR. Raises KeyError for a
+    league in neither, because every caller indexes this like a dict and a
+    silent empty answer would build an empty payload that still looks healthy —
+    the same failure shape as an unmapped club.
+    """
+    if league_id in LEAGUE:
+        return LEAGUE[league_id]
+    entry = league_map().get(league_id)
+    if entry is None:
+        raise KeyError(league_id)
+    first = max(int(entry["first_season"]), HISTORY_FLOOR)
+    last = int(entry["last_season"])
+    return int(entry["af_id"]), list(range(first, last + 1))
+
+
 # Some leagues' /fixtures response mixes in a promotion/relegation playoff vs a
 # team from the tier below (not part of the league table). Found in K League 1
 # (id 292): every season carries a bare "Relegation Round" fixture (no dash-
@@ -358,13 +404,13 @@ def _apply_names(df: pd.DataFrame, league_id: str) -> pd.DataFrame:
 def results_frame(league_id: str) -> pd.DataFrame:
     """Full canonical frame (played + scheduled) across all configured seasons,
     with team names normalized to our canonical (ESPN) spellings."""
-    af_id, seasons = LEAGUE[league_id]
+    af_id, seasons = league_spec(league_id)
     return _apply_names(_fetch_league(af_id, seasons), league_id)
 
 
 def upcoming_fixtures(league_id: str) -> pd.DataFrame:
     """Not-yet-played fixtures for the latest configured season."""
-    af_id, seasons = LEAGUE[league_id]
+    af_id, seasons = league_spec(league_id)
     df = _fetch_league(af_id, [max(seasons)]) if seasons else pd.DataFrame(columns=_COLS)
     df = _apply_names(df, league_id)
     return df[~df["is_result"]].copy() if not df.empty else df
@@ -390,7 +436,7 @@ def schedule_rows(league_id: str, season: int) -> list[dict]:
     Not cached: a schedule is only ever wanted for the live season, where
     `_fetch_league`'s cache would be bypassed anyway.
     """
-    af_id, _ = LEAGUE[league_id]
+    af_id, _ = league_spec(league_id)
     payload = _get_paged("fixtures", {"league": af_id, "season": int(season)})
     assert_fixture_identity(payload, af_id, int(season))
     names = _team_names().get(league_id, {})
@@ -478,7 +524,7 @@ def standings_rows(af_id: int, season: int,
 def team_logos(league_id: str) -> dict[str, dict]:
     """{team_name: {logo, color}} from API-Football's /teams endpoint (crests for
     leagues with no ESPN stub, e.g. Canadian PL). One request for the latest season."""
-    af_id, seasons = LEAGUE[league_id]
+    af_id, seasons = league_spec(league_id)
     if not seasons:
         return {}
     cache = _CACHE / f"teams_{af_id}_{max(seasons)}.json"

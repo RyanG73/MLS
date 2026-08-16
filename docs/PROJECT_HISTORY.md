@@ -822,3 +822,35 @@ once all four retirement questions permitted it, after extracting its one remain
 whether `scripts/season_state_report.py` survives the 2026-08-21 European rollover — into
 `STATUS.md`, since the report was that script's only inbound reference and deleting it would have
 orphaned a working diagnostic.
+
+## The launch objective becomes free-first (2026-08-15, owner decision)
+
+The paywall came off for the initial launch, and the current objective changed with it: from
+**one complete production transaction** to **a supporter completing the whole Club Watch job,
+free**. Claude proposed the rewrite on the grounds that there is no transaction to complete while
+the product is free; the owner confirmed it the same day — *"confirming that we are good to focus
+on free"* — closing `A3` on the owner queue. The transaction milestone is **deferred, not
+deleted**: the Stripe path, the checkout surfaces and their tests stay built and green, and the
+milestone returns intact when the paywall does. The practical consequence is that the launch is
+now an evidence-gathering exercise rather than a revenue one, which is why GA4/Search Console
+access and `D2` recruiting became the most urgent items on the queue — a free launch nobody
+measures produces nothing.
+
+The same day cleared the rest of the owner queue's Tier A. Two merged branches were deleted, and
+`Spine Name Maps` was dispatched report-only for the first time (run `31918862701`), answering the
+question it existed to answer: **18 of 78 leagues clear the all-clubs floor, against 3 routed**.
+The 60 holds are mostly a calendar artefact rather than a data fault — 28 produced no candidate
+pairs at all and are the winter-calendar leagues sitting one or two matchdays into 2026-27 with
+nothing played to prove a pair against. Reading that run's log rather than its status badge also
+exposed two defects in the workflow itself: `tee` had been dying on its first line for want of an
+`output/` directory, so the report was never written, and `continue-on-error: true` was overloaded
+to mean both "a league is on HOLD" and "the step is broken" — which shared exit code 1. HOLD was
+given its own code so the flag could be removed outright. `api_football.LEAGUE` was widened from
+six hand-written tuples to the full approved catalogue, with hand entries still winning, since
+they encode measured decisions a derived range would silently undo.
+
+The durable lesson is the one the routing gate enforces: **a proven name map is not a proven
+league.** The derivation establishes that two clubs are the same club; the reliability spec §3.2
+additionally requires 100% scoreline agreement across the full history and identical standings
+before a league moves. Those are different claims, and the gap between them is where a plausible-
+looking payload that attributes one club's season to another would slip through.

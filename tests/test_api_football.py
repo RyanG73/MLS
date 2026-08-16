@@ -272,3 +272,48 @@ def test_schedule_rows_reject_a_wrong_league_response(monkeypatch, isolated_heal
     monkeypatch.setitem(api_football.LEAGUE, "mls", (253, [2026]))
     with pytest.raises(api_football.IdentityMismatch):
         api_football.schedule_rows("mls", 2026)
+
+
+# ── league_spec: the hardcoded six, widened to the whole approved map ────────
+# Routing is NOT affected by any of this. A league becomes reachable here, but
+# it is only *built* from the spine when source_registry.REGISTRY names it, and
+# that still requires the §3.2 diff. This widening is inert on its own.
+
+def test_a_hand_tuned_league_entry_always_wins_over_the_map():
+    """The explicit entries carry measured decisions the map cannot express —
+    K League 1 excludes 2016/2017 because 2017 is a 15-fixture data hole. A
+    derived range would silently re-introduce exactly that."""
+    from data_pipeline import api_football
+    af_id, seasons = api_football.league_spec("k-league-1")
+    assert (af_id, seasons) == api_football.LEAGUE["k-league-1"]
+    assert 2017 not in seasons and 2016 not in seasons
+
+
+def test_a_mapped_league_with_no_hand_entry_is_derived_from_the_map():
+    from data_pipeline import api_football
+    af_id, seasons = api_football.league_spec("epl")
+    assert af_id == api_football.league_map()["epl"]["af_id"]
+    assert seasons == sorted(seasons) and len(seasons) == len(set(seasons))
+
+
+def test_derived_history_stops_at_the_training_floor():
+    """argentina-nacional's catalogue starts 2011. Fetching back that far costs
+    real requests for seasons no model may train on (2017+, CLAUDE.md)."""
+    from data_pipeline import api_football
+    _, seasons = api_football.league_spec("argentina-nacional")
+    assert min(seasons) == api_football.HISTORY_FLOOR == 2017
+
+
+def test_an_unknown_league_still_raises_keyerror():
+    """Callers index this like a dict today; a silent empty answer would build
+    an empty payload and look healthy."""
+    from data_pipeline import api_football
+    with pytest.raises(KeyError):
+        api_football.league_spec("not-a-league")
+
+
+def test_widening_the_catalogue_routes_nothing_by_itself():
+    """The property that makes this change safe to land before the diffs."""
+    from data_pipeline import api_football, source_registry
+    assert "epl" in api_football.league_map()
+    assert source_registry.sources_for("epl", "fixtures", "espn") == ["espn"]

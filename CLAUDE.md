@@ -84,6 +84,23 @@ is merged and retained for history.
   Watch sells is that someone watched it — what changed while you were away, the evidence behind it,
   saved scenarios, per-club history. A lock must sit on the continuity layer, never on a figure the
   public site already publishes, or the "free forever" promise printed on the site becomes false.
+- **The launch objective is free-first** (owner decision 2026-08-15, confirming `A3`). The current
+  objective is a supporter completing the whole Club Watch job, free — not a completed production
+  transaction. The transaction milestone is **deferred, not deleted**: keep the Stripe path,
+  checkout surfaces and their tests built and green, because the milestone returns intact with the
+  paywall. Do not re-open this, and do not let a document quietly revert to the transaction
+  framing — that contradiction was live in `STATUS.md` for a day and had to be corrected in two
+  places at once.
+- **Reachable is not routed** (2026-08-15). `api_football.league_spec` resolves any league in the
+  approved catalogue, so most leagues are now *reachable* from the spine. A league is only *built*
+  from it when `source_registry.REGISTRY` names it, and adding an entry there requires the full
+  gate in the reliability spec §3.2 — a full-history diff at 100% scoreline agreement AND
+  identical standings, not merely a passing name map. **A proven name map is step 3 of that gate,
+  not the gate.** `generate_spine_name_maps` proves two clubs are the same club; it computes no
+  agreement rate and compares no standings. Routing a league on the strength of its name map alone
+  is the specific mistake this line exists to prevent. Hand-written `LEAGUE` entries always win
+  over derived ones, because they encode measured decisions — a skipped data hole, a rename window
+  — that a derived season range would silently undo.
 - **The paywall is OFF for the initial launch, and preserved** (owner decision 2026-08-15). Every
   Club Watch feature is free to anyone with a free account. The switch is `LAUNCH_FREE` in
   `server/open_access.py`; setting it back to `False` and deploying restores the paywall, and that

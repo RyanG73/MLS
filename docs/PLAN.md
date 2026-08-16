@@ -59,9 +59,9 @@ question; retired, in `PROJECT_HISTORY.md`.
 ## Now — launch free, measure it, and make the data trustworthy
 
 **Re-scoped 2026-08-15: the paywall is off for the initial launch** (`LAUNCH_FREE` in
-`server/open_access.py`), so the transaction is deferred and the job becomes evidence.
-(1) Ryan supplies GA4/GSC access and recruits `D2` — a free launch nobody measures produces
-nothing, which is the whole reason for running one. (2) Claude makes the forecasts trustworthy:
+`server/open_access.py`), so the transaction is deferred and the job becomes evidence. **Owner-
+confirmed 2026-08-15; Tier A is clear**, leaving Ryan's two Tier-B items as the critical path.
+(1) Ryan supplies GA4/GSC access and recruits `D2` — unmeasured, a free launch produces nothing. (2) Claude makes the forecasts trustworthy:
 get the data pipeline off a dark ESPN, publish per-league freshness, keep the matchers refusing
 rather than guessing. (3) Ryan completes the business, Stripe, legal and vendor setup on its own
 clock — it now gates *charging*, not launching. (4) The transaction path stays built and tested,
