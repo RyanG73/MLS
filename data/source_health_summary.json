@@ -1,15 +1,19 @@
 {
  "feeds": {
   "api_football": {
-   "attempts": 21,
+   "attempts": 71,
    "consecutive_dark_runs": 0,
-   "endpoints_failed": [],
-   "errors": [],
+   "endpoints_failed": [
+    "ops:standings"
+   ],
+   "errors": [
+    "API-Football error for standings {'league': 262, 'season': 20}: {'season': 'The Season field must be at least 4 characters in length.'}"
+   ],
    "failure_rate_24h": 0.0109,
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (1/92)",
-   "failures": 0,
-   "last_failure": "2026-08-16T11:39:57.690668+00:00",
-   "last_success": "2026-08-17T05:58:00.260705+00:00",
+   "failures": 1,
+   "last_failure": "2026-08-17T11:44:35.740059+00:00",
+   "last_success": "2026-08-17T11:44:47.273141+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -64,9 +68,15 @@
      "attempts": 21,
      "failures": 0,
      "rows": 3160
+    },
+    {
+     "at": "2026-08-17T11:44:49.102100+00:00",
+     "attempts": 71,
+     "failures": 1,
+     "rows": 68
     }
    ],
-   "rows": 3160
+   "rows": 68
   },
   "asa": {
    "attempts": 6,
@@ -135,7 +145,7 @@
   },
   "espn_continental": {
    "attempts": 83,
-   "consecutive_dark_runs": 9,
+   "consecutive_dark_runs": 10,
    "endpoints_failed": [
     "concacaf.champions/scoreboard?season=2018",
     "concacaf.champions/scoreboard?season=2019",
@@ -163,7 +173,7 @@
    "failure_rate_24h": 1.0,
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (166/166)",
    "failures": 83,
-   "last_failure": "2026-08-17T06:11:19.947953+00:00",
+   "last_failure": "2026-08-17T11:40:34.145175+00:00",
    "last_success": null,
    "recent": [
     {
@@ -216,6 +226,12 @@
     },
     {
      "at": "2026-08-17T06:15:44.601147+00:00",
+     "attempts": 83,
+     "failures": 83,
+     "rows": 0
+    },
+    {
+     "at": "2026-08-17T11:44:49.102100+00:00",
      "attempts": 83,
      "failures": 83,
      "rows": 0
@@ -367,32 +383,6 @@
    "rows": 21690
   }
  },
- "generated": "2026-08-17T06:15:44.601147+00:00",
- "notable": [
-  {
-   "error": "Error tokenizing data. C error: Expected 1 fields in line 7, saw 2\n",
-   "feed": "football_data",
-   "kind": "division_mismatch"
-  },
-  {
-   "error": "served EC content, expected E3 (redirected to https://www.football-data.co.uk/mmz4281/2627/EC.csv)",
-   "feed": "football_data",
-   "kind": "division_mismatch"
-  },
-  {
-   "error": "served SC2 content, expected SP2 (redirected to https://www.football-data.co.uk/mmz4281/2627/SC2.csv)",
-   "feed": "football_data",
-   "kind": "division_mismatch"
-  },
-  {
-   "error": "served EC content, expected E0 (redirected to https://www.football-data.co.uk/mmz4281/2627/EC.csv)",
-   "feed": "football_data",
-   "kind": "division_mismatch"
-  },
-  {
-   "error": "served P1 content, expected SP1 (redirected to https://www.football-data.co.uk/mmz4281/2627/P1.csv)",
-   "feed": "football_data",
-   "kind": "division_mismatch"
-  }
- ]
+ "generated": "2026-08-17T11:44:49.102100+00:00",
+ "notable": []
 }
