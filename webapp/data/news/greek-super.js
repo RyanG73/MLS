@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-16 11:37 UTC","items":[{"title":"'A bit surreal' - Penrice joins Rangers from AEK Athens on loan","link":"https://www.bbc.co.uk/sport/football/articles/c75gxqnwqz6o?at_medium=RSS&at_campaign=rss","desc":"Rangers sign left-back James Penrice from Greek champions AEK Athens for on loan with an option to buy.","published":"2026-08-15T16:18:51+00:00","source":"BBC Sport","is_analysis":false}]};
+window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-17 06:12 UTC","items":[]};
