@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-19 11:41 UTC","items":[]};
+window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-20 11:41 UTC","items":[{"title":"Levski Sofia and AEK Athens play out goalless first leg","link":"https://www.bbc.co.uk/sport/football/videos/c79g0y57qnlo?at_medium=RSS&at_campaign=rss","desc":"Levski Sofia play out a goalless draw with AEK Athens in their Champions League play-off first leg at the Stadion Vasil Levski.","published":"2026-08-19T21:07:16+00:00","source":"BBC Sport","is_analysis":false}]};

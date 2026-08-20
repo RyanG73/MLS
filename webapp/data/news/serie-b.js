@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-08-19 11:41 UTC","items":[{"title":"Official: Napoli sign Favasuli in \u20ac7.5m deal from Catanzaro","link":"https://football-italia.net/official-napoli-sign-favasuli-from-catanzaro/","desc":"Napoli have officially announced their signing of 22-year-old full-back Costantino Favasuli on a permanent transfer...","published":"2026-08-19T09:25:14+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-08-20 11:41 UTC","items":[]};
