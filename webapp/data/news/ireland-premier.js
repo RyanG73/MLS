@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"ireland-premier","generated":"2026-08-21 11:38 UTC","items":[]};
+window.NEWS_DATA = {"league":"ireland-premier","generated":"2026-08-22 11:37 UTC","items":[]};

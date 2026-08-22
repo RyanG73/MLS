@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-08-21 11:39 UTC","teams":{"Saprissa":[],"Alajuelense":[],"Herediano":[],"Municipal Liberia":[],"Cartagin\u00e9s":[],"Puntarenas FC":[],"Sporting San Jos\u00e9":[],"P\u00e9rez Zeled\u00f3n":[],"AD San Carlos":[],"Guadalupe FC":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-08-22 11:37 UTC","teams":{"Saprissa":[],"Alajuelense":[],"Herediano":[],"Municipal Liberia":[],"Cartagin\u00e9s":[],"Puntarenas FC":[],"Sporting San Jos\u00e9":[],"P\u00e9rez Zeled\u00f3n":[],"AD San Carlos":[],"Guadalupe FC":[]}};
