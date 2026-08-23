@@ -40,8 +40,13 @@ HTTP response, experiment sample, cohort date, or decision memo.
   round-robin season. Replaced with the league's own most recent completed season, measured, and
   gated on the last result being <= 30 days old. (c) `refresh-daily.yml` selects leagues by
   payload `status == "live"`, so a league wrongly marked complete is excluded from the only job
-  that would recompute it — a transient blip latches until the Monday catch-all. **Not changed:
-  that is an owner call, and it sits under queue row #8.**
+  that would recompute it — a transient blip latches until the Monday catch-all. **Now fixed too**
+  (`scripts/select_daily_leagues.py`): the daily job takes every live league plus any claiming to
+  be finished that has played within `MAX_IDLE_DAYS`, the window imported from the builder's own
+  guard rather than typed twice. Measured against committed payloads, **28 → 36** matrix jobs,
+  the eight added being exactly the eight that were stuck and nothing dropped. The selection moved
+  out of an untestable YAML heredoc into a module with 9 tests; the detect job has no
+  `setup-python` and no `pip install`, so it is stdlib-only and proven so under `python3 -S`.
   **The yardstick is a median, not a maximum, and finding out cost a false-rescue pass:** the max
   picks up relegation play-off rows sitting in the same frame, so Allsvenskan's 2024 busiest club
   shows 32 in a 30-round league and a completed 2025 season read two games short. Median is
@@ -60,7 +65,7 @@ HTTP response, experiment sample, cohort date, or decision memo.
   (`NO_ESPN_SCHEDULE` for Finland, no ESPN coverage at all for Ireland 2026) so nothing but the
   guard change recovers them. `poland-ekstraklasa` is the same configuration and is rescued today
   only because it sits at 4 games; **it would have developed the identical bug at matchday 17.**
-  Suite **2228 passed, 39 skipped, 0 failed** (12 tests added). No payloads rebuilt locally —
+  Suite **2237 passed, 39 skipped, 0 failed** (21 tests added). No payloads rebuilt locally —
   CI owns payload writes.
 - **2026-08-23 — the daily refresh's second blocker was the check, not the payload: a double
   round-robin is non-uniform for half of every season, and `pairs` was asking for uniformity.**

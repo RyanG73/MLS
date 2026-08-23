@@ -68,10 +68,14 @@ Breaking one of these is a decision, not an implementation choice. The technical
     league is still `soon` clobbers already-built data back to a stub. Flip the registry to `live`
     before any later fetch.
 
-12. **`refresh-leagues.yml` is the only job that flips an off-season league back to `live`.**
-    `refresh-daily.yml` rebuilds only leagues already live. Its league list is derived from
-    `build_league_data.OUTLOOK` — never hardcode it, which is how it drifted to 21 of 70 and
-    stranded every league added after round 3.
+12. **`refresh-leagues.yml` is the only job that flips a genuinely off-season league back to
+    `live`.** Its league list is derived from `build_league_data.OUTLOOK` — never hardcode it,
+    which is how it drifted to 21 of 70 and stranded every league added after round 3.
+    `refresh-daily.yml` rebuilds every live league **plus any claiming to be finished that has
+    played within 30 days** (`scripts/select_daily_leagues.py`, 2026-08-23). Selecting on
+    `status == "live"` alone was a latch, not a filter: the daily job is the only thing that
+    rebuilds a payload, so a league wrongly published as complete could never be recomputed by
+    it, and eight leagues sat on a mid-season final table for six days that way.
 
 13. **Every generated artifact needs an owner in the workflow table.** If one looks stale, check
     it has one. Four artifacts went stale in a single week because nothing rebuilt them after

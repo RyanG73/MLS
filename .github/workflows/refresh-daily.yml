@@ -1,8 +1,14 @@
 name: Daily In-Season Refresh
 
-# B11a: every league whose payload status is "live" rebuilds daily (7 AM ET).
-# Preseason/completed leagues are skipped — the weekly Monday full rebuild
-# (refresh-leagues.yml) is the catch-all that flips them back to live.
+# B11a: every league whose payload status is "live" rebuilds daily (7 AM ET),
+# PLUS any league claiming to be finished that has played within the last 30
+# days (scripts/select_daily_leagues.py). Preseason leagues are still skipped —
+# the weekly Monday full rebuild (refresh-leagues.yml) owns that flip.
+#
+# The "live" filter alone was a latch: this is the only job that rebuilds a
+# payload, so a league wrongly published as complete could never be recomputed
+# by it, and the Monday catch-all had itself run dark on 2026-08-17. Eight
+# leagues sat on a mid-season final table for six days that way.
 on:
   schedule:
     - cron: '0 11 * * *'   # 11:00 UTC = 7:00 AM ET daily
@@ -33,39 +39,14 @@ jobs:
       leagues: ${{ steps.set.outputs.leagues }}
     steps:
       - uses: actions/checkout@v4
-      - name: List live leagues from payload status
+      - name: List the leagues to rebuild
         id: set
+        # Runs on the runner's bare python3 — no setup-python, no pip install —
+        # so the script and everything it imports must stay stdlib-only.
         run: |
-          LEAGUES=$(python3 - <<'EOF'
-          import json, re
-          from pathlib import Path
-          live = []
-          # Cross-league data files carry their own status but are NOT leagues —
-          # excluding them stops bogus matrix jobs like "build (edge-board)".
-          for p in sorted(Path("webapp/data").glob("*.js")):
-              if p.name in ("logos.js", "ledger.js", "power.js", "edge-board.js",
-                            "movers.js", "drift.js", "model-slices.js", "coefficients.js",
-                            "match-leverage.js"):
-                  continue
-              m = re.match(r"window\.\w+\s*=\s*(.*?);?\s*$", p.read_text(), re.DOTALL)
-              if not m:
-                  continue
-              try:
-                  d = json.loads(m.group(1))
-              except Exception:
-                  continue
-              # Durable guard: any data file that isn't a payload dict (e.g.
-              # search-index.js is a JSON array) is not a league — skip rather
-              # than crash on .get(). Belt-and-braces with the name list above.
-              if not isinstance(d, dict):
-                  continue
-              if d.get("status") == "live":
-                  live.append(p.stem)
-          print(json.dumps(live))
-          EOF
-          )
+          LEAGUES=$(python3 scripts/select_daily_leagues.py)
           echo "leagues=$LEAGUES" >> "$GITHUB_OUTPUT"
-          echo "Live leagues: $LEAGUES"
+          echo "Rebuilding: $LEAGUES"
 
   build:
     needs: detect

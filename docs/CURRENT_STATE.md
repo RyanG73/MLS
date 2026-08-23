@@ -141,10 +141,13 @@ read the invariants first if you are about to change the pipeline.
   scales with each league's match count, which CANCELS against the NLL and gives every league the
   same shrinkage regardless of evidence. That is only safe with informative priors; with a 0 prior
   it let a 4-match league reach −2417 ELO. CONMEBOL/AFC use `ridge_by_count=False`.
-- **`refresh-leagues.yml` is the only job that flips an off-season league back to `live`**
-  (`refresh-daily.yml` rebuilds only leagues already live). Its league list is now derived from
-  `build_league_data.OUTLOOK`; it had been hardcoded and drifted to 21 of 70, which meant no
-  league added after round 3 could ever have returned from its off-season.
+- **`refresh-leagues.yml` is the only job that flips a genuinely off-season league back to
+  `live`.** Its league list is now derived from `build_league_data.OUTLOOK`; it had been
+  hardcoded and drifted to 21 of 70, which meant no league added after round 3 could ever have
+  returned from its off-season. **`refresh-daily.yml` selects via
+  `scripts/select_daily_leagues.py` (2026-08-23):** every live league, plus any claiming to be
+  finished that has played within `season_state.MAX_IDLE_DAYS`. The window is imported, not
+  typed, so this filter and the builder's own CONCLUDED guard cannot drift apart.
 - Expansion round 4 Phase 3 (2026-07-11, +2 → 14 total): `data_pipeline/api_football.py` adapter
   (env/`.env` `API_FOOTBALL_KEY`). The free api-sports.io plan only serves seasons 2022–2024, so:
   Finland Veikkausliiga ships **results-only off current football-data** (2026 season, like Poland
