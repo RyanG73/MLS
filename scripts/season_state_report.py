@@ -170,7 +170,19 @@ def main() -> None:
     if not idle_live:
         lines.append("| _none_ | | | | | |")
 
-    lines += ["", "## Recently concluded (rollover not yet due)", "",
+    # This section used to be titled "rollover not yet due" and read as an
+    # all-clear. It is not one. On 2026-08-23 all EIGHT leagues publishing a
+    # final table mid-season sat here — Allsvenskan at 16 of 30 rounds, the
+    # League of Ireland at 27 of 36 — while every genuinely finished season had
+    # been idle >= 84 days. A league that played days ago and shows no fixtures
+    # is either just-finished or its feed is dark, and the payload alone cannot
+    # tell you which; the builder now cross-examines that verdict against the
+    # league's own season length (scripts/eval/season_state.looks_unfinished),
+    # but this list is still the place a human should look.
+    lines += ["", "## Concluded but still recently playing — CHECK EACH", "",
+              "A short idle gap here is not reassurance. Confirm against the real",
+              "calendar that each season is actually over rather than feed-dark.",
+              "",
               "| League | Country | Season shown | Last result | Days idle |",
               "|---|---|---:|---:|---:|"]
     for r in recent:
@@ -195,7 +207,9 @@ def main() -> None:
                                          -(r["days_since"] or 0))):
         idle = (r["days_since"] or 0) >= args.stale_days
         flag = ("  <-- ROLL OVER" if r["status"] == "completed" and idle
-                else "  <-- STALE 'LIVE'" if idle else "")
+                else "  <-- STALE 'LIVE'" if idle
+                else "  <-- CHECK: final table, but played recently"
+                if r["status"] == "completed" else "")
         print(f"{r['name'][:30]:30} {r['country'][:16]:16} {r['shows'][:30]:30} "
               f"{str(r['season'])[:9]:9} {str(r['days_since']):>4}{flag}")
     print(f"\n{len(stale)} league(s) idle >= {args.stale_days} days. Report: {OUT}")

@@ -52,7 +52,10 @@ from models.research_model import (
 import models.research_model as rm
 from scripts.eval.elo import compute_elo, home_adv_for
 from scripts.eval.league_features import LEAGUE_FEAT_BASE, build_league_features
-from scripts.eval.season_state import season_state, IN_PROGRESS, PRESEASON, CONCLUDED
+from scripts.eval.season_state import (
+    season_state, expected_games_per_team, looks_unfinished, typical_games,
+    IN_PROGRESS, PRESEASON, CONCLUDED,
+)
 from scripts.eval.sim_variance import preseason_sigma_for_source, perturb_probs
 from scripts.eval.season_format import FORMATS, format_classification, regular_phase_mask
 from scripts.postgame_win_expectancy import compute_we
@@ -1445,6 +1448,11 @@ def main():
     # has no rows for it yet, flip to pre-season mode: ts = next season, upcoming from ESPN.
     is_preseason = False
     espn_upcoming = None
+    # Set when a fixture fetch RAISED, as opposed to legitimately returning
+    # nothing. Both leave `espn_upcoming` None and both used to print a warning
+    # nothing acted on, so a 403 outage published as "season over" — see the
+    # season-state guard near the end of this function.
+    _feed_fetch_failed = False
     if cfg["source"] == "understat" and args.season is None:
         _next = max_played_season + 1
         try:
@@ -1544,6 +1552,7 @@ def main():
             print(f"[{lid}] ESPN remainder: {len(_sched)} scheduled fixtures for {ts}")
         except Exception as _espn_err:
             print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
+            _feed_fetch_failed = True
 
     # football-data-intl leagues: the results CSV has no future fixtures
     # (verified 2026-07-10, module docstring), so ESPN always supplies the
@@ -1569,8 +1578,14 @@ def main():
                 _sched = _sched[_sched["date"] > _last_played]
             espn_upcoming = _espn_names_to_fdintl(lid, _sched)
             print(f"[{lid}] ESPN remainder: {len(_sched)} scheduled fixtures for {ts} (FDI-mapped)")
+        except LookupError as _espn_empty:
+            # ESPN genuinely carries no events for this season. Not a failure:
+            # the season-state guard still cross-examines the verdict against
+            # the league's own playing record.
+            print(f"[{lid}] {_espn_empty}")
         except Exception as _espn_err:
             print(f"[{lid}] ESPN fixtures for season {ts} failed: {_espn_err}")
+            _feed_fetch_failed = True
 
         # Roll forward when THIS season is played out and the next one is
         # published. The note above says a flip-ahead check "would fire
@@ -2423,16 +2438,51 @@ def main():
     pct = round(len([g for g in games if g["result"]]) / max(1, len(games)) * 100)
     _sstate = season_state(len(played), len(upcoming))
     _no_fixture_feed = False
-    # A season cannot be over before anyone has played a full round robin. Without
+    # A season cannot be over before its clubs have played a full campaign. Without
     # this, a league whose new campaign has kicked off but whose fixture feed has
     # not published the schedule yet (played>0, upcoming==0) is classified
     # CONCLUDED and the page ships "<League> results · final · Champions: X" off
     # one matchday — romania-liga1 was publishing exactly that on 8 played matches
     # (2026-07-24 league QA audit). Note the projection is still degenerate with
     # nothing left to simulate; this only stops the false "final" headline.
-    if _sstate == CONCLUDED and nT > 1 and max(gp.values(), default=0) < nT - 1:
-        print(f"[{lid}] season has no upcoming fixtures but only "
-              f"{max(gp.values(), default=0)}/{nT - 1} games played per team — "
+    #
+    # The yardstick is the league's own most recent completed season, NOT
+    # `nT - 1`. One round-robin only ever covered the FIRST HALF of a double
+    # round-robin, so Allsvenskan passed it at 16 of 30 rounds and shipped a
+    # final table on 2026-08-17; and no round-robin multiple could ever have
+    # covered the League of Ireland, whose 27-of-36 rounds already exceed two.
+    # Eight leagues were published complete mid-season this way (2026-08-23).
+    # Both sides are the TYPICAL club, never the busiest — see typical_games().
+    _typical_gp = typical_games(gp.values()) or 0
+    _prior_gp: dict[int, int] = {}
+    _hist = df[df["season"] < ts]
+    if "is_playoff" in _hist.columns:
+        _hist = _hist[_hist["is_playoff"].fillna(0).astype(int) == 0]
+    for _s, _g in _hist.groupby("season"):
+        _counts = pd.concat([_g["home_team"], _g["away_team"]]).value_counts()
+        _seasonal = typical_games(_counts.tolist())
+        if _seasonal:
+            _prior_gp[int(_s)] = _seasonal
+    _expected_gp = expected_games_per_team(_prior_gp, nT)
+    _last_dt = played["date"].max() if len(played) else None
+    _idle_days = (None if pd.isna(_last_dt) or _last_dt is None else
+                  int((pd.Timestamp.today().normalize()
+                       - pd.Timestamp(_last_dt).normalize()).days))
+    # `_feed_fetch_failed` is the other half. season_state() reads "no upcoming
+    # fixtures" off a count that means BOTH "the league has none" and "we could
+    # not ask" — the ESPN 403 outage fixed in aec36847 produced the second and
+    # was published as the first. Absence of evidence we never gathered must
+    # never become a final table.
+    # `nT > 1` is retained from the original guard: a one-club table is a broken
+    # payload, and nothing sensible can be said about its season length.
+    if _sstate == CONCLUDED and nT > 1 and (
+            _feed_fetch_failed
+            or looks_unfinished(_typical_gp, _expected_gp, _idle_days)):
+        _why = ("the fixture fetch FAILED, so an empty schedule proves nothing"
+                if _feed_fetch_failed else
+                f"only {_typical_gp}/{_expected_gp} games played per club and the last "
+                f"result is {_idle_days} day(s) old")
+        print(f"[{lid}] season has no upcoming fixtures but {_why} — "
               f"holding at in-progress rather than declaring it final")
         _sstate = IN_PROGRESS
         _no_fixture_feed = True

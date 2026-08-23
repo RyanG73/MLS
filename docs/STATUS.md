@@ -373,6 +373,7 @@ exactly one named blocker left. That is #8, and it is cheaper and more certain t
 | ~~7~~ | ✅ **PARTLY DONE 2026-08-15** — ~~Close issue #10~~ (closed; the fault drill was fixed in `7a8681a` and has passed twice since, once on schedule). The three `refresh-failure` issues stay open on purpose: #8 closes on a green fast-refresh run that actually selects a routed league, and #6/#7 close when the feeds come back. | Pure noise reduction, near-zero effort. #10 says the fault-injection drill proves the ESPN fallback is broken; it does not — the drill was testing its own copy of the resolver, was fixed in `7a8681a`, and has passed twice since, including a scheduled run | Runs `31557258012` and `31574725142` (the latter `event: schedule`) both succeeded. Four `refresh-failure` issues are open and #8 alone has 74 comments, which is how a real alert gets missed |
 | **8** | **Unstick the daily refresh — it is what rebuilds the 51 stale payloads** | **Top of the queue as of 2026-08-23.** `refresh-daily.yml` is the only job that rebuilds payloads (the fast refresh applies results without refitting), and it has failed four days running: `32636029997`, `32569786196`, `32476688634`, `32363323907`. Its 11:15 UTC run today predates the ESPN fix by three hours, and as of 2026-08-23 **both named causes are addressed** — ESPN by `aec36847`, the payload-consistency deviation by the adjudication in the data-integrity row above. Clearing it un-stales 51 payloads in one scheduled run, against #3's per-league gate | Both causes are named in run `32636029997`'s own error lines. **(a) ESPN**, now fixed: `source health: espn_fixtures answered nothing this run (384/384 attempts failed)` and `failing the run — dark feeds: espn_continental (16 runs)`. The gate counts *consecutive* dark runs, so one good fetch should reset it — verify rather than assume. **(b) `payload consistency: NEW pairs deviation in sweden-allsvenskan`** — ✅ **adjudicated and fixed 2026-08-23**, full verdict in the data-integrity row above. The payload was right and the check was wrong: a 16-club double round-robin at round 16 is *necessarily* non-uniform, so the old test was reporting the calendar. `pairs` now asks that no pair be two meetings ahead of another; `--strict` exits 0 on pristine payloads and the baseline shrank 30 → 18 with zero additions. **Remaining work on this row is (a):** the dark-feed gate counts *consecutive* dark runs, so verify one good ESPN fetch resets `espn_continental` rather than assuming it, then dispatch the workflow rather than waiting for 11:00 UTC |
 | **9** | **Guard both `live-data` overlays on payload recency** | The `live-data` branch froze at 2026-08-04 and neither consumer noticed. In CI the overlay replaces `webapp/data` but not `webapp/leagues.js`, which manufactured a `data_status` mismatch that failed every run — and because validation runs before the publish step, the failing run was the one that would have refreshed the branch. In the browser it is worse and was live: `webapp/index.html:1608` served visitors a 2026-08-02 MLS payload over the 2026-08-23 deployed one. Both assume `live-data` is fresher than `main`, which holds only while the 15-minute job runs | Every payload already carries the `generated` stamp neither side compares; nothing new needs measuring. Reset unblocked today's runs but fixes only this instance — the next stall rolls the site back the same way. **Started 2026-08-23 in a separate session**; this row records the work, not a second workstream |
+| **11** | **Decide whether `refresh-daily.yml` should rebuild a league it believes is finished** | **This is what turned a transient ESPN blip into six days of wrong pages, and it is the one cause of the 2026-08-23 mid-season-final bug left unfixed** — a code change was not mine to make because it widens the daily matrix. The `detect` job selects leagues by payload `status == "live"`, so a league wrongly marked complete is excluded from the only job that recomputes it; the Monday rebuild in `refresh-leagues.yml` is the sole escape, and on 2026-08-17 that rebuild ran and reproduced the same wrong verdict because ESPN was dark. The builder guard now stops the wrong verdict at the source, so this is defence in depth rather than a live break | The `detect` step's own filter, `.github/workflows/refresh-daily.yml`: `if d.get("status") == "live"`. Widening it to include a `completed` league whose last result is recent costs at most eight extra matrix jobs at today's counts. The measurement is in `scripts/season_state_report.py`, which already prints days-idle per league |
 | 10 | **Re-check the three open `refresh-failure` issues** | Cheap, and #7 below anticipated exactly this: *"#8 closes on a green fast-refresh run that actually selects a routed league"* — that happened on 2026-08-23, when `32646234681` selected `northern-super-league` via `api_football` and went green. #6 and #7 were to close "when the feeds come back", and the feeds are back | `#8` (100 comments), `#6` (14), `#7` (3). #8 alone gaining 100 comments is the alert-fatigue failure the workflow's alert step exists to prevent. Do not bulk-close: #6 is the *daily* refresh, which is still red on #8's blocker above, so it stays open until that run is green |
 
 ## What I need from you — the owner queue (re-tiered 2026-08-15)
@@ -451,6 +452,33 @@ Claude does the moment each of these lands is the section immediately below.
    concierge or automated-delivery expansion.
 
 ## Recently completed
+
+- **Eight leagues were publishing a final table mid-season; the fix is in the builder, and CI
+  applies it** (2026-08-23). Measured from committed payloads at `bb1c7d77`, not the working tree.
+  **The verified set is eight, not the eleven first reported:** `sweden-allsvenskan` (16 of 30
+  rounds played), `brazil-serie-a` (22/38), `norway-eliteserien` (17/30), `china-super` (23/30),
+  `nwsl`, `uruguay-primera`, `finland-veikkausliiga` (19/29) and `ireland-premier` (27/36).
+  `ucl`, `europa` and `conference` were **not** bugs — each holds a complete 2025-26 edition with
+  a played Final — nor was `india-isl`, whose shortened campaign its own config documents. All
+  four were flagged by a double round-robin test that does not describe their format, and
+  `ireland-premier` was missed by that same test from the other side: it plays four rounds, so 27
+  games already exceeds two round-robins. **Three causes.** The builder caught a *failed* fixture
+  fetch and a legitimately *empty* one in the same handler, so this morning's ESPN 403 outage was
+  published as "season over"; the rescue guard measured completeness against `nT - 1`, one
+  round-robin, which only ever covered the first half of a double round-robin; and
+  `refresh-daily.yml` excludes a league it believes is finished, so a transient blip latches until
+  Monday. The first two are fixed (`scripts/eval/season_state.py`,
+  `scripts/build_league_data.py`); the third is queue row #11 above, deliberately left to the
+  owner. **The guard's yardstick is now the league's own most recent completed season, measured as
+  a MEDIAN** — the maximum picks up relegation play-off rows in the same frame, which made a
+  completed 30-round Allsvenskan season read two games short and produced false rescues in
+  testing. Verified in both directions against real football-data history: all six measurable
+  stalled leagues rescue, and 13 of 14 completed 2025 seasons stay final when rebuilt the day
+  after their last match. **Six of the eight self-heal on the next weekly rebuild now that ESPN
+  answers; `finland-veikkausliiga` and `ireland-premier` do not** — neither has a reachable
+  fixture feed, so only the guard change recovers them. `poland-ekstraklasa` shares that
+  configuration and would have broken identically at matchday 17. Suite 2228 passed, 39 skipped, 0 failed.
+
 
 - Two contract tests made honest about the working tree (2026-08-11, tests only). Both failed on
   every developer machine here and passed in CI, which is the failure mode that teaches people to

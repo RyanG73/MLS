@@ -16,6 +16,52 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-23 — Eight leagues were publishing a final table mid-season. The reported count was
+  eleven; four of those were correct and one real case was missing.** Filed off the
+  `sweden-allsvenskan` adjudication. **Verified set, measured from committed payloads at
+  `bb1c7d77`:** `sweden-allsvenskan` (16 of 30 rounds), `brazil-serie-a` (22/38),
+  `norway-eliteserien` (17/30), `china-super` (23/30), `nwsl`, `uruguay-primera`,
+  `finland-veikkausliiga` (19/29) and **`ireland-premier` (27 of 36)**. **Not bugs:** `ucl`,
+  `europa` and `conference` each hold a COMPLETE 2025-26 edition — 144 league-phase matches, a
+  full bracket, a played Final on 2026-05-30/05-20/05-27 — and `india-isl` genuinely concluded
+  the three-month campaign its own config documents. All four were flagged by a double
+  round-robin yardstick that does not describe their format. Ireland was missed by that same
+  yardstick from the other side: it plays FOUR rounds, so 27 games already exceeds a double
+  round-robin and no round-robin multiple could ever have caught it.
+  **`scripts/season_state_report.py` had the discriminating number all along** — the eight sit in
+  one block at 7-20 days idle and every genuinely finished season is >= 84, a 64-day empty band —
+  under a heading that read "rollover not yet due".
+  **Three independent causes, not one.** (a) `build_league_data` caught a *failed* ESPN fetch and
+  a legitimately *empty* one in the same `except Exception`, and the empty case is itself raised
+  as `LookupError` on purpose — so the 403 outage fixed earlier today was published as "season
+  over". Absence of evidence we never gathered became a final table. Now caught separately, with
+  `_feed_fetch_failed` blocking a CONCLUDED verdict. (b) The rescue guard compared games played
+  against `nT - 1`, ONE round-robin, which only ever covered the first half of a double
+  round-robin season. Replaced with the league's own most recent completed season, measured, and
+  gated on the last result being <= 30 days old. (c) `refresh-daily.yml` selects leagues by
+  payload `status == "live"`, so a league wrongly marked complete is excluded from the only job
+  that would recompute it — a transient blip latches until the Monday catch-all. **Not changed:
+  that is an owner call, and it sits under queue row #8.**
+  **The yardstick is a median, not a maximum, and finding out cost a false-rescue pass:** the max
+  picks up relegation play-off rows sitting in the same frame, so Allsvenskan's 2024 busiest club
+  shows 32 in a 30-round league and a completed 2025 season read two games short. Median is
+  stable at 30/30/30 and 36/36/36 across a club-count change, and needs no tolerance factor.
+  **Verified both directions against real football-data history:** all six measurable stalled
+  leagues rescue where the old guard let them say FINAL; 13 of 14 completed 2025 seasons stay
+  FINAL when rebuilt the day after their last match. The fourteenth, `argentina-primera`, is a
+  documented limit rather than a fix to chase — its format ran 41/41/41/34 games per club across
+  2022-25, so no history predicts it; the error is in the direction the guard exists to choose
+  and expires with the 30-day window.
+  **Blast radius, checked before fixing:** `status == "completed"` drives `_shows()` → "final",
+  suppresses the entire upcoming-fixtures list, and rewrites every club summary into the past
+  tense ("finished with N points"); it also drops the league from the home cards and from the
+  daily rebuild. Six of the eight self-heal on the next weekly rebuild now that ESPN answers;
+  **`finland-veikkausliiga` and `ireland-premier` do not** — neither has a reachable fixture feed
+  (`NO_ESPN_SCHEDULE` for Finland, no ESPN coverage at all for Ireland 2026) so nothing but the
+  guard change recovers them. `poland-ekstraklasa` is the same configuration and is rescued today
+  only because it sits at 4 games; **it would have developed the identical bug at matchday 17.**
+  Suite **2228 passed, 39 skipped, 0 failed** (12 tests added). No payloads rebuilt locally —
+  CI owns payload writes.
 - **2026-08-23 — the daily refresh's second blocker was the check, not the payload: a double
   round-robin is non-uniform for half of every season, and `pairs` was asking for uniformity.**
   `tests/test_payload_consistency.py::test_the_committed_baseline_records_what_the_payloads_actually_show`
