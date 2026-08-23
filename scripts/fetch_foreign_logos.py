@@ -13,7 +13,10 @@ The committed JSON keeps `build_logo_map.py` offline and deterministic.
 """
 import json
 import os
+import sys
 import urllib.request
+
+from data_pipeline.http import espn_user_agent
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "scripts", "foreign_logos.json")
@@ -46,7 +49,10 @@ LEAGUES = [
     "dom.1", "tri.1", "hai.1", "crb.1",
 ]
 
-UA = {"User-Agent": "Mozilla/5.0 (logo-fetch)"}
+# urllib, not requests — lead with the token that matches the call.
+# "Mozilla/5.0 (logo-fetch)" was a 403 at ESPN. See data_pipeline.http.
+UA = {"User-Agent": espn_user_agent(
+    f"Python-urllib/{sys.version_info.major}.{sys.version_info.minor}")}
 
 
 def fetch(slug):

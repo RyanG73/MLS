@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from data_pipeline.http import espn_get
+from data_pipeline.http import _HDR, espn_get
 
 
 def test_espn_get_returns_parsed_json_on_success():
@@ -29,7 +29,7 @@ def test_espn_get_passes_params_and_headers():
     mock_get.assert_called_once_with(
         "https://example.com/api",
         params={"season": 2026},
-        headers={"User-Agent": "Mozilla/5.0"},
+        headers=_HDR,   # content asserted below, not duplicated here
         verify=False,
         timeout=15,
     )
@@ -182,3 +182,41 @@ def test_espn_get_retries_transient_connection_errors():
          patch("data_pipeline.http.time.sleep"):
         assert espn_get("https://example.com/api", attempts=4) == {"ok": True}
     assert get.call_count == 2
+
+
+# ── User-Agent acceptability (2026-08-23) ────────────────────────────────────
+# ESPN's bot filter admits a request on the FIRST token of its User-Agent and
+# 403s everything else. Measured 2026-08-23 against
+# site.api.espn.com/.../eng.1/scoreboard, one IP, five trials per agent, run in
+# both orders — deterministic, not a rate limit:
+#
+#   curl/8.7.1                                      200
+#   python-requests/2.32.3                          200
+#   python-requests/9.9.9                           200   (version not checked)
+#   python-requests/2.32.3 (+https://entenser.com)  200   (suffix is free)
+#   Go-http-client/1.1, okhttp/4.9.3                200
+#   Mozilla/5.0            <- what we used to send  403
+#   Mozilla/5.0 (Macintosh ... Chrome/126 ...)      403
+#   Entenser/1.0 (+https://entenser.com)            403   (unknown token)
+#   Entenser/1.0 python-requests/2.32.3             403   (prefix, not substring)
+#   <empty>                                         403
+#
+# So the honest agent is also the working one: lead with the real client token
+# and identify the project in the suffix. The failure this guards against is
+# total and silent-looking — every league 403s, the breaker opens after five,
+# and the run dies with "feed unavailable" rather than "we look like a bot".
+# The old test asserted the literal "Mozilla/5.0" and so locked the bug in.
+
+def test_user_agent_leads_with_a_real_client_token():
+    """Never claim to be a browser: ESPN 403s any UA it cannot place."""
+    ua = _HDR["User-Agent"]
+    assert not ua.startswith("Mozilla"), (
+        f"UA {ua!r} claims to be a browser; ESPN 403s every such request")
+    assert ua.startswith(requests.utils.default_user_agent()), (
+        f"UA {ua!r} must LEAD with {requests.utils.default_user_agent()!r} — "
+        "ESPN matches the first token, not a substring")
+
+
+def test_user_agent_identifies_the_project():
+    """A suffix costs nothing at the filter and tells ESPN who is calling."""
+    assert "entenser.com" in _HDR["User-Agent"]

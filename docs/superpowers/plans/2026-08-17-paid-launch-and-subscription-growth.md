@@ -16,6 +16,28 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-23 — ESPN was never rate-limiting us; it was refusing our User-Agent. One line, and
+  the pipeline's single-source risk is gone.** Owner-reported: the fast refresh is red on every
+  scheduled run. Root cause is one header. `data_pipeline/http.py` sent `Mozilla/5.0`; ESPN admits
+  a request on the FIRST token of its User-Agent, so every ESPN call 403'd, the retry ladder spent
+  four requests on each, and the circuit breaker opened after five leagues and failed the rest
+  without a request. `fast_refresh.py` then exited 1 correctly — 14 of 14 leagues failed against a
+  0.5 tolerance. **The guard was right; the feed was not.** Measured 2026-08-23, one IP, five
+  trials per agent in both orders: `curl/*`, `python-requests/*` (any version), `okhttp/*`,
+  `Go-http-client/*` → **200**; `Mozilla/5.0`, full Chrome, `Entenser/1.0 (+url)`, empty → **403**.
+  Deterministic, and a cold IP's first request 403s, which no rate limit explains — so the
+  2026-08-07 "403 is an IP rate limit" diagnosis in `STATUS.md` is not wrong about 2026-08-07 but
+  does not explain this. The agent is now built from `requests.utils.default_user_agent()` so it
+  tracks the real client, `(+https://entenser.com)` appended. Two scripts bypassing `espn_get`
+  carried the same string and are fixed through a shared `espn_user_agent()` helper.
+  **Verified live:** all 7 selected leagues fetch (`refreshed=7 failed=0`, computed exit code 0,
+  against 14/14 failing in run `32642980914`), and `uefa.champions`, `concacaf.leagues.cup`,
+  `usa.1`, `eng.2/teams` — 83/83, 28/29 and 384/384 dark on 2026-08-14 — all answer. Suite
+  `2217 passed, 36 skipped`; the two new tests fail against the old header. **This closes the ⛔
+  one-source row and unblocks §3.2's live ESPN diff**, which the routing gate was stalled on.
+  ⚠️ Proof is the next green scheduled run: every measurement is from one residential IP and
+  says nothing about GitHub's egress.
+
 - **2026-08-15 — `A3` confirmed by the owner; the free-first objective is settled, and the
   catalogue was widened without routing anything.** Owner: *"confirming that we are good to focus
   on free."* Tier A is now clear in full. The objective was contradicting itself inside

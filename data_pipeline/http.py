@@ -23,7 +23,33 @@ urllib3.disable_warnings()
 
 logger = logging.getLogger("espn_http")
 
-_HDR = {"User-Agent": "Mozilla/5.0"}
+# ESPN admits a request on the FIRST token of its User-Agent: a recognised HTTP
+# client (curl/*, python-requests/*, urllib3/*, okhttp/*, Go-http-client/*) is
+# served and everything else — browser strings included — gets 403. "Mozilla/5.0"
+# sat here from the start and stopped working on 2026-08-21, which read exactly
+# like the IP rate limit described below and was NOT one: measured 2026-08-23,
+# one IP, five trials per agent run in both orders, the split by agent was total
+# and the version inside the token was never checked. The table is in
+# tests/test_http.py so the next person does not have to re-measure it.
+#
+# Built from requests' own agent rather than typed, so it cannot drift from the
+# client actually making the call. The suffix is free at the filter and says who
+# is calling — honesty and availability point the same way here.
+_UA_SUFFIX = "(+https://entenser.com)"
+
+
+def espn_user_agent(client: str | None = None) -> str:
+    """The User-Agent ESPN will serve, for a caller using `client`.
+
+    Pass the caller's REAL client token (urllib, httpx, ...) — leading with a
+    token that does not match the library making the call is the browser lie in
+    a new costume, and the next filter change catches it. Defaults to requests,
+    which is what every adapter in this module uses.
+    """
+    return f"{client or requests.utils.default_user_agent()} {_UA_SUFFIX}"
+
+
+_HDR = {"User-Agent": espn_user_agent()}
 
 # ESPN rate-limits by IP and answers with 403 — not 429 — once tripped, and it
 # then refuses EVERY endpoint, not just the one that crossed the line. Measured

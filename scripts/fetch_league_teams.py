@@ -22,10 +22,14 @@ from pathlib import Path
 import requests
 import urllib3
 
+from data_pipeline.http import espn_user_agent
+
 urllib3.disable_warnings()
 
 _ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer"
-_HDR = {"User-Agent": "Mozilla/5.0"}
+# Hits site.api.espn.com directly rather than through espn_get, so it needs
+# the same agent — a browser string here is a 403. See data_pipeline.http.
+_HDR = {"User-Agent": espn_user_agent()}
 
 # (id, display name, ESPN slug | None, confederation, status, group)
 # espn_code None → menu entry only (no ESPN team data available under a clean code yet).
