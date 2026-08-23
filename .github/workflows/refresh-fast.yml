@@ -50,11 +50,33 @@ jobs:
       - name: Install fast-path runtime
         if: steps.select.outputs.has_leagues == 'true'
         run: pip install -r requirements.txt
+      # Newest `generated` stamp wins, per file. The blanket `git archive ... |
+      # tar -x` this replaces assumed `live-data` is always fresher than `main`,
+      # which is true only while this job is actually running. The branch froze
+      # on 2026-08-04; the overlay then rolled 19 days of committed payloads
+      # backwards while `webapp/leagues.js` stayed on `main`, and
+      # validate_payloads failed the run on the disagreement — before the
+      # publish step, so the run that would have refreshed the branch was the
+      # run that died, for any league never in the fast-refresh selection.
+      #
+      # Overlaying `leagues.js` from the branch too would have reconciled that
+      # one symptom, but it inverts which tree is authoritative about the
+      # league set, and it still ships stale numbers. Comparing the stamp each
+      # payload already carries fixes the class instead of the symptom, needs
+      # to know nothing about the registry, and is the same rule the browser
+      # overlay applies in webapp/index.html — one sentence to remember for
+      # both: a live-data payload is used only when provably newer.
       - name: Overlay prior live-data snapshot
         if: steps.select.outputs.has_leagues == 'true'
         run: |
           git fetch origin live-data --depth=1 || true
-          git archive origin/live-data webapp/data | tar -x || true
+          # Not ${RUNNER_TEMP}/live-data — the publish step below already owns
+          # ${RUNNER_TEMP}/live-data.index, and one name for two things invites
+          # an rm -rf that takes both.
+          SNAPSHOT="${RUNNER_TEMP}/live-data-snapshot"
+          rm -rf "$SNAPSHOT" && mkdir -p "$SNAPSHOT"
+          git archive origin/live-data webapp/data | tar -x -C "$SNAPSHOT" || true
+          python scripts/overlay_live_data.py --from "$SNAPSHOT/webapp/data"
       - name: Refresh selected leagues without refitting
         if: steps.select.outputs.has_leagues == 'true'
         run: python scripts/fast_refresh.py --refresh-selected
