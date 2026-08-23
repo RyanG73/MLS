@@ -35,8 +35,27 @@ HTTP response, experiment sample, cohort date, or decision memo.
   `usa.1`, `eng.2/teams` — 83/83, 28/29 and 384/384 dark on 2026-08-14 — all answer. Suite
   `2217 passed, 36 skipped`; the two new tests fail against the old header. **This closes the ⛔
   one-source row and unblocks §3.2's live ESPN diff**, which the routing gate was stalled on.
-  ⚠️ Proof is the next green scheduled run: every measurement is from one residential IP and
-  says nothing about GitHub's egress.
+  **Proven on a runner:** dispatch `32644398934` returned `refreshed: 66, failed: 0`.
+  GitHub's egress carries no extra block.
+
+- **2026-08-23 — the ESPN fix uncovered a second bug it had been hiding: `live-data` was a
+  19-day-frozen branch that both failed the run and served stale payloads to visitors.** With
+  ESPN answering, the run reached `validate_payloads` and died there: `canadian-pl` and
+  `k-league-1` said `data_status 'historical'` against a registry saying `full_forecast`. Both
+  are correct on `main` — *All 79 payload(s) valid* against pristine `origin/main`. The overlay
+  step replaces `webapp/data` from `live-data` but leaves `webapp/leagues.js` on `main`, and
+  `live-data`'s tip was `0da90a92` from **2026-08-04**, predating the promotion of both leagues.
+  **A deadlock:** validation runs before the publish step, so the failing run was the one that
+  would have refreshed the branch, and neither league is ever in the fast-refresh selection.
+  Reset to `main`'s `webapp/data` (`695fd0ae`; rollback `0da90a92`). **Green and real:**
+  `32644964274` selected 7 leagues, `refreshed: 7 failed: 0`, **30 results applied**, *All 79
+  payload(s) valid*, and the job republished `live-data` itself at 14:19 UTC (`f224f835`).
+  Two things worth carrying forward. **A green tick here has been meaningless**: the prior
+  "success" `32428963834` logged `Fast-refresh leagues: []` and skipped every step, so this job
+  had done no real work since ~2026-08-04. And **the frozen branch was live**: `index.html:1608`
+  overlays `live-data` over the deployed payload on entenser.com, so visitors got a 2026-08-02
+  MLS payload on top of the 2026-08-23 one. ⚠️ **Not fixed:** neither overlay compares the
+  `generated` stamp before overwriting, so the next outage rolls the site back the same way.
 
 - **2026-08-15 — `A3` confirmed by the owner; the free-first objective is settled, and the
   catalogue was widened without routing anything.** Owner: *"confirming that we are good to focus
