@@ -16,6 +16,31 @@ what is live or blocked.
 Append concise, dated results here, newest first. Include proof such as deployment run, Stripe event,
 HTTP response, experiment sample, cohort date, or decision memo.
 
+- **2026-08-23 — the daily refresh's second blocker was the check, not the payload: a double
+  round-robin is non-uniform for half of every season, and `pairs` was asking for uniformity.**
+  `tests/test_payload_consistency.py::test_the_committed_baseline_records_what_the_payloads_actually_show`
+  failed on pristine `origin/main` with `pairs: ['sweden-allsvenskan']`, the cause (b) named under
+  queue row #8. **Adjudicated: the payload is right.** Allsvenskan publishes 16 clubs and 127
+  played matches — 111 pairs met once, 8 met twice — which is a 30-round double round-robin at
+  round 16, the first round of its reverse fixtures. `clubs`, `played` and `names` all pass, every
+  club reads 15 or 16 games played, and the one pair still at zero is a postponement. The git
+  trace shows the mechanism exactly: the payload rolled to the 2026 season on 08-05 and stood at
+  `{1: 119}` on 08-09 when the baseline was measured — the single window in a Swedish season when
+  uniformity could hold — and the 08-17 refresh took it to `{1: 111, 2: 8}`. Nobody touched the
+  payload; the calendar moved. Baselining it would have bought one day and guaranteed the same
+  red for every double round-robin in the catalogue, each August–May league crossing the line
+  around the new year. **Fix:** `pairs` now asserts no pair is two whole meetings AHEAD of
+  another (`spread <= 1`), the strongest claim pair counts alone support, since a round-robin of
+  any depth puts every pair on k or k+1 meetings. Argentina still fails on its real signature
+  (1x, 2x and 3x at once) — its synthetic fixture had modelled a shape Argentina never had. The
+  one case surrendered, a duplicate fixture inside a *complete* season, is held by `played`,
+  proved by test rather than asserted. **Verified:** HEAD checker vs fixed checker over the same
+  committed payloads — `clubs` 3, `played` 8, `names` 1 byte-identical, `pairs` 30 → 18 with
+  **zero new**; injecting a real third meeting into Allsvenskan still fails. Baseline regenerated
+  deliberately and SHRANK (15 lines deleted, none added), which also cleared four entries stale
+  at HEAD for leagues that had resolved on their own. Suite `2216 passed, 39 skipped`,
+  `--strict` exits 0, `check_docs: PASS`.
+
 - **2026-08-23 — ESPN was never rate-limiting us; it was refusing our User-Agent. One line, and
   the pipeline's single-source risk is gone.** Owner-reported: the fast refresh is red on every
   scheduled run. Root cause is one header. `data_pipeline/http.py` sent `Mozilla/5.0`; ESPN admits

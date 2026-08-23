@@ -22,9 +22,12 @@ Five checks, each catching a defect this repo has actually shipped:
              ~40% of the catalogue is not a plain double round-robin (cups,
              Apertura/Clausura, split seasons, feeds that publish only the
              next few weeks), so failing on a deviation would be noise.
-  pairs      How many times each pair meets, and whether that is uniform.
-             Argentina 2026 sums Apertura + Clausura + interzonal into one
-             table: 30 clubs, pairs meeting 3x (§8.6).
+  pairs      How many times each pair meets, and whether any pair has got two
+             whole meetings AHEAD of another. Argentina 2026 sums Apertura +
+             Clausura + interzonal into one table: 30 clubs, pairs meeting 1x,
+             2x and 3x at once (§8.6). Uniformity is deliberately NOT the
+             test — a double round-robin is non-uniform for half of every
+             season, and asking for it reported the calendar.
   names      Club names that differ only by whitespace or punctuation. A
              trailing space in 'Liga Profesional ' was 2,114 rows away from an
              exact-match filter silently deleting a third of a league (§8.3).
@@ -134,7 +137,24 @@ def check_payload(league_id: str, payload: dict) -> dict:
     name_collisions = {k: v for k, v in by_key.items() if len(v) > 1}
     untrimmed = sorted(x for x in (listed | in_fixtures) if x != x.strip())
 
+    # A round-robin of any depth, observed at any moment, has every pair on
+    # either k or k+1 meetings — the (k+1)-th cycle is part-played. So the
+    # honest invariant pair counts alone can support is that no pair is two
+    # whole meetings AHEAD of another, not that every pair has met the same
+    # number of times. Uniformity holds only at the instants a season sits
+    # exactly between cycles, so demanding it reported the calendar rather
+    # than the payload: on 2026-08-23 Allsvenskan went red on a payload nobody
+    # had touched, because round 16 opened its reverse fixtures. The baseline
+    # had been measured on 08-09, inside the one window of a Swedish season
+    # when all 119 played pairs still stood at exactly one meeting.
+    # Argentina 2026 still fails, and for its real reason: Apertura + Clausura
+    # + interzonal span 1x, 2x and 3x at once (§8.6), a spread no schedule in
+    # progress can produce. What this gives up is a duplicate fixture inside a
+    # COMPLETE season — indistinguishable from a part-played 3x league by
+    # counts alone — and `played` already catches that, since the duplicate
+    # puts both clubs a game above the `gp` their own table publishes.
     multiplicities = sorted(set(pair_counts.values()))
+    spread = multiplicities[-1] - multiplicities[0] if multiplicities else 0
     return {
         "league": league_id,
         "season": payload.get("season"),
@@ -149,8 +169,9 @@ def check_payload(league_id: str, payload: dict) -> dict:
             "played": {"ok": not gp_mismatch, "mismatches": gp_mismatch},
             "fixtures": {"ok": True, "shape": shape,
                          "double_round_robin": double, "single_round_robin": single},
-            "pairs": {"ok": len(multiplicities) <= 1,
+            "pairs": {"ok": spread <= 1,
                       "multiplicities": multiplicities,
+                      "spread": spread,
                       "max_meetings": max(pair_counts.values()) if pair_counts else 0},
             "names": {"ok": not name_collisions and not untrimmed,
                       "collisions": name_collisions, "untrimmed": untrimmed},

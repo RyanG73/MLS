@@ -80,16 +80,52 @@ def test_unplayed_fixtures_do_not_count_toward_games_played():
     assert out["checks"]["played"]["ok"] is True
 
 
-def test_pairs_meeting_a_different_number_of_times_is_surfaced():
+def test_a_pair_two_meetings_ahead_of_another_is_surfaced():
     """Argentina 2026: Apertura + Clausura + interzonal summed into one table,
-    30 clubs, pairs meeting 3x (§8.6). A format a competition filter cannot
-    reach, but a count can see."""
-    games = _rr(TEAMS) + [{"home": "A", "away": "B", "result": "H"}]
-    table = [{"team": t, "gp": 6} for t in TEAMS]
-    table[0]["gp"] = table[1]["gp"] = 7
+    30 clubs (§8.6). The real payload shows pairs meeting 1x, 2x AND 3x — the
+    interzonal round pairs only some clubs, so the table spans three
+    multiplicities at once. That spread is the tell: no round-robin in
+    progress can put one pair two whole meetings ahead of another.
+
+    The fixture used to be a complete double round-robin plus one duplicate,
+    which spans only 2x and 3x — a shape Argentina never had, and one a
+    part-played league reaches legitimately every season.
+    """
+    games = ([{"home": "A", "away": "B", "result": "H"}] * 3
+             + [{"home": "A", "away": "C", "result": "H"}] * 2
+             + [{"home": "A", "away": "D", "result": "H"},
+                {"home": "B", "away": "C", "result": "H"},
+                {"home": "B", "away": "D", "result": "H"},
+                {"home": "C", "away": "D", "result": "H"}])
+    table = [{"team": "A", "gp": 6}, {"team": "B", "gp": 5},
+             {"team": "C", "gp": 4}, {"team": "D", "gp": 3}]
     out = cpc.check_payload("x", _payload(table, games))
     assert out["checks"]["pairs"]["ok"] is False
-    assert out["checks"]["pairs"]["max_meetings"] == 3
+    assert out["checks"]["pairs"]["multiplicities"] == [1, 2, 3]
+    assert out["checks"]["pairs"]["spread"] == 2
+
+
+def test_a_double_round_robin_between_its_cycles_is_not_a_deviation():
+    """Every double round-robin spends half of every season in this state, so
+    flagging it reports the calendar, not a defect.
+
+    Allsvenskan on 2026-08-23: 16 clubs, 127 played matches, 111 pairs met
+    once and 8 have already met again. The baseline was measured on 08-09,
+    eight days after the payload rolled over to the 2026 season and while all
+    119 played pairs still stood at exactly one meeting — the single window in
+    a Swedish season when the old uniformity test could hold. Round 16 opened
+    the reverse fixtures and the check went red on a payload nobody had
+    touched.
+    """
+    single = [g for g in _rr(TEAMS) if g["home"] < g["away"]]
+    games = single + [{"home": "B", "away": "A", "result": "H"},
+                      {"home": "D", "away": "C", "result": "H"}]
+    table = [{"team": t, "gp": 4} for t in TEAMS]
+    out = cpc.check_payload("x", _payload(table, games))
+    assert out["checks"]["pairs"]["multiplicities"] == [1, 2]
+    assert out["checks"]["pairs"]["spread"] == 1
+    assert out["checks"]["pairs"]["ok"] is True
+
 
 
 def test_a_trailing_space_in_a_club_name_is_caught():
@@ -211,8 +247,8 @@ def test_the_daily_refresh_runs_the_check_after_the_commit():
 
 # ── knockout fixtures are published but are not league fixtures ──────────────
 
-def _payload_with_knockout(ko: bool):
-    """Three clubs in a clean double round-robin, plus one extra A-B meeting.
+def _payload_with_knockout(ko: bool, extras: int = 1):
+    """Three clubs in a clean double round-robin, plus `extras` more A-B meetings.
 
     Three clubs, not two: with a single pair there is only one multiplicity and
     the pairs check cannot vary, so a two-club fixture would prove nothing.
@@ -220,10 +256,11 @@ def _payload_with_knockout(ko: bool):
     teams = ["A", "B", "C"]
     games = [{"home": h, "away": a, "result": "H", "hg": 1, "ag": 0}
              for h in teams for a in teams if h != a]
-    extra = {"home": "A", "away": "B", "result": "H", "hg": 2, "ag": 0}
-    if ko:
-        extra["knockout"] = True
-    games.append(extra)
+    for _ in range(extras):
+        extra = {"home": "A", "away": "B", "result": "H", "hg": 2, "ag": 0}
+        if ko:
+            extra["knockout"] = True
+        games.append(extra)
     return {"season": 2026,
             "standings": [{"team": t, "gp": 4} for t in teams],
             "games": games}
@@ -241,7 +278,34 @@ def test_knockout_fixtures_do_not_count_toward_games_played():
 def test_an_unflagged_extra_meeting_is_still_caught():
     """The exclusion is narrow: only fixtures the builder MARKED knockout are
     skipped. An unexplained third meeting must still fail, or the flag becomes
-    a way to launder a real defect."""
+    a way to launder a real defect.
+
+    `played` is what holds this line, and always was — the standings loop
+    filters is_playoff, so an unflagged extra meeting puts both clubs a game
+    above the `gp` their own table publishes. `pairs` cannot help here: one
+    extra meeting inside a complete double round-robin spans 2x and 3x, which
+    is also what an honest 3x league looks like part-way through its third
+    cycle. Pair counts alone cannot separate those two, so the check no longer
+    claims to. A contamination big enough for counts to see is covered by the
+    test below.
+    """
     r = cpc.check_payload("x", _payload_with_knockout(ko=False))
     assert not r["checks"]["played"]["ok"]
-    assert not r["checks"]["pairs"]["ok"]
+    assert r["checks"]["played"]["mismatches"] == [
+        {"team": "A", "table_gp": 4, "fixtures_played": 5},
+        {"team": "B", "table_gp": 4, "fixtures_played": 5}]
+
+
+def test_an_unflagged_knockout_round_is_caught_by_pairs_as_well():
+    """Two unflagged extra meetings put A-B two whole meetings ahead of every
+    other pair — a spread no schedule in progress can reach, so `pairs` sees it
+    without any help from the table. Flag them and both checks go quiet, which
+    is the whole contract of the knockout key."""
+    unflagged = cpc.check_payload("x", _payload_with_knockout(ko=False, extras=2))
+    assert unflagged["checks"]["pairs"]["spread"] == 2
+    assert not unflagged["checks"]["pairs"]["ok"]
+    assert not unflagged["checks"]["played"]["ok"]
+
+    flagged = cpc.check_payload("x", _payload_with_knockout(ko=True, extras=2))
+    assert flagged["checks"]["pairs"]["ok"]
+    assert flagged["checks"]["played"]["ok"]
