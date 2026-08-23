@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"poland-ekstraklasa","generated":"2026-08-23 11:35 UTC","items":[]};
+window.NEWS_DATA = {"league":"poland-ekstraklasa","generated":"2026-08-23 21:08 UTC","items":[]};

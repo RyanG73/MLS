@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"ok","generated":"2026-08-23 11:35 UTC","teams":{"PSV Eindhoven":[],"Ajax Amsterdam":[],"Feyenoord Rotterdam":[],"FC Twente":[],"FC Utrecht":[],"PEC Zwolle":[],"Heerenveen":[],"AZ Alkmaar":[],"ADO Den Haag":[],"HERA United":[],"Excelsior":[],"NAC Breda":[]}};
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-08-23 21:09 UTC","teams":{"FC Twente":[],"Ajax Amsterdam":[],"AZ Alkmaar":[],"PSV Eindhoven":[],"Feyenoord Rotterdam":[],"De Graafschap":[],"FC Utrecht":[],"Heerenveen":[],"PEC Zwolle":[],"ADO Den Haag":[]}};

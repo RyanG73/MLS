@@ -12,8 +12,8 @@
    "failure_rate_24h": 0.0141,
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (2/142)",
    "failures": 1,
-   "last_failure": "2026-08-23T11:38:24.140930+00:00",
-   "last_success": "2026-08-23T11:38:33.441495+00:00",
+   "last_failure": "2026-08-23T21:11:49.762301+00:00",
+   "last_success": "2026-08-23T21:11:59.981185+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -110,20 +110,26 @@
      "attempts": 71,
      "failures": 1,
      "rows": 69
+    },
+    {
+     "at": "2026-08-23T21:12:01.581989+00:00",
+     "attempts": 71,
+     "failures": 1,
+     "rows": 69
     }
    ],
    "rows": 69
   },
   "asa": {
-   "attempts": 6,
+   "attempts": 1,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/6)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/1)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-08-17T05:00:18.714475+00:00",
+   "last_success": "2026-08-23T21:05:01.891483+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -136,33 +142,26 @@
      "attempts": 6,
      "failures": 0,
      "rows": 11981
+    },
+    {
+     "at": "2026-08-23T21:12:01.581989+00:00",
+     "attempts": 1,
+     "failures": 0,
+     "rows": 31
     }
    ],
-   "rows": 11981
+   "rows": 31
   },
   "espn": {
-   "attempts": 29,
+   "attempts": 2,
    "consecutive_dark_runs": 0,
-   "endpoints_failed": [
-    "router:argentina-nacional:fixtures",
-    "router:australia-aleague-women:fixtures",
-    "router:australia-aleague:fixtures",
-    "router:bolivia-profesional:fixtures",
-    "router:brazil-serie-b:fixtures",
-    "router:chile-primera:fixtures",
-    "router:colombia-primera-a:fixtures",
-    "router:costa-rica-primera:fixtures",
-    "router:ecuador-ligapro:fixtures",
-    "router:eerste-divisie:fixtures"
-   ],
-   "errors": [
-    "empty frame"
-   ],
-   "failure_rate_24h": 0.9655,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (28/29)",
-   "failures": 28,
+   "endpoints_failed": [],
+   "errors": [],
+   "failure_rate_24h": 0.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/2)",
+   "failures": 0,
    "last_failure": "2026-08-17T05:57:52.980298+00:00",
-   "last_success": "2026-08-17T04:59:15.756411+00:00",
+   "last_success": "2026-08-23T21:05:15.565857+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -175,42 +174,26 @@
      "attempts": 29,
      "failures": 28,
      "rows": 0
+    },
+    {
+     "at": "2026-08-23T21:12:01.581989+00:00",
+     "attempts": 2,
+     "failures": 0,
+     "rows": 5848
     }
    ],
-   "rows": 0
+   "rows": 5848
   },
   "espn_continental": {
-   "attempts": 83,
-   "consecutive_dark_runs": 16,
-   "endpoints_failed": [
-    "concacaf.champions/scoreboard?season=2018",
-    "concacaf.champions/scoreboard?season=2019",
-    "concacaf.champions/scoreboard?season=2020",
-    "concacaf.champions/scoreboard?season=2021",
-    "concacaf.champions/scoreboard?season=2022",
-    "concacaf.champions/scoreboard?season=2023",
-    "concacaf.champions/scoreboard?season=2024",
-    "concacaf.champions/scoreboard?season=2025",
-    "concacaf.champions/scoreboard?season=2026",
-    "concacaf.champions/scoreboard?season=2027"
-   ],
-   "errors": [
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20250701-20260630&limit=500",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20260701-20270630&limit=500",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20180701-20190630&limit=500",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20190701-20200630&limit=500",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20200701-20210630&limit=500",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20210701-20220630&limit=500",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20220701-20230630&limit=500",
-    "ESPN circuit breaker open \u2014 skipping https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard without a request. 5+ consecutive rate-limit failures; retrying now would extend the block rather than shorten it.",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=20250701-20260630&limit=500",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/scoreboard?dates=20260701-20270630&limit=500"
-   ],
-   "failure_rate_24h": 1.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (166/166)",
-   "failures": 83,
+   "attempts": 39,
+   "consecutive_dark_runs": 0,
+   "endpoints_failed": [],
+   "errors": [],
+   "failure_rate_24h": 0.6803,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (83/122)",
+   "failures": 0,
    "last_failure": "2026-08-23T11:34:21.365372+00:00",
-   "last_success": null,
+   "last_success": "2026-08-23T21:07:25.197170+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -307,42 +290,26 @@
      "attempts": 83,
      "failures": 83,
      "rows": 0
+    },
+    {
+     "at": "2026-08-23T21:12:01.581989+00:00",
+     "attempts": 39,
+     "failures": 0,
+     "rows": 3237
     }
    ],
-   "rows": 0
+   "rows": 3237
   },
   "espn_fixtures": {
-   "attempts": 384,
-   "consecutive_dark_runs": 2,
-   "endpoints_failed": [
-    "arg.1/scoreboard?season=2026",
-    "arg.1/scoreboard?season=2027",
-    "arg.2/scoreboard?season=2015",
-    "arg.2/scoreboard?season=2016",
-    "arg.2/scoreboard?season=2017",
-    "arg.2/scoreboard?season=2018",
-    "arg.2/scoreboard?season=2019",
-    "arg.2/scoreboard?season=2020",
-    "arg.2/scoreboard?season=2021",
-    "arg.2/scoreboard?season=2022"
-   ],
-   "errors": [
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard?dates=20260701-20270630&limit=1000",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/scoreboard?dates=20260701-20270630&limit=1000",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard?dates=20260701-20270630&limit=1000",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/scoreboard?dates=20260701-20270630&limit=1000",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/scoreboard?dates=20260701-20270630&limit=1000",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/eng.2/scoreboard?dates=20260701-20270630&limit=1000",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/eng.3/scoreboard?dates=20260701-20270630&limit=1000",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/eng.4/scoreboard?dates=20260701-20270630&limit=1000",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/ger.2/scoreboard?dates=20270701-20280630&limit=1000",
-    "403 Forbidden for url: https://site.api.espn.com/apis/site/v2/sports/soccer/ita.2/scoreboard?dates=20260701-20270630&limit=1000"
-   ],
-   "failure_rate_24h": 1.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (384/384)",
-   "failures": 384,
+   "attempts": 133,
+   "consecutive_dark_runs": 0,
+   "endpoints_failed": [],
+   "errors": [],
+   "failure_rate_24h": 0.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/133)",
+   "failures": 0,
    "last_failure": "2026-08-17T05:57:52.969827+00:00",
-   "last_success": null,
+   "last_success": "2026-08-23T21:07:22.675764+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -355,9 +322,15 @@
      "attempts": 384,
      "failures": 384,
      "rows": 0
+    },
+    {
+     "at": "2026-08-23T21:12:01.581989+00:00",
+     "attempts": 133,
+     "failures": 0,
+     "rows": 39594
     }
    ],
-   "rows": 0
+   "rows": 39594
   },
   "football_data": {
    "attempts": 35,
@@ -403,15 +376,15 @@
    "rows": 57
   },
   "football_data_intl": {
-   "attempts": 42,
+   "attempts": 8,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/42)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/8)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-08-17T05:27:16.708493+00:00",
+   "last_success": "2026-08-23T21:07:18.397049+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -424,20 +397,26 @@
      "attempts": 42,
      "failures": 0,
      "rows": 155265
+    },
+    {
+     "at": "2026-08-23T21:12:01.581989+00:00",
+     "attempts": 8,
+     "failures": 0,
+     "rows": 47420
     }
    ],
-   "rows": 155265
+   "rows": 47420
   },
   "understat": {
-   "attempts": 5,
+   "attempts": 11,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/5)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/11)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-08-17T04:38:00.589455+00:00",
+   "last_success": "2026-08-23T21:04:57.535192+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -450,11 +429,17 @@
      "attempts": 5,
      "failures": 0,
      "rows": 21690
+    },
+    {
+     "at": "2026-08-23T21:12:01.581989+00:00",
+     "attempts": 11,
+     "failures": 0,
+     "rows": 51212
     }
    ],
-   "rows": 21690
+   "rows": 51212
   }
  },
- "generated": "2026-08-23T11:38:34.729303+00:00",
+ "generated": "2026-08-23T21:12:01.581989+00:00",
  "notable": []
 }
