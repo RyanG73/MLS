@@ -1587,8 +1587,19 @@ window.ODDS_FMT=(()=>{ try{const s=localStorage.getItem('entenser_odds_fmt');
 // than injecting it as a script (strict MIME checking would reject it).
 const _LIVE_DATA_BASE=/^(entenser\.com|ryang73\.github\.io)$/i.test(location.hostname)
   ?'https://raw.githubusercontent.com/RyanG73/MLS/live-data/webapp/data/':null;
+// The route param reaches this unsanitised and names both a URL and (below) a
+// document.write()n script. Every payload file is "<id>.js"; nothing else.
+const _LIVE_FILE_RE=/^[a-z0-9-]+\.js$/;
+// "2026-08-23 11:20 UTC" — the stamp every builder writes. Unreadable is NaN on
+// purpose: comparing the raw strings instead would rank a garbage value above
+// every real date and hand the overlay a permanent win.
+const _liveStamp=value=>{
+  const m=typeof value==='string'&&value.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?\s*(?:UTC|Z)?$/);
+  return m?Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0)):NaN;
+};
 const _overlayLiveData=path=>{
-  if(!_LIVE_DATA_BASE)return false;
+  if(!_LIVE_DATA_BASE||!_LIVE_FILE_RE.test(path))return false;
   try{
     const req=new XMLHttpRequest();
     req.open('GET',_LIVE_DATA_BASE+path+'?t='+Date.now(),false);
@@ -1596,16 +1607,40 @@ const _overlayLiveData=path=>{
     if(req.status<200||req.status>=300)return false;
     const m=req.responseText.match(/^window\.([A-Za-z0-9_]+)\s*=\s*([\s\S]*?);?\s*$/);
     if(!m)return false;
-    window[m[1]]=JSON.parse(m[2]);
+    const incoming=JSON.parse(m[2]),current=window[m[1]];
+    // `live-data` is only fresher than the deploy while the 15-minute job that
+    // publishes it is actually running. It froze for 19 days from 2026-08-04,
+    // and an unguarded overlay rolls every reader back to whenever it froze.
+    // Take the branch copy only when its stamp is provably newer — an
+    // unreadable stamp fails this `>` and loses, so the overlay can only ever
+    // move a reader FORWARD in time. The one case with nothing to roll back is
+    // no deployed payload at all (same-origin 404), where anything beats
+    // nothing, so that skips the comparison.
+    if(current&&typeof current==='object'
+       &&!(_liveStamp(incoming&&incoming.generated)>_liveStamp(current.generated)))
+      return false;
+    window[m[1]]=incoming;
     return true;
   }catch(_err){return false;}
+};
+// ...and it has to run AFTER the same-origin payload, not before it. A
+// document.write()n <script> executes when the parser resumes, i.e. once this
+// whole inline block has finished, so an assignment made here was overwritten a
+// moment later by the deployed file and this overlay had never once applied.
+// Measured on entenser.com 2026-08-23: ?league=epl rendered the deployed
+// 2026-08-03 06:53 UTC payload while a 2026-08-23 14:17 UTC copy sat on the
+// branch. Writing the call into the stream puts it after the payload; the guard
+// above is what makes running it there safe.
+const _writeOverlay=file=>{
+  if(!_LIVE_DATA_BASE||!_LIVE_FILE_RE.test(file))return;
+  document.write('<scr'+'ipt>_overlayLiveData("'+file+'")</scr'+'ipt>');
 };
 // Cache-bust the per-league/edge-board data file: it's small and rebuilt frequently (e.g. when a
 // competition concludes or a season rolls over), so a stale cached copy must never win.
 if(!_infoPage)
   document.write('<scr'+'ipt src="data/'+(_homeDataRoute?'home':_isEdgeBoard?'edge-board':LID)+'.js?t='+Date.now()+'"></scr'+'ipt>');
 if(!_infoPage&&!_isEdgeBoard)
-  _overlayLiveData((_homeDataRoute?'home':LID)+'.js');
+  _writeOverlay((_homeDataRoute?'home':LID)+'.js');
 // Baked multi-source news (scripts/build_news.py). Missing file (new league,
 // build not yet run) 404s harmlessly — window.NEWS_DATA just stays undefined.
 if(!_homeDataRoute&&!_isEdgeBoard&&_rawLeague!=='power'&&!_infoPage)
@@ -1630,7 +1665,7 @@ if(_MOMENTUM_LEAGUES.has(LID))
 if(_isEdgeBoard)
   document.write('<scr'+'ipt src="data/calendar.js?t='+Date.now()+'"></scr'+'ipt>');
 if(_isEdgeBoard)
-  _overlayLiveData('calendar.js');
+  _writeOverlay('calendar.js');
 // Matches to Watch (scripts/build_match_leverage.py) — fixture leverage, i.e.
 // how far each result moves the table. Static and un-gated: leverage is a
 // property of the FIXTURE, so the personalised rail is assembled client-side
@@ -1638,7 +1673,7 @@ if(_isEdgeBoard)
 if(_isEdgeBoard)
   document.write('<scr'+'ipt src="data/match-leverage.js?t='+Date.now()+'"></scr'+'ipt>');
 if(_isEdgeBoard)
-  _overlayLiveData('match-leverage.js');
+  _writeOverlay('match-leverage.js');
 </script>
 <script>
 const _isPower = new URLSearchParams(location.search).get('league')==='power';

@@ -92,6 +92,40 @@ HTTP response, experiment sample, cohort date, or decision memo.
   at HEAD for leagues that had resolved on their own. Suite `2216 passed, 39 skipped`,
   `--strict` exits 0, `check_docs: PASS`.
 
+- **2026-08-23 — the recency guard both `live-data` overlays were missing, and the second defect
+  it exposed: the browser overlay had never applied at all.** The gap left open by the entry
+  below is closed. Both consumers now share one rule — a `live-data` payload is used only when its
+  `generated` stamp is provably newer than the one it would replace, and an unreadable stamp
+  loses, so an overlay can only move a payload FORWARD in time. **CI**: `refresh-fast.yml` extracts
+  the branch to `$RUNNER_TEMP` and reconciles it per file through `scripts/overlay_live_data.py`
+  rather than `tar -x`-ing it over the checkout. Chosen over the alternative of overlaying
+  `webapp/leagues.js` from the branch as well: that reconciles the one symptom but inverts which
+  tree is authoritative about the league set, and still ships stale numbers. Comparing a stamp
+  every payload already carries needs to know nothing about the registry and fixes the class.
+  **Browser**: writing the guard exposed why it would not have helped. `_overlayLiveData` was
+  called from the same inline block that `document.write`s the same-origin payload, and a written
+  `<script>` executes only once that block ends — so the deployed file overwrote the overlay every
+  time. Confirmed on production before touching anything: `entenser.com/?league=epl` rendered
+  `window.LEAGUE_DATA.generated` = `2026-08-03 06:53 UTC` while `live-data` carried
+  `2026-08-23 14:17 UTC`. Call sites now defer through `_writeOverlay`, which puts the call into
+  the stream behind the payload; the guard is what makes that safe, because its worst case is
+  precisely today's behaviour. The same change stops an unsanitised `?league=` from naming the
+  fetched file or the written script. **Proof is an A/B, not an assertion.** Reconstructed the frozen branch (the live
+  `f224f835` with `canadian-pl` and `k-league-1` put back to `historical` at 2026-08-04 13:05 UTC)
+  and ran both steps against pristine `origin/main`. Blanket `tar -x`: `validate_payloads` exits 1,
+  *2/79 payload(s) failed validation*, the same two `data_status mismatch` lines the outage
+  produced. Guarded: *keep canadian-pl.js … (live-data is older)*, *All 79 payload(s) valid*,
+  exit 0 — while still taking 9 of 94 payloads, the six leagues run `32644964274` applied results
+  to plus `home`/`calendar`/`match-leverage`. The guard is doing the fast path's job, not
+  disabling it. Suite `2245 passed, 40 skipped` with `test_browser_smoke` / `test_intelligence_browser`
+  excluded (playwright is not installed locally), and `check_docs` PASS in a clean worktree at
+  `origin/main`. `tests/test_live_data_overlay.py` fails 2 against the old workflow, 4 against the
+  old `index.html`, and 9 against an unguarded comparison. **One unrelated red carried in, not
+  caused here:** `test_payload_consistency` reports `pairs: ['sweden-allsvenskan']` deviating
+  without a baseline entry. It reads the COMMITTED payloads via `git archive HEAD`, and it fails
+  identically on pristine `origin/main` with every file from this change moved aside — a data
+  adjudication someone owes, not a regression from the overlay guard.
+
 - **2026-08-23 — ESPN was never rate-limiting us; it was refusing our User-Agent. One line, and
   the pipeline's single-source risk is gone.** Owner-reported: the fast refresh is red on every
   scheduled run. Root cause is one header. `data_pipeline/http.py` sent `Mozilla/5.0`; ESPN admits
@@ -128,10 +162,10 @@ HTTP response, experiment sample, cohort date, or decision memo.
   payload(s) valid*, and the job republished `live-data` itself at 14:19 UTC (`f224f835`).
   Two things worth carrying forward. **A green tick here has been meaningless**: the prior
   "success" `32428963834` logged `Fast-refresh leagues: []` and skipped every step, so this job
-  had done no real work since ~2026-08-04. And **the frozen branch was live**: `index.html:1608`
-  overlays `live-data` over the deployed payload on entenser.com, so visitors got a 2026-08-02
-  MLS payload on top of the 2026-08-23 one. ⚠️ **Not fixed:** neither overlay compares the
-  `generated` stamp before overwriting, so the next outage rolls the site back the same way.
+  had done no real work since ~2026-08-04. And the claim originally recorded here — that the
+  frozen branch was serving stale payloads to visitors — **was wrong, and is corrected in the
+  entry above**: the browser overlay ran before the payload it was overlaying and had never
+  applied at all. Both overlays now guard on `generated`.
 
 - **2026-08-15 — `A3` confirmed by the owner; the free-first objective is settled, and the
   catalogue was widened without routing anything.** Owner: *"confirming that we are good to focus
