@@ -1,19 +1,15 @@
 {
  "feeds": {
   "api_football": {
-   "attempts": 71,
+   "attempts": 21,
    "consecutive_dark_runs": 0,
-   "endpoints_failed": [
-    "ops:standings"
-   ],
-   "errors": [
-    "API-Football error for standings {'league': 262, 'season': 20}: {'season': 'The Season field must be at least 4 characters in length.'}"
-   ],
-   "failure_rate_24h": 0.0141,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (2/142)",
-   "failures": 1,
+   "endpoints_failed": [],
+   "errors": [],
+   "failure_rate_24h": 0.0123,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 3 recorded runs in the last 24h (2/163)",
+   "failures": 0,
    "last_failure": "2026-08-23T21:11:49.762301+00:00",
-   "last_success": "2026-08-23T21:11:59.981185+00:00",
+   "last_success": "2026-08-24T06:10:50.872287+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -116,20 +112,26 @@
      "attempts": 71,
      "failures": 1,
      "rows": 69
+    },
+    {
+     "at": "2026-08-24T06:17:57.782019+00:00",
+     "attempts": 21,
+     "failures": 0,
+     "rows": 3160
     }
    ],
-   "rows": 69
+   "rows": 3160
   },
   "asa": {
-   "attempts": 1,
+   "attempts": 7,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/1)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/8)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-08-23T21:05:01.891483+00:00",
+   "last_success": "2026-08-24T06:12:14.697199+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -148,20 +150,26 @@
      "attempts": 1,
      "failures": 0,
      "rows": 31
+    },
+    {
+     "at": "2026-08-24T06:17:57.782019+00:00",
+     "attempts": 7,
+     "failures": 0,
+     "rows": 12056
     }
    ],
-   "rows": 31
+   "rows": 12056
   },
   "espn": {
-   "attempts": 2,
+   "attempts": 3,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/2)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/5)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.980298+00:00",
-   "last_success": "2026-08-23T21:05:15.565857+00:00",
+   "last_success": "2026-08-24T06:12:18.181104+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -180,20 +188,26 @@
      "attempts": 2,
      "failures": 0,
      "rows": 5848
+    },
+    {
+     "at": "2026-08-24T06:17:57.782019+00:00",
+     "attempts": 3,
+     "failures": 0,
+     "rows": 8772
     }
    ],
-   "rows": 5848
+   "rows": 8772
   },
   "espn_continental": {
    "attempts": 39,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
-   "failure_rate_24h": 0.6803,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (83/122)",
+   "failure_rate_24h": 0.5155,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 3 recorded runs in the last 24h (83/161)",
    "failures": 0,
    "last_failure": "2026-08-23T11:34:21.365372+00:00",
-   "last_success": "2026-08-23T21:07:25.197170+00:00",
+   "last_success": "2026-08-24T06:13:41.796377+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -296,20 +310,26 @@
      "attempts": 39,
      "failures": 0,
      "rows": 3237
+    },
+    {
+     "at": "2026-08-24T06:17:57.782019+00:00",
+     "attempts": 39,
+     "failures": 0,
+     "rows": 3237
     }
    ],
    "rows": 3237
   },
   "espn_fixtures": {
-   "attempts": 133,
+   "attempts": 409,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/133)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/542)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.969827+00:00",
-   "last_success": "2026-08-23T21:07:22.675764+00:00",
+   "last_success": "2026-08-24T06:13:35.798925+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -328,37 +348,35 @@
      "attempts": 133,
      "failures": 0,
      "rows": 39594
+    },
+    {
+     "at": "2026-08-24T06:17:57.782019+00:00",
+     "attempts": 409,
+     "failures": 0,
+     "rows": 88010
     }
    ],
-   "rows": 39594
+   "rows": 88010
   },
   "football_data": {
-   "attempts": 35,
+   "attempts": 297,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [
     "2627/D1.csv",
     "2627/E0.csv",
-    "2627/E1.csv",
-    "2627/E2.csv",
-    "2627/E3.csv",
     "2627/F1.csv",
     "2627/G1.csv",
     "2627/I1.csv",
-    "2627/I2.csv",
-    "2627/SP1.csv"
+    "2627/I2.csv"
    ],
    "errors": [
-    "Error tokenizing data. C error: Expected 1 fields in line 7, saw 2\n",
-    "served EC content, expected E3 (redirected to https://www.football-data.co.uk/mmz4281/2627/EC.csv)",
-    "served SC2 content, expected SP2 (redirected to https://www.football-data.co.uk/mmz4281/2627/SC2.csv)",
-    "served EC content, expected E0 (redirected to https://www.football-data.co.uk/mmz4281/2627/EC.csv)",
-    "served P1 content, expected SP1 (redirected to https://www.football-data.co.uk/mmz4281/2627/P1.csv)"
+    "Error tokenizing data. C error: Expected 1 fields in line 7, saw 2\n"
    ],
-   "failure_rate_24h": 0.8286,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (29/35)",
-   "failures": 29,
-   "last_failure": "2026-08-17T04:57:04.614859+00:00",
-   "last_success": "2026-08-17T04:56:08.287112+00:00",
+   "failure_rate_24h": 0.0572,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (17/297)",
+   "failures": 17,
+   "last_failure": "2026-08-24T04:59:31.434764+00:00",
+   "last_success": "2026-08-24T04:59:20.089803+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -371,20 +389,26 @@
      "attempts": 35,
      "failures": 29,
      "rows": 57
+    },
+    {
+     "at": "2026-08-24T06:17:57.782019+00:00",
+     "attempts": 297,
+     "failures": 17,
+     "rows": 92639
     }
    ],
-   "rows": 57
+   "rows": 92639
   },
   "football_data_intl": {
-   "attempts": 8,
+   "attempts": 50,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/8)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/58)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-08-23T21:07:18.397049+00:00",
+   "last_success": "2026-08-24T06:13:37.110970+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -403,20 +427,26 @@
      "attempts": 8,
      "failures": 0,
      "rows": 47420
+    },
+    {
+     "at": "2026-08-24T06:17:57.782019+00:00",
+     "attempts": 50,
+     "failures": 0,
+     "rows": 202976
     }
    ],
-   "rows": 47420
+   "rows": 202976
   },
   "understat": {
-   "attempts": 11,
+   "attempts": 16,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/11)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/27)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-08-23T21:04:57.535192+00:00",
+   "last_success": "2026-08-24T06:12:10.478580+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -435,11 +465,23 @@
      "attempts": 11,
      "failures": 0,
      "rows": 51212
+    },
+    {
+     "at": "2026-08-24T06:17:57.782019+00:00",
+     "attempts": 16,
+     "failures": 0,
+     "rows": 74348
     }
    ],
-   "rows": 51212
+   "rows": 74348
   }
  },
- "generated": "2026-08-23T21:12:01.581989+00:00",
- "notable": []
+ "generated": "2026-08-24T06:17:57.782019+00:00",
+ "notable": [
+  {
+   "error": "Error tokenizing data. C error: Expected 1 fields in line 7, saw 2\n",
+   "feed": "football_data",
+   "kind": "division_mismatch"
+  }
+ ]
 }
