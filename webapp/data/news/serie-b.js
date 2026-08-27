@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-08-26 11:35 UTC","items":[{"title":"Official: Perin leaves Juventus to join Palermo in Serie B","link":"https://football-italia.net/official-perin-leaves-juventus-to-join-palermo/","desc":"Mattia Perin has officially left Juventus and has signed for Serie B club Palermo on...","published":"2026-08-26T08:58:14+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-08-27 21:05 UTC","items":[]};

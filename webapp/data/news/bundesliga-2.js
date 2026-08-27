@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"bundesliga-2","generated":"2026-08-26 11:35 UTC","items":[{"title":"Official: Juventus sign Grabara on loan from Wolfsburg with \u20ac11.5m buy option","link":"https://football-italia.net/official-juventus-sign-grabara-on-loan/","desc":"Juventus have completed the signing of Kamil Grabara from Wolfsburg, the goalkeeper joining on loan...","published":"2026-08-25T19:15:24+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"bundesliga-2","generated":"2026-08-27 21:05 UTC","items":[]};
