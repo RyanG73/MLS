@@ -12,8 +12,8 @@
    "failure_rate_24h": 0.0141,
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (1/71)",
    "failures": 1,
-   "last_failure": "2026-08-27T21:08:34.872514+00:00",
-   "last_success": "2026-08-27T21:08:46.812590+00:00",
+   "last_failure": "2026-08-28T21:34:17.671848+00:00",
+   "last_success": "2026-08-28T21:34:28.849120+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -146,6 +146,12 @@
      "attempts": 71,
      "failures": 1,
      "rows": 68
+    },
+    {
+     "at": "2026-08-28T21:34:30.494787+00:00",
+     "attempts": 71,
+     "failures": 1,
+     "rows": 68
     }
    ],
    "rows": 68
@@ -159,7 +165,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/1)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-08-27T21:02:03.559466+00:00",
+   "last_success": "2026-08-28T21:28:05.153364+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -208,6 +214,12 @@
      "attempts": 1,
      "failures": 0,
      "rows": 31
+    },
+    {
+     "at": "2026-08-28T21:34:30.494787+00:00",
+     "attempts": 1,
+     "failures": 0,
+     "rows": 31
     }
    ],
    "rows": 31
@@ -221,7 +233,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/2)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.980298+00:00",
-   "last_success": "2026-08-27T21:02:18.218235+00:00",
+   "last_success": "2026-08-28T21:28:20.117836+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -270,6 +282,12 @@
      "attempts": 2,
      "failures": 0,
      "rows": 5848
+    },
+    {
+     "at": "2026-08-28T21:34:30.494787+00:00",
+     "attempts": 2,
+     "failures": 0,
+     "rows": 5848
     }
    ],
    "rows": 5848
@@ -283,7 +301,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/39)",
    "failures": 0,
    "last_failure": "2026-08-23T11:34:21.365372+00:00",
-   "last_success": "2026-08-27T21:04:51.935279+00:00",
+   "last_success": "2026-08-28T21:30:40.266537+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -416,6 +434,12 @@
      "attempts": 39,
      "failures": 0,
      "rows": 3253
+    },
+    {
+     "at": "2026-08-28T21:34:30.494787+00:00",
+     "attempts": 39,
+     "failures": 0,
+     "rows": 3253
     }
    ],
    "rows": 3253
@@ -429,7 +453,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/133)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.969827+00:00",
-   "last_success": "2026-08-27T21:04:44.883010+00:00",
+   "last_success": "2026-08-28T21:30:37.689631+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -475,6 +499,12 @@
     },
     {
      "at": "2026-08-27T21:08:48.749756+00:00",
+     "attempts": 133,
+     "failures": 0,
+     "rows": 39626
+    },
+    {
+     "at": "2026-08-28T21:34:30.494787+00:00",
      "attempts": 133,
      "failures": 0,
      "rows": 39626
@@ -532,7 +562,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/8)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-08-27T21:04:46.776236+00:00",
+   "last_success": "2026-08-28T21:30:32.326388+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -581,6 +611,12 @@
      "attempts": 8,
      "failures": 0,
      "rows": 47520
+    },
+    {
+     "at": "2026-08-28T21:34:30.494787+00:00",
+     "attempts": 8,
+     "failures": 0,
+     "rows": 47520
     }
    ],
    "rows": 47520
@@ -594,7 +630,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/11)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-08-27T21:01:56.353457+00:00",
+   "last_success": "2026-08-28T21:28:00.683871+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -643,11 +679,17 @@
      "attempts": 11,
      "failures": 0,
      "rows": 51212
+    },
+    {
+     "at": "2026-08-28T21:34:30.494787+00:00",
+     "attempts": 11,
+     "failures": 0,
+     "rows": 51212
     }
    ],
    "rows": 51212
   }
  },
- "generated": "2026-08-27T21:08:48.749756+00:00",
+ "generated": "2026-08-28T21:34:30.494787+00:00",
  "notable": []
 }

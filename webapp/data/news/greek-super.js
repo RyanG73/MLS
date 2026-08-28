@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-27 21:05 UTC","items":[{"title":"AEK Athens cruise past Levski Sofia with dominant 4-0 win","link":"https://www.bbc.co.uk/sport/football/videos/c23xk90x3zko?at_medium=RSS&at_campaign=rss","desc":"AEK Athens are through to the Champions League with a comfortable 4-0 win against Levski Sofia.","published":"2026-08-26T21:50:40+00:00","source":"BBC Sport","is_analysis":false}]};
+window.NEWS_DATA = {"league":"greek-super","generated":"2026-08-28 21:31 UTC","items":[]};
