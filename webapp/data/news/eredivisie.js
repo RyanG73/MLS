@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"eredivisie","generated":"2026-08-31 18:01 UTC","items":[]};
+window.NEWS_DATA = {"league":"eredivisie","generated":"2026-09-01 15:36 UTC","items":[]};
