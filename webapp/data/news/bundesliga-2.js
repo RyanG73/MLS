@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"bundesliga-2","generated":"2026-09-02 15:07 UTC","items":[]};
+window.NEWS_DATA = {"league":"bundesliga-2","generated":"2026-09-03 15:03 UTC","items":[{"title":"Osnabruck display tifo with working rollercoaster before Kane ruins fun","link":"https://www.bbc.co.uk/sport/football/articles/cvgy1g4800zo?at_medium=RSS&at_campaign=rss","desc":"VfL Osnabruck showcase a tifo that took months to plan before their German Cup tie against Bayern Munich.","published":"2026-09-03T09:38:32+00:00","source":"BBC Sport","is_analysis":false}]};

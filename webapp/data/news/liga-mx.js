@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"liga-mx","generated":"2026-09-02 15:07 UTC","items":[{"title":"Robinho Jr: Why new Genoa signing is eligible to play for Italy","link":"https://football-italia.net/robinho-jr-why-genoa-signing-eligible-italy/","desc":"Serie A side Genoa confirmed the signing of Robinho Jr on loan from Santos on...","published":"2026-09-02T09:55:59+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"liga-mx","generated":"2026-09-03 15:03 UTC","items":[]};
