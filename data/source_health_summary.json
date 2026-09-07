@@ -1,15 +1,19 @@
 {
  "feeds": {
   "api_football": {
-   "attempts": 21,
+   "attempts": 71,
    "consecutive_dark_runs": 0,
-   "endpoints_failed": [],
-   "errors": [],
+   "endpoints_failed": [
+    "ops:standings"
+   ],
+   "errors": [
+    "API-Football error for standings {'league': 262, 'season': 20}: {'season': 'The Season field must be at least 4 characters in length.'}"
+   ],
    "failure_rate_24h": 0.0109,
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (1/92)",
-   "failures": 0,
-   "last_failure": "2026-09-06T14:09:16.383210+00:00",
-   "last_success": "2026-09-07T09:56:26.232682+00:00",
+   "failures": 1,
+   "last_failure": "2026-09-07T16:31:22.041859+00:00",
+   "last_success": "2026-09-07T16:31:32.764138+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -214,24 +218,26 @@
      "attempts": 21,
      "failures": 0,
      "rows": 3160
+    },
+    {
+     "at": "2026-09-07T16:31:34.344746+00:00",
+     "attempts": 71,
+     "failures": 1,
+     "rows": 69
     }
    ],
-   "rows": 3160
+   "rows": 69
   },
   "asa": {
-   "attempts": 8,
+   "attempts": 1,
    "consecutive_dark_runs": 0,
-   "endpoints_failed": [
-    "get_teams"
-   ],
-   "errors": [
-    "HTTPSConnectionPool(host='app.americansocceranalysis.com', port=443): Read timed out. (read timeout=30)"
-   ],
+   "endpoints_failed": [],
+   "errors": [],
    "failure_rate_24h": 0.1111,
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (1/9)",
-   "failures": 1,
+   "failures": 0,
    "last_failure": "2026-09-07T09:58:43.023925+00:00",
-   "last_success": "2026-09-07T09:59:22.584138+00:00",
+   "last_success": "2026-09-07T16:25:07.714491+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -352,12 +358,18 @@
      "attempts": 8,
      "failures": 1,
      "rows": 12144
+    },
+    {
+     "at": "2026-09-07T16:31:34.344746+00:00",
+     "attempts": 1,
+     "failures": 0,
+     "rows": 31
     }
    ],
-   "rows": 12144
+   "rows": 31
   },
   "espn": {
-   "attempts": 3,
+   "attempts": 2,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
@@ -365,7 +377,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/5)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.980298+00:00",
-   "last_success": "2026-09-07T09:59:23.035107+00:00",
+   "last_success": "2026-09-07T16:25:22.330010+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -486,9 +498,15 @@
      "attempts": 3,
      "failures": 0,
      "rows": 8772
+    },
+    {
+     "at": "2026-09-07T16:31:34.344746+00:00",
+     "attempts": 2,
+     "failures": 0,
+     "rows": 5848
     }
    ],
-   "rows": 8772
+   "rows": 5848
   },
   "espn_continental": {
    "attempts": 44,
@@ -496,10 +514,10 @@
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/89)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/88)",
    "failures": 0,
    "last_failure": "2026-08-23T11:34:21.365372+00:00",
-   "last_success": "2026-09-07T10:00:13.793477+00:00",
+   "last_success": "2026-09-07T16:27:00.417735+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -704,12 +722,18 @@
      "attempts": 44,
      "failures": 0,
      "rows": 4646
+    },
+    {
+     "at": "2026-09-07T16:31:34.344746+00:00",
+     "attempts": 44,
+     "failures": 0,
+     "rows": 4646
     }
    ],
    "rows": 4646
   },
   "espn_fixtures": {
-   "attempts": 382,
+   "attempts": 133,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
@@ -717,7 +741,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/515)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.969827+00:00",
-   "last_success": "2026-09-07T10:00:11.321907+00:00",
+   "last_success": "2026-09-07T16:26:57.882970+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -838,9 +862,15 @@
      "attempts": 382,
      "failures": 0,
      "rows": 84563
+    },
+    {
+     "at": "2026-09-07T16:31:34.344746+00:00",
+     "attempts": 133,
+     "failures": 0,
+     "rows": 39658
     }
    ],
-   "rows": 84563
+   "rows": 39658
   },
   "football_data": {
    "attempts": 13,
@@ -909,36 +939,20 @@
    "rows": 0
   },
   "football_data_intl": {
-   "attempts": 18,
-   "consecutive_dark_runs": 2,
+   "attempts": 4,
+   "consecutive_dark_runs": 3,
    "endpoints_failed": [
     "ARG.csv",
-    "AUT.csv",
-    "BRA.csv",
-    "CHN.csv",
-    "DNK.csv",
-    "FIN.csv",
-    "IRL.csv",
-    "JPN.csv",
-    "NOR.csv",
-    "POL.csv"
+    "BRA.csv"
    ],
    "errors": [
     "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/BRA.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/JPN.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/SWE.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/NOR.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/DNK.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/POL.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/ARG.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/AUT.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/SWZ.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/ROU.csv"
+    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/ARG.csv"
    ],
    "failure_rate_24h": 1.0,
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (22/22)",
-   "failures": 18,
-   "last_failure": "2026-09-07T10:00:07.911519+00:00",
+   "failures": 4,
+   "last_failure": "2026-09-07T16:26:54.492674+00:00",
    "last_success": "2026-09-05T13:51:24.444203+00:00",
    "recent": [
     {
@@ -1060,6 +1074,12 @@
      "attempts": 18,
      "failures": 18,
      "rows": 0
+    },
+    {
+     "at": "2026-09-07T16:31:34.344746+00:00",
+     "attempts": 4,
+     "failures": 4,
+     "rows": 0
     }
    ],
    "rows": 0
@@ -1098,7 +1118,7 @@
    "rows": 0
   },
   "understat": {
-   "attempts": 16,
+   "attempts": 11,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
@@ -1106,7 +1126,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/27)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-09-07T09:58:05.863570+00:00",
+   "last_success": "2026-09-07T16:24:58.935665+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -1227,11 +1247,17 @@
      "attempts": 16,
      "failures": 0,
      "rows": 74970
+    },
+    {
+     "at": "2026-09-07T16:31:34.344746+00:00",
+     "attempts": 11,
+     "failures": 0,
+     "rows": 51528
     }
    ],
-   "rows": 74970
+   "rows": 51528
   }
  },
- "generated": "2026-09-07T10:04:49.371794+00:00",
+ "generated": "2026-09-07T16:31:34.344746+00:00",
  "notable": []
 }

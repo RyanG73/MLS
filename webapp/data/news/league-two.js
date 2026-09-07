@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"league-two","generated":"2026-09-07 10:01 UTC","items":[]};
+window.NEWS_DATA = {"league":"league-two","generated":"2026-09-07 16:28 UTC","items":[{"title":"American consortium cleared to buy Shrewsbury","link":"https://www.bbc.co.uk/sport/football/articles/cdx05qpn0kvo?at_medium=RSS&at_campaign=rss","desc":"Shrewsbury Town's long-running takeover saga is set to end after an American consortium is granted approval to buy the club.","published":"2026-09-07T15:43:08+00:00","source":"BBC Sport","is_analysis":false}]};
