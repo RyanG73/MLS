@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-09-07 16:28 UTC","items":[]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-09-08 15:03 UTC","items":[{"title":"James Rodriguez tipped for surprise move to join Alessandro Nesta in Serie B","link":"https://football-italia.net/james-rodriguez-tipped-surprise-serie-b-move/","desc":"Reports in Spain claim that James Rodriguez is on the verge of a surprise return...","published":"2026-09-08T12:30:07+00:00","source":"Football Italia","is_analysis":false}]};
