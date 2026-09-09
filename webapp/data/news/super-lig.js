@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"super-lig","generated":"2026-09-08 15:03 UTC","items":[]};
+window.NEWS_DATA = {"league":"super-lig","generated":"2026-09-09 15:11 UTC","items":[{"title":"Official: Roma squad list for Fenerbahce clash in Champions League, one player out","link":"https://football-italia.net/roma-squad-list-fenerbahce-1-player-out/","desc":"Devyne Rensch returns from injury and is available for Roma&#8217;s Champions League clash against Fenerbahce....","published":"2026-09-09T11:00:38+00:00","source":"Football Italia","is_analysis":false}]};
