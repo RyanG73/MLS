@@ -2,7 +2,7 @@
  "feeds": {
   "api_football": {
    "attempts": 71,
-   "consecutive_dark_runs": 1,
+   "consecutive_dark_runs": 2,
    "endpoints_failed": [
     "ops:standings"
    ],
@@ -19,9 +19,9 @@
     "API-Football error for standings {'league': 79, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}"
    ],
    "failure_rate_24h": 1.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (71/71)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (142/142)",
    "failures": 71,
-   "last_failure": "2026-09-09T15:15:12.484345+00:00",
+   "last_failure": "2026-09-10T14:59:14.407124+00:00",
    "last_success": "2026-09-08T15:06:27.409063+00:00",
    "recent": [
     {
@@ -245,6 +245,12 @@
      "attempts": 71,
      "failures": 71,
      "rows": 0
+    },
+    {
+     "at": "2026-09-10T14:59:15.938945+00:00",
+     "attempts": 71,
+     "failures": 71,
+     "rows": 0
     }
    ],
    "rows": 0
@@ -255,10 +261,10 @@
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/1)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/2)",
    "failures": 0,
    "last_failure": "2026-09-07T09:58:43.023925+00:00",
-   "last_success": "2026-09-09T15:08:53.655159+00:00",
+   "last_success": "2026-09-10T14:52:21.372427+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -397,6 +403,12 @@
      "attempts": 1,
      "failures": 0,
      "rows": 31
+    },
+    {
+     "at": "2026-09-10T14:59:15.938945+00:00",
+     "attempts": 1,
+     "failures": 0,
+     "rows": 31
     }
    ],
    "rows": 31
@@ -407,10 +419,10 @@
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/2)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/4)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.980298+00:00",
-   "last_success": "2026-09-09T15:09:09.105645+00:00",
+   "last_success": "2026-09-10T14:52:36.864595+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -549,20 +561,26 @@
      "attempts": 2,
      "failures": 0,
      "rows": 5848
+    },
+    {
+     "at": "2026-09-10T14:59:15.938945+00:00",
+     "attempts": 2,
+     "failures": 0,
+     "rows": 5848
     }
    ],
    "rows": 5848
   },
   "espn_continental": {
-   "attempts": 41,
+   "attempts": 42,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/41)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/83)",
    "failures": 0,
    "last_failure": "2026-08-23T11:34:21.365372+00:00",
-   "last_success": "2026-09-09T15:10:53.451968+00:00",
+   "last_success": "2026-09-10T14:55:00.755161+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -785,9 +803,15 @@
      "attempts": 41,
      "failures": 0,
      "rows": 4214
+    },
+    {
+     "at": "2026-09-10T14:59:15.938945+00:00",
+     "attempts": 42,
+     "failures": 0,
+     "rows": 4358
     }
    ],
-   "rows": 4214
+   "rows": 4358
   },
   "espn_fixtures": {
    "attempts": 133,
@@ -795,10 +819,10 @@
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/133)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/266)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.969827+00:00",
-   "last_success": "2026-09-09T15:10:50.972159+00:00",
+   "last_success": "2026-09-10T14:54:58.648521+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -937,6 +961,12 @@
      "attempts": 133,
      "failures": 0,
      "rows": 39658
+    },
+    {
+     "at": "2026-09-10T14:59:15.938945+00:00",
+     "attempts": 133,
+     "failures": 0,
+     "rows": 39658
     }
    ],
    "rows": 39658
@@ -1008,21 +1038,15 @@
    "rows": 0
   },
   "football_data_intl": {
-   "attempts": 4,
-   "consecutive_dark_runs": 5,
-   "endpoints_failed": [
-    "ARG.csv",
-    "BRA.csv"
-   ],
-   "errors": [
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/BRA.csv",
-    "503 Server Error: Service Temporarily Unavailable for url: https://www.football-data.co.uk/new/ARG.csv"
-   ],
-   "failure_rate_24h": 1.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (4/4)",
-   "failures": 4,
+   "attempts": 8,
+   "consecutive_dark_runs": 0,
+   "endpoints_failed": [],
+   "errors": [],
+   "failure_rate_24h": 0.3333,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (4/12)",
+   "failures": 0,
    "last_failure": "2026-09-09T15:10:46.970807+00:00",
-   "last_success": "2026-09-05T13:51:24.444203+00:00",
+   "last_success": "2026-09-10T14:54:54.700625+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -1161,9 +1185,15 @@
      "attempts": 4,
      "failures": 4,
      "rows": 0
+    },
+    {
+     "at": "2026-09-10T14:59:15.938945+00:00",
+     "attempts": 8,
+     "failures": 0,
+     "rows": 47724
     }
    ],
-   "rows": 0
+   "rows": 47724
   },
   "footballdata_intl": {
    "attempts": 14,
@@ -1204,10 +1234,10 @@
    "endpoints_failed": [],
    "errors": [],
    "failure_rate_24h": 0.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (0/11)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/22)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-09-09T15:08:44.205895+00:00",
+   "last_success": "2026-09-10T14:52:13.918974+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -1346,12 +1376,18 @@
      "attempts": 11,
      "failures": 0,
      "rows": 51528
+    },
+    {
+     "at": "2026-09-10T14:59:15.938945+00:00",
+     "attempts": 11,
+     "failures": 0,
+     "rows": 51528
     }
    ],
    "rows": 51528
   }
  },
- "generated": "2026-09-09T15:15:14.306302+00:00",
+ "generated": "2026-09-10T14:59:15.938945+00:00",
  "notable": [
   {
    "error": "API-Football error for standings {'league': 129, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",

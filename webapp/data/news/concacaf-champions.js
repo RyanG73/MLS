@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"concacaf-champions","generated":"2026-09-09 15:11 UTC","items":[]};
+window.NEWS_DATA = {"league":"concacaf-champions","generated":"2026-09-10 14:55 UTC","items":[]};
