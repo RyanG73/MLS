@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"greek-super","generated":"2026-09-10 14:55 UTC","items":[{"title":"Marin's free-kick brilliance earns AEK victory over LASK","link":"https://www.bbc.co.uk/sport/football/videos/czez19xnd54o?at_medium=RSS&at_campaign=rss","desc":"Razvan Marin's stunning free-kick earns AEK Athens a 1-0 win over LASK, securing their first Champions League points of the season.","published":"2026-09-09T21:00:42+00:00","source":"BBC Sport","is_analysis":false}]};
+window.NEWS_DATA = {"league":"greek-super","generated":"2026-09-11 15:01 UTC","items":[]};
