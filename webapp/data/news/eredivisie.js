@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"eredivisie","generated":"2026-09-11 15:01 UTC","items":[{"title":"PSV & Shakhtar Donetsk open Champions League campaign with draw","link":"https://www.bbc.co.uk/sport/football/videos/cx2z0j25mmjo?at_medium=RSS&at_campaign=rss","desc":"PSV Eindhoven and Shakhtar Donetsk played out a 1-1 draw to open their Champions League campaign at Philips Stadion.","published":"2026-09-10T21:00:29+00:00","source":"BBC Sport","is_analysis":false}]};
+window.NEWS_DATA = {"league":"eredivisie","generated":"2026-09-12 14:04 UTC","items":[]};
