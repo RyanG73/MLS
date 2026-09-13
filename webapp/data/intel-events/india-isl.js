@@ -1,0 +1,1 @@
+window.INTEL_EVENTS = {"status":"ok","generated":"2026-09-12 14:05 UTC","teams":{"SC East Bengal":[],"Mohun Bagan Super Giant":[],"Mumbai City FC":[],"Bengaluru FC":[],"Punjab FC":[],"Jamshedpur FC":[],"FC Goa":[],"Kerala Blasters FC":[],"NorthEast United FC":[],"Inter Kashi":[],"Sporting Club Delhi":[],"Odisha FC":[],"Chennaiyin FC":[],"Mohammedan SC":[]}};
