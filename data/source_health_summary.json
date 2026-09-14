@@ -1,25 +1,27 @@
 {
  "feeds": {
   "api_football": {
-   "attempts": 8,
-   "consecutive_dark_runs": 0,
+   "attempts": 71,
+   "consecutive_dark_runs": 1,
    "endpoints_failed": [
-    "ops:fixtures",
-    "router:canadian-pl:fixtures",
-    "router:k-league-1:fixtures",
-    "router:northern-super-league:fixtures",
-    "router:usl-super-league:fixtures"
+    "ops:standings"
    ],
    "errors": [
-    "API-Football error for fixtures {'league': 479, 'season': 2020}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
-    "API-Football error for fixtures {'league': 292, 'season': 2018}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
-    "API-Football error for fixtures {'league': 1182, 'season': 2025}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
-    "API reports a daily quota of 100, but API_FOOTBALL_PLAN=mega expects 150000. If 100 is the free tier, the subscription has lapsed \u2014 renew before refreshing, or current seasons will silently stop updating."
+    "API-Football error for standings {'league': 129, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+    "API-Football error for standings {'league': 128, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+    "API-Football error for standings {'league': 190, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+    "API-Football error for standings {'league': 218, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+    "API-Football error for standings {'league': 144, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+    "API-Football error for standings {'league': 344, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+    "API-Football error for standings {'league': 71, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+    "API-Football error for standings {'league': 72, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+    "API-Football error for standings {'league': 78, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+    "API-Football error for standings {'league': 79, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}"
    ],
    "failure_rate_24h": 0.9873,
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (78/79)",
-   "failures": 7,
-   "last_failure": "2026-09-14T10:56:56.037887+00:00",
+   "failures": 71,
+   "last_failure": "2026-09-14T17:01:07.166360+00:00",
    "last_success": "2026-09-14T10:56:56.029223+00:00",
    "recent": [
     {
@@ -273,12 +275,18 @@
      "attempts": 8,
      "failures": 7,
      "rows": 115
+    },
+    {
+     "at": "2026-09-14T17:01:08.616240+00:00",
+     "attempts": 71,
+     "failures": 71,
+     "rows": 0
     }
    ],
-   "rows": 115
+   "rows": 0
   },
   "asa": {
-   "attempts": 7,
+   "attempts": 1,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
@@ -286,7 +294,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/8)",
    "failures": 0,
    "last_failure": "2026-09-12T14:01:05.631757+00:00",
-   "last_success": "2026-09-14T10:59:18.345829+00:00",
+   "last_success": "2026-09-14T16:54:47.517143+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -455,12 +463,18 @@
      "attempts": 7,
      "failures": 0,
      "rows": 12184
+    },
+    {
+     "at": "2026-09-14T17:01:08.616240+00:00",
+     "attempts": 1,
+     "failures": 0,
+     "rows": 31
     }
    ],
-   "rows": 12184
+   "rows": 31
   },
   "espn": {
-   "attempts": 3,
+   "attempts": 2,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
@@ -468,7 +482,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/5)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.980298+00:00",
-   "last_success": "2026-09-14T10:59:22.158214+00:00",
+   "last_success": "2026-09-14T16:55:02.879354+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -637,9 +651,15 @@
      "attempts": 3,
      "failures": 0,
      "rows": 8772
+    },
+    {
+     "at": "2026-09-14T17:01:08.616240+00:00",
+     "attempts": 2,
+     "failures": 0,
+     "rows": 5848
     }
    ],
-   "rows": 8772
+   "rows": 5848
   },
   "espn_continental": {
    "attempts": 42,
@@ -650,7 +670,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/84)",
    "failures": 0,
    "last_failure": "2026-08-23T11:34:21.365372+00:00",
-   "last_success": "2026-09-14T11:00:42.848199+00:00",
+   "last_success": "2026-09-14T16:57:22.092451+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -903,12 +923,18 @@
      "attempts": 42,
      "failures": 0,
      "rows": 4358
+    },
+    {
+     "at": "2026-09-14T17:01:08.616240+00:00",
+     "attempts": 42,
+     "failures": 0,
+     "rows": 4358
     }
    ],
    "rows": 4358
   },
   "espn_fixtures": {
-   "attempts": 433,
+   "attempts": 133,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
@@ -916,7 +942,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/566)",
    "failures": 0,
    "last_failure": "2026-08-17T05:57:52.969827+00:00",
-   "last_success": "2026-09-14T11:00:40.512084+00:00",
+   "last_success": "2026-09-14T16:57:20.118448+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -1085,9 +1111,15 @@
      "attempts": 433,
      "failures": 0,
      "rows": 87585
+    },
+    {
+     "at": "2026-09-14T17:01:08.616240+00:00",
+     "attempts": 133,
+     "failures": 0,
+     "rows": 39658
     }
    ],
-   "rows": 87585
+   "rows": 39658
   },
   "football_data": {
    "attempts": 286,
@@ -1140,7 +1172,7 @@
    "rows": 93280
   },
   "football_data_intl": {
-   "attempts": 50,
+   "attempts": 8,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
@@ -1148,7 +1180,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/58)",
    "failures": 0,
    "last_failure": "2026-09-09T15:10:46.970807+00:00",
-   "last_success": "2026-09-14T11:00:38.349198+00:00",
+   "last_success": "2026-09-14T16:57:17.233912+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -1317,9 +1349,15 @@
      "attempts": 50,
      "failures": 0,
      "rows": 204234
+    },
+    {
+     "at": "2026-09-14T17:01:08.616240+00:00",
+     "attempts": 8,
+     "failures": 0,
+     "rows": 47724
     }
    ],
-   "rows": 204234
+   "rows": 47724
   },
   "footballdata_intl": {
    "attempts": 14,
@@ -1355,7 +1393,7 @@
    "rows": 0
   },
   "understat": {
-   "attempts": 16,
+   "attempts": 11,
    "consecutive_dark_runs": 0,
    "endpoints_failed": [],
    "errors": [],
@@ -1363,7 +1401,7 @@
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (0/27)",
    "failures": 0,
    "last_failure": null,
-   "last_success": "2026-09-14T10:59:10.549957+00:00",
+   "last_success": "2026-09-14T16:54:41.127950+00:00",
    "recent": [
     {
      "at": "2026-08-10T06:57:45.000752+00:00",
@@ -1532,30 +1570,66 @@
      "attempts": 16,
      "failures": 0,
      "rows": 74970
+    },
+    {
+     "at": "2026-09-14T17:01:08.616240+00:00",
+     "attempts": 11,
+     "failures": 0,
+     "rows": 51528
     }
    ],
-   "rows": 74970
+   "rows": 51528
   }
  },
- "generated": "2026-09-14T11:06:34.849571+00:00",
+ "generated": "2026-09-14T17:01:08.616240+00:00",
  "notable": [
   {
-   "error": "API-Football error for fixtures {'league': 479, 'season': 2020}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+   "error": "API-Football error for standings {'league': 129, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
    "feed": "api_football",
    "kind": "plan_lapse"
   },
   {
-   "error": "API-Football error for fixtures {'league': 292, 'season': 2018}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+   "error": "API-Football error for standings {'league': 128, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
    "feed": "api_football",
    "kind": "plan_lapse"
   },
   {
-   "error": "API-Football error for fixtures {'league': 1182, 'season': 2025}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+   "error": "API-Football error for standings {'league': 190, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
    "feed": "api_football",
    "kind": "plan_lapse"
   },
   {
-   "error": "API reports a daily quota of 100, but API_FOOTBALL_PLAN=mega expects 150000. If 100 is the free tier, the subscription has lapsed \u2014 renew before refreshing, or current seasons will silently stop updating.",
+   "error": "API-Football error for standings {'league': 218, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+   "feed": "api_football",
+   "kind": "plan_lapse"
+  },
+  {
+   "error": "API-Football error for standings {'league': 144, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+   "feed": "api_football",
+   "kind": "plan_lapse"
+  },
+  {
+   "error": "API-Football error for standings {'league': 344, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+   "feed": "api_football",
+   "kind": "plan_lapse"
+  },
+  {
+   "error": "API-Football error for standings {'league': 71, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+   "feed": "api_football",
+   "kind": "plan_lapse"
+  },
+  {
+   "error": "API-Football error for standings {'league': 72, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+   "feed": "api_football",
+   "kind": "plan_lapse"
+  },
+  {
+   "error": "API-Football error for standings {'league': 78, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
+   "feed": "api_football",
+   "kind": "plan_lapse"
+  },
+  {
+   "error": "API-Football error for standings {'league': 79, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
    "feed": "api_football",
    "kind": "plan_lapse"
   }
