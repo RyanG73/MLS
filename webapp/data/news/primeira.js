@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"primeira","generated":"2026-09-14 16:58 UTC","items":[]};
+window.NEWS_DATA = {"league":"primeira","generated":"2026-09-15 15:36 UTC","items":[{"title":"Ramos: \u2018I definitely want to score against Benfica, but I won\u2019t celebrate\u2019","link":"https://football-italia.net/ramos-i-definitely-want-to-score-vs-benfica/","desc":"Goncalo Ramos says that he is eager to prove his worth to the Milan supporters...","published":"2026-09-15T13:59:20+00:00","source":"Football Italia","is_analysis":false}]};
