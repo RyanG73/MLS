@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"liga-mx","generated":"2026-09-15 15:36 UTC","items":[{"title":"Coutinho joins Neymar at Santos for rest of season","link":"https://www.bbc.co.uk/sport/football/articles/ckd79411vynlo?at_medium=RSS&at_campaign=rss","desc":"The former Liverpool and Barcelona midfielder joins Brazilian side Santos from his boyhood club Vasco da Gama.","published":"2026-09-15T06:15:29+00:00","source":"BBC Sport","is_analysis":false}]};
+window.NEWS_DATA = {"league":"liga-mx","generated":"2026-09-16 15:24 UTC","items":[]};
