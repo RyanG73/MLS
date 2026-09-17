@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-09-16 15:24 UTC","items":[{"title":"Coppa Italia: Genoa 1-0 Sudtirol \u2013 De Rossi\u2019s men advance thanks to late Vasquez winner","link":"https://football-italia.net/coppa-italia-genoa-1-0-sudtirol/","desc":"Genoa needed a late header from centre-back Johan Vasquez to avoid penalties and reach the...","published":"2026-09-15T18:34:46+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-09-17 15:31 UTC","items":[]};
