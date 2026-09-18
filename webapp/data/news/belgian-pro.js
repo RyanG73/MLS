@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"belgian-pro","generated":"2026-09-17 15:31 UTC","items":[{"title":"Klopp confirms Tresoldi has not yet made final decision on Italy: \u2018It\u2019s not easy\u2019","link":"https://football-italia.net/klopp-confirms-tresoldi-hasnt-decided-italy/","desc":"Jurgen Klopp has confirmed that Club Brugge striker Nicolo Tresoldi has not yet decided whether...","published":"2026-09-17T12:31:14+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"belgian-pro","generated":"2026-09-18 14:51 UTC","items":[]};

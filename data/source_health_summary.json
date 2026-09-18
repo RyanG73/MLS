@@ -2,7 +2,7 @@
  "feeds": {
   "api_football": {
    "attempts": 71,
-   "consecutive_dark_runs": 4,
+   "consecutive_dark_runs": 5,
    "endpoints_failed": [
     "ops:standings"
    ],
@@ -19,9 +19,9 @@
     "API-Football error for standings {'league': 79, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}"
    ],
    "failure_rate_24h": 1.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (71/71)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (142/142)",
    "failures": 71,
-   "last_failure": "2026-09-17T15:34:42.508852+00:00",
+   "last_failure": "2026-09-18T14:53:35.960749+00:00",
    "last_success": "2026-09-14T10:56:56.029223+00:00",
    "recent": [
     {
@@ -296,6 +296,12 @@
     },
     {
      "at": "2026-09-17T15:34:43.556394+00:00",
+     "attempts": 71,
+     "failures": 71,
+     "rows": 0
+    },
+    {
+     "at": "2026-09-18T14:53:37.066758+00:00",
      "attempts": 71,
      "failures": 71,
      "rows": 0
@@ -693,7 +699,7 @@
   },
   "espn_continental": {
    "attempts": 83,
-   "consecutive_dark_runs": 2,
+   "consecutive_dark_runs": 3,
    "endpoints_failed": [
     "concacaf.champions/scoreboard?season=2018",
     "concacaf.champions/scoreboard?season=2019",
@@ -719,9 +725,9 @@
     "400 Client Error: Bad Request for url: https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard?dates=20270701-20280630&limit=500"
    ],
    "failure_rate_24h": 1.0,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 1 recorded runs in the last 24h (83/83)",
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (166/166)",
    "failures": 83,
-   "last_failure": "2026-09-17T15:31:21.868134+00:00",
+   "last_failure": "2026-09-18T14:50:56.722373+00:00",
    "last_success": "2026-09-15T15:35:53.286185+00:00",
    "recent": [
     {
@@ -996,6 +1002,12 @@
     },
     {
      "at": "2026-09-17T15:34:43.556394+00:00",
+     "attempts": 83,
+     "failures": 83,
+     "rows": 0
+    },
+    {
+     "at": "2026-09-18T14:53:37.066758+00:00",
      "attempts": 83,
      "failures": 83,
      "rows": 0
@@ -1669,7 +1681,7 @@
    "rows": 51528
   }
  },
- "generated": "2026-09-17T15:34:43.556394+00:00",
+ "generated": "2026-09-18T14:53:37.066758+00:00",
  "notable": [
   {
    "error": "API-Football error for standings {'league': 129, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
