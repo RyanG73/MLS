@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"primeira","generated":"2026-09-18 14:51 UTC","items":[{"title":"Two Amorim priorities after Cardinale talks as Pulisic set for first Milan start of 2026-27","link":"https://football-italia.net/amorim-priority-cardinale-pulisic-start-milan/","desc":"Ruben Amorim reportedly explained his tactical decisions against Benfica during a remote meeting with Gerry...","published":"2026-09-18T10:07:22+00:00","source":"Football Italia","is_analysis":true}]};
+window.NEWS_DATA = {"league":"primeira","generated":"2026-09-19 14:14 UTC","items":[]};

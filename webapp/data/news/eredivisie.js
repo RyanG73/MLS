@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"eredivisie","generated":"2026-09-18 14:51 UTC","items":[{"title":"Europa League Liveblog: Juventus vs NEC Nijmegen","link":"https://football-italia.net/europa-league-live-juventus-vs-nec-nijmegen/","desc":"{rsn-live-v2}","published":"2026-09-17T20:00:19+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"eredivisie","generated":"2026-09-19 14:14 UTC","items":[]};
