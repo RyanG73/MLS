@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"belgian-pro","generated":"2026-09-24 15:48 UTC","items":[{"title":"New boss Reedijk promises 'brave and intense' Hibs","link":"https://www.bbc.co.uk/sport/football/articles/cqe9e7ver2xpo?at_medium=RSS&at_campaign=rss","desc":"Former Beveren head coach Marink Reedijk vows to develop a \"brave, intense and committed\" Hibernian team after becoming the club's new manager.","published":"2026-09-24T11:15:09+00:00","source":"BBC Sport","is_analysis":false}]};
+window.NEWS_DATA = {"league":"belgian-pro","generated":"2026-09-25 15:50 UTC","items":[]};

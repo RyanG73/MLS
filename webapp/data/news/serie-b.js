@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-09-24 15:48 UTC","items":[{"title":"Serie B club Juve Stabia docked another 2 points after fraud investigation","link":"https://football-italia.net/serie-b-juve-stabia-docked-2-points-fraud/","desc":"Serie B side Juve Stabia are in chaos and were docked another two points after...","published":"2026-09-24T14:55:55+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-09-25 15:50 UTC","items":[]};
