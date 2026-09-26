@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"sudamericana","generated":"2026-09-25 15:50 UTC","items":[]};
+window.NEWS_DATA = {"league":"sudamericana","generated":"2026-09-26 14:58 UTC","items":[]};
