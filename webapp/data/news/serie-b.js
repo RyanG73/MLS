@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-09-28 11:04 UTC","items":[{"title":"Gattuso wary of long break at Lazio: \u2018The adrenaline drops, we can\u2019t let the temperature fall\u2019","link":"https://football-italia.net/gattuso-wary-of-long-break-at-lazio/","desc":"Gennaro Gattuso used a 2-0 friendly win over Arezzo to experiment during the international break,...","published":"2026-09-27T17:00:00+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-09-28 18:29 UTC","items":[]};
