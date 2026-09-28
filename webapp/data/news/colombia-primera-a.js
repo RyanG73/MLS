@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"colombia-primera-a","generated":"2026-09-27 15:36 UTC","items":[]};
+window.NEWS_DATA = {"league":"colombia-primera-a","generated":"2026-09-28 11:04 UTC","items":[]};
