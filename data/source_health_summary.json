@@ -2,7 +2,7 @@
  "feeds": {
   "api_football": {
    "attempts": 71,
-   "consecutive_dark_runs": 1,
+   "consecutive_dark_runs": 2,
    "endpoints_failed": [
     "ops:standings"
    ],
@@ -18,18 +18,12 @@
     "API-Football error for standings {'league': 78, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
     "API-Football error for standings {'league': 79, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}"
    ],
-   "failure_rate_24h": 0.9873,
-   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (78/79)",
+   "failure_rate_24h": 1.0,
+   "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (142/142)",
    "failures": 71,
-   "last_failure": "2026-09-28T18:33:28.437152+00:00",
+   "last_failure": "2026-09-29T16:55:03.038812+00:00",
    "last_success": "2026-09-28T11:02:01.078246+00:00",
    "recent": [
-    {
-     "at": "2026-08-19T11:44:17.740132+00:00",
-     "attempts": 71,
-     "failures": 1,
-     "rows": 68
-    },
     {
      "at": "2026-08-20T11:44:20.691738+00:00",
      "attempts": 71,
@@ -308,6 +302,12 @@
     },
     {
      "at": "2026-09-28T18:33:30.312416+00:00",
+     "attempts": 71,
+     "failures": 71,
+     "rows": 0
+    },
+    {
+     "at": "2026-09-29T16:55:04.410645+00:00",
      "attempts": 71,
      "failures": 71,
      "rows": 0
@@ -750,7 +750,7 @@
   },
   "espn_continental": {
    "attempts": 83,
-   "consecutive_dark_runs": 15,
+   "consecutive_dark_runs": 16,
    "endpoints_failed": [
     "concacaf.champions/scoreboard?season=2018",
     "concacaf.champions/scoreboard?season=2019",
@@ -778,15 +778,9 @@
    "failure_rate_24h": 1.0,
    "failure_rate_24h_condition": "failed fetches / attempted fetches over 2 recorded runs in the last 24h (166/166)",
    "failures": 83,
-   "last_failure": "2026-09-28T18:29:13.339708+00:00",
+   "last_failure": "2026-09-29T16:50:53.021944+00:00",
    "last_success": "2026-09-15T15:35:53.286185+00:00",
    "recent": [
-    {
-     "at": "2026-08-19T11:44:17.740132+00:00",
-     "attempts": 83,
-     "failures": 83,
-     "rows": 0
-    },
     {
      "at": "2026-08-20T11:44:20.691738+00:00",
      "attempts": 83,
@@ -1065,6 +1059,12 @@
     },
     {
      "at": "2026-09-28T18:33:30.312416+00:00",
+     "attempts": 83,
+     "failures": 83,
+     "rows": 0
+    },
+    {
+     "at": "2026-09-29T16:55:04.410645+00:00",
      "attempts": 83,
      "failures": 83,
      "rows": 0
@@ -1802,7 +1802,7 @@
    "rows": 23442
   }
  },
- "generated": "2026-09-28T18:33:30.312416+00:00",
+ "generated": "2026-09-29T16:55:04.410645+00:00",
  "notable": [
   {
    "error": "API-Football error for standings {'league': 129, 'season': 2026}: {'plan': 'Free plans do not have access to this season, try from 2022 to 2024.'}",
