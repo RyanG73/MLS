@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"league-two","generated":"2026-09-29 16:51 UTC","items":[]};
+window.NEWS_DATA = {"league":"league-two","generated":"2026-09-30 16:45 UTC","items":[{"title":"Consortium involving ex-Brazil forward Pato seals Northampton takeover","link":"https://www.bbc.co.uk/sport/football/articles/cmqxvqyy125lo?at_medium=RSS&at_campaign=rss","desc":"The takeover of Northampton Town by a consortium including former AC Milan and Brazil forward Alexandre Pato has been completed.","published":"2026-09-30T12:29:34+00:00","source":"BBC Sport","is_analysis":false}]};
