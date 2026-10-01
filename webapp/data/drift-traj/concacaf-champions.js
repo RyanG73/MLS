@@ -1,1 +1,1 @@
-window.DRIFT_TRAJ = {"league":"concacaf-champions","generated":"2026-09-30 16:43 UTC","teams":{}};
+window.DRIFT_TRAJ = {"league":"concacaf-champions","generated":"2026-10-01 17:20 UTC","teams":{}};

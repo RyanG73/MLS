@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-09-30 16:45 UTC","items":[{"title":"Bologna and Hellas Verona present new stadium projects for EURO 2032","link":"https://football-italia.net/bologna-hellas-verona-new-stadium-projects/","desc":"Bologna and Hellas Verona have release plans for new stadium projects, with both hoping to...","published":"2026-09-30T15:27:58+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-01 17:21 UTC","items":[]};

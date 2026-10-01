@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"usl-super-league","generated":"2026-09-30 16:45 UTC","items":[]};
+window.NEWS_DATA = {"league":"usl-super-league","generated":"2026-10-01 17:21 UTC","items":[]};

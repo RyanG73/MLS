@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"super-lig","generated":"2026-09-30 16:45 UTC","items":[]};
+window.NEWS_DATA = {"league":"super-lig","generated":"2026-10-01 17:21 UTC","items":[{"title":"Why one Irish team is set to face Salah's Trabzonspor","link":"https://www.bbc.co.uk/sport/football/articles/c3kg80vp00z4o?at_medium=RSS&at_campaign=rss","desc":"Drogheda United will travel to Turkey to face Trabzonspor at the 40,000-seat Papara Park as part of a special relationship between the two clubs.","published":"2026-10-01T08:26:55+00:00","source":"BBC Sport","is_analysis":false}]};
