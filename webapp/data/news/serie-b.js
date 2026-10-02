@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-01 17:21 UTC","items":[]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-02 16:35 UTC","items":[{"title":"Strong Juventus side defeated 1-0 by Cremonese in training ground friendly","link":"https://football-italia.net/juventus-0-1-cremonese-training-friendly/","desc":"A strong Juventus side featuring the likes of Gleison Bremer, Weston McKennie and Randal Kolo...","published":"2026-10-02T13:07:32+00:00","source":"Football Italia","is_analysis":false}]};
