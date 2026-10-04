@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-03 15:09 UTC","items":[{"title":"Spalletti tests new Juventus role for Cambiaso in 1-0 loss to Cremonese","link":"https://football-italia.net/spalletti-new-juventus-role-cambiaso-1-0-cremo/","desc":"Andrea Cambiaso returned to action for Juventus in a 1-0 friendly loss to Cremonese on...","published":"2026-10-03T11:00:29+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-04 15:43 UTC","items":[]};
