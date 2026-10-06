@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"honduras-liga","generated":"2026-10-05 11:42 UTC","items":[]};
+window.NEWS_DATA = {"league":"honduras-liga","generated":"2026-10-06 17:09 UTC","items":[]};
