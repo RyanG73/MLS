@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-07 17:45 UTC","items":[{"title":"What the Manchester City verdict could mean for Palermo","link":"https://football-italia.net/what-the-manchester-city-verdict-palermo/","desc":"Manchester City&#8217;s legal battle with the Premier League is being watched closely in Sicily, where...","published":"2026-10-07T15:15:00+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-08 17:49 UTC","items":[]};

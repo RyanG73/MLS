@@ -1,1 +1,1 @@
-window.INTEL_EVENTS = {"status":"empty","generated":"2026-10-07 17:45 UTC","teams":{}};
+window.INTEL_EVENTS = {"status":"empty","generated":"2026-10-08 17:49 UTC","teams":{}};
