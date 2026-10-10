@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"primeira","generated":"2026-10-09 17:23 UTC","items":[{"title":"Two names emerge as Milan\u2019s January priorities","link":"https://football-italia.net/2-names-emerge-as-milans-january-priorities/","desc":"La Gazzetta dello Sport reports that Milan will continue pursuing Sporting CP defender Gon\u00e7alo In\u00e1cio...","published":"2026-10-09T10:44:33+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"primeira","generated":"2026-10-10 16:12 UTC","items":[]};
