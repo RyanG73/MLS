@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"segunda","generated":"2026-10-12 12:05 UTC","items":[{"title":"Lionel Messi is taking over a Spanish second division club. Why?","link":"https://www.nytimes.com/athletic/7639523/2026/10/04/lionel-messi-eldense-club-takeover/","desc":"Messi may end up renewing his rivalry with Cristiano Ronaldo after his acquisition of Eldense","published":"2026-10-04T04:10:29+00:00","source":"The Athletic","is_analysis":false}]};
+window.NEWS_DATA = {"league":"segunda","generated":"2026-10-12 20:13 UTC","items":[]};
