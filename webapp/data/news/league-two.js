@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"league-two","generated":"2026-10-11 16:36 UTC","items":[]};
+window.NEWS_DATA = {"league":"league-two","generated":"2026-10-12 12:05 UTC","items":[{"title":"SPFL round-up: Big wins for Ross County & Stranraer","link":"https://www.bbc.co.uk/sport/videos/cq3dj8yv23eeo?at_medium=RSS&at_campaign=rss","desc":"All the weekend goals from the Scottish Championship, League One and League Two.","published":"2026-10-12T07:02:42+00:00","source":"BBC Sport","is_analysis":false}]};
