@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"liga-mx","generated":"2026-10-12 20:13 UTC","items":[]};
+window.NEWS_DATA = {"league":"liga-mx","generated":"2026-10-13 18:01 UTC","items":[{"title":"Lille considering legal action after Santos injury","link":"https://www.bbc.co.uk/sport/football/articles/c623d0mmym4xo?at_medium=RSS&at_campaign=rss","desc":"The club have described the tackle on defender Tiago Santos as 'uncontrolled and dangerous'.","published":"2026-10-13T07:30:58+00:00","source":"BBC Sport","is_analysis":false}]};
