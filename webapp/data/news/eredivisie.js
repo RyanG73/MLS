@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"eredivisie","generated":"2026-10-13 18:01 UTC","items":[]};
+window.NEWS_DATA = {"league":"eredivisie","generated":"2026-10-14 15:47 UTC","items":[{"title":"Douvikas: \u2018Champions League is special for Como, happy to be back in Netherlands\u2019","link":"https://football-italia.net/douvikas-champions-league-is-special-for-como/","desc":"Tasos Douvikas made a strong mark in Dutch football and was Eredivisie top scorer for...","published":"2026-10-14T15:47:21+00:00","source":"Football Italia","is_analysis":false}]};
