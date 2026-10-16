@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-15 15:35 UTC","items":[{"title":"Time to rise? Ranking European football's sleeping giants","link":"https://www.bbc.co.uk/sport/football/articles/cq5yjyyzd35do?at_medium=RSS&at_campaign=rss","desc":"From Sampdoria to Saint-Etienne and Real Zaragoza, who are the sleeping giants of European football?","published":"2026-10-10T05:14:17+00:00","source":"BBC Sport","is_analysis":false}]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-16 15:15 UTC","items":[]};
