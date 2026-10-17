@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"belgian-pro","generated":"2026-10-16 15:15 UTC","items":[{"title":"Chivu: Inter coach reveals Lautaro\u2019s return timeline, takes blame for Brugge loss","link":"https://football-italia.net/chivu-inter-lautaro-martinez-return-brugge/","desc":"Inter coach Cristian Chivu takes responsibility for Tuesday&#8217;s loss to Club Brugge, but insists it...","published":"2026-10-16T13:39:24+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"belgian-pro","generated":"2026-10-17 14:07 UTC","items":[]};
