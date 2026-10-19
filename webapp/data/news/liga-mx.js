@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"liga-mx","generated":"2026-10-19 10:31 UTC","items":[]};
+window.NEWS_DATA = {"league":"liga-mx","generated":"2026-10-19 17:27 UTC","items":[{"title":"Napoli confirm Alisson Santos blow on first appearance after recovering from injury","link":"https://football-italia.net/napoli-confirm-alisson-santos-injury-blow/","desc":"Napoli have confirmed that Alisson Santos suffered a medium-grade hamstring injury at the end of...","published":"2026-10-19T12:33:24+00:00","source":"Football Italia","is_analysis":false}]};
