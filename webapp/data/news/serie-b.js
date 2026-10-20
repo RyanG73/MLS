@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-19 17:27 UTC","items":[]};
+window.NEWS_DATA = {"league":"serie-b","generated":"2026-10-20 15:38 UTC","items":[{"title":"Sampdoria sack Corradi with Giampaolo return on the horizon","link":"https://football-italia.net/sampdoria-sack-corradi-with-giampaolo-return/","desc":"Sampdoria have sacked Bernardo Corradi after a dismal start to the Serie B season, with...","published":"2026-10-19T20:15:00+00:00","source":"Football Italia","is_analysis":false}]};

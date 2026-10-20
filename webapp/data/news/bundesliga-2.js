@@ -1,1 +1,1 @@
-window.NEWS_DATA = {"league":"bundesliga-2","generated":"2026-10-19 17:27 UTC","items":[{"title":"Zoma ruled out of next Italy squad as 1. FC N\u00fcrnberg confirm shoulder surgery","link":"https://football-italia.net/zoma-ruled-out-of-next-italy-squad-shoulder/","desc":"Mohamed Ali Zoma will not be available for selection for Roberto Mancini\u2019s next Italy squad...","published":"2026-10-19T11:58:52+00:00","source":"Football Italia","is_analysis":false}]};
+window.NEWS_DATA = {"league":"bundesliga-2","generated":"2026-10-20 15:38 UTC","items":[]};
